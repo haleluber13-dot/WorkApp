@@ -1,0 +1,159 @@
+/* ── Ombak: an Indonesian-beach palette ────────────────────────────────────
+   "Ombak" is Indonesian for wave. Light mode is bleached sand and shallow
+   lagoon; dark mode is the same coast after sunset.                        */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces — sand, foam, shell */
+  --sand-50:  #fffaf2;
+  --sand-100: #fff4e6;
+  --sand-200: #f8e8d4;
+  --sand-300: #ecd8bd;
+
+  /* Sea — lagoon to deep water */
+  --sea-100: #d7f5f0;
+  --sea-200: #a5e9df;
+  --sea-300: #5fd8c4;
+  --sea-400: #2ec4b6;
+  --sea-500: #12a5a8;
+  --sea-600: #0e7c86;
+  --sea-700: #0a5b66;
+  --sea-800: #06373f;
+  --sea-900: #04262c;
+
+  /* Sunset — frangipani, coral, hibiscus */
+  --sun-200: #ffe6a8;
+  --sun-300: #ffd166;
+  --sun-400: #ffa94d;
+  --coral-400: #ff9e6d;
+  --coral-500: #ff7a59;
+  --coral-600: #e85a3c;
+
+  /* Jungle */
+  --palm-400: #6fbf73;
+  --palm-500: #3d9970;
+  --palm-600: #2f6b4f;
+
+  /* Semantic tokens */
+  --bg:          var(--sand-50);
+  --bg-tint:     #fdf3e5;
+  --surface:     #ffffff;
+  --surface-2:   #fffaf3;
+  --surface-sunk:#f6ece0;
+  --border:      #ecdcc8;
+  --border-soft: #f4e7d6;
+
+  --text:        #16333a;
+  --text-muted:  #5d7a80;
+  --text-faint:  #93a9ad;
+  --on-accent:   #ffffff;
+
+  --accent:      var(--sea-500);
+  --accent-soft: var(--sea-100);
+  --accent-ink:  var(--sea-700);
+  --warm:        var(--coral-500);
+  --warm-soft:   #ffe9e0;
+  --gold:        var(--sun-300);
+  --gold-soft:   #fff2cf;
+  --good:        var(--palm-500);
+  --good-soft:   #e2f4e9;
+  --bad:         #d64550;
+  --bad-soft:    #fde8ea;
+
+  --grad-sunset: linear-gradient(135deg, #ffd166 0%, #ff9e6d 45%, #ff7a59 100%);
+  --grad-sea:    linear-gradient(135deg, #5fd8c4 0%, #12a5a8 55%, #0a5b66 100%);
+  --grad-dawn:   linear-gradient(135deg, #2ec4b6 0%, #5aa9e6 50%, #9d8df1 100%);
+
+  --shadow-sm: 0 1px 2px rgba(20, 60, 66, .06), 0 1px 3px rgba(20, 60, 66, .04);
+  --shadow:    0 2px 6px rgba(20, 60, 66, .06), 0 8px 24px rgba(20, 60, 66, .07);
+  --shadow-lg: 0 8px 20px rgba(20, 60, 66, .10), 0 24px 60px rgba(20, 60, 66, .12);
+  --ring: 0 0 0 3px rgba(18, 165, 168, .28);
+
+  --r-sm: 10px;
+  --r:    16px;
+  --r-lg: 22px;
+  --r-xl: 30px;
+  --r-pill: 999px;
+
+  --font-ui: 'Outfit', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  --nav-h: 68px;
+  --page-max: 980px;
+}
+
+/* Dark mode: the same beach, after the sun goes down. */
+:root[data-theme='dark'],
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) { color-scheme: dark; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg:          #04262c;
+    --bg-tint:     #052f36;
+    --surface:     #073942;
+    --surface-2:   #0a444e;
+    --surface-sunk:#052f36;
+    --border:      #0f5560;
+    --border-soft: #0b4650;
+
+    --text:        #e8fbf7;
+    --text-muted:  #91bfc0;
+    --text-faint:  #5f9098;
+    --on-accent:   #04262c;
+
+    --accent:      var(--sea-300);
+    --accent-soft: #0b4b55;
+    --accent-ink:  var(--sea-200);
+    --warm:        var(--coral-400);
+    --warm-soft:   #5c3128;
+    --gold:        var(--sun-300);
+    --gold-soft:   #58471f;
+    --good:        var(--palm-400);
+    --good-soft:   #17452f;
+    --bad:         #ff8189;
+    --bad-soft:    #55232a;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+    --shadow:    0 2px 8px rgba(0,0,0,.34), 0 12px 32px rgba(0,0,0,.3);
+    --shadow-lg: 0 10px 28px rgba(0,0,0,.42), 0 30px 70px rgba(0,0,0,.4);
+    --ring: 0 0 0 3px rgba(95, 216, 196, .3);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg:          #04262c;
+  --bg-tint:     #052f36;
+  --surface:     #073942;
+  --surface-2:   #0a444e;
+  --surface-sunk:#052f36;
+  --border:      #0f5560;
+  --border-soft: #0b4650;
+
+  --text:        #e8fbf7;
+  --text-muted:  #91bfc0;
+  --text-faint:  #5f9098;
+  --on-accent:   #04262c;
+
+  --accent:      var(--sea-300);
+  --accent-soft: #0b4b55;
+  --accent-ink:  var(--sea-200);
+  --warm:        var(--coral-400);
+  --warm-soft:   #5c3128;
+  --gold:        var(--sun-300);
+  --gold-soft:   #58471f;
+  --good:        var(--palm-400);
+  --good-soft:   #17452f;
+  --bad:         #ff8189;
+  --bad-soft:    #55232a;
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3);
+  --shadow:    0 2px 8px rgba(0,0,0,.34), 0 12px 32px rgba(0,0,0,.3);
+  --shadow-lg: 0 10px 28px rgba(0,0,0,.42), 0 30px 70px rgba(0,0,0,.4);
+  --ring: 0 0 0 3px rgba(95, 216, 196, .3);
+}
