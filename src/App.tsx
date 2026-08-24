@@ -14,6 +14,13 @@ import {
 
 type Tab = 'home' | 'hours' | 'money' | 'jobs' | 'reports' | 'settings'
 
+/**
+ * Whatever theme the surrounding page had stamped on <html> before we booted.
+ * On "auto" we hand it back rather than stripping it, so an embedding page that
+ * sets the theme for its viewer keeps control.
+ */
+const hostTheme = document.documentElement.getAttribute('data-theme')
+
 const TABS: { id: Tab; label: string; icon: (p: { size?: number }) => React.ReactElement }[] = [
   { id: 'home', label: 'Home', icon: IconHome },
   { id: 'hours', label: 'Hours', icon: IconClock },
@@ -31,8 +38,9 @@ function Shell() {
   // Apply the theme choice to the document root.
   useEffect(() => {
     const root = document.documentElement
-    if (store.settings.theme === 'auto') root.removeAttribute('data-theme')
-    else root.setAttribute('data-theme', store.settings.theme)
+    if (store.settings.theme !== 'auto') root.setAttribute('data-theme', store.settings.theme)
+    else if (hostTheme) root.setAttribute('data-theme', hostTheme)
+    else root.removeAttribute('data-theme')
   }, [store.settings.theme])
 
   // Scroll back to the top when switching tabs.

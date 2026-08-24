@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { defaultData } from '../lib/defaults'
-import { download, exportJSON, importJSON } from '../lib/storage'
+import { copyText, exportJSON, importJSON } from '../lib/storage'
+import { describeOutcome, saveFile } from '../lib/downloads'
 import { todayISO, DAY_NAMES } from '../lib/time'
 import type { ThemeChoice } from '../types'
 import { Card, CardHead, Field, NumberInput, Segmented, Select, TextInput, Toggle } from '../components/ui'
 import {
-  IconAlert, IconCar, IconDownload, IconMoon, IconSettings,
+  IconAlert, IconCar, IconCopy, IconDownload, IconMoon, IconSettings,
   IconSun, IconUpload, IconWave,
 } from '../components/Icons'
 
@@ -220,8 +221,24 @@ export function Settings() {
       <Card>
         <CardHead title="Your data" sub="It lives on this device only." />
         <div className="inline" style={{ gap: 8 }}>
-          <button className="btn sm" onClick={() => download(`ombak-backup-${todayISO()}.json`, exportJSON(store.data))}>
+          <button
+            className="btn sm"
+            onClick={async () => {
+              const outcome = await saveFile(`ombak-backup-${todayISO()}.json`, exportJSON(store.data))
+              setMessage(describeOutcome(outcome, 'Backup'))
+            }}
+          >
             <IconDownload size={15} /> Back up
+          </button>
+          <button
+            className="btn sm"
+            onClick={async () => {
+              setMessage(await copyText(exportJSON(store.data))
+                ? 'Backup copied — paste it somewhere safe.'
+                : 'Could not reach the clipboard.')
+            }}
+          >
+            <IconCopy size={15} /> Copy backup
           </button>
           <button className="btn sm" onClick={() => fileRef.current?.click()}>
             <IconUpload size={15} /> Restore
@@ -246,6 +263,7 @@ export function Settings() {
         </button>
         <p className="tiny faint" style={{ marginTop: 10 }}>
           Nothing is uploaded anywhere. Back up before you clear browser data or change phone.
+          Copy backup puts the same file on your clipboard if you would rather paste it somewhere.
         </p>
       </Card>
 

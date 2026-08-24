@@ -85,11 +85,6 @@
 }
 
 /* Dark mode: the same beach, after the sun goes down. */
-:root[data-theme='dark'],
-:root:not([data-theme='light']) {
-  @media (prefers-color-scheme: dark) { color-scheme: dark; }
-}
-
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;

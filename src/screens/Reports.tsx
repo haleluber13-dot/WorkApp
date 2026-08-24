@@ -4,14 +4,15 @@ import { forecast, monthsWithData, outstanding, summariseJob, summariseMonth } f
 import { money, moneyShort, percent } from '../lib/format'
 import { addMonths, formatDuration, monthLabel, monthKey, prettyDate, todayISO } from '../lib/time'
 import { monthToCSV, expensesToCSV } from '../lib/csv'
-import { download, exportJSON } from '../lib/storage'
+import { copyText, exportJSON } from '../lib/storage'
+import { describeOutcome, saveFile } from '../lib/downloads'
 import type { Payment, PaymentStatus } from '../types'
 import {
   Card, CardHead, Empty, Field, NumberInput, Segmented, Select, Sheet, Stat, TextInput,
 } from '../components/ui'
 import { Columns, Donut } from '../components/charts'
 import {
-  IconChart, IconCoins, IconDownload, IconPlus, IconPrint, IconReceipt,
+  IconChart, IconCoins, IconCopy, IconDownload, IconPlus, IconPrint, IconReceipt,
   IconTrash, IconCalendar, IconSparkle, IconClock,
 } from '../components/Icons'
 
@@ -168,20 +169,7 @@ export function Reports({ month, setMonth }: { month: string; setMonth: (m: stri
             </div>
           </Card>
 
-          <Card>
-            <CardHead title="Export" sub="Take your numbers anywhere" />
-            <div className="inline" style={{ gap: 8 }}>
-              <button className="btn sm" onClick={() => download(`ombak-${month}.csv`, monthToCSV(month, store.data), 'text/csv')}>
-                <IconDownload size={15} /> Month CSV
-              </button>
-              <button className="btn sm" onClick={() => download('ombak-expenses.csv', expensesToCSV(store.data), 'text/csv')}>
-                <IconDownload size={15} /> Expenses CSV
-              </button>
-              <button className="btn sm" onClick={() => download(`ombak-backup-${todayISO()}.json`, exportJSON(store.data))}>
-                <IconDownload size={15} /> Full backup
-              </button>
-            </div>
-          </Card>
+          <ExportCard month={month} />
         </div>
       )}
 
@@ -191,6 +179,62 @@ export function Reports({ month, setMonth }: { month: string; setMonth: (m: stri
         <PaymentsTab owed={owed.owed} paid={owed.paid} />
       )}
     </>
+  )
+}
+
+/** Downloads are blocked in some sandboxed hosts, so copying is always offered too. */
+function ExportCard({ month }: { month: string }) {
+  const store = useStore()
+  const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null)
+
+  const announce = (text: string, bad = false) => {
+    setMessage({ text, bad })
+    setTimeout(() => setMessage(null), 3500)
+  }
+
+  const copy = async (label: string, text: string) => {
+    announce(await copyText(text) ? `${label} copied to the clipboard.` : 'Could not reach the clipboard.',
+      false)
+  }
+
+  const save = async (label: string, file: string, text: string, type: string) => {
+    const outcome = await saveFile(file, text, type)
+    announce(describeOutcome(outcome, label), outcome === 'unavailable')
+  }
+
+  const items = [
+    { label: 'This month', file: `ombak-${month}.csv`, type: 'text/csv', make: () => monthToCSV(month, store.data) },
+    { label: 'Expenses', file: 'ombak-expenses.csv', type: 'text/csv', make: () => expensesToCSV(store.data) },
+    { label: 'Full backup', file: `ombak-backup-${todayISO()}.json`, type: 'application/json', make: () => exportJSON(store.data) },
+  ]
+
+  return (
+    <Card>
+      <CardHead title="Export" sub="Take your numbers anywhere" />
+      <div className="stack tight">
+        {items.map((it) => (
+          <div key={it.label} className="row flat">
+            <span className="row-main"><span className="row-title">{it.label}</span></span>
+            <span className="inline" style={{ gap: 6 }}>
+              <button className="btn sm" onClick={() => void save(it.label, it.file, it.make(), it.type)}>
+                <IconDownload size={14} /> Download
+              </button>
+              <button className="btn ghost sm" onClick={() => void copy(it.label, it.make())}>
+                <IconCopy size={14} /> Copy
+              </button>
+            </span>
+          </div>
+        ))}
+      </div>
+      {message && (
+        <p className="tiny" style={{ marginTop: 10, color: message.bad ? 'var(--bad)' : 'var(--accent-ink)' }}>
+          {message.text}
+        </p>
+      )}
+      <p className="tiny faint" style={{ marginTop: 8 }}>
+        Copy puts the same content on the clipboard, ready to paste into a file.
+      </p>
+    </Card>
   )
 }
 
@@ -223,7 +267,10 @@ function InvoiceTab({ month, setMonth }: { month: string; setMonth: (m: string) 
         />
         <div className="inline" style={{ marginTop: 12, gap: 8 }}>
           <button className="btn primary sm" onClick={() => window.print()}><IconPrint size={15} /> Print / save PDF</button>
-          <button className="btn sm" onClick={() => download(`invoice-${month}.csv`, monthToCSV(month, store.data), 'text/csv')}>
+          <button
+            className="btn sm"
+            onClick={() => void saveFile(`invoice-${month}.csv`, monthToCSV(month, store.data), 'text/csv')}
+          >
             <IconDownload size={15} /> Backing CSV
           </button>
         </div>
