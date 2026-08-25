@@ -1,0 +1,24 @@
+{
+  "name": "יומן הפקה",
+  "short_name": "יומן הפקה",
+  "description": "צוות, שעות קריאה, לוקיישנים וגיליונות ההפקה במקום אחד.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#F5A524",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "אנשי קשר", "url": "./index.html#/crew" },
+    { "name": "היום", "url": "./index.html#/today" },
+    { "name": "גיליונות", "url": "./index.html#/sheets" }
+  ]
+}

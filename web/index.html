@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>יומן הפקה</title>
+
+<!-- viewport-fit=cover lets the app paint under the notch and home indicator -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="description" content="יומן הפקה — צוות, שעות קריאה, לוקיישנים וגיליונות ההפקה במקום אחד.">
+<meta name="theme-color" content="#F2F2F7">
+
+<!-- iOS home-screen app behaviour -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="יומן הפקה">
+<meta name="format-detection" content="telephone=no">
+
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Pre-paint placeholder: keeps the first frame from flashing white. -->
+    <div style="min-height:100vh;display:grid;place-items:center;color:#8a8a8e;font-family:-apple-system,system-ui,sans-serif">
+      טוען…
+    </div>
+  </div>
+  <noscript>
+    <p style="padding:40px 24px;text-align:center;font-family:system-ui">
+      האפליקציה דורשת JavaScript.
+    </p>
+  </noscript>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
