@@ -1,0 +1,49 @@
+# Publishes the PWA in web/ to GitHub Pages on every push to the default branch.
+#
+# One-time setup: repository Settings → Pages → Source → "GitHub Actions".
+# After the first run the app lives at
+#   https://<user>.github.io/<repo>/
+# Open that on the iPhone in Safari, then Share → Add to Home Screen.
+
+name: Deploy PWA to Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sanity-check the bundle
+        run: |
+          set -euo pipefail
+          for f in web/index.html web/manifest.webmanifest web/sw.js web/css/app.css web/js/app.js; do
+            test -s "$f" || { echo "missing or empty: $f"; exit 1; }
+          done
+          # A malformed manifest silently breaks Add to Home Screen.
+          python3 -c "import json;json.load(open('web/manifest.webmanifest'))"
+          echo "bundle looks good"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4

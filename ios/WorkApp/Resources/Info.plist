@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>יומן הפקה</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>he</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>he</string>
+    </array>
+
+    <!-- Only asked for when the user taps "use my current location" while
+         adding a shoot location. The app never tracks anyone. -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>כדי לשמור את המיקום הנוכחי כלוקיישן של יום הצילום. האפליקציה לא עוקבת אחריכם ולא משתפת את המיקום.</string>
+
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>AccentColor</string>
+    </dict>
+</dict>
+</plist>

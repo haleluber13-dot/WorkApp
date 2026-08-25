@@ -163,7 +163,10 @@ function cateringForm(day, rerender) {
 
   const commit = (key, raw) => {
     const catering = readCatering();
-    catering[key] = raw === '' ? null : Number(raw);
+    // Drop the key rather than storing null: the record travels to the native
+    // client through the same Supabase row, and an absent field decodes
+    // cleanly where a null would not.
+    if (raw === '') delete catering[key]; else catering[key] = Number(raw);
     store.patchDay(day.id, { catering });
     paintTiles();
   };
