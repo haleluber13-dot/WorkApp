@@ -5,9 +5,10 @@ import type { Tariff } from '../types'
 import { money } from '../lib/format'
 import { addDays, formatDuration, formatHM, prettyDateLong, dayOfWeek } from '../lib/time'
 import { Field, NumberInput, Segmented, Select, Sheet, TextInput, Toggle } from '../components/ui'
+import { PlaceField } from '../components/PlaceField'
 import {
   IconAlert, IconCar, IconChevronDown, IconChevronLeft, IconChevronRight, IconClock,
-  IconFood, IconMoon, IconNote, IconSparkle, IconTrash,
+  IconFood, IconMoon, IconNote, IconPin, IconSparkle, IconTrash,
 } from '../components/Icons'
 
 const TARIFFS: { value: Tariff; label: string }[] = [
@@ -172,6 +173,11 @@ export function DayEditor({ date, onClose, onGoToDate }: {
                   desc="Bill a fraction of the day rate instead of the whole thing."
                 />
               </div>
+            </div>
+
+            <div className="card">
+              <div className="card-head"><IconPin size={17} /><h3>Location</h3></div>
+              <PlaceField place={day.place} onChange={(place) => set({ place })} />
             </div>
 
             {/* Live summary */}

@@ -590,3 +590,18 @@ textarea.input { resize: vertical; min-height: 66px; }
 
 .date-jump { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
 .date-jump .input { flex: 1; text-align: center; font-weight: 600; color: var(--text); }
+
+/* ── Location ─────────────────────────────────────────────────────────── */
+.pin-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border-radius: var(--r-sm);
+  background: var(--surface-sunk); color: var(--text-muted);
+}
+.pin-row a { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+
+.timer-place {
+  display: flex; align-items: center; gap: 5px; margin-top: 3px;
+  font-size: 12.5px; color: var(--text-muted); min-width: 0;
+}
+.timer-place span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-problem { flex-basis: 100%; color: var(--warm); margin-top: 8px; }

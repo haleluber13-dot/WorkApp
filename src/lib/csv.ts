@@ -16,7 +16,7 @@ export function monthToCSV(month: string, data: AppData): string {
   const header = [
     'Date', 'Production', 'Worked', 'Start', 'End', 'Hours', 'Quota', 'Overtime hours',
     'Day rate', 'Overtime', 'Night', 'Meals', 'Travel', 'Turnaround', 'Rest-day hours',
-    'Weekly overage', 'Weekend rest', 'Misc', 'Extras', 'Day total', 'Note',
+    'Weekly overage', 'Weekend rest', 'Misc', 'Extras', 'Day total', 'Where', 'Coordinates', 'Note',
   ]
   const rows = dates.map((date) => {
     const d = data.days[date]
@@ -33,6 +33,8 @@ export function monthToCSV(month: string, data: AppData): string {
       round(p.ringPay), round(p.turnaroundPay), round(p.restDayPay),
       round(p.weeklyOveragePay), round(p.weekendRestPay), round(p.misc),
       round(p.extras), round(p.total),
+      d?.place?.name ?? '',
+      d?.place && d.place.lat !== null && d.place.lng !== null ? `${d.place.lat},${d.place.lng}` : '',
       d?.note ?? '',
     ].map(esc).join(',')
   })

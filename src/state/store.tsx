@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { ActiveShift, AppData, Expense, Payment, Production, Settings, WorkDay } from '../types'
+import type { ActiveShift, AppData, Expense, Payment, Place, Production, Settings, WorkDay } from '../types'
 import { blankDay } from '../lib/pay'
 import { load, save } from '../lib/storage'
 import { uid } from '../lib/id'
@@ -23,6 +23,7 @@ interface Store {
   updateProduction: (id: string, patch: Partial<Production>) => void
   removeProduction: (id: string) => void
   startShift: (productionId: string | null, tariff: 1 | 2 | 3) => void
+  setShiftPlace: (place: Place | null) => void
   stopShift: () => void
   activeShift: ActiveShift | null
   replaceAll: (next: AppData) => void
@@ -102,7 +103,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       startShift: (productionId, tariff) =>
         mutate((d) => {
-          d.activeShift = { date: todayISO(), startedAt: Date.now(), productionId, tariff }
+          d.activeShift = { date: todayISO(), startedAt: Date.now(), productionId, tariff, place: null }
+        }),
+
+      /** The location fix lands after the shift has already started. */
+      setShiftPlace: (place) =>
+        mutate((d) => {
+          if (d.activeShift) d.activeShift = { ...d.activeShift, place }
+          const date = d.activeShift?.date
+          if (date && d.days[date]) d.days[date] = { ...d.days[date], place }
         }),
 
       stopShift: () =>
@@ -121,6 +130,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             tariff: shift.tariff,
             start: hhmm(start),
             end: hhmm(end),
+            place: shift.place ?? existing.place,
           }
           d.activeShift = null
         }),

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../state/store'
 import { monthsWithData, summariseMonth } from '../lib/stats'
+import { placeLabel } from '../lib/location'
 import { money, moneyShort } from '../lib/format'
 import { formatDuration, monthLabel, startOfWeek, formatHM, DAY_SHORT, parseDate } from '../lib/time'
 import { Card, CardHead, Empty, Segmented, Stat } from '../components/ui'
@@ -137,6 +138,7 @@ export function Timeline({ month, setMonth, onPickDay }: {
                     </span>
                     <span className="row-sub">
                       {formatDuration(d.hours)}
+                      {placeLabel(day?.place) ? ` · ${placeLabel(day?.place)}` : ''}
                       {day?.note ? ` · ${day.note}` : ''}
                     </span>
                   </span>

@@ -55,6 +55,7 @@ export function defaultSettings(): Settings {
     eveDay: 5,
 
     monthlyGoal: 20000,
+    trackLocation: true,
     theme: 'auto',
     defaultProductionId: null,
     me: { name: '', role: '', businessId: '', address: '', phone: '', email: '', bank: '' },

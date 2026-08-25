@@ -66,7 +66,7 @@ export function blankDay(date: string, productionId: string | null = null): Work
     date, productionId, worked: false, booked: false, tariff: 1, start: null, end: null,
     partialDay: false, breakfastSkipped: false, lunchLateH: 0, thirdMealLateH: 0,
     mealsShortH: 0, ringOut: 0, ringBack: 0, misc: 0, restDayStartsAt: null,
-    note: '', tags: [],
+    place: null, note: '', tags: [],
   }
 }
 

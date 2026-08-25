@@ -16,6 +16,7 @@ for night work, short rest between days, travel and late meals.
 - A big **Start work / Stop** button with a live timer and the money climbing as you go.
 - Log a day with a start and an end. Shifts that run past midnight are handled properly.
 - Step to **any date** from inside the day editor to fill in a day you missed.
+- **Where you worked** is saved when you tap Start — a pin plus a name you choose.
 - A 24-hour **timeline** of every day in the month — bars across the clock, night hours
   shaded, overtime in coral.
 - Calendar heat grid, a plain day-by-day list, and a **Months** view of every month you have worked.
@@ -32,6 +33,14 @@ for night work, short rest between days, travel and late meals.
 **Money out**
 - Expenses by category, marked billable or personal.
 - Burn rate, tax set-aside, and what you actually **keep**.
+
+**Places**
+- Every day can carry a place: a name you type, and coordinates when the device
+  offers them. Both are optional and either can stand alone.
+- A **Places** list in Reports shows everywhere you have worked, with days, hours
+  and earnings per place, and a link out to a map.
+- Location capture is a setting, off-switchable, and asks the device only when a
+  shift starts. Coordinates stay on the device with everything else.
 
 **Jobs**
 - Unlimited jobs, each with its own rates, colour, role, company and run of dates.

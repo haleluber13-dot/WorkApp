@@ -242,3 +242,66 @@ export function summariseJob(production: Production, data: AppData): JobSummary 
     owed: sum(payments.filter((p) => p.status !== 'paid'), (p) => p.amount),
   }
 }
+
+export interface PlaceSummary {
+  key: string
+  name: string
+  lat: number | null
+  lng: number | null
+  days: number
+  hours: number
+  earned: number
+  firstDate: string
+  lastDate: string
+}
+
+/**
+ * Everywhere you have worked, busiest first. Days are grouped by place name
+ * where there is one, and otherwise by a coarse coordinate cell so repeat
+ * visits to the same unnamed spot collapse into one row.
+ */
+export function placesWorked(data: AppData): PlaceSummary[] {
+  const dates = Object.values(data.days)
+    .filter((d) => d.worked && d.place && (d.place.name.trim() || d.place.lat !== null))
+    .sort((a, b) => a.date.localeCompare(b.date))
+  if (!dates.length) return []
+
+  const pay = computeRange(dates[0].date, dates[dates.length - 1].date, data)
+  const groups = new Map<string, PlaceSummary>()
+
+  for (const day of dates) {
+    const place = day.place!
+    const named = place.name.trim()
+    // ~100m cells, enough to merge repeat visits without merging neighbours.
+    const cell = place.lat !== null && place.lng !== null
+      ? `${place.lat.toFixed(3)},${place.lng.toFixed(3)}`
+      : ''
+    const key = named.toLowerCase() || cell
+    if (!key) continue
+
+    const p = pay.get(day.date)
+    const existing = groups.get(key)
+    if (existing) {
+      existing.days += 1
+      existing.hours += p?.hours ?? 0
+      existing.earned += p?.total ?? 0
+      existing.lastDate = day.date
+      if (!existing.name && named) existing.name = named
+      if (existing.lat === null && place.lat !== null) { existing.lat = place.lat; existing.lng = place.lng }
+    } else {
+      groups.set(key, {
+        key,
+        name: named,
+        lat: place.lat,
+        lng: place.lng,
+        days: 1,
+        hours: p?.hours ?? 0,
+        earned: p?.total ?? 0,
+        firstDate: day.date,
+        lastDate: day.date,
+      })
+    }
+  }
+
+  return [...groups.values()].sort((a, b) => b.days - a.days || b.earned - a.earned)
+}

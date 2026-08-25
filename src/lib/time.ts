@@ -108,16 +108,20 @@ export function formatHM(hours: number): string {
 }
 
 /**
- * Length of a shift in hours. An end at or before the start means the shift
- * ran past midnight, so it lands on the following day.
+ * Length of a shift in hours. An end *before* the start means the shift ran
+ * past midnight, so it lands on the following day.
+ *
+ * An end equal to the start is a zero-length shift, not a 24-hour one — that is
+ * what a mis-tapped start/stop looks like, and a genuine round-the-clock day is
+ * entered as 23:59.
  */
 export function shiftLength(start: number, end: number): number {
-  return end <= start ? end + 24 - start : end - start
+  return end < start ? end + 24 - start : end - start
 }
 
 /** The end of a shift expressed in hours from the start day's midnight (may exceed 24). */
 export function absoluteEnd(start: number, end: number): number {
-  return end <= start ? end + 24 : end
+  return end < start ? end + 24 : end
 }
 
 export function prettyDate(iso: string): string {

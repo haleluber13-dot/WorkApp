@@ -12,7 +12,7 @@ import {
 } from '../components/ui'
 import {
   IconAlert, IconCar, IconChevronDown, IconClock, IconCoins, IconCopy, IconDownload,
-  IconMoon, IconSettings, IconSun, IconUpload, IconCamera, IconFood, Logo,
+  IconMoon, IconPin, IconSettings, IconSun, IconUpload, IconCamera, IconFood, Logo,
 } from '../components/Icons'
 
 /** A section that starts closed, so the page isn't a wall of inputs. */
@@ -78,6 +78,19 @@ export function Settings() {
         <CardHead title="Monthly goal" sub="The bar on your home screen" />
         <NumberInput value={settings.monthlyGoal} onChange={(v) => set({ monthlyGoal: v })}
           suffix={settings.currency} min={0} />
+      </Card>
+
+      <Card>
+        <CardHead title="Location" />
+        <Toggle
+          checked={settings.trackLocation}
+          onChange={(v) => set({ trackLocation: v })}
+          title="Save where I am when I start work"
+          desc="Asks the device once, when you tap Start. You can always type the place by hand instead."
+        />
+        <p className="tiny faint" style={{ marginTop: 10 }}>
+          <IconPin size={13} /> Locations stay on this device with the rest of your data.
+        </p>
       </Card>
 
       <Card>

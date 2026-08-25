@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { computeRange, overtimePay, turnaroundUnits, nightHoursOf, weeklyOverageUnits } from '../src/lib/pay'
+import { absoluteEnd, shiftLength } from '../src/lib/time'
 import { defaultSettings, defaultProduction } from '../src/lib/defaults'
 import { blankDay } from '../src/lib/pay'
 import type { AppData, WorkDay } from '../src/types'
@@ -55,6 +56,17 @@ test('overtime ladder matches the sheet', () => {
   near(overtimePay(3.25, 10.5, HOURLY, settings), 524.999999, '3h15 OT')
   near(overtimePay(2.75, 10.5, HOURLY, settings), 417.857142, '2h45 OT')
   near(overtimePay(12.5, 10.5, HOURLY, settings), 4435.714285, '12h30 OT')
+})
+
+test('shift length handles midnight and mis-taps', () => {
+  near(shiftLength(15, 24), 9, '15:00 to midnight')      // entered as 24:00
+  near(shiftLength(15, 0), 9, '15:00 to 00:00')          // same shift from a time input
+  near(shiftLength(16, 15), 23, '16:00 to 15:00 next day')
+  near(shiftLength(9, 17.5), 8.5, 'a plain day')
+  // Start and stop in the same minute is zero hours, not a full day.
+  near(shiftLength(15, 15), 0, 'start equals end')
+  near(absoluteEnd(15, 15), 15, 'absolute end when start equals end')
+  near(absoluteEnd(16, 15), 39, 'absolute end across midnight')
 })
 
 test('night premium is 20% of hourly per night hour', () => {

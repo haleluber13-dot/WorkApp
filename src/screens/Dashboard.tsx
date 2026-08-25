@@ -3,6 +3,7 @@ import { useStore } from '../state/store'
 import { summariseMonth, summariseWeek, currentStreak, outstanding, trend } from '../lib/stats'
 import { money, moneyShort, percent } from '../lib/format'
 import { overtimePay } from '../lib/pay'
+import { currentLocation, describeFailure, placeLabel } from '../lib/location'
 import {
   addMonths, formatDuration, formatHM, monthLabel, prettyDate, todayISO, DAY_SHORT,
   daysInMonth, parseDate,
@@ -13,7 +14,7 @@ import { MonthNav } from '../components/MonthNav'
 import { PendingBookings } from '../components/PendingBookings'
 import {
   IconAlert, IconCalendar, IconClock, IconCoins,
-  IconFire, IconMoon, IconPlay, IconStop, IconTarget, IconWallet, IconSurf,
+  IconFire, IconMoon, IconPin, IconPlay, IconStop, IconTarget, IconWallet, IconSurf,
 } from '../components/Icons'
 
 export function Dashboard({ month, setMonth, onPickDay }: {
@@ -163,7 +164,10 @@ export function Dashboard({ month, setMonth, onPickDay }: {
                     {d.overtimeHours > 0 && <span className="chip warm">OT</span>}
                     {d.nightHours > 0 && <span className="chip accent"><IconMoon size={11} /></span>}
                   </span>
-                  <span className="row-sub">{prettyDate(d.date)}</span>
+                  <span className="row-sub">
+                    {prettyDate(d.date)}
+                    {placeLabel(store.data.days[d.date]?.place) && ` · ${placeLabel(store.data.days[d.date]?.place)}`}
+                  </span>
                 </span>
                 <span className="row-amount">{money(d.total, settings, { decimals: 0 })}</span>
               </button>
@@ -218,12 +222,27 @@ function ShiftClock() {
   const store = useStore()
   const { settings, activeShift } = store
   const [now, setNow] = useState(Date.now())
+  const [locating, setLocating] = useState(false)
+  const [locationNote, setLocationNote] = useState<string | null>(null)
 
   useEffect(() => {
     if (!activeShift) return
     const t = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(t)
   }, [activeShift])
+
+  /** Start now; the fix catches up a moment later rather than blocking the tap. */
+  const start = () => {
+    store.startShift(settings.defaultProductionId, 1)
+    setLocationNote(null)
+    if (!settings.trackLocation) return
+    setLocating(true)
+    void currentLocation().then(({ place, failure }) => {
+      setLocating(false)
+      if (place) store.setShiftPlace(place)
+      else if (failure) setLocationNote(describeFailure(failure))
+    })
+  }
 
   const production = store.productionOf(activeShift?.productionId ?? settings.defaultProductionId ?? null)
   const rate = production?.rates[(activeShift?.tariff ?? 1) - 1] ?? 0
@@ -232,13 +251,14 @@ function ShiftClock() {
   if (!activeShift) {
     return (
       <div className="timer-card">
-        <button className="timer-start" onClick={() => store.startShift(settings.defaultProductionId, 1)}>
+        <button className="timer-start" onClick={start}>
           <IconPlay size={30} />
           <span>Start work</span>
         </button>
         <div className="timer-note">
           <b>{production?.name ?? 'No job set'}</b>
           <span>{money(rate, settings, { decimals: 0 })} a day · {formatHM(quota)} covered</span>
+          {settings.trackLocation && <span className="tiny faint">Saves where you are when you start</span>}
         </div>
       </div>
     )
@@ -257,6 +277,12 @@ function ShiftClock() {
           <span className="pulse" />
           <span>Working since {startedLabel}</span>
         </div>
+        {(locating || placeLabel(activeShift.place)) && (
+          <div className="timer-place">
+            <IconPin size={13} />
+            <span>{locating ? 'Finding where you are…' : placeLabel(activeShift.place)}</span>
+          </div>
+        )}
         <div className="timer-elapsed">{formatStopwatch(elapsed)}</div>
         <div className="timer-earned">
           {money(earned, settings, { decimals: 0 })}
@@ -267,6 +293,7 @@ function ShiftClock() {
         <IconStop size={26} />
         <span>Stop</span>
       </button>
+      {locationNote && <p className="tiny timer-problem">{locationNote}</p>}
     </div>
   )
 }

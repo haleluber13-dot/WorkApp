@@ -1,6 +1,19 @@
 /** Ombak data model. Everything the app stores lives under these types. */
 
 export type Tariff = 1 | 2 | 3
+
+/** Where a day of work happened. */
+export interface Place {
+  /** What you call it — "Beach set", "Studio 4". Always editable by hand. */
+  name: string
+  /** Coordinates, when the device could supply them. */
+  lat: number | null
+  lng: number | null
+  /** Reported accuracy in metres, for deciding whether to trust the pin. */
+  accuracy: number | null
+  /** When the fix was taken. */
+  at: number | null
+}
 export type ThemeChoice = 'auto' | 'light' | 'dark'
 
 /** A production / client / job you work for, each with its own day rates. */
@@ -53,6 +66,9 @@ export interface WorkDay {
   /** Manual override of the rest-day-premium start time on a rest-day eve. */
   restDayStartsAt: string | null
 
+  /** Where you worked. Captured when the shift starts, editable afterwards. */
+  place: Place | null
+
   note: string
   tags: string[]
 }
@@ -94,6 +110,8 @@ export interface ActiveShift {
   startedAt: number
   productionId: string | null
   tariff: Tariff
+  /** Filled in once the location fix lands, which is after the shift starts. */
+  place: Place | null
 }
 
 export interface Settings {
@@ -139,6 +157,8 @@ export interface Settings {
   eveDay: number
 
   monthlyGoal: number
+  /** Ask the device where you are when a shift starts. */
+  trackLocation: boolean
   theme: ThemeChoice
   defaultProductionId: string | null
   /** Personal details printed on invoices. */

@@ -29,7 +29,7 @@ function hydrate(raw: Partial<AppData>): AppData {
   }))
   for (const key of Object.keys(data.days)) {
     const d = data.days[key]
-    data.days[key] = { ...d, booked: d.booked ?? false, tags: d.tags ?? [] }
+    data.days[key] = { ...d, booked: d.booked ?? false, tags: d.tags ?? [], place: d.place ?? null }
   }
   if (!data.settings.defaultProductionId) {
     data.settings.defaultProductionId = data.productions[0]?.id ?? null

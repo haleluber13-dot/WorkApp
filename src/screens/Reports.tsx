@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../state/store'
-import { forecast, monthsWithData, outstanding, summariseJob, summariseMonth } from '../lib/stats'
+import { forecast, monthsWithData, outstanding, placesWorked, summariseJob, summariseMonth } from '../lib/stats'
+import { formatCoords, mapsUrl } from '../lib/location'
 import { money, moneyShort, percent } from '../lib/format'
 import { addMonths, formatDuration, monthLabel, monthKey, prettyDate, todayISO } from '../lib/time'
 import { monthToCSV, expensesToCSV } from '../lib/csv'
@@ -12,7 +13,7 @@ import {
 } from '../components/ui'
 import { Columns, Donut } from '../components/charts'
 import {
-  IconChart, IconCoins, IconCopy, IconDownload, IconPlus, IconPrint, IconReceipt,
+  IconChart, IconCoins, IconCopy, IconDownload, IconPin, IconPlus, IconPrint, IconReceipt,
   IconTrash, IconCalendar, IconSparkle, IconClock,
 } from '../components/Icons'
 
@@ -169,6 +170,7 @@ export function Reports({ month, setMonth }: { month: string; setMonth: (m: stri
             </div>
           </Card>
 
+          <PlacesCard />
           <ExportCard month={month} />
         </div>
       )}
@@ -179,6 +181,50 @@ export function Reports({ month, setMonth }: { month: string; setMonth: (m: stri
         <PaymentsTab owed={owed.owed} paid={owed.paid} />
       )}
     </>
+  )
+}
+
+/** Everywhere you have worked, busiest first. */
+function PlacesCard() {
+  const store = useStore()
+  const { settings } = store
+  const places = useMemo(() => placesWorked(store.data), [store.data])
+
+  if (!places.length) {
+    return (
+      <Card>
+        <CardHead title="Places" sub="Where your work happens" />
+        <Empty art="📍" title="No places yet">
+          Turn on location in Settings, or type a place on any day, and they will collect here.
+        </Empty>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHead title="Places" sub={`${places.length} place${places.length === 1 ? '' : 's'} worked`} />
+      <div className="rows">
+        {places.map((p) => {
+          const url = p.lat !== null && p.lng !== null
+            ? mapsUrl({ name: p.name, lat: p.lat, lng: p.lng, accuracy: null, at: null })
+            : null
+          return (
+            <div key={p.key} className="row flat">
+              <span className="row-lead filled"><IconPin size={18} /></span>
+              <span className="row-main">
+                <span className="row-title">{p.name || formatCoords({ name: '', lat: p.lat, lng: p.lng, accuracy: null, at: null })}</span>
+                <span className="row-sub">
+                  {p.days} day{p.days === 1 ? '' : 's'} · {formatDuration(p.hours)}
+                  {url && <> · <a href={url} target="_blank" rel="noreferrer">map</a></>}
+                </span>
+              </span>
+              <span className="row-amount">{money(p.earned, settings, { decimals: 0 })}</span>
+            </div>
+          )
+        })}
+      </div>
+    </Card>
   )
 }
 
