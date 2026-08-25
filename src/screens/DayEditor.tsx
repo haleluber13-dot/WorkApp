@@ -3,11 +3,11 @@ import { useStore } from '../state/store'
 import { computeRange } from '../lib/pay'
 import type { Tariff } from '../types'
 import { money } from '../lib/format'
-import { formatDuration, formatHM, prettyDateLong, dayOfWeek } from '../lib/time'
+import { addDays, formatDuration, formatHM, prettyDateLong, dayOfWeek } from '../lib/time'
 import { Field, NumberInput, Segmented, Select, Sheet, TextInput, Toggle } from '../components/ui'
 import {
-  IconAlert, IconCar, IconChevronDown, IconClock, IconFood, IconMoon,
-  IconNote, IconSparkle, IconTrash,
+  IconAlert, IconCar, IconChevronDown, IconChevronLeft, IconChevronRight, IconClock,
+  IconFood, IconMoon, IconNote, IconSparkle, IconTrash,
 } from '../components/Icons'
 
 const TARIFFS: { value: Tariff; label: string }[] = [
@@ -28,7 +28,11 @@ const QUARTERS = [
   { value: 2, label: '2 h' }, { value: 2.5, label: '2 h 30' }, { value: 3, label: '3 h' },
 ]
 
-export function DayEditor({ date, onClose }: { date: string; onClose: () => void }) {
+export function DayEditor({ date, onClose, onGoToDate }: {
+  date: string
+  onClose: () => void
+  onGoToDate?: (next: string) => void
+}) {
   const store = useStore()
   const { settings } = store
   const day = store.getDay(date)
@@ -71,6 +75,27 @@ export function DayEditor({ date, onClose }: { date: string; onClose: () => void
       }
     >
       <div className="stack">
+        {onGoToDate && (
+          <div className="card">
+            <div className="date-jump">
+              <button className="hero-nav-btn" onClick={() => onGoToDate(addDays(date, -1))} aria-label="Previous day">
+                <IconChevronLeft size={18} />
+              </button>
+              <input
+                className="input" type="date" value={date}
+                onChange={(e) => e.target.value && onGoToDate(e.target.value)}
+                aria-label="Date"
+              />
+              <button className="hero-nav-btn" onClick={() => onGoToDate(addDays(date, 1))} aria-label="Next day">
+                <IconChevronRight size={18} />
+              </button>
+            </div>
+            <p className="tiny faint" style={{ marginTop: 8 }}>
+              Any date works — step back to fill in a day you missed.
+            </p>
+          </div>
+        )}
+
         <div className="card">
           <div className="stack tight">
             <Toggle

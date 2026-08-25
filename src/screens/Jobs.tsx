@@ -198,7 +198,7 @@ function JobSheet({ initial, onClose }: { initial: Production | null; onClose: (
   const [company, setCompany] = useState(initial?.company ?? '')
   const [role, setRole] = useState(initial?.role ?? '')
   const [address, setAddress] = useState(initial?.address ?? '')
-  const [rates, setRates] = useState<[number, number, number]>(initial?.rates ?? [900, 1575, 2100])
+  const [rates, setRates] = useState<[number, number, number]>(initial?.rates ?? [850, 1500, 2000])
   const [color, setColor] = useState(initial?.color ?? PRODUCTION_COLORS.find((c) => !used.includes(c)) ?? PRODUCTION_COLORS[0])
   const [startsOn, setStartsOn] = useState(initial?.startsOn ?? '')
   const [endsOn, setEndsOn] = useState(initial?.endsOn ?? '')

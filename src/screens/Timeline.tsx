@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../state/store'
-import { summariseMonth } from '../lib/stats'
+import { monthsWithData, summariseMonth } from '../lib/stats'
 import { money, moneyShort } from '../lib/format'
-import { addMonths, formatDuration, monthLabel, startOfWeek, formatHM, DAY_SHORT, parseDate } from '../lib/time'
+import { formatDuration, monthLabel, startOfWeek, formatHM, DAY_SHORT, parseDate } from '../lib/time'
 import { Card, CardHead, Empty, Segmented, Stat } from '../components/ui'
 import { MonthHeat, ShiftTimeline } from '../components/charts'
+import { MonthNav } from '../components/MonthNav'
 import {
-  IconAlert, IconChevronLeft, IconChevronRight, IconClock, IconMoon, IconCoins,
+  IconAlert, IconClock, IconMoon, IconCoins, IconCalendar,
 } from '../components/Icons'
 
-type View = 'timeline' | 'calendar' | 'list'
+type View = 'timeline' | 'calendar' | 'list' | 'months'
 
 export function Timeline({ month, setMonth, onPickDay }: {
   month: string
@@ -45,15 +46,7 @@ export function Timeline({ month, setMonth, onPickDay }: {
           </div>
         </div>
         <div className="hero-body readout">
-          <div className="inline" style={{ gap: 6 }}>
-            <button className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="Previous month">
-              <IconChevronLeft size={18} />
-            </button>
-            <span style={{ fontWeight: 600, minWidth: 128, textAlign: 'center' }}>{monthLabel(month)}</span>
-            <button className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} aria-label="Next month">
-              <IconChevronRight size={18} />
-            </button>
-          </div>
+          <MonthNav month={month} setMonth={setMonth} />
           <div className="meta" style={{ marginTop: 12 }}>
             <span><b>{formatDuration(summary.hours)}</b> total</span>
             <span><b>{summary.workedDays}</b> days</span>
@@ -69,10 +62,12 @@ export function Timeline({ month, setMonth, onPickDay }: {
             { value: 'timeline', label: 'Timeline' },
             { value: 'calendar', label: 'Calendar' },
             { value: 'list', label: 'List' },
+            { value: 'months', label: 'Months' },
           ]}
         />
       </div>
 
+      {view !== 'months' && (
       <div className="stats" style={{ marginBottom: 4 }}>
         <Stat icon={<IconClock size={14} />} label="Hours" value={formatHM(summary.hours)} />
         <Stat icon={<IconClock size={14} />} label="Overtime" value={formatHM(summary.overtimeHours)} tone="warm" />
@@ -80,8 +75,9 @@ export function Timeline({ month, setMonth, onPickDay }: {
         <Stat icon={<IconCoins size={14} />} label="Per hour" value={moneyShort(summary.avgPerHour, settings)}
           hint="Effective" tone="good" />
       </div>
+      )}
 
-      {summary.workedDays === 0 && (
+      {view !== 'months' && summary.workedDays === 0 && (
         <Card><Empty art="🌊" title={`Nothing logged in ${monthLabel(month)}`}>
           Days you work will show up here as bars across a 24-hour day.
         </Empty></Card>
@@ -158,6 +154,9 @@ export function Timeline({ month, setMonth, onPickDay }: {
         </Card>
       )}
 
+      {view === 'months' && <MonthsView month={month} setMonth={setMonth} setView={setView} />}
+
+      {view !== 'months' && (
       <Card>
         <CardHead title="How a day is priced" />
         <ul className="explain">
@@ -168,6 +167,78 @@ export function Timeline({ month, setMonth, onPickDay }: {
           <li><b>Rest days</b> pay {settings.restDayMultiplier}× the day rate.</li>
           <li><b>Over {settings.weeklyQuotaHours}h in a week</b> adds a weekly overage charge.</li>
         </ul>
+      </Card>
+      )}
+    </>
+  )
+}
+
+/** Every month you have worked, newest first. Tap one to open its days. */
+function MonthsView({ month, setMonth, setView }: {
+  month: string
+  setMonth: (m: string) => void
+  setView: (v: View) => void
+}) {
+  const store = useStore()
+  const { settings } = store
+
+  const rows = useMemo(
+    () => monthsWithData(store.data)
+      .map((key) => ({ key, ...summariseMonth(key, store.data) }))
+      .filter((m) => m.workedDays > 0 || m.gross !== 0)
+      .reverse(),
+    [store.data],
+  )
+
+  const best = Math.max(1, ...rows.map((r) => r.gross))
+  const totalDays = rows.reduce((s, r) => s + r.workedDays, 0)
+  const totalHours = rows.reduce((s, r) => s + r.hours, 0)
+  const totalGross = rows.reduce((s, r) => s + r.gross, 0)
+
+  if (!rows.length) {
+    return (
+      <Card>
+        <Empty art="🗓️" title="No months yet">
+          Once you log a day it will show up here, month by month.
+        </Empty>
+      </Card>
+    )
+  }
+
+  return (
+    <>
+      <div className="stats" style={{ marginBottom: 4 }}>
+        <Stat icon={<IconCalendar size={14} />} label="Months" value={String(rows.length)} />
+        <Stat icon={<IconCalendar size={14} />} label="Days" value={String(totalDays)} tone="accent" />
+        <Stat icon={<IconClock size={14} />} label="Hours" value={formatDuration(totalHours)} />
+        <Stat icon={<IconCoins size={14} />} label="All time" value={moneyShort(totalGross, settings)} tone="good" />
+      </div>
+
+      <Card>
+        <CardHead title="Every month" sub="Tap a month to open its days" />
+        <div className="stack tight">
+          {rows.map((m) => (
+            <button
+              key={m.key} className="month-row"
+              onClick={() => { setMonth(m.key); setView('timeline') }}
+            >
+              <span className="mr-top">
+                <span className="mr-name">
+                  {monthLabel(m.key)}
+                  {m.key === month && <span className="chip accent">Showing</span>}
+                </span>
+                <span className="mr-amount">{money(m.gross, settings, { decimals: 0 })}</span>
+              </span>
+              <span className="mr-bar"><span style={{ width: `${(m.gross / best) * 100}%` }} /></span>
+              <span className="mr-meta">
+                <span>{m.workedDays} days</span>
+                <span>{formatDuration(m.hours)}</span>
+                {m.overtimeHours > 0 && <span>OT {formatHM(m.overtimeHours)}</span>}
+                {m.spent > 0 && <span>spent {moneyShort(m.spent, settings)}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
       </Card>
     </>
   )

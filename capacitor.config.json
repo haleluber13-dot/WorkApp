@@ -1,0 +1,11 @@
+{
+  "appId": "com.ombak.worktracker",
+  "appName": "Ombak",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#04262c"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

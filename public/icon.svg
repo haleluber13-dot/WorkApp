@@ -1,15 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ombak">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffd166"/><stop offset="0.55" stop-color="#ff9e6d"/><stop offset="1" stop-color="#ff7a59"/>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0e7c86"/><stop offset="1" stop-color="#04262c"/>
     </linearGradient>
-    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2ec4b6"/><stop offset="1" stop-color="#0e7c86"/>
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe08a"/><stop offset="0.5" stop-color="#ffd166"/><stop offset="1" stop-color="#ff7a59"/>
     </linearGradient>
+    <linearGradient id="crest" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8ff0e0"/><stop offset="1" stop-color="#2ec4b6"/>
+    </linearGradient>
+    <clipPath id="tile"><rect width="512" height="512" rx="114"/></clipPath>
   </defs>
-  <rect width="512" height="512" rx="112" fill="#06373f"/>
-  <circle cx="256" cy="212" r="96" fill="url(#sky)"/>
-  <path d="M0 300c60-34 100 22 160 22s100-56 160-22 100 22 192-8v220H0z" fill="url(#sea)"/>
-  <path d="M0 356c64-30 104 20 168 20s104-50 168-20 108 18 176-6v162H0z" fill="#06373f" opacity="0.55"/>
-  <path d="M40 372c40-20 74 12 112 12" stroke="#bff4ec" stroke-width="14" stroke-linecap="round" fill="none" opacity="0.8"/>
+
+  <g clip-path="url(#tile)">
+    <rect width="512" height="512" fill="url(#ground)"/>
+
+    <!-- Low sun, half-swallowed by the horizon -->
+    <circle cx="256" cy="236" r="104" fill="url(#sun)"/>
+    <!-- The wave: one confident curl, the thing the app is named for -->
+    <path d="M-20 372c78-46 132 18 210 18s118-64 196-30 106 26 146 4v168H-20z" fill="#0a5b66"/>
+    <path d="M-20 410c84-44 138 20 214 20s120-60 194-28 100 22 144 2v152H-20z" fill="#073942"/>
+    <path d="M36 386c46-26 84 10 128 14" stroke="url(#crest)" stroke-width="17" stroke-linecap="round" fill="none"/>
+    <path d="M300 400c40 12 78 6 116-12" stroke="url(#crest)" stroke-width="14" stroke-linecap="round" fill="none" opacity="0.75"/>
+  </g>
 </svg>

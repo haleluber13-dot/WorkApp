@@ -108,6 +108,51 @@ test('July 2026 reproduces the spreadsheet day by day', () => {
   near(sum, 27096.428571, 'July grand total before VAT', 0.05)
 })
 
+/**
+ * A second real month, at a different day rate (950), from an independently
+ * filled copy of the same calculator. Cross-checks that nothing is hard-coded
+ * to the 900 rate.
+ */
+const JULY_950: Record<string, [string, string]> = {
+  '2026-07-01': ['13:00', '02:00'], '2026-07-02': ['17:30', '06:30'], '2026-07-05': ['03:45', '15:45'],
+  '2026-07-06': ['05:30', '15:00'], '2026-07-07': ['11:45', '17:45'], '2026-07-08': ['09:00', '19:45'],
+  '2026-07-09': ['04:45', '16:00'], '2026-07-12': ['07:00', '22:45'], '2026-07-13': ['16:30', '03:45'],
+  '2026-07-14': ['16:30', '08:00'], '2026-07-16': ['06:30', '22:15'], '2026-07-19': ['04:45', '19:30'],
+  '2026-07-20': ['09:45', '14:30'], '2026-07-21': ['13:00', '03:00'], '2026-07-22': ['12:30', '00:15'],
+  '2026-07-23': ['16:45', '04:45'], '2026-07-26': ['09:00', '15:00'],
+}
+
+test('a second month at a 950 day rate matches its sheet', () => {
+  const days: Record<string, WorkDay> = {}
+  for (const [date, [start, end]] of Object.entries(JULY_950)) {
+    days[date] = { ...blankDay(date, 'p1'), worked: true, start, end }
+  }
+  const data: AppData = {
+    version: 1, settings,
+    productions: [{ ...production, rates: [950, 1663, 2217] as [number, number, number] }],
+    days, expenses: [], payments: [], activeShift: null,
+  }
+  const pay = computeRange('2026-07-01', '2026-07-31', data)
+
+  // Overtime column, straight off the sheet.
+  const expectedOvertime: Record<string, number> = {
+    '2026-07-01': 384.523809, '2026-07-02': 384.523809, '2026-07-05': 203.571428,
+    '2026-07-06': 0, '2026-07-07': 0, '2026-07-08': 33.928571, '2026-07-09': 101.785714,
+    '2026-07-12': 1119.642857, '2026-07-13': 101.785714, '2026-07-14': 1040.476190,
+    '2026-07-16': 1119.642857, '2026-07-19': 814.285714, '2026-07-20': 0,
+    '2026-07-21': 610.714285, '2026-07-22': 169.642857, '2026-07-23': 203.571428,
+    '2026-07-26': 0,
+  }
+  for (const [date, expected] of Object.entries(expectedOvertime)) {
+    near(pay.get(date)!.overtimePay, expected, `${date} overtime at 950`)
+  }
+
+  const all = [...pay.values()]
+  assert.equal(all.filter((p) => p.worked).length, 17, 'shoot days')
+  near(all.reduce((s, p) => s + p.dayFee, 0), 17 * 950, 'day fees (17 days x 950)')
+  near(all.reduce((s, p) => s + p.overtimePay, 0), 6288.095238, 'overtime total', 0.05)
+})
+
 test('July totals split the way the sheet splits them', () => {
   const pay = computeRange('2026-07-01', '2026-07-31', buildData())
   const all = [...pay.values()]

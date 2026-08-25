@@ -71,7 +71,7 @@ export function blankDay(date: string, productionId: string | null = null): Work
 }
 
 export function dayRateFor(day: WorkDay, production: Production | undefined): number {
-  const rates = production?.rates ?? [900, 1575, 2100]
+  const rates = production?.rates ?? [850, 1500, 2000]
   const base = rates[day.tariff - 1] ?? rates[0]
   return base || 0
 }

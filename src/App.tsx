@@ -90,7 +90,9 @@ function Shell() {
         </div>
       </nav>
 
-      {editingDay && <DayEditor date={editingDay} onClose={() => setEditingDay(null)} />}
+      {editingDay && (
+        <DayEditor date={editingDay} onClose={() => setEditingDay(null)} onGoToDate={setEditingDay} />
+      )}
     </div>
   )
 }

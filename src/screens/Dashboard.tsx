@@ -2,15 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../state/store'
 import { summariseMonth, summariseWeek, currentStreak, outstanding, trend } from '../lib/stats'
 import { money, moneyShort, percent } from '../lib/format'
+import { overtimePay } from '../lib/pay'
 import {
-  addMonths, formatDuration, monthKey, monthLabel, prettyDate, todayISO, DAY_SHORT,
+  addMonths, formatDuration, formatHM, monthLabel, prettyDate, todayISO, DAY_SHORT,
   daysInMonth, parseDate,
 } from '../lib/time'
 import { Bar, Card, CardHead, Empty, Stat } from '../components/ui'
 import { Columns, Sparkline } from '../components/charts'
+import { MonthNav } from '../components/MonthNav'
 import { PendingBookings } from '../components/PendingBookings'
 import {
-  IconAlert, IconCalendar, IconChevronLeft, IconChevronRight, IconClock, IconCoins,
+  IconAlert, IconCalendar, IconClock, IconCoins,
   IconFire, IconMoon, IconPlay, IconStop, IconTarget, IconWallet, IconSurf,
 } from '../components/Icons'
 
@@ -54,7 +56,7 @@ export function Dashboard({ month, setMonth, onPickDay }: {
     <>
       <div className="hero">
         <div className="hero-body readout">
-          <MonthSwitch month={month} setMonth={setMonth} />
+          <MonthNav month={month} setMonth={setMonth} />
           <div className="label" style={{ marginTop: 12 }}>Earned in {monthLabel(month)}</div>
           <div className="value">{money(summary.gross, settings, { decimals: 0 })}</div>
           <div className="meta">
@@ -181,25 +183,6 @@ export function Dashboard({ month, setMonth, onPickDay }: {
   )
 }
 
-function MonthSwitch({ month, setMonth }: { month: string; setMonth: (m: string) => void }) {
-  return (
-    <div className="inline" style={{ gap: 6 }}>
-      <button className="icon-btn" onClick={() => setMonth(addMonths(month, -1))} aria-label="Previous month">
-        <IconChevronLeft size={18} />
-      </button>
-      <button
-        className="btn ghost" style={{ color: '#fff', fontWeight: 600 }}
-        onClick={() => setMonth(monthKey(todayISO()))}
-      >
-        {monthLabel(month)}
-      </button>
-      <button className="icon-btn" onClick={() => setMonth(addMonths(month, 1))} aria-label="Next month">
-        <IconChevronRight size={18} />
-      </button>
-    </div>
-  )
-}
-
 /** Seven pills for the current week, tap to edit. */
 function WeekStrip({ onPickDay }: { onPickDay: (date: string) => void }) {
   const store = useStore()
@@ -227,7 +210,10 @@ function WeekStrip({ onPickDay }: { onPickDay: (date: string) => void }) {
   )
 }
 
-/** Clock in / clock out, with earnings ticking up while it runs. */
+/**
+ * The start/stop control. When idle it is a single obvious button; while a
+ * shift runs it becomes a live timer with the hours and the money so far.
+ */
 function ShiftClock() {
   const store = useStore()
   const { settings, activeShift } = store
@@ -240,53 +226,56 @@ function ShiftClock() {
   }, [activeShift])
 
   const production = store.productionOf(activeShift?.productionId ?? settings.defaultProductionId ?? null)
+  const rate = production?.rates[(activeShift?.tariff ?? 1) - 1] ?? 0
+  const quota = settings.regularDayHours
 
   if (!activeShift) {
     return (
-      <Card className="clock-card">
-        <div className="inline between">
-          <div>
-            <div className="inline" style={{ gap: 7 }}><IconPlay size={17} /><b>Start a shift</b></div>
-            <div className="tiny muted" style={{ marginTop: 2 }}>
-              {production ? production.name : 'No production set'} · clocks you in from now
-            </div>
-          </div>
-          <button
-            className="btn primary"
-            onClick={() => store.startShift(settings.defaultProductionId, 1)}
-          >
-            Clock in
-          </button>
+      <div className="timer-card">
+        <button className="timer-start" onClick={() => store.startShift(settings.defaultProductionId, 1)}>
+          <IconPlay size={30} />
+          <span>Start work</span>
+        </button>
+        <div className="timer-note">
+          <b>{production?.name ?? 'No job set'}</b>
+          <span>{money(rate, settings, { decimals: 0 })} a day · {formatHM(quota)} covered</span>
         </div>
-      </Card>
+      </div>
     )
   }
 
-  const elapsed = (now - activeShift.startedAt) / 3_600_000
-  const quota = settings.regularDayHours
-  const rate = production?.rates[activeShift.tariff - 1] ?? 900
-  const earned = elapsed >= quota
-    ? rate + (rate / quota) * settings.overtimeFirstMultiplier * Math.min(elapsed - quota, Math.max(0, 12 - quota))
-    : rate
+  const elapsed = Math.max(0, (now - activeShift.startedAt) / 3_600_000)
+  const hourly = quota > 0 ? rate / quota : 0
+  const earned = rate + overtimePay(Math.max(0, elapsed - quota), quota, hourly, settings)
+  const started = new Date(activeShift.startedAt)
+  const startedLabel = `${String(started.getHours()).padStart(2, '0')}:${String(started.getMinutes()).padStart(2, '0')}`
 
   return (
-    <Card className="clock-card live">
-      <div className="inline between">
-        <div>
-          <div className="inline" style={{ gap: 7 }}>
-            <span className="pulse" /><b>On the clock</b>
-          </div>
-          <div className="num" style={{ fontSize: 30, lineHeight: 1.1, marginTop: 4 }}>
-            {formatDuration(elapsed)}
-          </div>
-          <div className="tiny muted">
-            {production?.name ?? 'No production'} · about {money(earned, settings, { decimals: 0 })} so far
-          </div>
+    <div className="timer-card live">
+      <div className="timer-live">
+        <div className="timer-live-top">
+          <span className="pulse" />
+          <span>Working since {startedLabel}</span>
         </div>
-        <button className="btn warm" onClick={() => store.stopShift()}>
-          <IconStop size={16} /> Clock out
-        </button>
+        <div className="timer-elapsed">{formatStopwatch(elapsed)}</div>
+        <div className="timer-earned">
+          {money(earned, settings, { decimals: 0 })}
+          <span> so far{elapsed > quota ? ' · in overtime' : ''}</span>
+        </div>
       </div>
-    </Card>
+      <button className="timer-stop" onClick={() => store.stopShift()}>
+        <IconStop size={26} />
+        <span>Stop</span>
+      </button>
+    </div>
   )
+}
+
+/** h:mm:ss, so the seconds visibly tick. */
+function formatStopwatch(hours: number): string {
+  const total = Math.floor(hours * 3600)
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const sec = total % 60
+  return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 }

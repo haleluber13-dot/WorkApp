@@ -13,10 +13,13 @@ for night work, short rest between days, travel and late meals.
 ## What it does
 
 **Time**
+- A big **Start work / Stop** button with a live timer and the money climbing as you go.
 - Log a day with a start and an end. Shifts that run past midnight are handled properly.
+- Step to **any date** from inside the day editor to fill in a day you missed.
 - A 24-hour **timeline** of every day in the month — bars across the clock, night hours
   shaded, overtime in coral.
-- Calendar heat grid and a plain day-by-day list.
+- Calendar heat grid, a plain day-by-day list, and a **Months** view of every month you have worked.
+- Tap any month header to open a **year at a glance** and jump straight to a month.
 - **Clock in / clock out** with a live timer and earnings ticking up.
 
 **Money in**
@@ -66,19 +69,47 @@ On top of that:
 - **Meals**: skipped breakfast is a quarter hour; late meals count as worked time;
   meals cut short count double.
 
-Every threshold and multiplier above is editable in **Settings**.
+Every threshold and multiplier above is editable in **Settings** — nothing is baked in.
+Your **day rate sits at the top of Settings**, as a single big number with quick presets,
+showing live what it works out to per hour, per overtime hour and per rest day.
 
-### Verified against a real month
+### Verified against two real months
 
-`tests/pay.test.ts` reproduces a full month of real timesheet data day by day —
-16 shoot days, ₪14,400 in day rates, ₪9,492.86 of overtime, ₪3,203.57 of premiums,
-**₪27,096.43** before VAT. Run it with:
+`tests/pay.test.ts` reproduces two independently filled months of real timesheet
+data, day by day:
+
+- **at a ₪900 day rate** — 16 days, ₪14,400 in day rates, ₪9,492.86 of overtime,
+  ₪3,203.57 of premiums, **₪27,096.43** before VAT;
+- **at a ₪950 day rate** — 17 days, every overtime figure matching, **₪6,288.10**
+  of overtime.
+
+Two different rates, same engine, no hard-coded numbers. Run them with:
 
 ```bash
 npm test
 ```
 
 ---
+
+## On Android
+
+The project is wrapped with [Capacitor](https://capacitorjs.com), so the same
+code ships as a native Android app.
+
+```bash
+npm run build          # build the web app
+npx cap sync android   # copy it into the Android project
+npm run apk            # assemble a debug APK
+```
+
+The APK lands at `android/app/build/outputs/apk/debug/app-debug.apk`. Copy it to
+a phone and open it — Android will ask you to allow installing from this source.
+Launcher and splash artwork are generated from `public/icon.svg`:
+
+```bash
+npm run icons          # re-render assets/ from the SVG
+npx capacitor-assets generate --android --assetPath assets
+```
 
 ## Running it
 

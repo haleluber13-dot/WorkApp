@@ -25,7 +25,7 @@ function hydrate(raw: Partial<AppData>): AppData {
     startsOn: p.startsOn ?? null,
     endsOn: p.endsOn ?? null,
     note: p.note ?? '',
-    rates: (p.rates && p.rates.length === 3 ? p.rates : [900, 1575, 2100]) as [number, number, number],
+    rates: (p.rates && p.rates.length === 3 ? p.rates : [850, 1500, 2000]) as [number, number, number],
   }))
   for (const key of Object.keys(data.days)) {
     const d = data.days[key]

@@ -2,13 +2,13 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../state/store'
 import { expensesByCategory, summariseMonth } from '../lib/stats'
 import { money, moneyShort, percent } from '../lib/format'
-import { addMonths, monthKey, monthLabel, prettyDate, todayISO } from '../lib/time'
+import { monthKey, monthLabel, prettyDate, todayISO } from '../lib/time'
 import type { Expense, ExpenseCategory } from '../types'
 import { Bar, Card, CardHead, Empty, Field, NumberInput, Segmented, Select, Sheet, Stat, TextInput, Toggle } from '../components/ui'
 import { Donut } from '../components/charts'
+import { MonthNav } from '../components/MonthNav'
 import {
-  IconChevronLeft, IconChevronRight, IconCoins, IconPlus,
-  IconTrash, IconWallet, IconSurf, IconReceipt,
+  IconCoins, IconPlus, IconTrash, IconWallet, IconSurf, IconReceipt,
 } from '../components/Icons'
 
 const CATEGORIES: { value: ExpenseCategory; label: string; emoji: string; color: string }[] = [
@@ -60,17 +60,7 @@ export function Money({ month, setMonth }: { month: string; setMonth: (m: string
           </div>
         </div>
         <div className="hero-body readout" style={{ color: '#4a2410' }}>
-          <div className="inline" style={{ gap: 6 }}>
-            <button className="icon-btn" style={{ background: 'rgba(255,255,255,.3)', color: '#4a2410' }}
-              onClick={() => setMonth(addMonths(month, -1))} aria-label="Previous month">
-              <IconChevronLeft size={18} />
-            </button>
-            <span style={{ fontWeight: 600, minWidth: 128, textAlign: 'center' }}>{monthLabel(month)}</span>
-            <button className="icon-btn" style={{ background: 'rgba(255,255,255,.3)', color: '#4a2410' }}
-              onClick={() => setMonth(addMonths(month, 1))} aria-label="Next month">
-              <IconChevronRight size={18} />
-            </button>
-          </div>
+          <MonthNav month={month} setMonth={setMonth} />
           <div className="label" style={{ marginTop: 12, opacity: .65 }}>Kept this month</div>
           <div className="value">{money(summary.net, settings, { decimals: 0 })}</div>
           <div className="meta" style={{ opacity: .78 }}>

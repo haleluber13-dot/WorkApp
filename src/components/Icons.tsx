@@ -15,6 +15,24 @@ function Svg({ size = 20, children, ...rest }: P) {
   )
 }
 
+/** The Ombak mark: a low sun over a curling wave. Used for the app's identity. */
+export const Logo = ({ size = 24, ...rest }: P) => (
+  <svg width={size} height={size} viewBox="0 0 512 512" aria-hidden="true" {...rest}>
+    <defs>
+      <linearGradient id="ob-sun" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#ffe08a" /><stop offset="0.5" stopColor="#ffd166" /><stop offset="1" stopColor="#ff7a59" />
+      </linearGradient>
+      <clipPath id="ob-tile"><rect width="512" height="512" rx="114" /></clipPath>
+    </defs>
+    <g clipPath="url(#ob-tile)">
+      <circle cx="256" cy="236" r="104" fill="url(#ob-sun)" />
+      <path d="M-20 372c78-46 132 18 210 18s118-64 196-30 106 26 146 4v168H-20z" fill="currentColor" opacity="0.55" />
+      <path d="M-20 410c84-44 138 20 214 20s120-60 194-28 100 22 144 2v152H-20z" fill="currentColor" opacity="0.85" />
+      <path d="M36 386c46-26 84 10 128 14" stroke="#8ff0e0" strokeWidth="17" strokeLinecap="round" fill="none" />
+    </g>
+  </svg>
+)
+
 export const IconWave = (p: P) => (
   <Svg {...p}><path d="M2 15c2.5-2.6 5-2.6 7.5 0s5 2.6 7.5 0 3.5-1.6 5 0" /><path d="M2 19.5c2.5-2.6 5-2.6 7.5 0s5 2.6 7.5 0 3.5-1.6 5 0" /><circle cx="12" cy="6.5" r="3.5" /></Svg>
 )

@@ -14,7 +14,7 @@ export function defaultProduction(): Production {
     company: '',
     address: '',
     role: '',
-    rates: [900, 1575, 2100],
+    rates: [850, 1500, 2000],
     color: PRODUCTION_COLORS[0],
     archived: false,
     startsOn: null,
