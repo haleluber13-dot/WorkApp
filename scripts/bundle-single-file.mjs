@@ -18,7 +18,10 @@ const js = readFileSync(join(DIST, 'assets', jsFile), 'utf8')
 // A closing </script> anywhere in the bundle would end the inline script early.
 const safeJs = js.replace(/<\/script/gi, '<\\/script')
 
-const out = `<title>Ombak</title>
+// The published page can be renamed by its owner; keep that name across rebuilds.
+const title = process.env.OMBAK_TITLE || 'Ombak'
+
+const out = `<title>${title}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

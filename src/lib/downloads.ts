@@ -21,6 +21,12 @@ interface CapabilityHost {
 }
 
 /**
+ * An Android WebView ignores an anchor download unless the host app wires up a
+ * DownloadListener, so the click would silently do nothing. Better to say so.
+ */
+const inNativeShell = typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== 'undefined'
+
+/**
  * Resolved once, eagerly, so a later click doesn't wait on it. Resolves null
  * whenever there is no host — the ordinary web case.
  */
@@ -79,6 +85,7 @@ export async function saveFile(filename: string, content: string, type = 'applic
     }
   }
 
+  if (inNativeShell) return 'unavailable'
   return anchorDownload(filename, content, type) ? 'downloaded' : 'unavailable'
 }
 
@@ -88,6 +95,6 @@ export function describeOutcome(outcome: SaveOutcome, label: string): string {
     case 'saved': return `${label} saved.`
     case 'downloaded': return `${label} downloaded.`
     case 'declined': return 'Save cancelled.'
-    case 'unavailable': return `This page can't save files — use Copy instead.`
+    case 'unavailable': return 'Saving files is not available here — use Copy instead.'
   }
 }
