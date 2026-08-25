@@ -163,6 +163,14 @@ function maybeWelcome() {
         h('button.btn.block.primary', {
           onclick: () => { w.close(); dayEditor({}, (d) => d && navigate('today', { dayId: d.id })); },
         }, 'יוצרים יום צילום ראשון'),
+        h('button.btn.block', {
+          onclick: async () => {
+            const { loadDemoData } = await import('./demo.js');
+            loadDemoData();
+            w.close();
+            navigate('today');
+          },
+        }, 'מילוי נתוני דוגמה — להתרשם קודם'),
         h('button.btn.block.plain', { onclick: () => w.close() }, 'אחר כך'),
       ],
     });
@@ -196,7 +204,12 @@ function boot() {
   sync.startAutoSync();
   maybeWelcome();
 
-  if ('serviceWorker' in navigator) {
+  // Offline caching is for the installed app. A preview embedded in another
+  // page has no service worker to register and shouldn't claim the host origin.
+  const framed = (() => {
+    try { return window.top !== window.self; } catch { return true; }
+  })();
+  if ('serviceWorker' in navigator && !framed) {
     navigator.serviceWorker.register('./sw.js').catch(() => {});
   }
 

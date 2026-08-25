@@ -19,6 +19,7 @@ const SHELL = [
   './js/sync.js',
   './js/model.js',
   './js/actions.js',
+  './js/demo.js',
   './js/editors.js',
   './js/views/today.js',
   './js/views/crew.js',

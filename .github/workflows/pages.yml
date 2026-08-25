@@ -9,7 +9,11 @@ name: Deploy PWA to Pages
 
 on:
   push:
-    branches: [main]
+    # The feature branch is listed so Pages can go live before merging.
+    # Note: the `github-pages` environment may restrict deployments to the
+    # default branch — if the run fails on the deploy step, either merge to
+    # main or allow this branch under Settings → Environments → github-pages.
+    branches: [main, 'claude/**']
     paths: ['web/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 

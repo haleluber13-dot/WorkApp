@@ -38,6 +38,25 @@ export function formatPhone(phone) {
 export const hasPhone = (p) => digits(p?.phone).length >= 7;
 
 /**
+ * Whether we're running inside a frame (a preview embed rather than the
+ * installed app). A framed page usually can't hand off to the dialer or to
+ * WhatsApp, and the failure is silent — so we take a different route there.
+ */
+export const isFramed = (() => {
+  try { return window.top !== window.self; } catch { return true; }
+})();
+
+/** Put text on the clipboard and say so. The fallback when handoff is blocked. */
+async function copyOut(text, label) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`${label} — הועתק`, 'ok');
+  } catch {
+    toast(`${label}: ${text}`);
+  }
+}
+
+/**
  * Hand a URL to the OS.
  *
  * Uses a synthesised anchor rather than `location.href`: when the app is
@@ -61,17 +80,20 @@ function go(url) {
 
 export function call(person) {
   if (!hasPhone(person)) return toast('אין מספר טלפון לאיש הקשר הזה');
+  if (isFramed) return copyOut(formatPhone(person.phone), person.name);
   go(`tel:${digits(person.phone)}`);
 }
 
 export function sms(person, text = '') {
   if (!hasPhone(person)) return toast('אין מספר טלפון לאיש הקשר הזה');
+  if (isFramed) return copyOut(formatPhone(person.phone), person.name);
   // iOS wants &body= ; using ?& covers both iOS and Android.
   go(`sms:${digits(person.phone)}${text ? `&body=${encodeURIComponent(text)}` : ''}`);
 }
 
 export function whatsapp(person, text = '') {
   if (!hasPhone(person)) return toast('אין מספר טלפון לאיש הקשר הזה');
+  if (isFramed) return copyOut(text || formatPhone(person.phone), person.name);
   const n = toE164(person.phone);
   go(`https://wa.me/${n}${text ? `?text=${encodeURIComponent(text)}` : ''}`);
 }
@@ -87,6 +109,8 @@ export function navigate(location) {
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
   const q = encodeURIComponent(address || name || '');
   if (!hasCoords && !q) return toast('למיקום הזה אין כתובת');
+
+  if (isFramed) return copyOut(address || name, 'כתובת');
 
   const app = settings().navApp || 'waze';
   if (app === 'waze') {

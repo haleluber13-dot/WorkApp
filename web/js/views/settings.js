@@ -81,6 +81,19 @@ export function renderSettings({ navigate: goto }) {
           h('span.chev', icon('back', 18))),
         h('button.row', {
           onclick: async () => {
+            if (await confirmSheet('פעולה זו תחליף את כל הנתונים הקיימים בנתוני דוגמה. להמשיך?',
+                                   { danger: false, confirmLabel: 'טען דוגמה' })) {
+              const { loadDemoData } = await import('../demo.js');
+              loadDemoData();
+              toast('נתוני הדוגמה נטענו', 'ok');
+              rerender();
+            }
+          },
+        },
+          h('div.row-main', h('div.row-title', 'טעינת נתוני דוגמה'), h('div.row-sub', 'הפקה לדוגמה כדי להתרשם מהאפליקציה')),
+          h('span.chev', icon('back', 18))),
+        h('button.row', {
+          onclick: async () => {
             if (await confirmSheet('למחוק את כל הנתונים מהמכשיר הזה? הפעולה אינה הפיכה.', { confirmLabel: 'מחק הכל' })) {
               localStorage.removeItem('workapp.state.v1');
               location.reload();
@@ -189,8 +202,22 @@ function syncSetup(rerender) {
 
 /* ------------------------------------------------------------------ */
 
-function exportBackup() {
+async function exportBackup() {
   const data = JSON.stringify(store.getState(), null, 2);
+
+  // A framed preview can't start a download — the browser blocks it and the
+  // user is left thinking the backup worked. Put it on the clipboard instead
+  // and say what happened.
+  if (act.isFramed) {
+    try {
+      await navigator.clipboard.writeText(data);
+      toast('הגיבוי הועתק ללוח — הדביקו בקובץ ושמרו', 'ok');
+    } catch {
+      toast('הורדת גיבוי זמינה באפליקציה המותקנת', 'error');
+    }
+    return;
+  }
+
   const blob = new Blob([data], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -204,6 +231,9 @@ function exportBackup() {
 }
 
 function importBackup(rerender) {
+  if (act.isFramed) {
+    return toast('שחזור מגיבוי זמין באפליקציה המותקנת');
+  }
   const input = h('input', { type: 'file', accept: 'application/json,.json', style: { display: 'none' } });
   input.addEventListener('change', async () => {
     const file = input.files?.[0];
