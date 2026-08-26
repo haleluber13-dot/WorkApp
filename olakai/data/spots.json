@@ -1,0 +1,4275 @@
+{
+ "version": 1,
+ "updated": "2026-08-26",
+ "spots": [
+  {
+   "id": "pipeline",
+   "name": "Banzai Pipeline",
+   "region": "North Shore, Oahu",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 21.665,
+   "lon": -158.053,
+   "timezone": "Pacific/Honolulu",
+   "tags": [
+    "Reef",
+    "Barrel",
+    "Expert",
+    "Iconic"
+   ],
+   "info": {
+    "about": "The most photographed wave on earth and the most consequential. Pipeline breaks over a shallow, cavernous lava reef only a few hundred metres off Ehukai Beach Park, throwing a thick left-hand barrel that ends in dry rock. Backdoor peels right off the same peak. When the North Pacific lights up between November and February the whole surfing world points its cameras here.",
+    "breakType": "Reef break",
+    "bottom": "Shallow lava reef with caves",
+    "wave": "Heaving left barrel; Backdoor is the right",
+    "level": "Expert only",
+    "bestSwell": "NW–N groundswell, 8–15 ft faces",
+    "bestWind": "Light E/NE trades or glassy dawn",
+    "bestTide": "All tides; low is heaviest",
+    "bestSeason": "November–February",
+    "waterTemp": "24–27°C (75–80°F), trunks year round",
+    "crowd": "Extreme in season — a strict pecking order",
+    "hazards": [
+     "Shallow reef with undercut caves",
+     "Heavy hold-downs",
+     "Localised crowd — respect the order"
+    ],
+    "localTip": "Watch a full set from the beach before paddling. If you are asking whether you are ready, you are not."
+   },
+   "access": {
+    "airports": [
+     "HNL"
+    ],
+    "transfer": "About 60 min by car from Honolulu up the H-2 and Kam Highway",
+    "transferMinutes": 60,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "pipeline-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,21.665,-158.053,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,21.665,-158.053,10"
+    },
+    {
+     "id": "pipeline-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Banzai%20Pipeline",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Banzai%20Pipeline"
+    }
+   ]
+  },
+  {
+   "id": "waimea",
+   "name": "Waimea Bay",
+   "region": "North Shore, Oahu",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 21.642,
+   "lon": -158.065,
+   "timezone": "Pacific/Honolulu",
+   "tags": [
+    "Big wave",
+    "Reef",
+    "Expert"
+   ],
+   "info": {
+    "about": "The birthplace of modern big-wave surfing. Waimea sleeps flat most of the year, then wakes up when the North Pacific sends 20-foot-plus swell, producing a giant right-hand peak that breaks into a deepwater bay. The Eddie Aikau invitational runs here only when the bay says it can.",
+    "breakType": "Big-wave reef point",
+    "bottom": "Deep sand over rock",
+    "wave": "Steep, fast drop into a bowling right",
+    "level": "Expert only",
+    "bestSwell": "Huge NW–N groundswell (20 ft+ Hawaiian)",
+    "bestWind": "Light offshore E/SE",
+    "bestTide": "Any tide",
+    "bestSeason": "December–February",
+    "waterTemp": "24–26°C",
+    "crowd": "Small but elite lineup; huge shorebreak crowd on the sand",
+    "hazards": [
+     "Deadly shorebreak",
+     "Strong rip out of the bay",
+     "Only ride it if you can swim it"
+    ],
+    "localTip": "The rip along the rocks on the north side is the standard paddle-out lane on big days."
+   },
+   "access": {
+    "airports": [
+     "HNL"
+    ],
+    "transfer": "About 55 min drive from Honolulu",
+    "transferMinutes": 55,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "waimea-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,21.642,-158.065,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,21.642,-158.065,10"
+    },
+    {
+     "id": "waimea-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Waimea%20Bay",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Waimea%20Bay"
+    }
+   ]
+  },
+  {
+   "id": "sunset-beach",
+   "name": "Sunset Beach",
+   "region": "North Shore, Oahu",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 21.679,
+   "lon": -158.041,
+   "timezone": "Pacific/Honolulu",
+   "tags": [
+    "Reef",
+    "Big wave",
+    "Advanced"
+   ],
+   "info": {
+    "about": "A huge, shifting right-hand peak over a wide reef, and the North Shore's most demanding paddle. Sunset rewards positioning over speed: the takeoff zone moves with every set and the West Bowl can turn a good wave into a great one. It has been a contest venue since the sport professionalised.",
+    "breakType": "Reef break",
+    "bottom": "Coral and sand",
+    "wave": "Big, shifting right with a bowling inside section",
+    "level": "Advanced to expert",
+    "bestSwell": "NW–N groundswell, 6–15 ft",
+    "bestWind": "E/NE trades",
+    "bestTide": "Any tide",
+    "bestSeason": "November–February",
+    "waterTemp": "24–27°C",
+    "crowd": "Busy but spread out over a big playing field",
+    "hazards": [
+     "Powerful rips",
+     "Long paddle",
+     "Shifting peaks — sets swing wide"
+    ],
+    "localTip": "Line up off the point and be ready to scratch wide; the second wave of a set is usually the better one."
+   },
+   "access": {
+    "airports": [
+     "HNL"
+    ],
+    "transfer": "About 60 min drive from Honolulu",
+    "transferMinutes": 60,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "sunset-beach-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,21.679,-158.041,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,21.679,-158.041,10"
+    },
+    {
+     "id": "sunset-beach-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Sunset%20Beach",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Sunset%20Beach"
+    }
+   ]
+  },
+  {
+   "id": "waikiki",
+   "name": "Waikiki (Queens & Canoes)",
+   "region": "Oahu",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 21.271,
+   "lon": -157.825,
+   "timezone": "Pacific/Honolulu",
+   "tags": [
+    "Longboard",
+    "Beginner",
+    "Reef"
+   ],
+   "info": {
+    "about": "Where surfing was reintroduced to the world. Waikiki's outer reefs produce slow, forgiving rollers that can run for 200 metres or more, perfect for longboards and first waves. Duke Kahanamoku's statue faces the break he made famous, and the beachboy tradition of teaching visitors here is over a century old.",
+    "breakType": "Reef break",
+    "bottom": "Flat coral reef",
+    "wave": "Long, mellow, gently sloping walls",
+    "level": "Beginner to intermediate",
+    "bestSwell": "S–SW groundswell",
+    "bestWind": "Light NE trades (offshore here)",
+    "bestTide": "Mid to high tide is safest over the reef",
+    "bestSeason": "May–September (southern hemisphere swell)",
+    "waterTemp": "25–27°C",
+    "crowd": "Very busy but friendly and forgiving",
+    "hazards": [
+     "Shallow coral on low tide",
+     "Outrigger canoes sharing the lineup",
+     "Sea urchins"
+    ],
+    "localTip": "Queens is the pick of the peaks; go at dawn before the catamarans and lessons arrive."
+   },
+   "access": {
+    "airports": [
+     "HNL"
+    ],
+    "transfer": "15 min from Honolulu airport",
+    "transferMinutes": 15,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "waikiki-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,21.271,-157.825,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,21.271,-157.825,10"
+    },
+    {
+     "id": "waikiki-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Waikiki",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Waikiki"
+    }
+   ]
+  },
+  {
+   "id": "hookipa",
+   "name": "Ho'okipa",
+   "region": "Maui",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 20.933,
+   "lon": -156.357,
+   "timezone": "Pacific/Honolulu",
+   "tags": [
+    "Reef",
+    "Windsurf",
+    "Advanced"
+   ],
+   "info": {
+    "about": "Maui's north-shore proving ground and the world capital of windsurfing. Ho'okipa has three reef peaks — Pavilions, Middles and Lanes — that handle serious size, and a cliff-top car park that makes it one of the best waves on earth to simply watch. Green sea turtles haul out on the beach most afternoons.",
+    "breakType": "Reef break",
+    "bottom": "Lava reef",
+    "wave": "Punchy rights and lefts across three peaks",
+    "level": "Advanced",
+    "bestSwell": "N–NE groundswell",
+    "bestWind": "Light SW or early morning glass",
+    "bestTide": "Mid tide",
+    "bestSeason": "October–April",
+    "waterTemp": "24–26°C",
+    "crowd": "Crowded; surfers have the morning, windsurfers take over after about 11am",
+    "hazards": [
+     "Sharp lava reef",
+     "Strong current between peaks",
+     "Trade winds get violent by midday"
+    ],
+    "localTip": "Surf it before 11am. Local etiquette hands the water over to the sailors when the wind fills in."
+   },
+   "access": {
+    "airports": [
+     "OGG"
+    ],
+    "transfer": "About 20 min east of Kahului on the Hana Highway",
+    "transferMinutes": 20,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "hookipa-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,20.933,-156.357,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,20.933,-156.357,10"
+    },
+    {
+     "id": "hookipa-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Ho'okipa",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Ho'okipa"
+    }
+   ]
+  },
+  {
+   "id": "huntington",
+   "name": "Huntington Beach Pier",
+   "region": "California",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 33.655,
+   "lon": -118.0,
+   "timezone": "America/Los_Angeles",
+   "tags": [
+    "Beach break",
+    "Contest",
+    "All levels"
+   ],
+   "info": {
+    "about": "Surf City USA. A long stretch of consistent beach break either side of a concrete pier, with peaks that suit everyone from first-timers to the pros who show up for the US Open every summer. It is rarely world class and almost never flat, which is exactly why the whole industry grew up around it.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Peaky, punchy, both directions",
+    "level": "All levels",
+    "bestSwell": "SW summer swell or NW winter swell",
+    "bestWind": "Light E/NE morning offshore",
+    "bestTide": "Mid tide, incoming",
+    "bestSeason": "Year round; biggest in winter",
+    "waterTemp": "15–20°C — wetsuit most of the year",
+    "crowd": "Very crowded, especially south of the pier",
+    "hazards": [
+     "Rip currents",
+     "Pier pilings",
+     "Summer crowds and blackball flags"
+    ],
+    "localTip": "The sandbars either side of the pier shift constantly — walk the beach and pick your peak rather than paddling out where everyone else is."
+   },
+   "access": {
+    "airports": [
+     "SNA",
+     "LAX"
+    ],
+    "transfer": "20 min from John Wayne (SNA); about 50 min from LAX",
+    "transferMinutes": 20,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "huntington-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,33.655,-118.0,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,33.655,-118.0,10"
+    },
+    {
+     "id": "huntington-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Huntington%20Beach%20Pier",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Huntington%20Beach%20Pier"
+    }
+   ]
+  },
+  {
+   "id": "malibu",
+   "name": "Malibu (First Point)",
+   "region": "California",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 34.032,
+   "lon": -118.679,
+   "timezone": "America/Los_Angeles",
+   "tags": [
+    "Point break",
+    "Longboard",
+    "Iconic"
+   ],
+   "info": {
+    "about": "The most influential right-hand point in surfing. On a good south swell Malibu links three points into a single, tapering wall that can run the length of the beach — the wave that shaped longboarding, then shortboarding, then the entire California myth. It is also a designated World Surfing Reserve.",
+    "breakType": "Cobblestone point break",
+    "bottom": "Cobblestone and sand",
+    "wave": "Long, tapered, machine-like right",
+    "level": "Intermediate; crowded enough to demand skill",
+    "bestSwell": "S–SW groundswell",
+    "bestWind": "Light offshore NE or glassy",
+    "bestTide": "Medium to high, incoming",
+    "bestSeason": "May–September",
+    "waterTemp": "16–20°C",
+    "crowd": "Extreme — one of the most crowded waves in the world",
+    "hazards": [
+     "Severe crowd and drop-ins",
+     "Rocks at the point",
+     "Water quality after rain"
+    ],
+    "localTip": "Third Point is where the wave starts; ride it through and you get the whole thing. Weekday dawn is the only quiet window."
+   },
+   "access": {
+    "airports": [
+     "LAX"
+    ],
+    "transfer": "About 45 min up the Pacific Coast Highway from LAX",
+    "transferMinutes": 45,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "malibu-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,34.032,-118.679,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,34.032,-118.679,10"
+    },
+    {
+     "id": "malibu-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Malibu",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Malibu"
+    }
+   ]
+  },
+  {
+   "id": "steamer-lane",
+   "name": "Steamer Lane",
+   "region": "Santa Cruz, California",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 36.951,
+   "lon": -122.027,
+   "timezone": "America/Los_Angeles",
+   "tags": [
+    "Point break",
+    "Cold water",
+    "Advanced"
+   ],
+   "info": {
+    "about": "A cliff-side right-hand point in the heart of Santa Cruz, with four distinct peaks and a natural amphitheatre of onlookers along West Cliff Drive. The Lane handles size, holds shape in wind that ruins everywhere else, and has been the proving ground for Northern Californian surfing since the 1930s.",
+    "breakType": "Reef/point break",
+    "bottom": "Rock reef",
+    "wave": "Powerful right with a steep drop; Middle Peak holds size",
+    "level": "Advanced",
+    "bestSwell": "W–NW groundswell",
+    "bestWind": "NE offshore or light",
+    "bestTide": "Mid to low",
+    "bestSeason": "October–March",
+    "waterTemp": "11–15°C — 4/3 wetsuit and boots on cold days",
+    "crowd": "Crowded and territorial",
+    "hazards": [
+     "Cold water",
+     "Rocks and cliff",
+     "Great white sharks are present in the region"
+    ],
+    "localTip": "Watch from the lighthouse for twenty minutes first; each of the four peaks wants a different lineup."
+   },
+   "access": {
+    "airports": [
+     "SJC",
+     "SFO"
+    ],
+    "transfer": "About 45 min over the hill from San Jose",
+    "transferMinutes": 45,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "steamer-lane-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,36.951,-122.027,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,36.951,-122.027,10"
+    },
+    {
+     "id": "steamer-lane-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Steamer%20Lane",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Steamer%20Lane"
+    }
+   ]
+  },
+  {
+   "id": "ocean-beach-sf",
+   "name": "Ocean Beach",
+   "region": "San Francisco, California",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 37.759,
+   "lon": -122.511,
+   "timezone": "America/Los_Angeles",
+   "tags": [
+    "Beach break",
+    "Heavy",
+    "Expert"
+   ],
+   "info": {
+    "about": "Three miles of raw, cold, unforgiving beach break at the edge of San Francisco. The paddle out is legendary — multiple lines of whitewater, ferocious rips and water that rarely climbs out of the low teens. When it is good it is as heavy as any beach break in the world.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Thick, close-out prone A-frames; big and fast when it works",
+    "level": "Expert",
+    "bestSwell": "NW groundswell, cleaner at 4–8 ft",
+    "bestWind": "E offshore, early",
+    "bestTide": "Lower tides hold better shape",
+    "bestSeason": "September–November has the cleanest windows",
+    "waterTemp": "11–14°C — 4/3 with hood and boots in winter",
+    "crowd": "Uncrowded, because it is hard",
+    "hazards": [
+     "Brutal paddle out",
+     "Powerful rips",
+     "Cold water and fog",
+     "Sharks in the wider region"
+    ],
+    "localTip": "Use the rip to get out, never to come in. Sloat and Noriega break differently — check both."
+   },
+   "access": {
+    "airports": [
+     "SFO"
+    ],
+    "transfer": "25 min across the city from SFO",
+    "transferMinutes": 25,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "ocean-beach-sf-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,37.759,-122.511,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,37.759,-122.511,10"
+    },
+    {
+     "id": "ocean-beach-sf-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Ocean%20Beach",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Ocean%20Beach"
+    }
+   ]
+  },
+  {
+   "id": "san-diego",
+   "name": "San Diego (Blacks & PB)",
+   "region": "California",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 32.879,
+   "lon": -117.252,
+   "timezone": "America/Los_Angeles",
+   "tags": [
+    "Beach break",
+    "Canyon",
+    "All levels"
+   ],
+   "info": {
+    "about": "San Diego's coast runs from mellow Pacific Beach peaks to Blacks Beach, where the Scripps submarine canyon funnels swell into some of the most powerful beach break in California. Sun, consistency and a hundred kilometres of coastline make it the easiest place in the US to surf every day.",
+    "breakType": "Beach break over a submarine canyon",
+    "bottom": "Sand",
+    "wave": "Powerful, wedging peaks at Blacks; softer at PB",
+    "level": "Intermediate to advanced at Blacks",
+    "bestSwell": "W–NW winter or S summer swell",
+    "bestWind": "Light E offshore, morning",
+    "bestTide": "Mid tide",
+    "bestSeason": "Year round",
+    "waterTemp": "15–21°C — spring suit to 3/2",
+    "crowd": "Busy but spread across many beaches",
+    "hazards": [
+     "Long, steep trail down to Blacks",
+     "Rip currents",
+     "Sun exposure"
+    ],
+    "localTip": "Blacks doubles in size relative to the rest of the coast — check the buoy, not the neighbouring beach."
+   },
+   "access": {
+    "airports": [
+     "SAN"
+    ],
+    "transfer": "20–30 min from San Diego airport",
+    "transferMinutes": 25,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "san-diego-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,32.879,-117.252,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,32.879,-117.252,10"
+    },
+    {
+     "id": "san-diego-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/San%20Diego",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/San%20Diego"
+    }
+   ]
+  },
+  {
+   "id": "cocoa-beach",
+   "name": "Cocoa Beach",
+   "region": "Florida",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 28.36,
+   "lon": -80.607,
+   "timezone": "America/New_York",
+   "tags": [
+    "Beach break",
+    "Beginner",
+    "Warm water"
+   ],
+   "info": {
+    "about": "Kelly Slater's home beach and the friendliest place in the US to learn. The Atlantic here delivers small, soft, warm-water peaks most of the year, going properly good when a hurricane swell or a winter nor'easter arrives. The pier is the landmark and the meeting point.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Small, soft, forgiving peaks",
+    "level": "Beginner to intermediate",
+    "bestSwell": "E–NE swell; hurricane season brings the size",
+    "bestWind": "W offshore",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "August–November for size; year round for learning",
+    "waterTemp": "22–29°C — boardshorts most of the year",
+    "crowd": "Busy near the pier, empty a mile either way",
+    "hazards": [
+     "Long flat spells",
+     "Lightning storms in summer",
+     "Rip currents near the pier"
+    ],
+    "localTip": "When the forecast is flat here it usually is. Watch the tropics — a distant hurricane transforms this coast."
+   },
+   "access": {
+    "airports": [
+     "MCO",
+     "MLB"
+    ],
+    "transfer": "About 60 min east from Orlando; 20 min from Melbourne",
+    "transferMinutes": 60,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "cocoa-beach-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,28.36,-80.607,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,28.36,-80.607,10"
+    },
+    {
+     "id": "cocoa-beach-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Cocoa%20Beach",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Cocoa%20Beach"
+    }
+   ]
+  },
+  {
+   "id": "sebastian-inlet",
+   "name": "Sebastian Inlet",
+   "region": "Florida",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 27.86,
+   "lon": -80.447,
+   "timezone": "America/New_York",
+   "tags": [
+    "Jetty",
+    "Performance",
+    "Intermediate"
+   ],
+   "info": {
+    "about": "The best wave in Florida and the training ground of a generation of American professionals. The north jetty focuses swell into a fast, rampy right-hander — 'First Peak' — that is the closest thing the east coast has to a performance wave, and the contest site that produced Slater, Lopez and the Hobgoods.",
+    "breakType": "Jetty-assisted sandbar",
+    "bottom": "Sand against rock jetty",
+    "wave": "Fast, wedging right with an air section",
+    "level": "Intermediate to advanced",
+    "bestSwell": "E–NE swell",
+    "bestWind": "W–NW offshore",
+    "bestTide": "Mid tide, incoming",
+    "bestSeason": "September–April",
+    "waterTemp": "21–28°C",
+    "crowd": "Very crowded at First Peak; spread out down the beach",
+    "hazards": [
+     "Strong inlet current",
+     "Sharks are common around the inlet",
+     "Tight, competitive lineup"
+    ],
+    "localTip": "If First Peak is a zoo, walk south — the beach picks up the same swell with a tenth of the crowd."
+   },
+   "access": {
+    "airports": [
+     "MLB",
+     "MCO"
+    ],
+    "transfer": "About 40 min south of Melbourne, FL",
+    "transferMinutes": 40,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "sebastian-inlet-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,27.86,-80.447,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,27.86,-80.447,10"
+    },
+    {
+     "id": "sebastian-inlet-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Sebastian%20Inlet",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Sebastian%20Inlet"
+    }
+   ]
+  },
+  {
+   "id": "outer-banks",
+   "name": "Outer Banks",
+   "region": "North Carolina",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 35.908,
+   "lon": -75.62,
+   "timezone": "America/New_York",
+   "tags": [
+    "Beach break",
+    "Barrel",
+    "Hurricane swell"
+   ],
+   "info": {
+    "about": "A 200-mile sandbar hanging off the American east coast, and the best beach break on it. When a hurricane tracks offshore in September the OBX sandbars produce genuinely world-class barrels; the rest of the year it is windswept, empty and wildly variable.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Hollow, fast, shifting peaks",
+    "level": "Intermediate to advanced",
+    "bestSwell": "E–SE hurricane swell or winter NE",
+    "bestWind": "W–SW offshore",
+    "bestTide": "Low to mid",
+    "bestSeason": "August–October",
+    "waterTemp": "10–27°C — full range across the seasons",
+    "crowd": "Empty outside hurricane season",
+    "hazards": [
+     "Powerful rips",
+     "Isolated stretches with no lifeguards",
+     "Sharks",
+     "Storm closures"
+    ],
+    "localTip": "Rent a car and drive: the sandbars change every storm and the best peak is rarely at the same milepost twice."
+   },
+   "access": {
+    "airports": [
+     "ORF"
+    ],
+    "transfer": "About 90 min south from Norfolk, Virginia",
+    "transferMinutes": 90,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "outer-banks-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,35.908,-75.62,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,35.908,-75.62,10"
+    },
+    {
+     "id": "outer-banks-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Outer%20Banks",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Outer%20Banks"
+    }
+   ]
+  },
+  {
+   "id": "virginia-beach",
+   "name": "Virginia Beach",
+   "region": "Virginia",
+   "country": "United States",
+   "countryCode": "US",
+   "lat": 36.833,
+   "lon": -75.968,
+   "timezone": "America/New_York",
+   "tags": [
+    "Beach break",
+    "Pier",
+    "All levels"
+   ],
+   "info": {
+    "about": "A long, sandy municipal beach with a pier at First Street that focuses whatever swell the mid-Atlantic offers. It is not a world-class wave but it is consistent, easy to access, and home to the East Coast Surfing Championships — the oldest continuously running surf contest in the world.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Short, punchy peaks near the pier",
+    "level": "All levels",
+    "bestSwell": "NE winter swell or SE hurricane swell",
+    "bestWind": "W offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–November",
+    "waterTemp": "6–27°C",
+    "crowd": "Busy at the pier in summer",
+    "hazards": [
+     "Rip currents",
+     "Summer swimming restrictions",
+     "Long flat spells in midsummer"
+    ],
+    "localTip": "The peaks right on the pier pilings are best but are usually closed to surfing in peak summer — check local flags."
+   },
+   "access": {
+    "airports": [
+     "ORF"
+    ],
+    "transfer": "25 min from Norfolk airport",
+    "transferMinutes": 25,
+    "visaNote": "US ESTA/visa required for most non-US visitors"
+   },
+   "externalCams": [
+    {
+     "id": "virginia-beach-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,36.833,-75.968,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,36.833,-75.968,10"
+    },
+    {
+     "id": "virginia-beach-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Virginia%20Beach",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Virginia%20Beach"
+    }
+   ]
+  },
+  {
+   "id": "puerto-escondido",
+   "name": "Zicatela, Puerto Escondido",
+   "region": "Oaxaca",
+   "country": "Mexico",
+   "countryCode": "MX",
+   "lat": 15.848,
+   "lon": -97.058,
+   "timezone": "America/Mexico_City",
+   "tags": [
+    "Beach break",
+    "Big wave",
+    "Expert"
+   ],
+   "info": {
+    "about": "The Mexican Pipeline: the heaviest beach break on the planet. A deep offshore trench lets long-period South Pacific swell march straight into the sand at Zicatela, unloading in giant, square barrels that regularly top 20 feet. It is a big-wave venue that happens to break on a beach.",
+    "breakType": "Beach break",
+    "bottom": "Sand over a steep shelf",
+    "wave": "Enormous, square, sand-bottom barrels",
+    "level": "Expert only",
+    "bestSwell": "S–SW long-period groundswell",
+    "bestWind": "N offshore, early morning",
+    "bestTide": "All tides",
+    "bestSeason": "April–September",
+    "waterTemp": "27–30°C — boardshorts",
+    "crowd": "Small crew of specialists; heavy respect required",
+    "hazards": [
+     "Extremely powerful waves",
+     "Vicious rips and a brutal shorebreak",
+     "Deaths occur here most seasons"
+    ],
+    "localTip": "La Punta at the south end is the friendly wave; Zicatela is not. Know the difference before you paddle."
+   },
+   "access": {
+    "airports": [
+     "PXM",
+     "HUX"
+    ],
+    "transfer": "10 min from Puerto Escondido airport; about 2.5h from Huatulco",
+    "transferMinutes": 10,
+    "visaNote": "Most nationalities get a visa on arrival for Mexico"
+   },
+   "externalCams": [
+    {
+     "id": "puerto-escondido-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,15.848,-97.058,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,15.848,-97.058,10"
+    },
+    {
+     "id": "puerto-escondido-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Zicatela,%20Puerto%20Escondido",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Zicatela,%20Puerto%20Escondido"
+    }
+   ]
+  },
+  {
+   "id": "sayulita",
+   "name": "Sayulita",
+   "region": "Nayarit",
+   "country": "Mexico",
+   "countryCode": "MX",
+   "lat": 20.869,
+   "lon": -105.441,
+   "timezone": "America/Mexico_City",
+   "tags": [
+    "Beach break",
+    "Beginner",
+    "Warm water"
+   ],
+   "info": {
+    "about": "A cobblestone town on Banderas Bay that turned a gentle right-hand point into a whole surf-school economy. The wave is soft, warm and forgiving, the town is full of taco stands and hammocks, and the harder waves at Punta Mita and Burros are twenty minutes up the road.",
+    "breakType": "Point/beach break",
+    "bottom": "Sand and cobble",
+    "wave": "Slow, mellow rights and a shorter left",
+    "level": "Beginner to intermediate",
+    "bestSwell": "S–SW or NW swell",
+    "bestWind": "Light E offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "December–April for the cleanest conditions",
+    "waterTemp": "26–29°C",
+    "crowd": "Very busy with schools; go early",
+    "hazards": [
+     "Crowds of beginners on soft-tops",
+     "Water quality after heavy rain",
+     "Stingrays — shuffle your feet"
+    ],
+    "localTip": "Paddle 20 minutes north to Carricitos or drive to La Lancha for the same swell without the school crowd."
+   },
+   "access": {
+    "airports": [
+     "PVR"
+    ],
+    "transfer": "About 50 min north from Puerto Vallarta",
+    "transferMinutes": 50,
+    "visaNote": "Most nationalities get a visa on arrival for Mexico"
+   },
+   "externalCams": [
+    {
+     "id": "sayulita-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,20.869,-105.441,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,20.869,-105.441,10"
+    },
+    {
+     "id": "sayulita-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Sayulita",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Sayulita"
+    }
+   ]
+  },
+  {
+   "id": "tamarindo",
+   "name": "Tamarindo",
+   "region": "Guanacaste",
+   "country": "Costa Rica",
+   "countryCode": "CR",
+   "lat": 10.299,
+   "lon": -85.842,
+   "timezone": "America/Costa_Rica",
+   "tags": [
+    "Beach break",
+    "Rivermouth",
+    "All levels"
+   ],
+   "info": {
+    "about": "Guanacaste's surf hub: a wide, sandy bay with a rivermouth sandbar, warm water year round and an easy inside section that has taught thousands of people to surf. Witch's Rock and Ollie's Point are a boat ride north, which is why so many trips base themselves here.",
+    "breakType": "Beach break with a rivermouth bank",
+    "bottom": "Sand",
+    "wave": "Long, soft rights on the rivermouth; peaky beach break inside",
+    "level": "Beginner to intermediate",
+    "bestSwell": "SW groundswell",
+    "bestWind": "E offshore in the dry season",
+    "bestTide": "Mid to high",
+    "bestSeason": "April–October for swell; December–April for offshore wind",
+    "waterTemp": "27–29°C",
+    "crowd": "Busy but the bay is wide enough",
+    "hazards": [
+     "Crocodiles in the estuary — do not cross the rivermouth",
+     "Strong rip on the north side",
+     "Theft from parked cars"
+    ],
+    "localTip": "Book a panga to Witch's Rock for a dawn session; it is one of the great day trips in surfing."
+   },
+   "access": {
+    "airports": [
+     "LIR",
+     "SJO"
+    ],
+    "transfer": "About 75 min from Liberia; roughly 5h from San José",
+    "transferMinutes": 75,
+    "visaNote": "Most nationalities get 90 days visa-free in Costa Rica"
+   },
+   "externalCams": [
+    {
+     "id": "tamarindo-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,10.299,-85.842,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,10.299,-85.842,10"
+    },
+    {
+     "id": "tamarindo-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Tamarindo",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Tamarindo"
+    }
+   ]
+  },
+  {
+   "id": "santa-teresa",
+   "name": "Santa Teresa",
+   "region": "Nicoya Peninsula",
+   "country": "Costa Rica",
+   "countryCode": "CR",
+   "lat": 9.643,
+   "lon": -85.166,
+   "timezone": "America/Costa_Rica",
+   "tags": [
+    "Beach break",
+    "Consistent",
+    "All levels"
+   ],
+   "info": {
+    "about": "A dirt-road beach town on the tip of the Nicoya Peninsula with kilometres of consistent, punchy beach break and some of the most reliable offshore mornings in Central America. It went from fishing village to international surf destination in about fifteen years and the swell has never noticed.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Punchy A-frames, hollow at low tide",
+    "level": "Intermediate; beginner-friendly sections",
+    "bestSwell": "SW groundswell",
+    "bestWind": "E–NE offshore most mornings",
+    "bestTide": "Mid tide rising; low is hollow",
+    "bestSeason": "April–October",
+    "waterTemp": "27–29°C",
+    "crowd": "Spread along a long beach — easy to find space",
+    "hazards": [
+     "Strong rips",
+     "Rough access roads",
+     "Sun exposure — very little shade"
+    ],
+    "localTip": "The bank in front of Playa Carmen is the most consistent; walk north toward Playa Hermosa for cleaner peaks."
+   },
+   "access": {
+    "airports": [
+     "SJO"
+    ],
+    "transfer": "About 5h by road plus ferry from San José, or a 40-min light aircraft hop to Tambor",
+    "transferMinutes": 300,
+    "visaNote": "Most nationalities get 90 days visa-free in Costa Rica"
+   },
+   "externalCams": [
+    {
+     "id": "santa-teresa-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,9.643,-85.166,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,9.643,-85.166,10"
+    },
+    {
+     "id": "santa-teresa-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Santa%20Teresa",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Santa%20Teresa"
+    }
+   ]
+  },
+  {
+   "id": "punta-de-lobos",
+   "name": "Punta de Lobos",
+   "region": "Pichilemu",
+   "country": "Chile",
+   "countryCode": "CL",
+   "lat": -34.418,
+   "lon": -72.043,
+   "timezone": "America/Santiago",
+   "tags": [
+    "Point break",
+    "Big wave",
+    "Cold water"
+   ],
+   "info": {
+    "about": "Chile's most famous wave: a long, powerful left-hand point that peels past two sea stacks below dramatic cliffs. It handles huge swell, has hosted big-wave events, and is protected as a World Surfing Reserve after a local campaign saved the headland from development.",
+    "breakType": "Point break",
+    "bottom": "Rock and boulder",
+    "wave": "Long, powerful, walling left",
+    "level": "Advanced",
+    "bestSwell": "SW–W groundswell — almost always on",
+    "bestWind": "S–SE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "April–September for size; year round consistency",
+    "waterTemp": "13–17°C — 4/3 wetsuit",
+    "crowd": "Moderate; the wave is long enough to share",
+    "hazards": [
+     "Cold water",
+     "Sharp rocks on the jump-off",
+     "Very strong current on big days",
+     "Remote — limited medical help"
+    ],
+    "localTip": "The jump-off from the rocks is the standard entry; time it with the sets rather than fighting the paddle from the beach."
+   },
+   "access": {
+    "airports": [
+     "SCL"
+    ],
+    "transfer": "About 3.5h south-west by road from Santiago",
+    "transferMinutes": 210,
+    "visaNote": "Many nationalities enter Chile visa-free for 90 days"
+   },
+   "externalCams": [
+    {
+     "id": "punta-de-lobos-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-34.418,-72.043,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-34.418,-72.043,10"
+    },
+    {
+     "id": "punta-de-lobos-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Punta%20de%20Lobos",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Punta%20de%20Lobos"
+    }
+   ]
+  },
+  {
+   "id": "florianopolis",
+   "name": "Florianópolis",
+   "region": "Santa Catarina",
+   "country": "Brazil",
+   "countryCode": "BR",
+   "lat": -27.628,
+   "lon": -48.427,
+   "timezone": "America/Sao_Paulo",
+   "tags": [
+    "Beach break",
+    "Island",
+    "All levels"
+   ],
+   "info": {
+    "about": "An island with more than forty beaches and a wave for every wind. Joaquina is the contest beach and the birthplace of Brazilian competitive surfing; Praia Mole, Campeche and Silveira spread the crowd across the island. Brazil's surf industry effectively lives here.",
+    "breakType": "Beach breaks and points",
+    "bottom": "Sand",
+    "wave": "Punchy, rippable peaks",
+    "level": "All levels — pick your beach",
+    "bestSwell": "S–SE groundswell",
+    "bestWind": "N–NW offshore for the east-coast beaches",
+    "bestTide": "Mid tide",
+    "bestSeason": "April–September",
+    "waterTemp": "18–25°C — spring suit to 3/2",
+    "crowd": "Busy in summer; quiet mid-week in winter",
+    "hazards": [
+     "Strong rips at Joaquina",
+     "Summer holiday crowds",
+     "Urban water quality in some bays"
+    ],
+    "localTip": "With this many beaches, let the wind pick the spot — there is almost always somewhere offshore on the island."
+   },
+   "access": {
+    "airports": [
+     "FLN"
+    ],
+    "transfer": "20–40 min by car depending on which beach",
+    "transferMinutes": 30,
+    "visaNote": "Check Brazil's current visa rules for your nationality"
+   },
+   "externalCams": [
+    {
+     "id": "florianopolis-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-27.628,-48.427,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-27.628,-48.427,10"
+    },
+    {
+     "id": "florianopolis-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Florianópolis",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Florianópolis"
+    }
+   ]
+  },
+  {
+   "id": "rio",
+   "name": "Rio de Janeiro",
+   "region": "Rio de Janeiro",
+   "country": "Brazil",
+   "countryCode": "BR",
+   "lat": -22.988,
+   "lon": -43.19,
+   "timezone": "America/Sao_Paulo",
+   "tags": [
+    "Beach break",
+    "City",
+    "All levels"
+   ],
+   "info": {
+    "about": "Surfing under the Christ statue. Arpoador, the rock between Ipanema and Copacabana, is the city's best-known peak — a short, punchy right with a sunset ritual and a permanent crowd. Barra and Recreio down the coast take more swell and give more room.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Short, sharp, wedging peaks",
+    "level": "Intermediate",
+    "bestSwell": "S–SE swell",
+    "bestWind": "N offshore",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "April–October",
+    "waterTemp": "20–26°C",
+    "crowd": "Arpoador is packed; Recreio is not",
+    "hazards": [
+     "Very crowded lineup",
+     "Urban water quality after rain",
+     "Petty theft on the beach — take nothing"
+    ],
+    "localTip": "Arpoador at sunrise is the session; the rock gets a round of applause at sunset for a reason."
+   },
+   "access": {
+    "airports": [
+     "GIG"
+    ],
+    "transfer": "About 45 min from Galeão to the south-zone beaches",
+    "transferMinutes": 45,
+    "visaNote": "Check Brazil's current visa rules for your nationality"
+   },
+   "externalCams": [
+    {
+     "id": "rio-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-22.988,-43.19,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-22.988,-43.19,10"
+    },
+    {
+     "id": "rio-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Rio%20de%20Janeiro",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Rio%20de%20Janeiro"
+    }
+   ]
+  },
+  {
+   "id": "nazare",
+   "name": "Nazaré (Praia do Norte)",
+   "region": "Leiria",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 39.605,
+   "lon": -9.085,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Big wave",
+    "Tow",
+    "Spectacle"
+   ],
+   "info": {
+    "about": "The biggest rideable waves ever surfed. An underwater canyon 5km deep funnels North Atlantic swell straight into the headland at Praia do Norte, focusing it into peaks that have exceeded 25 metres. Most people come to watch from the lighthouse fort — which is the right call.",
+    "breakType": "Canyon-focused beach break",
+    "bottom": "Sand",
+    "wave": "Enormous, chaotic, shifting peaks",
+    "level": "Tow-in professionals only",
+    "bestSwell": "Huge NW Atlantic groundswell with long period",
+    "bestWind": "E–NE offshore",
+    "bestTide": "All tides",
+    "bestSeason": "October–March",
+    "waterTemp": "14–18°C — 4/3 wetsuit",
+    "crowd": "Tiny water crew; enormous crowd on the cliff",
+    "hazards": [
+     "Lethal for anyone but professionals with ski support",
+     "Violent shorebreak",
+     "Cliff-edge viewing areas"
+    ],
+    "localTip": "Watch from Forte de São Miguel Arcanjo. For actually surfing, Praia do Sul in town is the sane option."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 90 min north of Lisbon by motorway",
+    "transferMinutes": 90,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "nazare-meo-0",
+     "title": "MEO Beachcam — Praia do Norte, the canyon",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-do-norte-canhao-nazare/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-do-norte-canhao-nazare/"
+    },
+    {
+     "id": "nazare-meo-1",
+     "title": "MEO Beachcam — Forte de São Miguel Arcanjo",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/nazare-forte-sao-miguel-arcanjo/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/nazare-forte-sao-miguel-arcanjo/"
+    },
+    {
+     "id": "nazare-meo-2",
+     "title": "MEO Beachcam — Praia da Nazaré",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-da-nazare/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-da-nazare/"
+    },
+    {
+     "id": "nazare-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,39.605,-9.085,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,39.605,-9.085,10"
+    },
+    {
+     "id": "nazare-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Nazaré",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Nazaré"
+    }
+   ]
+  },
+  {
+   "id": "ericeira",
+   "name": "Ericeira",
+   "region": "Lisboa",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.963,
+   "lon": -9.418,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Reef",
+    "World Surfing Reserve",
+    "Advanced"
+   ],
+   "info": {
+    "about": "Europe's only World Surfing Reserve: seven world-class reefs inside four kilometres of coast. Ribeira d'Ilhas is the long, rippable right that hosts contests; Coxos is the heavy one the locals guard; Pedra Branca is the barrel. A fishing town that became the best-value surf trip in Europe.",
+    "breakType": "Reef points",
+    "bottom": "Rock reef",
+    "wave": "Long walling rights at Ribeira; hollow and heavy at Coxos",
+    "level": "Intermediate to expert depending on the reef",
+    "bestSwell": "NW–W groundswell",
+    "bestWind": "N–NE offshore",
+    "bestTide": "Mid tide; Coxos prefers higher",
+    "bestSeason": "September–April",
+    "waterTemp": "15–19°C — 3/2 to 4/3",
+    "crowd": "Busy at Ribeira, guarded at Coxos",
+    "hazards": [
+     "Sharp reef and urchins",
+     "Rock entries",
+     "Localism at the heavier reefs"
+    ],
+    "localTip": "Start at Ribeira d'Ilhas. Earn Coxos later, and only when it is not crowded with locals."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 50 min north-west of Lisbon",
+    "transferMinutes": 50,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "ericeira-meo-0",
+     "title": "MEO Beachcam — Ericeira",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/ericeira/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/ericeira/"
+    },
+    {
+     "id": "ericeira-meo-1",
+     "title": "MEO Beachcam — Praia do Sul",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/ericeira-praia-do-sul/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/ericeira-praia-do-sul/"
+    },
+    {
+     "id": "ericeira-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.963,-9.418,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.963,-9.418,10"
+    },
+    {
+     "id": "ericeira-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Ericeira",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Ericeira"
+    }
+   ]
+  },
+  {
+   "id": "peniche",
+   "name": "Supertubos, Peniche",
+   "region": "Leiria",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 39.348,
+   "lon": -9.366,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "Barrel",
+    "Advanced"
+   ],
+   "info": {
+    "about": "The European Pipeline. Supertubos is a sand-bottom beach break that throws thick, fast, perfectly round barrels when a NW swell meets the right bank — heavy enough to hold a championship-tour event. Peniche's peninsula also means there is a beach facing every wind direction.",
+    "breakType": "Beach break",
+    "bottom": "Sand over a steep shelf",
+    "wave": "Thick, fast, hollow barrels",
+    "level": "Advanced",
+    "bestSwell": "NW groundswell, 3–8 ft",
+    "bestWind": "E–NE offshore",
+    "bestTide": "Low to mid, incoming",
+    "bestSeason": "October–March",
+    "waterTemp": "14–18°C — 4/3",
+    "crowd": "Crowded when it is on",
+    "hazards": [
+     "Heavy, sand-sucking barrels",
+     "Board-breaking closeouts",
+     "Strong rips"
+    ],
+    "localTip": "If Supertubos is closing out, drive ten minutes to Baleal — the peninsula almost always has a sheltered option."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 75 min north of Lisbon",
+    "transferMinutes": 75,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "peniche-meo-0",
+     "title": "MEO Beachcam — Supertubos",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/peniche-supertubos/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/peniche-supertubos/"
+    },
+    {
+     "id": "peniche-meo-1",
+     "title": "MEO Beachcam — Baleal panorama",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/peniche-baleal-panoramica/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/peniche-baleal-panoramica/"
+    },
+    {
+     "id": "peniche-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,39.348,-9.366,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,39.348,-9.366,10"
+    },
+    {
+     "id": "peniche-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Supertubos,%20Peniche",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Supertubos,%20Peniche"
+    }
+   ]
+  },
+  {
+   "id": "caparica",
+   "name": "Costa da Caparica",
+   "region": "Setúbal",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.647,
+   "lon": -9.234,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "City escape",
+    "All levels"
+   ],
+   "info": {
+    "about": "Lisbon's home beach: 15 kilometres of sand break starting a bridge-crossing from the city centre. A series of groynes creates dozens of banks, so there is nearly always a peak with space, and the whole coast is reachable on public transport from the capital.",
+    "breakType": "Beach break",
+    "bottom": "Sand between groynes",
+    "wave": "Peaky, consistent, medium power",
+    "level": "All levels",
+    "bestSwell": "NW–W swell",
+    "bestWind": "N–NE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May",
+    "waterTemp": "15–19°C — 3/2 to 4/3",
+    "crowd": "Busy near the town, empty further south",
+    "hazards": [
+     "Rips between the groynes",
+     "Summer beach crowds",
+     "Occasional water quality issues after storms"
+    ],
+    "localTip": "Take the beach train south in summer — the further you go, the emptier and cleaner the banks."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 30 min from Lisbon across the 25 de Abril bridge",
+    "transferMinutes": 30,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "caparica-meo-0",
+     "title": "MEO Beachcam — Costa da Caparica",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/costa-da-caparica/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/costa-da-caparica/"
+    },
+    {
+     "id": "caparica-meo-1",
+     "title": "MEO Beachcam — Praia Nova",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/costa-da-caparica-praia-nova/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/costa-da-caparica-praia-nova/"
+    },
+    {
+     "id": "caparica-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.647,-9.234,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.647,-9.234,10"
+    },
+    {
+     "id": "caparica-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Costa%20da%20Caparica",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Costa%20da%20Caparica"
+    }
+   ]
+  },
+  {
+   "id": "mundaka",
+   "name": "Mundaka",
+   "region": "Basque Country",
+   "country": "Spain",
+   "countryCode": "ES",
+   "lat": 43.407,
+   "lon": -2.698,
+   "timezone": "Europe/Madrid",
+   "tags": [
+    "Rivermouth",
+    "Left",
+    "Expert"
+   ],
+   "info": {
+    "about": "The best left-hand rivermouth in Europe, and possibly the world. When a big NW swell meets the sandbar at the mouth of the Urdaibai estuary, Mundaka produces a long, hollow, spinning left that can run for 400 metres. It is fickle, tide-dependent and worth the wait.",
+    "breakType": "Rivermouth sandbar",
+    "bottom": "Sand over an estuary bar",
+    "wave": "Long, fast, barrelling left",
+    "level": "Advanced to expert",
+    "bestSwell": "Big NW groundswell",
+    "bestWind": "S–SE offshore",
+    "bestTide": "Mid-to-low outgoing tide is the classic window",
+    "bestSeason": "September–March",
+    "waterTemp": "13–18°C — 4/3 wetsuit",
+    "crowd": "Very crowded and strictly hierarchical when it is on",
+    "hazards": [
+     "Powerful outgoing current",
+     "Cold water",
+     "Strong local pecking order — wait your turn"
+    ],
+    "localTip": "The jetty jump-off saves a brutal paddle. If it is firing, expect a full lineup of very good local surfers."
+   },
+   "access": {
+    "airports": [
+     "BIO"
+    ],
+    "transfer": "About 45 min east from Bilbao",
+    "transferMinutes": 45,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "mundaka-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.407,-2.698,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.407,-2.698,10"
+    },
+    {
+     "id": "mundaka-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Mundaka",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Mundaka"
+    }
+   ]
+  },
+  {
+   "id": "zarautz",
+   "name": "Zarautz",
+   "region": "Basque Country",
+   "country": "Spain",
+   "countryCode": "ES",
+   "lat": 43.286,
+   "lon": -2.171,
+   "timezone": "Europe/Madrid",
+   "tags": [
+    "Beach break",
+    "Consistent",
+    "All levels"
+   ],
+   "info": {
+    "about": "The Basque country's longest beach and its most consistent, a 2.5km arc that picks up almost any swell and has been hosting European contests for decades. The town behind it is a pintxos crawl, which makes it an unusually civilised place to base a surf trip.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Consistent peaks, mellow to punchy",
+    "level": "All levels",
+    "bestSwell": "NW–W swell",
+    "bestWind": "S offshore",
+    "bestTide": "Mid to low tide",
+    "bestSeason": "September–May",
+    "waterTemp": "13–20°C — 3/2 to 4/3",
+    "crowd": "Busy in town, quieter at either end",
+    "hazards": [
+     "Rip currents",
+     "Summer crowds",
+     "Water can be choppy in onshore winds"
+    ],
+    "localTip": "The west end near the campsite has the best banks; the east end is calmer for learning."
+   },
+   "access": {
+    "airports": [
+     "EAS",
+     "BIO"
+    ],
+    "transfer": "About 25 min from San Sebastián; 60 min from Bilbao",
+    "transferMinutes": 25,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "zarautz-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.286,-2.171,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.286,-2.171,10"
+    },
+    {
+     "id": "zarautz-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Zarautz",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Zarautz"
+    }
+   ]
+  },
+  {
+   "id": "san-sebastian",
+   "name": "Zurriola, San Sebastián",
+   "region": "Basque Country",
+   "country": "Spain",
+   "countryCode": "ES",
+   "lat": 43.323,
+   "lon": -1.974,
+   "timezone": "Europe/Madrid",
+   "tags": [
+    "Beach break",
+    "City",
+    "All levels"
+   ],
+   "info": {
+    "about": "A surf beach in the middle of one of Europe's great food cities. Zurriola sits right in San Sebastián, exposed enough to pick up swell that the sheltered La Concha bay never sees, with a wall of pintxos bars two streets back from the sand.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Punchy, shifting peaks",
+    "level": "Intermediate; beginner areas at the west end",
+    "bestSwell": "NW–N swell",
+    "bestWind": "S offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May",
+    "waterTemp": "13–21°C",
+    "crowd": "Busy — it is a city beach",
+    "hazards": [
+     "Rips near the river mouth",
+     "Crowded lineup",
+     "Water quality after heavy rain"
+    ],
+    "localTip": "Surf at dawn, eat pintxos in the Parte Vieja at night. That is the whole itinerary and it is a good one."
+   },
+   "access": {
+    "airports": [
+     "EAS",
+     "BIO"
+    ],
+    "transfer": "20 min from Hondarribia (EAS); 90 min from Bilbao",
+    "transferMinutes": 20,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "san-sebastian-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.323,-1.974,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.323,-1.974,10"
+    },
+    {
+     "id": "san-sebastian-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Zurriola,%20San%20Sebastián",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Zurriola,%20San%20Sebastián"
+    }
+   ]
+  },
+  {
+   "id": "hossegor",
+   "name": "Hossegor",
+   "region": "Landes",
+   "country": "France",
+   "countryCode": "FR",
+   "lat": 43.662,
+   "lon": -1.44,
+   "timezone": "Europe/Paris",
+   "tags": [
+    "Beach break",
+    "Barrel",
+    "Advanced"
+   ],
+   "info": {
+    "about": "The best beach break in Europe. The Gouf de Capbreton — a deep submarine canyon running right up to the shore — supercharges Atlantic swell into thick, hollow barrels at La Gravière and the surrounding banks. Europe's surf industry is headquartered here for a reason.",
+    "breakType": "Beach break over a submarine canyon",
+    "bottom": "Sand",
+    "wave": "Thick, heavy, barrelling peaks",
+    "level": "Advanced to expert",
+    "bestSwell": "W–NW groundswell",
+    "bestWind": "E offshore",
+    "bestTide": "Low to mid, rising",
+    "bestSeason": "September–October is the classic season",
+    "waterTemp": "15–22°C — 3/2, 4/3 in winter",
+    "crowd": "Crowded in season",
+    "hazards": [
+     "Very heavy waves for a beach break",
+     "Strong rips",
+     "Banks shift constantly"
+    ],
+    "localTip": "September is the sweet spot: warm water, big Atlantic swell and offshore mornings. Check the banks daily."
+   },
+   "access": {
+    "airports": [
+     "BIQ"
+    ],
+    "transfer": "About 35 min north of Biarritz",
+    "transferMinutes": 35,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "hossegor-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.662,-1.44,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.662,-1.44,10"
+    },
+    {
+     "id": "hossegor-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Hossegor",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Hossegor"
+    }
+   ]
+  },
+  {
+   "id": "biarritz",
+   "name": "Biarritz",
+   "region": "Nouvelle-Aquitaine",
+   "country": "France",
+   "countryCode": "FR",
+   "lat": 43.483,
+   "lon": -1.559,
+   "timezone": "Europe/Paris",
+   "tags": [
+    "Beach break",
+    "Longboard",
+    "All levels"
+   ],
+   "info": {
+    "about": "Where European surfing began, in 1957, when a Hollywood screenwriter left a board behind. The Grande Plage sits below belle-époque hotels and a casino; Côte des Basques is the longboard beach at low tide; Marbella and Milady take the swell when it gets big.",
+    "breakType": "Beach breaks and reefs",
+    "bottom": "Sand and rock",
+    "wave": "Mellow longboard walls to punchy beach peaks",
+    "level": "All levels",
+    "bestSwell": "W–NW swell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Côte des Basques needs low tide",
+    "bestSeason": "September–November",
+    "waterTemp": "14–22°C",
+    "crowd": "Busy in summer, pleasant in autumn",
+    "hazards": [
+     "Rocks at low tide on some beaches",
+     "Summer crowds",
+     "Rips on bigger days"
+    ],
+    "localTip": "Côte des Basques at low tide on a small clean swell is one of the nicest longboard sessions in Europe."
+   },
+   "access": {
+    "airports": [
+     "BIQ"
+    ],
+    "transfer": "10 min from Biarritz airport",
+    "transferMinutes": 10,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "biarritz-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.483,-1.559,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.483,-1.559,10"
+    },
+    {
+     "id": "biarritz-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Biarritz",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Biarritz"
+    }
+   ]
+  },
+  {
+   "id": "lacanau",
+   "name": "Lacanau Océan",
+   "region": "Gironde",
+   "country": "France",
+   "countryCode": "FR",
+   "lat": 45.0,
+   "lon": -1.201,
+   "timezone": "Europe/Paris",
+   "tags": [
+    "Beach break",
+    "Consistent",
+    "All levels"
+   ],
+   "info": {
+    "about": "A pine-forest beach town north of Bordeaux with a long, consistent stretch of Atlantic beach break and a European contest pedigree. Less heavy than Hossegor, more forgiving, and backed by 100km of cycle paths through the forest.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Consistent, medium-power peaks",
+    "level": "All levels",
+    "bestSwell": "W–NW swell",
+    "bestWind": "E offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "May–October",
+    "waterTemp": "14–22°C",
+    "crowd": "Busy in July and August only",
+    "hazards": [
+     "Rip currents",
+     "Banks change with every storm",
+     "Strong summer sun"
+    ],
+    "localTip": "Ride a bike north from the town centre and pick an empty bank — there are kilometres of them."
+   },
+   "access": {
+    "airports": [
+     "BOD"
+    ],
+    "transfer": "About 60 min west from Bordeaux",
+    "transferMinutes": 60,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "lacanau-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,45.0,-1.201,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,45.0,-1.201,10"
+    },
+    {
+     "id": "lacanau-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Lacanau%20Océan",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Lacanau%20Océan"
+    }
+   ]
+  },
+  {
+   "id": "fistral",
+   "name": "Fistral Beach, Newquay",
+   "region": "Cornwall",
+   "country": "United Kingdom",
+   "countryCode": "GB",
+   "lat": 50.416,
+   "lon": -5.1,
+   "timezone": "Europe/London",
+   "tags": [
+    "Beach break",
+    "Contest",
+    "All levels"
+   ],
+   "info": {
+    "about": "The centre of British surfing. Fistral faces straight into Atlantic swell, holds size better than most UK beaches, and has hosted the country's major contests for decades. The Cribbar, the big-wave reef off the headland, only shows up a few days a year.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Punchy peaks; holds size at North Fistral",
+    "level": "All levels",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–November",
+    "waterTemp": "10–17°C — 4/3 winter, 3/2 summer",
+    "crowd": "Busy, especially in summer",
+    "hazards": [
+     "Cold water",
+     "Rip currents",
+     "Very crowded in peak season"
+    ],
+    "localTip": "When Fistral is blown out, cross the peninsula to Watergate Bay or head to the north coast's sheltered coves."
+   },
+   "access": {
+    "airports": [
+     "NQY"
+    ],
+    "transfer": "10 min from Newquay Cornwall airport",
+    "transferMinutes": 10,
+    "visaNote": "Check UK entry requirements for your nationality"
+   },
+   "externalCams": [
+    {
+     "id": "fistral-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,50.416,-5.1,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,50.416,-5.1,10"
+    },
+    {
+     "id": "fistral-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Fistral%20Beach,%20Newquay",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Fistral%20Beach,%20Newquay"
+    }
+   ]
+  },
+  {
+   "id": "bundoran",
+   "name": "Bundoran",
+   "region": "Donegal",
+   "country": "Ireland",
+   "countryCode": "IE",
+   "lat": 54.478,
+   "lon": -8.287,
+   "timezone": "Europe/Dublin",
+   "tags": [
+    "Reef",
+    "Cold water",
+    "Advanced"
+   ],
+   "info": {
+    "about": "Ireland's surf capital, on the wild Atlantic coast of Donegal. The Peak is a heavy left and right reef right in front of town, and the surrounding coast hides some of the heaviest slabs in Europe. Cold, raw and consistently good from autumn onwards.",
+    "breakType": "Reef break",
+    "bottom": "Rock reef",
+    "wave": "Hollow, powerful left and right off a reef",
+    "level": "Advanced",
+    "bestSwell": "W–NW Atlantic groundswell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–April",
+    "waterTemp": "8–15°C — 5/4 with hood, gloves and boots in winter",
+    "crowd": "Small, dedicated crew",
+    "hazards": [
+     "Very cold water",
+     "Sharp reef",
+     "Powerful Atlantic swell",
+     "Short winter daylight"
+    ],
+    "localTip": "Bring the warmest wetsuit you own. The Atlantic here does not care what the calendar says."
+   },
+   "access": {
+    "airports": [
+     "NOC",
+     "DUB"
+    ],
+    "transfer": "About 60 min from Knock; roughly 3h from Dublin",
+    "transferMinutes": 60,
+    "visaNote": "Ireland is outside Schengen — check entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "bundoran-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,54.478,-8.287,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,54.478,-8.287,10"
+    },
+    {
+     "id": "bundoran-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Bundoran",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Bundoran"
+    }
+   ]
+  },
+  {
+   "id": "lahinch",
+   "name": "Lahinch",
+   "region": "Clare",
+   "country": "Ireland",
+   "countryCode": "IE",
+   "lat": 52.933,
+   "lon": -9.345,
+   "timezone": "Europe/Dublin",
+   "tags": [
+    "Beach break",
+    "Reef",
+    "All levels"
+   ],
+   "info": {
+    "about": "A friendly beach break in a golf-and-surf town on the Clare coast, twenty minutes from the Cliffs of Moher. The beach is forgiving and good for learning; the reefs either side — including the notorious Aileen's under the cliffs — are anything but.",
+    "breakType": "Beach break with reefs nearby",
+    "bottom": "Sand; rock at the reefs",
+    "wave": "Mellow beach peaks; heavy reefs on the flanks",
+    "level": "Beginner on the beach, expert on the reefs",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E offshore",
+    "bestTide": "Mid to high tide on the beach",
+    "bestSeason": "September–April",
+    "waterTemp": "9–16°C — 5/4 in winter",
+    "crowd": "Relaxed",
+    "hazards": [
+     "Cold water",
+     "Powerful reefs nearby — do not wander onto them",
+     "Strong currents at the river end"
+    ],
+    "localTip": "The beach is a genuinely good place to learn. Aileen's, under the Cliffs of Moher, is not a place to visit casually."
+   },
+   "access": {
+    "airports": [
+     "SNN"
+    ],
+    "transfer": "About 60 min from Shannon",
+    "transferMinutes": 60,
+    "visaNote": "Ireland is outside Schengen — check entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "lahinch-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,52.933,-9.345,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,52.933,-9.345,10"
+    },
+    {
+     "id": "lahinch-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Lahinch",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Lahinch"
+    }
+   ]
+  },
+  {
+   "id": "fuerteventura",
+   "name": "Fuerteventura (North Shore)",
+   "region": "Canary Islands",
+   "country": "Spain",
+   "countryCode": "ES",
+   "lat": 28.742,
+   "lon": -13.864,
+   "timezone": "Atlantic/Canary",
+   "tags": [
+    "Reef",
+    "Volcanic",
+    "Advanced"
+   ],
+   "info": {
+    "about": "The Canaries' windswept desert island, with a north shore full of reefs — Hierro, Bristol, Mejillones, Generosa — that fire on winter Atlantic swell. Warm water, volcanic rock and a lunar landscape; the trade winds that make it a windsurfing capital also ruin the surf if you time it wrong.",
+    "breakType": "Reef breaks",
+    "bottom": "Sharp volcanic reef",
+    "wave": "Fast, hollow rights and lefts",
+    "level": "Advanced",
+    "bestSwell": "NW Atlantic groundswell",
+    "bestWind": "S–SE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "October–March",
+    "waterTemp": "18–23°C — 3/2 shorty to 3/2",
+    "crowd": "Busy on the good reefs in winter",
+    "hazards": [
+     "Very sharp volcanic reef — booties are common",
+     "Strong currents",
+     "Sea urchins",
+     "Rental-car break-ins at remote spots"
+    ],
+    "localTip": "The whole north shore is reef. Get a good pair of booties and study the entry and exit before you paddle out."
+   },
+   "access": {
+    "airports": [
+     "FUE"
+    ],
+    "transfer": "About 45 min north from Fuerteventura airport to Corralejo",
+    "transferMinutes": 45,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "fuerteventura-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,28.742,-13.864,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,28.742,-13.864,10"
+    },
+    {
+     "id": "fuerteventura-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Fuerteventura",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Fuerteventura"
+    }
+   ]
+  },
+  {
+   "id": "lanzarote",
+   "name": "Lanzarote (Famara & La Santa)",
+   "region": "Canary Islands",
+   "country": "Spain",
+   "countryCode": "ES",
+   "lat": 29.117,
+   "lon": -13.556,
+   "timezone": "Atlantic/Canary",
+   "tags": [
+    "Reef",
+    "Beach break",
+    "All levels"
+   ],
+   "info": {
+    "about": "A volcanic island where a 6km beach under a 600m cliff (Famara) sits half an hour from El Quemao, the Canaries' most serious barrel. Warm water in winter, consistent Atlantic swell, and a landscape that looks like another planet.",
+    "breakType": "Beach break and reefs",
+    "bottom": "Sand at Famara; lava reef at La Santa",
+    "wave": "Mellow at Famara; heavy barrels at El Quemao",
+    "level": "Beginner at Famara, expert at El Quemao",
+    "bestSwell": "NW Atlantic groundswell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "October–March",
+    "waterTemp": "18–23°C",
+    "crowd": "Famara is busy with schools; the reefs are guarded",
+    "hazards": [
+     "Sharp lava reef",
+     "Strong currents at La Santa",
+     "El Quemao is for experts only",
+     "Sea urchins"
+    ],
+    "localTip": "Famara for learning and long days; El Quemao only if you genuinely belong there."
+   },
+   "access": {
+    "airports": [
+     "ACE"
+    ],
+    "transfer": "About 35 min from Arrecife to Famara",
+    "transferMinutes": 35,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "lanzarote-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,29.117,-13.556,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,29.117,-13.556,10"
+    },
+    {
+     "id": "lanzarote-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Lanzarote",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Lanzarote"
+    }
+   ]
+  },
+  {
+   "id": "tenerife",
+   "name": "Tenerife (Las Américas)",
+   "region": "Canary Islands",
+   "country": "Spain",
+   "countryCode": "ES",
+   "lat": 28.073,
+   "lon": -16.735,
+   "timezone": "Atlantic/Canary",
+   "tags": [
+    "Reef",
+    "Volcanic",
+    "Intermediate"
+   ],
+   "info": {
+    "about": "The south of Tenerife has a run of punchy lava reefs — Las Américas, La Fitenia, Spanish Left — that work on winter NW swell in T-shirt water. It is the most accessible Canarian surf, with an airport, a resort strip and reef breaks in the same square kilometre.",
+    "breakType": "Reef break",
+    "bottom": "Lava reef and boulders",
+    "wave": "Fast, punchy rights and lefts",
+    "level": "Intermediate to advanced",
+    "bestSwell": "NW swell",
+    "bestWind": "NE trade winds can be offshore on some reefs",
+    "bestTide": "Mid tide",
+    "bestSeason": "November–March",
+    "waterTemp": "19–23°C — shorty or 3/2",
+    "crowd": "Crowded on the accessible reefs",
+    "hazards": [
+     "Sharp lava rock",
+     "Urchins",
+     "Rocky entries and exits",
+     "Strong currents"
+    ],
+    "localTip": "Booties are worth packing. The reefs are shallow and the rock is volcanic glass in places."
+   },
+   "access": {
+    "airports": [
+     "TFS"
+    ],
+    "transfer": "About 20 min from Tenerife South airport",
+    "transferMinutes": 20,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "tenerife-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,28.073,-16.735,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,28.073,-16.735,10"
+    },
+    {
+     "id": "tenerife-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Tenerife",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Tenerife"
+    }
+   ]
+  },
+  {
+   "id": "taghazout",
+   "name": "Taghazout & Anchor Point",
+   "region": "Souss-Massa",
+   "country": "Morocco",
+   "countryCode": "MA",
+   "lat": 30.545,
+   "lon": -9.71,
+   "timezone": "Africa/Casablanca",
+   "tags": [
+    "Point break",
+    "Right",
+    "Advanced"
+   ],
+   "info": {
+    "about": "A former fishing village turned surf town, with a run of long right-hand points down the coast. Anchor Point is the jewel — a 500-metre wall over boulders that works on winter NW swell — and Killer Point, Boilers and Panorama are all within a short drive.",
+    "breakType": "Point break",
+    "bottom": "Boulder and rock",
+    "wave": "Long, walling, fast rights",
+    "level": "Intermediate to advanced",
+    "bestSwell": "NW Atlantic groundswell",
+    "bestWind": "E offshore most winter mornings",
+    "bestTide": "Mid tide",
+    "bestSeason": "November–March",
+    "waterTemp": "17–21°C — 3/2 wetsuit",
+    "crowd": "Busy in peak season; the points are long enough to absorb it",
+    "hazards": [
+     "Rocky entries and exits",
+     "Strong current down the point",
+     "Sea urchins",
+     "Sun and dehydration"
+    ],
+    "localTip": "The rock jump at Anchor Point is the fast way out. Watch a local do it once before you try."
+   },
+   "access": {
+    "airports": [
+     "AGA"
+    ],
+    "transfer": "About 45 min north from Agadir",
+    "transferMinutes": 45,
+    "visaNote": "Many nationalities enter Morocco visa-free for 90 days"
+   },
+   "externalCams": [
+    {
+     "id": "taghazout-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,30.545,-9.71,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,30.545,-9.71,10"
+    },
+    {
+     "id": "taghazout-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Taghazout%20&%20Anchor%20Point",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Taghazout%20&%20Anchor%20Point"
+    }
+   ]
+  },
+  {
+   "id": "jeffreys-bay",
+   "name": "Jeffreys Bay (Supertubes)",
+   "region": "Eastern Cape",
+   "country": "South Africa",
+   "countryCode": "ZA",
+   "lat": -34.033,
+   "lon": 24.93,
+   "timezone": "Africa/Johannesburg",
+   "tags": [
+    "Point break",
+    "Right",
+    "Expert"
+   ],
+   "info": {
+    "about": "The most perfect right-hand point on earth. Supertubes runs down a rock ledge in a series of named sections — Boneyards, Supers, Impossibles, Tubes — that on the right day link into a 400-metre high-speed barrel. Championship tour venue, and the standard every other right is measured against.",
+    "breakType": "Point break",
+    "bottom": "Rock reef",
+    "wave": "Fast, hollow, endlessly running right",
+    "level": "Advanced to expert",
+    "bestSwell": "SW–S groundswell",
+    "bestWind": "W–NW offshore",
+    "bestTide": "All tides; mid is the classic",
+    "bestSeason": "June–September",
+    "waterTemp": "14–20°C — 4/3 in winter",
+    "crowd": "Very crowded when it is on, with a strict order",
+    "hazards": [
+     "Fast, shallow sections",
+     "Great white sharks are present",
+     "Strong current down the point",
+     "Cold winter water"
+    ],
+    "localTip": "Paddle out at Boneyards and let the current do the work. Do not drop in — this lineup polices itself."
+   },
+   "access": {
+    "airports": [
+     "PLZ"
+    ],
+    "transfer": "About 60 min west from Gqeberha (Port Elizabeth)",
+    "transferMinutes": 60,
+    "visaNote": "Many nationalities get 90 days visa-free in South Africa"
+   },
+   "externalCams": [
+    {
+     "id": "jeffreys-bay-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-34.033,24.93,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-34.033,24.93,10"
+    },
+    {
+     "id": "jeffreys-bay-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Jeffreys%20Bay",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Jeffreys%20Bay"
+    }
+   ]
+  },
+  {
+   "id": "muizenberg",
+   "name": "Muizenberg",
+   "region": "Cape Town",
+   "country": "South Africa",
+   "countryCode": "ZA",
+   "lat": -34.108,
+   "lon": 18.47,
+   "timezone": "Africa/Johannesburg",
+   "tags": [
+    "Beach break",
+    "Beginner",
+    "Iconic"
+   ],
+   "info": {
+    "about": "Cape Town's learn-to-surf beach, with its row of candy-coloured bathing boxes and a long, gentle sandbank that has been teaching people to stand up since the 1910s. Table Mountain is the backdrop and the water is a good deal warmer than the Atlantic side of the peninsula.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Long, slow, forgiving rights and lefts",
+    "level": "Beginner to intermediate",
+    "bestSwell": "S–SW swell wrapping into False Bay",
+    "bestWind": "NW offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "April–September",
+    "waterTemp": "14–20°C — 3/2 to 4/3",
+    "crowd": "Very busy with schools",
+    "hazards": [
+     "Great white sharks in False Bay — heed the shark spotters' flags",
+     "Rip near the river mouth",
+     "Crowded beginner zone"
+    ],
+    "localTip": "The shark spotters on the mountain fly flags for a reason. Learn the flag system before you paddle out."
+   },
+   "access": {
+    "airports": [
+     "CPT"
+    ],
+    "transfer": "About 40 min from Cape Town airport",
+    "transferMinutes": 40,
+    "visaNote": "Many nationalities get 90 days visa-free in South Africa"
+   },
+   "externalCams": [
+    {
+     "id": "muizenberg-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-34.108,18.47,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-34.108,18.47,10"
+    },
+    {
+     "id": "muizenberg-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Muizenberg",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Muizenberg"
+    }
+   ]
+  },
+  {
+   "id": "uluwatu",
+   "name": "Uluwatu",
+   "region": "Bali",
+   "country": "Indonesia",
+   "countryCode": "ID",
+   "lat": -8.815,
+   "lon": 115.088,
+   "timezone": "Asia/Makassar",
+   "tags": [
+    "Reef",
+    "Left",
+    "Advanced"
+   ],
+   "info": {
+    "about": "The wave that opened Indonesia to the world in 1971. Uluwatu is a series of left-hand reef sections — Racetrack, Outside Corner, The Peak, Temples — running below a clifftop temple, accessed through a cave that you enter and exit with the tide. On a big dry-season swell it is one of the great waves anywhere.",
+    "breakType": "Reef break",
+    "bottom": "Sharp coral reef",
+    "wave": "Long, fast, barrelling lefts across several sections",
+    "level": "Advanced",
+    "bestSwell": "SW Indian Ocean groundswell",
+    "bestWind": "SE trade winds — offshore in the dry season",
+    "bestTide": "Mid to high; the cave exit needs water",
+    "bestSeason": "April–October",
+    "waterTemp": "27–29°C — boardshorts",
+    "crowd": "Crowded, but the reef is long",
+    "hazards": [
+     "Very sharp shallow coral",
+     "The cave entry closes out at low tide",
+     "Strong currents between sections",
+     "Reef cuts infect fast in the tropics"
+    ],
+    "localTip": "Time your exit with the tide — people get stuck outside the cave every season. Antiseptic for reef cuts is not optional."
+   },
+   "access": {
+    "airports": [
+     "DPS"
+    ],
+    "transfer": "About 60 min south from Denpasar",
+    "transferMinutes": 60,
+    "visaNote": "Visa on arrival for most nationalities in Indonesia"
+   },
+   "externalCams": [
+    {
+     "id": "uluwatu-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-8.815,115.088,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-8.815,115.088,10"
+    },
+    {
+     "id": "uluwatu-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Uluwatu",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Uluwatu"
+    }
+   ]
+  },
+  {
+   "id": "canggu",
+   "name": "Canggu (Batu Bolong & Echo)",
+   "region": "Bali",
+   "country": "Indonesia",
+   "countryCode": "ID",
+   "lat": -8.658,
+   "lon": 115.13,
+   "timezone": "Asia/Makassar",
+   "tags": [
+    "Beach break",
+    "Reef",
+    "All levels"
+   ],
+   "info": {
+    "about": "Bali's most developed surf town: Batu Bolong is a soft, mellow reef-and-sand wave that suits longboards and learners, Echo Beach next door is a punchier reef, and the whole strip is cafés, scooters and sunset crowds. Consistent, warm and endlessly social.",
+    "breakType": "Reef and beach break",
+    "bottom": "Sand over reef",
+    "wave": "Mellow rolling lefts and rights at Batu Bolong; punchier at Echo",
+    "level": "Beginner to intermediate",
+    "bestSwell": "SW swell",
+    "bestWind": "E–SE offshore in the dry season",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "April–October",
+    "waterTemp": "27–29°C",
+    "crowd": "Very crowded — one of the busiest lineups in Asia",
+    "hazards": [
+     "Crowds and collisions",
+     "Rocks and reef at low tide",
+     "Scooter traffic on land",
+     "Water quality in the wet season"
+    ],
+    "localTip": "Dawn patrol is the only uncrowded window. By 8am Batu Bolong has a hundred people in the water."
+   },
+   "access": {
+    "airports": [
+     "DPS"
+    ],
+    "transfer": "About 45 min north-west from Denpasar",
+    "transferMinutes": 45,
+    "visaNote": "Visa on arrival for most nationalities in Indonesia"
+   },
+   "externalCams": [
+    {
+     "id": "canggu-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-8.658,115.13,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-8.658,115.13,10"
+    },
+    {
+     "id": "canggu-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Canggu",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Canggu"
+    }
+   ]
+  },
+  {
+   "id": "kuta",
+   "name": "Kuta Beach",
+   "region": "Bali",
+   "country": "Indonesia",
+   "countryCode": "ID",
+   "lat": -8.718,
+   "lon": 115.169,
+   "timezone": "Asia/Makassar",
+   "tags": [
+    "Beach break",
+    "Beginner",
+    "Warm water"
+   ],
+   "info": {
+    "about": "The sandy beach break where most people in Asia catch their first wave. Kuta is a long, forgiving stretch of sand a few minutes from Bali's airport, with soft waves, warm water, board rental every fifty metres and a sunset that draws the whole island.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Soft, slow, forgiving peaks",
+    "level": "Beginner",
+    "bestSwell": "SW swell",
+    "bestWind": "E offshore in the dry season",
+    "bestTide": "Mid tide",
+    "bestSeason": "April–October",
+    "waterTemp": "27–29°C",
+    "crowd": "Extremely busy with lessons",
+    "hazards": [
+     "Crowds of beginners",
+     "Rip currents",
+     "Beach vendors and theft",
+     "Water quality after rain"
+    ],
+    "localTip": "Ten minutes from the airport, which makes it the ideal first or last session of a Bali trip."
+   },
+   "access": {
+    "airports": [
+     "DPS"
+    ],
+    "transfer": "10 min from Denpasar airport",
+    "transferMinutes": 10,
+    "visaNote": "Visa on arrival for most nationalities in Indonesia"
+   },
+   "externalCams": [
+    {
+     "id": "kuta-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-8.718,115.169,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-8.718,115.169,10"
+    },
+    {
+     "id": "kuta-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Kuta%20Beach",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Kuta%20Beach"
+    }
+   ]
+  },
+  {
+   "id": "bondi",
+   "name": "Bondi Beach",
+   "region": "Sydney, NSW",
+   "country": "Australia",
+   "countryCode": "AU",
+   "lat": -33.891,
+   "lon": 151.277,
+   "timezone": "Australia/Sydney",
+   "tags": [
+    "Beach break",
+    "City",
+    "All levels"
+   ],
+   "info": {
+    "about": "The most famous city beach in the world. A one-kilometre arc of sand in eastern Sydney with a punchy south-end bank (the Backpackers' Express rip runs beside it), a gentler north end, and a permanent cast of swimmers, lifeguards and locals. Not the best wave in Sydney, but the most alive.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Short, punchy peaks; better at the south end",
+    "level": "All levels",
+    "bestSwell": "S–SE swell",
+    "bestWind": "W offshore",
+    "bestTide": "Mid to low tide",
+    "bestSeason": "March–September",
+    "waterTemp": "17–23°C — spring suit to 3/2",
+    "crowd": "Very busy; surfing is restricted to the flagged-free zones",
+    "hazards": [
+     "Strong rips, especially at the south end",
+     "Swimming zones limit where you can surf",
+     "Summer crowds"
+    ],
+    "localTip": "Bondi is often onshore junk while Maroubra or the northern beaches are clean — check before committing."
+   },
+   "access": {
+    "airports": [
+     "SYD"
+    ],
+    "transfer": "About 30 min from Sydney airport",
+    "transferMinutes": 30,
+    "visaNote": "Australia requires an ETA or visa for almost all visitors"
+   },
+   "externalCams": [
+    {
+     "id": "bondi-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-33.891,151.277,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-33.891,151.277,10"
+    },
+    {
+     "id": "bondi-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Bondi%20Beach",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Bondi%20Beach"
+    }
+   ]
+  },
+  {
+   "id": "snapper-rocks",
+   "name": "Snapper Rocks & Superbank",
+   "region": "Gold Coast, QLD",
+   "country": "Australia",
+   "countryCode": "AU",
+   "lat": -28.162,
+   "lon": 153.548,
+   "timezone": "Australia/Brisbane",
+   "tags": [
+    "Point break",
+    "Superbank",
+    "Expert"
+   ],
+   "info": {
+    "about": "The longest sand-bottomed right in the world, created by accident. A river-dredging project pumped sand around the point in the 1990s and joined Snapper, Rainbow Bay, Greenmount and Kirra into a single bank that on the right swell can carry a wave nearly two kilometres.",
+    "breakType": "Sand-bottom point break",
+    "bottom": "Sand over rock",
+    "wave": "Very long, fast, hollow right",
+    "level": "Advanced — because of the crowd as much as the wave",
+    "bestSwell": "E–SE cyclone swell",
+    "bestWind": "W–SW offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "January–April (cyclone season)",
+    "waterTemp": "20–26°C",
+    "crowd": "Among the most crowded lineups on earth",
+    "hazards": [
+     "Extreme crowd — hundreds out on a good day",
+     "Rocks at the Snapper takeoff",
+     "Strong sweep down the point"
+    ],
+    "localTip": "The takeoff at Snapper Rocks is a queue. If you want waves rather than a fight, sit down the line at Greenmount."
+   },
+   "access": {
+    "airports": [
+     "OOL"
+    ],
+    "transfer": "10 min from Gold Coast airport",
+    "transferMinutes": 10,
+    "visaNote": "Australia requires an ETA or visa for almost all visitors"
+   },
+   "externalCams": [
+    {
+     "id": "snapper-rocks-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-28.162,153.548,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-28.162,153.548,10"
+    },
+    {
+     "id": "snapper-rocks-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Snapper%20Rocks%20&%20Superbank",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Snapper%20Rocks%20&%20Superbank"
+    }
+   ]
+  },
+  {
+   "id": "bells-beach",
+   "name": "Bells Beach",
+   "region": "Victoria",
+   "country": "Australia",
+   "countryCode": "AU",
+   "lat": -38.372,
+   "lon": 144.281,
+   "timezone": "Australia/Melbourne",
+   "tags": [
+    "Point break",
+    "Contest",
+    "Advanced"
+   ],
+   "info": {
+    "about": "Home of the world's longest-running surf contest, held every Easter since 1962, and the trophy every professional wants to ring. Bells is a big, cold, powerful right-hand point in a natural amphitheatre of cliffs on the Great Ocean Road — a wave that rewards long, drawn-out turns.",
+    "breakType": "Point/reef break",
+    "bottom": "Rock reef",
+    "wave": "Long, powerful, drawn-out right",
+    "level": "Advanced",
+    "bestSwell": "SW Southern Ocean groundswell",
+    "bestWind": "N–NW offshore",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "March–October",
+    "waterTemp": "13–18°C — 4/3 with boots in winter",
+    "crowd": "Busy in season; the Bowl gets the crowd",
+    "hazards": [
+     "Cold water",
+     "Powerful Southern Ocean swell",
+     "Rocks",
+     "Great whites are present in Victorian waters"
+    ],
+    "localTip": "Winkipop next door is faster and often better than Bells itself — do not walk past it."
+   },
+   "access": {
+    "airports": [
+     "AVV",
+     "MEL"
+    ],
+    "transfer": "About 35 min from Avalon; roughly 90 min from Melbourne",
+    "transferMinutes": 35,
+    "visaNote": "Australia requires an ETA or visa for almost all visitors"
+   },
+   "externalCams": [
+    {
+     "id": "bells-beach-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-38.372,144.281,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-38.372,144.281,10"
+    },
+    {
+     "id": "bells-beach-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Bells%20Beach",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Bells%20Beach"
+    }
+   ]
+  },
+  {
+   "id": "byron-bay",
+   "name": "Byron Bay (The Pass)",
+   "region": "NSW",
+   "country": "Australia",
+   "countryCode": "AU",
+   "lat": -28.636,
+   "lon": 153.635,
+   "timezone": "Australia/Sydney",
+   "tags": [
+    "Point break",
+    "Longboard",
+    "All levels"
+   ],
+   "info": {
+    "about": "Australia's easternmost point, and a long, sand-bottomed right-hand point that is one of the great longboard waves in the country. The Pass runs off Cape Byron in slow, tapering walls under a lighthouse, with dolphins in the lineup most mornings and whales passing through in winter.",
+    "breakType": "Sand-bottom point break",
+    "bottom": "Sand over rock",
+    "wave": "Long, mellow, tapering right",
+    "level": "Beginner to intermediate",
+    "bestSwell": "E–NE swell",
+    "bestWind": "SW offshore",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "February–June",
+    "waterTemp": "19–26°C",
+    "crowd": "Extremely crowded — it is a famous, easy wave",
+    "hazards": [
+     "Heavy crowd",
+     "Sharks have been an issue in the region",
+     "Strong sweep around the point",
+     "Parking is a battle"
+    ],
+    "localTip": "Wategos and Little Wategos further round the cape take the same swell with a fraction of the people."
+   },
+   "access": {
+    "airports": [
+     "BNK"
+    ],
+    "transfer": "About 30 min from Ballina Byron Gateway",
+    "transferMinutes": 30,
+    "visaNote": "Australia requires an ETA or visa for almost all visitors"
+   },
+   "externalCams": [
+    {
+     "id": "byron-bay-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-28.636,153.635,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-28.636,153.635,10"
+    },
+    {
+     "id": "byron-bay-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Byron%20Bay",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Byron%20Bay"
+    }
+   ]
+  },
+  {
+   "id": "margaret-river",
+   "name": "Margaret River (Main Break)",
+   "region": "Western Australia",
+   "country": "Australia",
+   "countryCode": "AU",
+   "lat": -33.97,
+   "lon": 114.993,
+   "timezone": "Australia/Perth",
+   "tags": [
+    "Reef",
+    "Big wave",
+    "Expert"
+   ],
+   "info": {
+    "about": "A big, thick, cold-water reef break that handles serious Indian Ocean swell and hosts a championship tour event. The wider region — from Yallingup to Gracetown — has dozens of reefs, world-class wineries and some of the clearest water in Australia.",
+    "breakType": "Reef break",
+    "bottom": "Granite and limestone reef",
+    "wave": "Thick, powerful right and left off a deep reef",
+    "level": "Advanced to expert",
+    "bestSwell": "SW Indian Ocean groundswell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "All tides",
+    "bestSeason": "March–October",
+    "waterTemp": "16–22°C — 3/2 to 4/3",
+    "crowd": "Moderate; the region spreads people out",
+    "hazards": [
+     "Powerful swell that jumps in size fast",
+     "Great white sharks — this coast has a genuine record",
+     "Rocky entries",
+     "Remote sections with no help nearby"
+    ],
+    "localTip": "The swell here can double between checks. Judge it from the car park over a full set cycle, not a single wave."
+   },
+   "access": {
+    "airports": [
+     "BQB",
+     "PER"
+    ],
+    "transfer": "About 45 min from Busselton; roughly 3h from Perth",
+    "transferMinutes": 45,
+    "visaNote": "Australia requires an ETA or visa for almost all visitors"
+   },
+   "externalCams": [
+    {
+     "id": "margaret-river-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-33.97,114.993,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-33.97,114.993,10"
+    },
+    {
+     "id": "margaret-river-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Margaret%20River",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Margaret%20River"
+    }
+   ]
+  },
+  {
+   "id": "piha",
+   "name": "Piha",
+   "region": "Auckland",
+   "country": "New Zealand",
+   "countryCode": "NZ",
+   "lat": -36.954,
+   "lon": 174.468,
+   "timezone": "Pacific/Auckland",
+   "tags": [
+    "Beach break",
+    "Black sand",
+    "Intermediate"
+   ],
+   "info": {
+    "about": "Black volcanic sand, Lion Rock in the middle of the bay, and heavy Tasman Sea beach break forty minutes from central Auckland. Piha is beautiful and genuinely dangerous — it is New Zealand's most rescue-heavy beach and the subject of a long-running documentary series about its lifeguards.",
+    "breakType": "Beach break",
+    "bottom": "Black volcanic sand",
+    "wave": "Powerful, rippy, shifting peaks",
+    "level": "Intermediate to advanced",
+    "bestSwell": "W–SW Tasman swell",
+    "bestWind": "E offshore",
+    "bestTide": "Mid to low tide",
+    "bestSeason": "March–September",
+    "waterTemp": "15–20°C — 3/2 to 4/3",
+    "crowd": "Busy in summer, empty in winter",
+    "hazards": [
+     "Notorious rip currents — swim between the flags",
+     "Powerful shorebreak",
+     "Black sand gets scorching hot",
+     "Remote west-coast road"
+    ],
+    "localTip": "The rips here are the strongest in New Zealand. If you are unsure, surf beside the patrolled flags."
+   },
+   "access": {
+    "airports": [
+     "AKL"
+    ],
+    "transfer": "About 45 min west from Auckland",
+    "transferMinutes": 45,
+    "visaNote": "NZ requires an NZeTA for visa-waiver visitors"
+   },
+   "externalCams": [
+    {
+     "id": "piha-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-36.954,174.468,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-36.954,174.468,10"
+    },
+    {
+     "id": "piha-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Piha",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Piha"
+    }
+   ]
+  },
+  {
+   "id": "raglan",
+   "name": "Raglan (Manu Bay)",
+   "region": "Waikato",
+   "country": "New Zealand",
+   "countryCode": "NZ",
+   "lat": -37.825,
+   "lon": 174.801,
+   "timezone": "Pacific/Auckland",
+   "tags": [
+    "Point break",
+    "Left",
+    "Advanced"
+   ],
+   "info": {
+    "about": "One of the longest left-hand points on the planet, made famous by 'The Endless Summer'. Manu Bay, Whale Bay and Indicators run down a boulder coastline west of Raglan and on a big clean SW swell they link into a ride that can last well over a minute.",
+    "breakType": "Point break",
+    "bottom": "Boulder and rock reef",
+    "wave": "Very long, peeling, walling left",
+    "level": "Intermediate to advanced",
+    "bestSwell": "SW Tasman groundswell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "April–September",
+    "waterTemp": "14–20°C — 3/2 to 4/3",
+    "crowd": "Busy but the point is long",
+    "hazards": [
+     "Rocky entry and exit",
+     "Strong current down the point",
+     "Cold water in winter",
+     "Sharp boulders"
+    ],
+    "localTip": "Walk further down to Whale Bay if Manu Bay is stacked; it is the same swell with fewer people."
+   },
+   "access": {
+    "airports": [
+     "HLZ",
+     "AKL"
+    ],
+    "transfer": "About 45 min from Hamilton; roughly 2h from Auckland",
+    "transferMinutes": 45,
+    "visaNote": "NZ requires an NZeTA for visa-waiver visitors"
+   },
+   "externalCams": [
+    {
+     "id": "raglan-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-37.825,174.801,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-37.825,174.801,10"
+    },
+    {
+     "id": "raglan-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Raglan",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Raglan"
+    }
+   ]
+  },
+  {
+   "id": "shonan",
+   "name": "Shonan (Enoshima)",
+   "region": "Kanagawa",
+   "country": "Japan",
+   "countryCode": "JP",
+   "lat": 35.308,
+   "lon": 139.483,
+   "timezone": "Asia/Tokyo",
+   "tags": [
+    "Beach break",
+    "Culture",
+    "All levels"
+   ],
+   "info": {
+    "about": "Japanese surf culture's home beach, an hour from central Tokyo. Shonan wraps around Enoshima island with Mount Fuji on the horizon on clear winter days. The waves are usually small and soft — which is why it is packed with everyone from grandmothers on longboards to Olympic-level shortboarders.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Small, soft, mellow peaks",
+    "level": "Beginner to intermediate",
+    "bestSwell": "S–SE swell; typhoon swell is the good stuff",
+    "bestWind": "N–NW offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–November (typhoon season)",
+    "waterTemp": "15–27°C",
+    "crowd": "Extremely crowded on weekends",
+    "hazards": [
+     "Very crowded lineup",
+     "Often small and weak",
+     "Typhoon swell arrives fast and big",
+     "Strict local etiquette"
+    ],
+    "localTip": "Weekday mornings are civil; weekends are a scrum. Typhoon season is when Shonan actually gets good."
+   },
+   "access": {
+    "airports": [
+     "HND",
+     "NRT"
+    ],
+    "transfer": "About 60 min by train from Tokyo to Enoshima",
+    "transferMinutes": 60,
+    "visaNote": "Japan is visa-free for many nationalities"
+   },
+   "externalCams": [
+    {
+     "id": "shonan-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,35.308,139.483,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,35.308,139.483,10"
+    },
+    {
+     "id": "shonan-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Shonan",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Shonan"
+    }
+   ]
+  },
+  {
+   "id": "chiba",
+   "name": "Chiba (Ichinomiya)",
+   "region": "Chiba",
+   "country": "Japan",
+   "countryCode": "JP",
+   "lat": 35.372,
+   "lon": 140.386,
+   "timezone": "Asia/Tokyo",
+   "tags": [
+    "Beach break",
+    "Olympic",
+    "All levels"
+   ],
+   "info": {
+    "about": "The Pacific-facing coast east of Tokyo, and the host of surfing's Olympic debut at Tsurigasaki Beach in 2021. Chiba picks up far more swell than Shonan, with a long run of beach breaks that turn on hard during typhoon season.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Punchy, consistent peaks",
+    "level": "All levels",
+    "bestSwell": "E–SE swell; typhoon swell in autumn",
+    "bestWind": "W offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–November",
+    "waterTemp": "15–27°C",
+    "crowd": "Busy on weekends with Tokyo crowds",
+    "hazards": [
+     "Typhoon swells can be dangerous",
+     "Rips",
+     "Crowded weekend lineups"
+    ],
+    "localTip": "Ichinomiya is the hub, but the coast runs for 60km — drive until you find an empty bank."
+   },
+   "access": {
+    "airports": [
+     "NRT"
+    ],
+    "transfer": "About 60 min by car from Narita",
+    "transferMinutes": 60,
+    "visaNote": "Japan is visa-free for many nationalities"
+   },
+   "externalCams": [
+    {
+     "id": "chiba-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,35.372,140.386,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,35.372,140.386,10"
+    },
+    {
+     "id": "chiba-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Chiba",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Chiba"
+    }
+   ]
+  },
+  {
+   "id": "arugam-bay",
+   "name": "Arugam Bay",
+   "region": "Eastern Province",
+   "country": "Sri Lanka",
+   "countryCode": "LK",
+   "lat": 6.84,
+   "lon": 81.836,
+   "timezone": "Asia/Colombo",
+   "tags": [
+    "Point break",
+    "Right",
+    "All levels"
+   ],
+   "info": {
+    "about": "A long, sandy right-hand point on Sri Lanka's east coast that is one of the friendliest quality point breaks in the world. Warm water, a long peeling wall, elephants in the lagoons behind the town, and a season that runs exactly opposite the island's west coast.",
+    "breakType": "Point break",
+    "bottom": "Sand over rock",
+    "wave": "Long, mellow, walling right",
+    "level": "Beginner to intermediate",
+    "bestSwell": "S–SE Indian Ocean swell",
+    "bestWind": "W offshore in season",
+    "bestTide": "Mid tide",
+    "bestSeason": "May–September",
+    "waterTemp": "27–29°C — boardshorts",
+    "crowd": "Busy in season but the point is long",
+    "hazards": [
+     "Rocky sections at low tide",
+     "Strong sun",
+     "Occasional crocodiles in the nearby lagoons — not the surf",
+     "Monsoon closes the season"
+    ],
+    "localTip": "Whiskey Point and Peanut Farm up the coast are quieter versions of the same wave."
+   },
+   "access": {
+    "airports": [
+     "CMB"
+    ],
+    "transfer": "About 8h by road across the island from Colombo, or a light-aircraft transfer",
+    "transferMinutes": 480,
+    "visaNote": "Sri Lanka requires an ETA for most nationalities"
+   },
+   "externalCams": [
+    {
+     "id": "arugam-bay-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,6.84,81.836,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,6.84,81.836,10"
+    },
+    {
+     "id": "arugam-bay-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Arugam%20Bay",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Arugam%20Bay"
+    }
+   ]
+  },
+  {
+   "id": "weligama",
+   "name": "Weligama",
+   "region": "Southern Province",
+   "country": "Sri Lanka",
+   "countryCode": "LK",
+   "lat": 5.972,
+   "lon": 80.429,
+   "timezone": "Asia/Colombo",
+   "tags": [
+    "Beach break",
+    "Beginner",
+    "Warm water"
+   ],
+   "info": {
+    "about": "A wide bay on the south coast with a sandy bottom and waist-high waves that break for a very long way — which makes it one of the best value learn-to-surf destinations in the world. Mirissa and the reefs at Midigama are ten minutes away when you want more.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Slow, soft, long-running whitewater and small walls",
+    "level": "Beginner",
+    "bestSwell": "S–SW Indian Ocean swell",
+    "bestWind": "N–NE offshore in season",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "November–April",
+    "waterTemp": "27–29°C",
+    "crowd": "Very busy with schools",
+    "hazards": [
+     "Crowds of beginners",
+     "Shallow rocks at the eastern end",
+     "Strong tropical sun"
+    ],
+    "localTip": "When Weligama gets too crowded, Midigama's reefs are a ten-minute tuk-tuk away and far better waves."
+   },
+   "access": {
+    "airports": [
+     "CMB"
+    ],
+    "transfer": "About 2.5h south by expressway from Colombo",
+    "transferMinutes": 150,
+    "visaNote": "Sri Lanka requires an ETA for most nationalities"
+   },
+   "externalCams": [
+    {
+     "id": "weligama-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,5.972,80.429,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,5.972,80.429,10"
+    },
+    {
+     "id": "weligama-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Weligama",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Weligama"
+    }
+   ]
+  },
+  {
+   "id": "cloud-nine",
+   "name": "Cloud 9, Siargao",
+   "region": "Siargao",
+   "country": "Philippines",
+   "countryCode": "PH",
+   "lat": 9.814,
+   "lon": 126.167,
+   "timezone": "Asia/Manila",
+   "tags": [
+    "Reef",
+    "Barrel",
+    "Advanced"
+   ],
+   "info": {
+    "about": "The wave that put the Philippines on the surf map: a thick, hollow right-hand reef barrel breaking over shallow coral, with a wooden boardwalk running out to a viewing tower above the lineup. Siargao itself is a teardrop island of palms, lagoons and dirt roads.",
+    "breakType": "Reef break",
+    "bottom": "Shallow coral reef",
+    "wave": "Thick, hollow, barrelling right",
+    "level": "Advanced",
+    "bestSwell": "E–NE Pacific swell",
+    "bestWind": "SW offshore",
+    "bestTide": "Mid to high tide — low is dangerously shallow",
+    "bestSeason": "August–November",
+    "waterTemp": "28–30°C — boardshorts",
+    "crowd": "Crowded at the peak; other reefs nearby are quiet",
+    "hazards": [
+     "Very shallow sharp coral",
+     "Reef cuts infect quickly",
+     "Typhoon risk in season",
+     "Limited medical facilities"
+    ],
+    "localTip": "Do not surf Cloud 9 at low tide. Rent a scooter and find the dozen other reefs on the island instead."
+   },
+   "access": {
+    "airports": [
+     "IAO"
+    ],
+    "transfer": "15 min from Siargao airport to General Luna",
+    "transferMinutes": 15,
+    "visaNote": "Many nationalities get 30 days visa-free in the Philippines"
+   },
+   "externalCams": [
+    {
+     "id": "cloud-nine-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,9.814,126.167,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,9.814,126.167,10"
+    },
+    {
+     "id": "cloud-nine-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Cloud%209,%20Siargao",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Cloud%209,%20Siargao"
+    }
+   ]
+  },
+  {
+   "id": "tel-aviv",
+   "name": "Tel Aviv (Hilton & Dolphinarium)",
+   "region": "Tel Aviv",
+   "country": "Israel",
+   "countryCode": "IL",
+   "lat": 32.085,
+   "lon": 34.766,
+   "timezone": "Asia/Jerusalem",
+   "tags": [
+    "Beach break",
+    "City",
+    "All levels"
+   ],
+   "info": {
+    "about": "A genuine urban surf scene on the Mediterranean, where the waves are small, short-period and wind-driven — and the lineup is packed anyway. Hilton beach in front of the hotel strip is the main peak; winter storms from the west are what everyone waits for.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Short, sharp, quick wind-swell peaks",
+    "level": "All levels",
+    "bestSwell": "W–SW Mediterranean wind swell",
+    "bestWind": "E offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "November–March",
+    "waterTemp": "17–29°C — shorty or 3/2 in winter",
+    "crowd": "Crowded, energetic, vocal",
+    "hazards": [
+     "Short-period choppy swell",
+     "Very crowded peaks",
+     "Long flat spells in summer"
+    ],
+    "localTip": "Mediterranean swell dies within hours. When a storm shows on the chart, go the same day — not the next."
+   },
+   "access": {
+    "airports": [
+     "TLV"
+    ],
+    "transfer": "20 min from Ben Gurion airport",
+    "transferMinutes": 20,
+    "visaNote": "Check Israel's current entry requirements for your nationality"
+   },
+   "externalCams": [
+    {
+     "id": "tel-aviv-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,32.085,34.766,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,32.085,34.766,10"
+    },
+    {
+     "id": "tel-aviv-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Tel%20Aviv",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Tel%20Aviv"
+    }
+   ]
+  },
+  {
+   "id": "unstad",
+   "name": "Unstad",
+   "region": "Lofoten",
+   "country": "Norway",
+   "countryCode": "NO",
+   "lat": 68.257,
+   "lon": 13.533,
+   "timezone": "Europe/Oslo",
+   "tags": [
+    "Arctic",
+    "Point break",
+    "Advanced"
+   ],
+   "info": {
+    "about": "Surfing above the Arctic Circle. Unstad is a small bay in the Lofoten Islands with a right-hand point and a left, ringed by 700-metre peaks, where you can surf under the midnight sun in summer and the northern lights in winter. The water is barely above freezing and the setting is unmatched.",
+    "breakType": "Point and beach break",
+    "bottom": "Sand and rock",
+    "wave": "Punchy right-hand point and a shorter left",
+    "level": "Advanced — because of the conditions, not the wave",
+    "bestSwell": "NW–N Norwegian Sea swell",
+    "bestWind": "S–SE offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–March for swell; summer for midnight sun",
+    "waterTemp": "4–12°C — 5/4 or 6/5 with hood, gloves and boots",
+    "crowd": "Small, dedicated crew",
+    "hazards": [
+     "Near-freezing water — hypothermia is the real hazard",
+     "Very short winter daylight",
+     "Remote — hours from a hospital",
+     "Arctic storms"
+    ],
+    "localTip": "This is a full 6/5 hooded operation in winter. Warm water in a thermos for after the session is standard here."
+   },
+   "access": {
+    "airports": [
+     "LKN",
+     "SVJ"
+    ],
+    "transfer": "About 45 min from Leknes",
+    "transferMinutes": 45,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "unstad-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,68.257,13.533,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,68.257,13.533,10"
+    },
+    {
+     "id": "unstad-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Unstad",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Unstad"
+    }
+   ]
+  },
+  {
+   "id": "teahupoo",
+   "name": "Teahupo'o",
+   "region": "Tahiti",
+   "country": "French Polynesia",
+   "countryCode": "PF",
+   "lat": -17.848,
+   "lon": -149.267,
+   "timezone": "Pacific/Tahiti",
+   "tags": [
+    "Reef",
+    "Heaviest wave",
+    "Expert"
+   ],
+   "info": {
+    "about": "The heaviest wave in the world. Teahupo'o breaks over a shallow coral shelf that rises from deep water almost vertically, so the wave does not so much break as fall — a thick slab of Pacific Ocean landing on dry reef. Olympic venue, championship tour stop, and utterly unforgiving.",
+    "breakType": "Reef break",
+    "bottom": "Shallow, sharp coral shelf",
+    "wave": "A thick, square, below-sea-level left barrel",
+    "level": "Expert only, with safety support",
+    "bestSwell": "SW–S Pacific groundswell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "May–September",
+    "waterTemp": "26–28°C",
+    "crowd": "A very small, very experienced crew",
+    "hazards": [
+     "One of the most dangerous waves on earth",
+     "Razor-sharp shallow reef",
+     "Serious injuries and deaths have occurred",
+     "Remote — the hospital is in Papeete"
+    ],
+    "localTip": "Almost everyone who comes here watches from a boat at the channel. That is the correct decision."
+   },
+   "access": {
+    "airports": [
+     "PPT"
+    ],
+    "transfer": "About 90 min by road from Papeete to the end of the road",
+    "transferMinutes": 90,
+    "visaNote": "French Polynesia — Schengen-style rules apply for many nationalities"
+   },
+   "externalCams": [
+    {
+     "id": "teahupoo-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-17.848,-149.267,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-17.848,-149.267,10"
+    },
+    {
+     "id": "teahupoo-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Teahupo'o",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Teahupo'o"
+    }
+   ]
+  },
+  {
+   "id": "tavarua",
+   "name": "Cloudbreak, Fiji",
+   "region": "Mamanuca Islands",
+   "country": "Fiji",
+   "countryCode": "FJ",
+   "lat": -17.858,
+   "lon": 177.193,
+   "timezone": "Pacific/Fiji",
+   "tags": [
+    "Reef",
+    "Left",
+    "Expert"
+   ],
+   "info": {
+    "about": "A left-hand reef pass a kilometre out to sea off Tavarua island, breaking over shallow coral in the middle of the Pacific. Cloudbreak is long, fast and genuinely world-class at every size, from playful head-high to the 20-foot day that produced some of the most famous images in surfing.",
+    "breakType": "Reef pass",
+    "bottom": "Shallow coral reef",
+    "wave": "Long, fast, barrelling left",
+    "level": "Advanced to expert",
+    "bestSwell": "S–SW Pacific groundswell",
+    "bestWind": "E–SE trade winds",
+    "bestTide": "Mid to high tide",
+    "bestSeason": "April–October",
+    "waterTemp": "26–29°C — boardshorts",
+    "crowd": "Limited — access is by boat, which caps numbers",
+    "hazards": [
+     "Shallow razor coral",
+     "Boat access only",
+     "Strong current through the pass",
+     "Remote from medical care"
+    ],
+    "localTip": "Restaurants, the right next door, is shorter and lighter. Cloudbreak on a big day is a professional-level wave."
+   },
+   "access": {
+    "airports": [
+     "NAN"
+    ],
+    "transfer": "About 20 min by road from Nadi plus a 45-min boat transfer",
+    "transferMinutes": 65,
+    "visaNote": "Many nationalities get 4 months visa-free in Fiji"
+   },
+   "externalCams": [
+    {
+     "id": "tavarua-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,-17.858,177.193,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,-17.858,177.193,10"
+    },
+    {
+     "id": "tavarua-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Cloudbreak,%20Fiji",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Cloudbreak,%20Fiji"
+    }
+   ]
+  },
+  {
+   "id": "popoyo",
+   "name": "Popoyo",
+   "region": "Rivas",
+   "country": "Nicaragua",
+   "countryCode": "NI",
+   "lat": 11.467,
+   "lon": -86.12,
+   "timezone": "America/Managua",
+   "tags": [
+    "Reef",
+    "Offshore wind",
+    "Intermediate"
+   ],
+   "info": {
+    "about": "Nicaragua's signature wave, backed by the most reliable offshore wind on earth: Lake Nicaragua generates a thermal breeze that blows offshore on this coast around 300 days a year. Popoyo has a sand-bottom beach break and an outer reef that holds serious size.",
+    "breakType": "Reef and beach break",
+    "bottom": "Sand and rock reef",
+    "wave": "Punchy peaks inside; big, powerful outer reef",
+    "level": "Intermediate to advanced",
+    "bestSwell": "SW Pacific groundswell",
+    "bestWind": "Offshore almost every morning thanks to the lake effect",
+    "bestTide": "Mid tide",
+    "bestSeason": "April–October",
+    "waterTemp": "27–29°C",
+    "crowd": "Moderate — the coast is still relatively undeveloped",
+    "hazards": [
+     "Rocks at the reef",
+     "Strong offshore wind makes paddling back harder",
+     "Remote roads",
+     "Limited medical facilities"
+    ],
+    "localTip": "The offshore wind that makes this coast is also relentless — a slightly bigger board helps with the paddle in."
+   },
+   "access": {
+    "airports": [
+     "MGA"
+    ],
+    "transfer": "About 3h south-west by road from Managua",
+    "transferMinutes": 180,
+    "visaNote": "Most nationalities buy a tourist card on arrival in Nicaragua"
+   },
+   "externalCams": [
+    {
+     "id": "popoyo-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,11.467,-86.12,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,11.467,-86.12,10"
+    },
+    {
+     "id": "popoyo-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Popoyo",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Popoyo"
+    }
+   ]
+  },
+  {
+   "id": "carcavelos",
+   "name": "Carcavelos",
+   "region": "Lisboa",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.6797,
+   "lon": -9.3372,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "City",
+    "All levels"
+   ],
+   "info": {
+    "about": "Lisbon's home break and the most consistent beach break on the Estoril line, twenty minutes from the city centre by train. The sandbanks either side of the São Julião da Barra fort pick up almost any Atlantic swell, and the wave is forgiving enough to learn on and punchy enough to be worth the trip when it is bigger.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Peaky, medium-power A-frames",
+    "level": "All levels",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "N–NE offshore",
+    "bestTide": "Low to mid, incoming",
+    "bestSeason": "September–May",
+    "waterTemp": "15–19°C — 3/2 to 4/3",
+    "crowd": "Very busy, it is Lisbon's beach",
+    "hazards": [
+     "Rip currents beside the fort",
+     "Crowds at weekends",
+     "Water quality after heavy rain"
+    ],
+    "localTip": "The train from Cais do Sodré drops you a five-minute walk from the sand, which makes it the easiest surf in Europe to reach without a car."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 25 min west of Lisbon by train or car",
+    "transferMinutes": 25,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "carcavelos-meo-0",
+     "title": "MEO Beachcam — Carcavelos",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/carcavelos-calhau/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/carcavelos-calhau/"
+    },
+    {
+     "id": "carcavelos-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.6797,-9.3372,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.6797,-9.3372,10"
+    },
+    {
+     "id": "carcavelos-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Carcavelos",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Carcavelos"
+    }
+   ]
+  },
+  {
+   "id": "guincho",
+   "name": "Praia do Guincho",
+   "region": "Cascais",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.7325,
+   "lon": -9.4736,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "Windy",
+    "Advanced"
+   ],
+   "info": {
+    "about": "A wild, exposed beach at the edge of the Sintra-Cascais natural park, with dunes behind it and the Serra da Sintra rising to the north. Guincho takes more swell than anywhere else near Lisbon and is famous for the nortada, the summer north wind that made it a windsurfing and kitesurfing capital and that ruins the surf most afternoons.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Powerful, often heavy peaks",
+    "level": "Advanced",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E–SE offshore, early morning only",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May",
+    "waterTemp": "14–18°C — 4/3",
+    "crowd": "Moderate; the wind thins the crowd",
+    "hazards": [
+     "Strong rips",
+     "Fierce afternoon wind",
+     "Cold, powerful Atlantic water",
+     "Rocks at the north end"
+    ],
+    "localTip": "Surf it at dawn. By lunchtime the nortada is usually up and the sailors have it."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 40 min west of Lisbon via Cascais",
+    "transferMinutes": 40,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "guincho-meo-0",
+     "title": "MEO Beachcam — Praia do Guincho",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-do-guincho/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-do-guincho/"
+    },
+    {
+     "id": "guincho-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.7325,-9.4736,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.7325,-9.4736,10"
+    },
+    {
+     "id": "guincho-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Praia%20do%20Guincho",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Praia%20do%20Guincho"
+    }
+   ]
+  },
+  {
+   "id": "praia-grande",
+   "name": "Praia Grande",
+   "region": "Sintra",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.8117,
+   "lon": -9.4697,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "Cliffs",
+    "Intermediate"
+   ],
+   "info": {
+    "about": "A long beach below dramatic cliffs on the Sintra coast, with fossil dinosaur footprints in the rock at the north end. Praia Grande is consistent, holds size better than most beach breaks nearby and has hosted European bodyboarding events for years.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Consistent, punchy peaks that hold size",
+    "level": "Intermediate to advanced",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E offshore",
+    "bestTide": "Mid to low tide",
+    "bestSeason": "September–May",
+    "waterTemp": "14–18°C — 4/3",
+    "crowd": "Busy in summer, quiet in winter",
+    "hazards": [
+     "Powerful shorebreak",
+     "Rips on bigger days",
+     "Cliff-backed beach with limited exits"
+    ],
+    "localTip": "The north end takes the swell first; the south end is calmer when it is big."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 45 min from Lisbon via Sintra",
+    "transferMinutes": 45,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "praia-grande-meo-0",
+     "title": "MEO Beachcam — Praia Grande",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-grande/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-grande/"
+    },
+    {
+     "id": "praia-grande-meo-1",
+     "title": "MEO Beachcam — São Julião",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/sao-juliao/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/sao-juliao/"
+    },
+    {
+     "id": "praia-grande-meo-2",
+     "title": "MEO Beachcam — Santa Cruz",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/santa-cruz/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/santa-cruz/"
+    },
+    {
+     "id": "praia-grande-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.8117,-9.4697,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.8117,-9.4697,10"
+    },
+    {
+     "id": "praia-grande-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Praia%20Grande",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Praia%20Grande"
+    }
+   ]
+  },
+  {
+   "id": "arrifana",
+   "name": "Arrifana",
+   "region": "Aljezur, Algarve",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 37.2933,
+   "lon": -8.8656,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Point break",
+    "Bay",
+    "All levels"
+   ],
+   "info": {
+    "about": "A horseshoe bay on the Costa Vicentina, inside the south-west Alentejo natural park, with a fishing harbour under the cliff and a right-hand point at the north end. The headland shelters it from the north wind that blows out the rest of the west coast, which is why it works when nowhere else does.",
+    "breakType": "Point and beach break",
+    "bottom": "Sand and rock",
+    "wave": "Long right off the point; softer peaks in the bay",
+    "level": "Beginner in the bay, intermediate on the point",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "N–NE offshore, and the cliff blocks the nortada",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May",
+    "waterTemp": "15–19°C — 3/2 to 4/3",
+    "crowd": "Busy in summer with surf schools",
+    "hazards": [
+     "Rocks at the point",
+     "Strong current when it is big",
+     "Steep cliff road down to the beach"
+    ],
+    "localTip": "When the nortada is howling everywhere else on the west coast, Arrifana is the sheltered option worth the drive."
+   },
+   "access": {
+    "airports": [
+     "FAO",
+     "LIS"
+    ],
+    "transfer": "About 90 min north-west of Faro",
+    "transferMinutes": 90,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "arrifana-meo-0",
+     "title": "MEO Beachcam — Arrifana",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/arrifana/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/arrifana/"
+    },
+    {
+     "id": "arrifana-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,37.2933,-8.8656,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,37.2933,-8.8656,10"
+    },
+    {
+     "id": "arrifana-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Arrifana",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Arrifana"
+    }
+   ]
+  },
+  {
+   "id": "anglet",
+   "name": "Anglet",
+   "region": "Pyrénées-Atlantiques",
+   "country": "France",
+   "countryCode": "FR",
+   "lat": 43.493,
+   "lon": -1.535,
+   "timezone": "Europe/Paris",
+   "tags": [
+    "Beach break",
+    "Consistent",
+    "Advanced"
+   ],
+   "info": {
+    "about": "Four and a half kilometres of beach between Biarritz and the mouth of the Adour, cut into a dozen named breaks by groynes. Les Cavaliers is the one that matters: a heavy, fast peak beside the northern jetty that has hosted European contests for decades, while Chambre d'Amour and the Sables d'Or at the southern end are gentler. The groynes hold the sand, which makes it more reliable than most French beach breaks.",
+    "breakType": "Beach break between groynes",
+    "bottom": "Sand",
+    "wave": "Punchy peaks; Les Cavaliers is fast and heavy",
+    "level": "Intermediate to advanced",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Mid to low tide",
+    "bestSeason": "September–November",
+    "waterTemp": "14–22°C — 3/2, 4/3 in winter",
+    "crowd": "Busy in summer, spread over a dozen beaches",
+    "hazards": [
+     "Strong rips between the groynes",
+     "Current off the Adour rivermouth",
+     "Water quality after heavy rain"
+    ],
+    "localTip": "Walk the promenade and pick your groyne. Each bay holds a different bank, and the one that is closing out at Cavaliers is often perfect two beaches south."
+   },
+   "access": {
+    "airports": [
+     "BIQ"
+    ],
+    "transfer": "10 min north of Biarritz airport",
+    "transferMinutes": 10,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "anglet-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.493,-1.535,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.493,-1.535,10"
+    },
+    {
+     "id": "anglet-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Anglet",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Anglet"
+    }
+   ]
+  },
+  {
+   "id": "hendaye",
+   "name": "Hendaye",
+   "region": "Pyrénées-Atlantiques",
+   "country": "France",
+   "countryCode": "FR",
+   "lat": 43.376,
+   "lon": -1.777,
+   "timezone": "Europe/Paris",
+   "tags": [
+    "Beach break",
+    "Beginner",
+    "Sheltered"
+   ],
+   "info": {
+    "about": "The longest beach in the French Basque country, three kilometres of sand on the Spanish border with the twin rocks of Les Jumeaux offshore. Cap du Figuier shelters the bay, so the waves arrive softened — which makes Hendaye the region's learn-to-surf beach, and the place everyone goes when the rest of the coast is too big to paddle out.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Long, soft, forgiving walls",
+    "level": "Beginner to intermediate",
+    "bestSwell": "NW Atlantic swell, softened by the headland",
+    "bestWind": "S offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May; works all year",
+    "waterTemp": "13–21°C — 3/2 to 4/3",
+    "crowd": "Busy with schools in summer",
+    "hazards": [
+     "Rip beside the rocks at the west end",
+     "Crowds of beginners",
+     "Estuary current at the Spanish end"
+    ],
+    "localTip": "When Hossegor and Anglet are closing out, this is the bay that is still rideable."
+   },
+   "access": {
+    "airports": [
+     "BIQ",
+     "EAS"
+    ],
+    "transfer": "About 35 min south of Biarritz; 25 min from San Sebastián",
+    "transferMinutes": 35,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "hendaye-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.376,-1.777,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.376,-1.777,10"
+    },
+    {
+     "id": "hendaye-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Hendaye",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Hendaye"
+    }
+   ]
+  }
+ ]
+}
