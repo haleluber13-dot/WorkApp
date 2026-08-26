@@ -1287,6 +1287,7 @@ class WakeWordTest(PhoneTestCase):
         with mock.patch.object(gemini, "_request", fake_request), \
              mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
              mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"), \
+             mock.patch.object(assistant, "microphone_ready", return_value=True), \
              mock.patch.object(termux, "run", return_value=(True, "", "")), \
              mock.patch.object(voice.Voice, "speak", lambda self, text: True), \
              mock.patch.object(voice.Voice, "listen",
@@ -1294,6 +1295,51 @@ class WakeWordTest(PhoneTestCase):
             assistant.converse(args, voice.Voice())
 
         self.assertEqual(asked, ["what is the time"])
+
+
+class StartupCheckTest(PhoneTestCase):
+    """Finding out he is deaf after you have spoken is too late."""
+
+    def test_a_working_microphone_lets_the_conversation_start(self):
+        with mock.patch.object(ears, "check_microphone", return_value=(True, "")):
+            args = assistant.build_parser().parse_args(["--mic", "--no-notify"])
+            self.assertTrue(assistant.microphone_ready(args, voice.Voice()))
+
+    def test_a_dead_one_says_so_and_opens_the_settings_page(self):
+        opened = []
+        with mock.patch.object(ears, "check_microphone",
+                               return_value=(False, "no microphone permission")), \
+             mock.patch.object(ears, "open_permission_settings",
+                               lambda: opened.append(1) or True), \
+             mock.patch.object(sys, "stdout", io.StringIO()) as shown:
+            args = assistant.build_parser().parse_args(["--mic", "--no-notify"])
+            ready = assistant.microphone_ready(args, voice.Voice())
+
+        self.assertFalse(ready)
+        self.assertEqual(opened, [1], "it should put the settings page on screen")
+        self.assertIn("CANNOT HEAR", shown.getvalue())
+        self.assertIn("Typing still works", shown.getvalue())
+
+    def test_the_conversation_falls_back_to_typing(self):
+        typed = iter(["/quit"])
+        with mock.patch.object(ears, "check_microphone",
+                               return_value=(False, "no permission")), \
+             mock.patch.object(ears, "open_permission_settings", return_value=True), \
+             mock.patch.object(assistant, "can_type", return_value=True), \
+             mock.patch.object(termux, "run", return_value=(True, "", "")), \
+             mock.patch("builtins.input", lambda _="": next(typed)), \
+             mock.patch.object(sys, "stdout", io.StringIO()):
+            args = assistant.build_parser().parse_args(
+                ["--mic", "--quiet", "--no-memory", "--no-notify"]
+            )
+            self.assertEqual(assistant.converse(args, voice.Voice(enabled=False)), 0)
+            self.assertFalse(args.mic)
+
+    def test_the_android_recogniser_path_skips_the_recording_check(self):
+        with mock.patch.object(ears, "check_microphone") as check:
+            args = assistant.build_parser().parse_args(["--mic", "--ears", "android"])
+            assistant.microphone_ready(args, voice.Voice(hearing="android"))
+        check.assert_not_called()
 
 
 class StatusTest(PhoneTestCase):
@@ -1391,6 +1437,7 @@ class ConversationTest(PhoneTestCase):
                 return True
 
         with mock.patch.object(termux, "run", return_value=(True, "", "")), \
+             mock.patch.object(assistant, "microphone_ready", return_value=True), \
              mock.patch.object(termux, "have", return_value=True):
             assistant.converse(args, DeafVoice())
 

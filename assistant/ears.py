@@ -158,3 +158,30 @@ def describe(path=None):
         return os.path.getsize(path)
     except OSError:
         return 0
+
+
+def check_microphone(path=None):
+    """One second of recording, to find out whether he can hear at all.
+
+    Returns (ok, problem). Cheap enough to run before every conversation,
+    which beats discovering it after the first thing you say.
+    """
+    path = path or (RECORDING + ".check")
+    ok, problem = record(1, path)
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+    return ok, problem
+
+
+def open_permission_settings():
+    """Put the Termux:API permission page on screen. Returns True if shown."""
+    ok, _, _ = termux.run(
+        [
+            "am", "start", "-a", "android.settings.APPLICATION_DETAILS_SETTINGS",
+            "-d", "package:com.termux.api",
+        ],
+        15,
+    )
+    return ok

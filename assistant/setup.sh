@@ -46,11 +46,15 @@ mkdir -p "$HOME/.shortcuts"
 cat > "$HOME/.shortcuts/Jarvis.sh" <<SHORTCUT
 #!/data/data/com.termux/files/usr/bin/bash
 # Tap this on the home screen to wake him. Needs the Termux:Widget app.
-exec $here/bin/ai --jarvis
+$here/bin/ai --jarvis
+# The widget closes the session as soon as the script ends, taking any
+# error message with it. Wait for a key so it can be read.
+read -n 1 -s -r -p "done — press any key to close"
 SHORTCUT
 cat > "$HOME/.shortcuts/Jarvis (wake word).sh" <<SHORTCUT
 #!/data/data/com.termux/files/usr/bin/bash
-exec $here/bin/ai --jarvis --wake
+$here/bin/ai --jarvis --wake
+read -n 1 -s -r -p "done — press any key to close"
 SHORTCUT
 chmod +x "$HOME/.shortcuts/"*.sh
 echo "  Jarvis"

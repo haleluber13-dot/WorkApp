@@ -188,6 +188,13 @@ echo "from a pipe" | say
 listen                               print what the microphone hears
 ```
 
+## When he does not answer
+
+He records a single second before every spoken conversation and says so
+if nothing arrives, rather than letting you talk to a phone that cannot
+hear. When that happens he puts the Termux:API permission page on screen
+himself and falls back to typing, so the session is still useful.
+
 ## Seeing that he is running
 
 While he is listening there is a notification in the shade with an icon
@@ -447,7 +454,7 @@ which voice reads the latin-letter replies.
 | `memory.py` | what he knows about you, kept in ~/.personal-ai/memory.md |
 | `status.py` | the live notification: what he is doing, and a stop button |
 | `permissions.sh` | opens the settings screens Android hides |
-| `tests/` | 118 tests, no phone or network needed |
+| `tests/` | 122 tests, no phone or network needed |
 
 ## Tests
 

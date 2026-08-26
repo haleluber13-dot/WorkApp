@@ -18,6 +18,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import ears  # noqa: E402
 import gemini  # noqa: E402
 import memory  # noqa: E402
 import status as status_module  # noqa: E402
@@ -385,6 +386,36 @@ def can_type():
         return False
 
 
+def microphone_ready(args, speaker):
+    """Check he can hear before pretending to listen.
+
+    Discovering a dead microphone after the first thing someone says
+    wastes their breath and looks like being ignored.
+    """
+    if speaker.hearing == "android":
+        return True  # nothing to record with; the recogniser is its own path
+    print("checking the microphone... ", end="", flush=True)
+    ok, problem = ears.check_microphone()
+    if ok:
+        print("good")
+        return True
+
+    print("nothing recorded\n")
+    print("=" * 52)
+    print("HE CANNOT HEAR YOU")
+    print("=" * 52)
+    print(problem)
+    print()
+    if ears.open_permission_settings():
+        print("The settings page for Termux:API is now on your screen.")
+        print("Tap Permissions > Microphone > Allow, then start him again.")
+    else:
+        print("Open: Settings > Apps > Termux:API > Permissions > Microphone")
+    print("=" * 52)
+    print("\nTyping still works. Carry on below, or ctrl-c to leave.\n")
+    return False
+
+
 def is_goodbye(said):
     """True when the words spoken mean 'we are done'."""
     cleaned = said.strip().lower().rstrip(".!?")
@@ -396,6 +427,11 @@ def converse(args, speaker):
     show = (lambda state, detail="": None) if args.no_notify else (
         lambda state, detail="": status_module.show(state, detail)
     )
+
+    if args.mic and not microphone_ready(args, speaker):
+        args.mic = False
+        if not can_type():
+            return 1
 
     if args.mic:
         if args.wake:
