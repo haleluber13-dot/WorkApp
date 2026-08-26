@@ -86,11 +86,36 @@ fun FocusScreen(
         Box(m.background(Ocean.Ink)) {
             when {
                 cam == null -> NoCamPanel(spot, onOpenUrl)
-                cam.kind == CamKind.HLS -> HlsLive(cam, Modifier.fillMaxSize(), muted = false, showControls = true)
-                else -> YouTubeLive(cam, Modifier.fillMaxSize(), muted = false, showControls = true)
+                // Muted, because autoplay of audible video is blocked; the
+                // controls carry an unmute button once it is playing.
+                cam.kind == CamKind.HLS ->
+                    HlsLive(cam, Modifier.fillMaxSize(), muted = true, showControls = true)
+                else ->
+                    YouTubeLive(cam, Modifier.fillMaxSize(), muted = true, showControls = true)
             }
             if (cam != null) {
                 LiveDot(Modifier.align(Alignment.TopStart).padding(10.dp))
+                // Whatever the embedded player does, there is always a way to
+                // watch: hand the stream to the YouTube app.
+                Row(
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xCC021018))
+                        .clickable { onOpenUrl(cam.youTubeWatchUrl) }
+                        .padding(horizontal = 9.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Open in YouTube", color = Ocean.Foam, fontSize = 11.sp)
+                    Spacer(Modifier.width(5.dp))
+                    Icon(
+                        Icons.Filled.OpenInNew,
+                        null,
+                        tint = Ocean.Aqua,
+                        modifier = Modifier.size(13.dp),
+                    )
+                }
             }
         }
     }

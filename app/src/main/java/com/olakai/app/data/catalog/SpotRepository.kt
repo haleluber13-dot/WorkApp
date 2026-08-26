@@ -60,6 +60,7 @@ class SpotRepository(private val context: Context) {
                     kind = CamKind.YOUTUBE,
                     source = r.channelId.ifBlank { r.videoId },
                     isChannel = r.channelId.isNotBlank(),
+                    videoId = r.videoId,
                     provider = r.channel,
                     attribution = r.channel,
                     pageUrl = r.channelUrl.ifBlank {

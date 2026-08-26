@@ -37,15 +37,27 @@ data class Cam(
     val pageUrl: String = "",
     /** Set when [source] is a channel id rather than a single video id. */
     val isChannel: Boolean = false,
+    /**
+     * Last video id known to be live on this channel. Used for the first frame
+     * while the channel is re-resolved, and as the fallback if that fails.
+     */
+    val videoId: String = "",
     /** Cams the operator streams around the clock sort to the front of the wall. */
     val roundTheClock: Boolean = true,
 ) {
-    val youTubeEmbedUrl: String
-        get() = if (isChannel) {
-            "https://www.youtube.com/embed/live_stream?channel=$source"
-        } else {
-            "https://www.youtube.com/embed/$source"
-        }
+    /**
+     * Embed URL for a concrete video. Callers pass the id resolved at runtime;
+     * with none, this falls back to the catalogued one.
+     *
+     * Deliberately not `embed/live_stream?channel=` -- that endpoint resolves
+     * inconsistently and was why no cam played.
+     */
+    fun embedUrl(resolvedVideoId: String? = null): String {
+        val id = resolvedVideoId?.takeIf { it.isNotBlank() }
+            ?: videoId.takeIf { it.isNotBlank() }
+            ?: source
+        return "https://www.youtube.com/embed/$id"
+    }
 
     val youTubeWatchUrl: String
         get() = if (isChannel) {
@@ -57,8 +69,10 @@ data class Cam(
     /** Poster frame for a tile that is not currently holding a live decoder. */
     val thumbnailUrl: String?
         get() = when (kind) {
-            CamKind.YOUTUBE ->
-                if (isChannel) null else "https://i.ytimg.com/vi/$source/hqdefault.jpg"
+            CamKind.YOUTUBE -> {
+                val id = videoId.takeIf { it.isNotBlank() } ?: source.takeIf { !isChannel }
+                id?.let { "https://i.ytimg.com/vi/$it/hqdefault.jpg" }
+            }
             CamKind.STILL -> source
             else -> null
         }

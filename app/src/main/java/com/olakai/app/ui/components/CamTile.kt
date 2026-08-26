@@ -84,11 +84,14 @@ fun CamTileView(
             Modifier
                 .fillMaxSize()
                 .background(
+                    // Light at the top, clear through the middle so the wave is
+                    // never dimmed, and only dark enough at the base to carry
+                    // the caption.
                     Brush.verticalGradient(
-                        0f to Color(0x88000000),
-                        0.35f to Color(0x00000000),
-                        0.7f to Color(0x66000000),
-                        1f to Color(0xCC000814),
+                        0f to Color(0x59000000),
+                        0.28f to Color(0x00000000),
+                        0.72f to Color(0x40000000),
+                        1f to Color(0xB3000814),
                     ),
                 ),
         )

@@ -1,10 +1,15 @@
 package com.olakai.app.ui.components
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.util.Log
 import android.view.ViewGroup
+import android.webkit.ConsoleMessage
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -13,7 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,18 +37,27 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.olakai.app.Graph
 import com.olakai.app.data.model.Cam
+
+private const val TAG = "LiveVideo"
+
+/** Tag key for the URL a WebView already loaded; any int with a high byte >= 2. */
+private val R_LOADED = "olakai_loaded_url".hashCode()
 
 /**
  * A YouTube live stream in the official embedded player.
  *
  * YouTube's terms require playback through their player rather than by pulling
- * the underlying stream, so this is a WebView around the IFrame embed. Where a
- * cam is pinned to a channel we load the channel-live endpoint, which follows
- * the operator to whatever broadcast is running now instead of breaking when
- * they restart the stream.
+ * the underlying stream, so this is a WebView on the IFrame embed page.
+ *
+ * Two details are load-bearing, and getting either wrong shows a black player:
+ *  - the embed page is loaded as a top-level navigation, so the document really
+ *    is on youtube.com. Wrapping it in an iframe inside a `data:` document
+ *    leaves the page on an origin the player refuses to run on.
+ *  - the URL names a concrete video id. `embed/live_stream?channel=` is the
+ *    obvious choice for a live channel and does not resolve reliably.
  */
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun YouTubeLive(
     cam: Cam,
@@ -51,145 +65,185 @@ fun YouTubeLive(
     muted: Boolean = true,
     showControls: Boolean = false,
 ) {
-    val context = LocalContext.current
-    val html = remember(cam.source, muted, showControls) {
-        buildEmbedHtml(cam.youTubeEmbedUrl, muted, showControls)
+    // A catalogued video id goes stale the moment an operator restarts their
+    // broadcast, so for a channel cam wait for the current id before loading.
+    // Resolution falls back to the catalogued id, so this cannot hang.
+    var videoId by remember(cam.id) {
+        mutableStateOf(if (cam.isChannel) "" else cam.source)
     }
-
-    // A device can be without a usable WebView (provider updating, or disabled),
-    // and constructing one then throws. A tile is not worth taking the app down.
-    var failed by remember(cam.source) { mutableStateOf(false) }
-
-    val webView = remember(cam.source) {
-        runCatching {
-            WebView(context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                )
-                setBackgroundColor(Color.Black.toArgb())
-                webChromeClient = WebChromeClient()
-                webViewClient = object : WebViewClient() {
-                    /**
-                     * Critical on a wall of streams: when Android kills a WebView
-                     * render process (usually memory pressure with several videos
-                     * decoding), returning false lets the platform kill the whole
-                     * app. Returning true keeps OlaKai alive and drops this tile.
-                     */
-                    override fun onRenderProcessGone(
-                        view: WebView?,
-                        detail: RenderProcessGoneDetail?,
-                    ): Boolean {
-                        Log.w(TAG, "render process gone for ${cam.id}; dropping the tile")
-                        view?.destroy()
-                        failed = true
-                        return true
-                    }
-                }
-                isVerticalScrollBarEnabled = false
-                isHorizontalScrollBarEnabled = false
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    // Without this the embed will not start until the user taps
-                    // it, which defeats a wall of always-on cams.
-                    mediaPlaybackRequiresUserGesture = false
-                    loadWithOverviewMode = true
-                    useWideViewPort = true
-                    cacheMode = WebSettings.LOAD_DEFAULT
-                }
-            }
-        }.onFailure {
-            Log.w(TAG, "no usable WebView: ${it.message}")
-            failed = true
-        }.getOrNull()
-    }
-
-    if (webView == null || failed) {
-        CamUnavailable(modifier)
-        return
-    }
-
-    DisposableEffect(webView) {
-        onDispose {
-            // Release the decoder immediately -- a wall recycles these constantly.
-            runCatching {
-                webView.loadUrl("about:blank")
-                webView.stopLoading()
-                webView.destroy()
-            }
+    LaunchedEffect(cam.id) {
+        if (cam.isChannel) {
+            videoId = Graph.liveStreams.currentVideoId(cam.source)
+                ?: cam.videoId.ifBlank { cam.source }
         }
     }
 
+    var failed by remember(cam.id) { mutableStateOf(false) }
+
+    if (failed) {
+        CamUnavailable(modifier, "Cam unavailable")
+        return
+    }
+    if (videoId.isBlank()) {
+        CamUnavailable(modifier, "Finding the live stream…")
+        return
+    }
+
+    val url = remember(videoId, showControls) {
+        embedUrl(cam.embedUrl(videoId), showControls)
+    }
+    val label = cam.id
+
     AndroidView(
         modifier = modifier,
-        factory = { webView },
+        // Built here rather than in a remember: Compose owns this view's
+        // lifetime, and handing it one built elsewhere risks re-attaching a
+        // WebView that a previous release already destroyed.
+        factory = { context ->
+            runCatching { createPlayerWebView(context, label) { failed = true } }
+                .onFailure {
+                    // A device can be without a usable WebView (provider
+                    // updating, or disabled) and construction then throws.
+                    Log.w(TAG, "no usable WebView: ${it.message}")
+                    failed = true
+                }
+                .getOrElse { WebView(context) }
+        },
         update = { view ->
-            // Load once per cam. Reloading on every recomposition would restart
+            // Load once per URL. Reloading on every recomposition would restart
             // the stream and thrash the decoder.
-            if (view.getTag(R_LOADED) != html) {
-                view.setTag(R_LOADED, html)
-                view.loadDataWithBaseURL(
-                    "https://www.youtube.com",
-                    html,
-                    "text/html",
-                    "utf-8",
-                    null,
-                )
+            if (view.getTag(R_LOADED) != url) {
+                view.setTag(R_LOADED, url)
+                view.loadUrl(url)
+            }
+        },
+        // Runs after the view is detached, which is what WebView.destroy()
+        // requires. Doing this in a DisposableEffect destroys it while it is
+        // still parented, and a recycling grid then leaves dead tiles behind.
+        onRelease = { view ->
+            runCatching {
+                view.stopLoading()
+                view.loadUrl("about:blank")
+                (view.parent as? ViewGroup)?.removeView(view)
+                view.destroy()
             }
         },
     )
 }
 
-/** Tag key for the html a WebView already loaded; any unique id works. */
-private val R_LOADED = "olakai_loaded_html".hashCode()
+@SuppressLint("SetJavaScriptEnabled")
+private fun createPlayerWebView(
+    context: Context,
+    label: String,
+    onRenderGone: () -> Unit,
+): WebView = WebView(context).apply {
+    layoutParams = ViewGroup.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.MATCH_PARENT,
+    )
+    setBackgroundColor(Color.Black.toArgb())
+    isVerticalScrollBarEnabled = false
+    isHorizontalScrollBarEnabled = false
 
-private const val TAG = "LiveVideo"
+    // Required for HTML5 video to render at all; the console hook is how a
+    // playback refusal becomes visible instead of just a black rectangle.
+    webChromeClient = object : WebChromeClient() {
+        override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+            Log.d(TAG, "$label console: ${message.message()}")
+            return true
+        }
+    }
+
+    webViewClient = object : WebViewClient() {
+        /**
+         * Critical on a wall of streams: when Android kills a WebView render
+         * process (usually memory pressure with several videos decoding),
+         * returning false lets the platform kill the whole app. Returning true
+         * keeps OlaKai alive and drops just this tile.
+         */
+        override fun onRenderProcessGone(
+            view: WebView?,
+            detail: RenderProcessGoneDetail?,
+        ): Boolean {
+            Log.w(TAG, "$label render process gone; dropping the tile")
+            view?.destroy()
+            onRenderGone()
+            return true
+        }
+
+        override fun onReceivedError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            error: WebResourceError?,
+        ) {
+            if (request?.isForMainFrame == true) {
+                Log.w(TAG, "$label load error: ${error?.description}")
+            }
+        }
+
+        override fun onReceivedHttpError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            response: WebResourceResponse?,
+        ) {
+            if (request?.isForMainFrame == true) {
+                Log.w(TAG, "$label http ${response?.statusCode} for ${request.url}")
+            }
+        }
+    }
+
+    settings.apply {
+        javaScriptEnabled = true
+        domStorageEnabled = true
+        // Without this the embed will not start until the user taps it, which
+        // defeats a wall of always-on cams.
+        mediaPlaybackRequiresUserGesture = false
+        loadWithOverviewMode = true
+        useWideViewPort = true
+        cacheMode = WebSettings.LOAD_DEFAULT
+        // Android appends "; wv" to mark a WebView. YouTube treats that as an
+        // embedded browser and can serve a degraded player, so drop it.
+        userAgentString = userAgentString.replace("; wv", "")
+    }
+}
+
+/**
+ * Query string for the IFrame player.
+ *
+ * `mute=1` is not a preference, it is a requirement: browsers refuse to autoplay
+ * audible video, so an unmuted embed simply sits there paused. Tiles stay muted
+ * for good; the focused player shows controls, and unmuting by hand is itself
+ * the gesture that permits audio.
+ *
+ * `fs=0` because a plain WebChromeClient implements neither onShowCustomView
+ * nor onHideCustomView -- offering a fullscreen button we cannot service would
+ * blank the video with no way back.
+ */
+private fun embedUrl(base: String, controls: Boolean): String {
+    val joiner = if (base.contains('?')) "&" else "?"
+    return base + joiner + buildString {
+        append("autoplay=1")
+        append("&mute=1")
+        append("&playsinline=1")
+        append("&controls=").append(if (controls) 1 else 0)
+        append("&modestbranding=1&rel=0&fs=0&iv_load_policy=3")
+    }
+}
 
 @Composable
-private fun CamUnavailable(modifier: Modifier = Modifier) {
+private fun CamUnavailable(modifier: Modifier = Modifier, message: String) {
     Box(
         modifier.background(Color(0xFF07223A)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            "Cam unavailable on this device",
+            message,
             color = Color(0xFF9FB6C6),
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(12.dp),
         )
     }
-}
-
-private fun buildEmbedHtml(embedUrl: String, muted: Boolean, controls: Boolean): String {
-    // The channel-live endpoint already carries a query string, a video embed
-    // does not -- pick the joiner rather than assuming one.
-    val joiner = if (embedUrl.contains('?')) "&" else "?"
-    val src = embedUrl + joiner + buildString {
-        append("autoplay=1")
-        append("&mute=").append(if (muted) 1 else 0)
-        append("&playsinline=1")
-        append("&controls=").append(if (controls) 1 else 0)
-        append("&modestbranding=1&rel=0&fs=0&iv_load_policy=3")
-    }
-    return """
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-            <style>
-              html, body { margin:0; padding:0; background:#000; height:100%; overflow:hidden; }
-              iframe { border:0; width:100%; height:100%; display:block; }
-            </style>
-          </head>
-          <body>
-            <iframe src="$src"
-                    allow="autoplay; encrypted-media; picture-in-picture"
-                    allowfullscreen></iframe>
-          </body>
-        </html>
-    """.trimIndent()
 }
 
 /** A direct HLS feed, played by ExoPlayer -- far cheaper per tile than a WebView. */
@@ -214,11 +268,11 @@ fun HlsLive(
     }
 
     if (player == null) {
-        CamUnavailable(modifier)
+        CamUnavailable(modifier, "Cam unavailable")
         return
     }
 
-    DisposableEffect(player) {
+    androidx.compose.runtime.DisposableEffect(player) {
         onDispose { runCatching { player.release() } }
     }
 

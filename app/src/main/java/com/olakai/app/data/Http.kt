@@ -35,8 +35,14 @@ object Http {
 
     private const val UA = "OlaKai/1.0 (Android)"
 
-    suspend fun getString(url: String): String = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(url).header("User-Agent", UA).build()
+    suspend fun getString(
+        url: String,
+        userAgent: String = UA,
+        headers: Map<String, String> = emptyMap(),
+    ): String = withContext(Dispatchers.IO) {
+        val builder = Request.Builder().url(url).header("User-Agent", userAgent)
+        headers.forEach { (k, v) -> builder.header(k, v) }
+        val request = builder.build()
         execute(request).use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code} for $url")
             response.body?.string().orEmpty()

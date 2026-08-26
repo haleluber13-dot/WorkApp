@@ -43,10 +43,13 @@ class Prefs(private val context: Context) {
 
     companion object {
         /**
-         * Four simultaneous streams is what a mid-range phone handles without
-         * dropping frames; the wall lets people raise it if their device copes.
+         * Deliberately conservative. Each live tile is a renderer process and a
+         * hardware video decoder instance, and phones cap concurrent decoders
+         * lower than you would expect -- past the cap the extra tiles just
+         * render black. Two is what almost anything sustains; the wall's
+         * settings let people raise it once they can see it working.
          */
-        const val DEFAULT_BUDGET = 4
+        const val DEFAULT_BUDGET = 2
 
         private val HOME = stringPreferencesKey("home_airport")
         private val BUDGET = intPreferencesKey("live_budget")
