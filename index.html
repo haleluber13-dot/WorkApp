@@ -10,12 +10,12 @@
   <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./assets/icons/icon-192.png">
   <link rel="stylesheet" href="./assets/css/style.css">
-  <!-- 3D globe (loads from CDN; app degrades gracefully if blocked/offline) -->
-  <script src="https://unpkg.com/globe.gl@2.34.4/dist/globe.gl.min.js" defer></script>
+  <!-- 3D globe — bundled locally so it always loads, even on restrictive networks -->
+  <script src="./assets/vendor/globe.gl.min.js" defer></script>
   <!-- HLS playback for .m3u8 public streams -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js" defer></script>
+  <script src="./assets/vendor/hls.min.js" defer></script>
   <!-- MPEG-DASH playback for .mpd public streams -->
-  <script src="https://cdn.jsdelivr.net/npm/dashjs@4.7.4/dist/dash.all.min.js" defer></script>
+  <script src="./assets/vendor/dash.all.min.js" defer></script>
 </head>
 <body data-view="split">
   <header class="topbar">

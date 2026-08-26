@@ -14,8 +14,8 @@
 
       this.world = Globe()(el)
         .backgroundColor("rgba(0,0,0,0)")
-        .globeImageUrl("//unpkg.com/three-globe/example/img/earth-night.jpg")
-        .bumpImageUrl("//unpkg.com/three-globe/example/img/earth-topology.png")
+        .globeImageUrl("./assets/vendor/img/earth-night.jpg")
+        .bumpImageUrl("./assets/vendor/img/earth-topology.png")
         .atmosphereColor("#3aa0ff")
         .atmosphereAltitude(0.18)
         .pointOfView({ lat: 20, lng: 0, altitude: 2.4 }, 0)
