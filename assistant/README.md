@@ -76,9 +76,17 @@ answer. No answer means the app is not reachable. If it is missing:
 3. Settings → Apps → Termux:API → Battery → **Unrestricted**
    (Android freezes background services otherwise).
 
-Then `bash doctor.sh` will tell you what is still wrong, and every script
-here uses a timeout, so nothing in this project can ever hang your terminal
-again.
+`doctor.sh` prints a line per capability — volume, clipboard, contacts,
+messages, notifications, camera, speech — saying which the phone allows and
+which it blocks, then lists the exact settings screens for the blocked ones.
+Permissions, notification access and text-to-speech live in three different
+places on Android, and it names all three.
+
+When a command does time out, the assistant works out what that means
+rather than guessing: it asks the phone something that needs no permission
+at all, and if *that* answers, the app is fine and the silence belongs to
+that one feature — a missing speech engine, a microphone permission — which
+is what it then tells you.
 
 > `pkill -f com.termux.api` kills the very service you need. Don't.
 
@@ -257,7 +265,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 59 tests, no phone or network needed |
+| `tests/` | 63 tests, no phone or network needed |
 
 ## Tests
 

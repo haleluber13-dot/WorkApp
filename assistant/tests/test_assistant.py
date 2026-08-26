@@ -153,6 +153,44 @@ class KeyTest(unittest.TestCase):
         self.assertIn("aistudio.google.com", str(caught.exception))
 
 
+class DiagnosisTest(unittest.TestCase):
+    """A timeout means different things depending on what else works."""
+
+    @staticmethod
+    def _phone(battery_answers):
+        def run(command, **kwargs):
+            if command[0] == "termux-battery-status" and battery_answers:
+                return subprocess.CompletedProcess(command, 0, "{}", "")
+            raise subprocess.TimeoutExpired(command[0], 8)
+        return run
+
+    def test_a_dead_app_is_named_as_the_cause(self):
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", self._phone(False)):
+            _, _, problem = termux.run(["termux-tts-speak", "hi"], 8)
+        self.assertIn("Termux:API app is not answering", problem)
+
+    def test_a_live_app_points_at_the_feature_instead(self):
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", self._phone(True)):
+            _, _, problem = termux.run(["termux-tts-speak", "hi"], 8)
+        self.assertIn("Text-to-speech", problem)
+        self.assertNotIn("not answering", problem)
+
+    def test_the_microphone_gets_microphone_advice(self):
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", self._phone(True)):
+            _, _, problem = termux.run(["termux-speech-to-text"], 8)
+        self.assertIn("Microphone", problem)
+
+    def test_the_probe_itself_does_not_probe_itself(self):
+        """Or a dead phone would recurse until the stack gave out."""
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", self._phone(False)):
+            _, _, problem = termux.run(["termux-battery-status"], 8)
+        self.assertIn("Termux:API app is not answering", problem)
+
+
 class VoiceTest(unittest.TestCase):
     def test_a_hang_turns_voice_off_instead_of_blocking(self):
         speaker = voice.Voice()
