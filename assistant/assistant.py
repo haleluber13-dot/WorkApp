@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import sys
+import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -199,30 +200,70 @@ def make_asker(args, speaker):
     return ask
 
 
+def while_ticking(label, work):
+    """Run `work()`, printing a dot a second so a wait is visibly a wait.
+
+    On a phone a silent pause is indistinguishable from a hang, and the
+    difference is the whole diagnosis.
+    """
+    print(label, end="", flush=True)
+    outcome = {}
+
+    def run():
+        try:
+            outcome["value"] = work()
+        except BaseException as error:  # noqa: BLE001 - re-raised below
+            outcome["error"] = error
+
+    worker = threading.Thread(target=run, daemon=True)
+    started = time.monotonic()
+    worker.start()
+    while worker.is_alive():
+        worker.join(1)
+        if worker.is_alive():
+            print(".", end="", flush=True)
+    elapsed = time.monotonic() - started
+    print(f" {elapsed:.1f}s")
+    if "error" in outcome:
+        raise outcome["error"]
+    return outcome["value"]
+
+
 def ping(args):
     """The smallest possible round trip, timed. Isolates slow from stuck."""
-    print(f"asking {args.model} to say one word...", flush=True)
-    started = time.monotonic()
+    # One attempt and a short patience: this is a test, not the real work,
+    # and an answer of "it is stuck" beats three minutes of retries.
     try:
-        text = gemini.with_model_repair(
-            lambda model: gemini.generate(
-                "Reply with the single word: ready",
-                model=model,
-                timeout=args.timeout,
+        text = while_ticking(
+            f"asking {args.model} for one word ",
+            lambda: gemini.with_model_repair(
+                lambda model: gemini.generate(
+                    "Reply with the single word: ready",
+                    model=model,
+                    timeout=15,
+                    attempts=1,
+                ),
+                args.model,
+                announce=announce,
             ),
-            args.model,
-            announce=announce,
         )
+        print(f"  Gemini said: {text}")
     except gemini.GeminiError as error:
-        print(f"\nfailed after {time.monotonic() - started:.1f}s\n{error}", file=sys.stderr)
+        print(f"\nGemini failed:\n{error}\n", file=sys.stderr)
         return 1
-    print(f"{text}  ({time.monotonic() - started:.1f}s)")
+    except KeyboardInterrupt:
+        print("\nstopped")
+        return 130
 
-    print("\nnow the phone: turning the torch on and off...", flush=True)
-    started = time.monotonic()
-    for state in (True, False):
-        result = tools_module.execute("torch", {"on": state}, tools_module.available())
-    print(f"{result}  ({time.monotonic() - started:.1f}s)")
+    result = while_ticking(
+        "asking the phone to flash the torch ",
+        lambda: [
+            tools_module.execute("torch", {"on": state}, tools_module.available())
+            for state in (True, False)
+        ][-1],
+    )
+    print(f"  the phone said: {result}")
+    print("\nBoth halves answered. `ai \"turn on the flashlight\"` should work now.")
     return 0
 
 

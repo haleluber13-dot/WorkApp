@@ -274,7 +274,8 @@ it off for scripts.
 
 `ai --ping` times the two halves separately — one round trip to Gemini,
 then the torch on and off — which says whether a stall is the network or
-the phone.
+the phone. It prints a dot a second while it waits, gives up after fifteen
+seconds, and does not retry: the point is a quick verdict, not an answer.
 
 ## Which model it uses
 
