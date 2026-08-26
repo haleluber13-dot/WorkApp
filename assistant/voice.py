@@ -10,10 +10,12 @@ ENGINES_CMD = "termux-tts-engines"
 class Voice:
     """Speech in and out, degrading to silence rather than to a hang."""
 
-    def __init__(self, lang=None, timeout=25, enabled=True):
+    def __init__(self, lang=None, timeout=25, enabled=True, pitch=None, rate=None):
         self.lang = lang
         self.timeout = timeout
         self.enabled = enabled
+        self.pitch = pitch  # below 1.0 is deeper
+        self.rate = rate    # below 1.0 is slower
         self.last_problem = ""
         self._warned = False
 
@@ -24,6 +26,10 @@ class Voice:
         command = [SPEAK_CMD]
         if self.lang:
             command += ["-l", self.lang]
+        if self.pitch:
+            command += ["-p", str(self.pitch)]
+        if self.rate:
+            command += ["-r", str(self.rate)]
         command.append(text)
 
         ok, _, problem = termux.run(command, self.timeout)

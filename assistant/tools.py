@@ -220,6 +220,117 @@ def _shell(command="", **_):
     return output[:2000] or "done (no output)"
 
 
+
+# --- apps ------------------------------------------------------------------
+# Deep links, not package launches: a deep link opens the app *and* lands on
+# the right screen, and it works without any special permission. An app that
+# is not installed falls back to the same thing in the browser.
+
+APPS = {
+    "spotify": "spotify:",
+    "whatsapp": "https://wa.me/",
+    "youtube": "https://www.youtube.com/",
+    "maps": "https://maps.google.com/",
+    "waze": "https://www.waze.com/",
+    "gmail": "googlegmail://",
+    "telegram": "tg://",
+    "instagram": "https://www.instagram.com/",
+    "facebook": "https://www.facebook.com/",
+    "netflix": "https://www.netflix.com/",
+    "camera": "camera:",
+    "settings": "android-app://com.android.settings",
+    "calendar": "content://com.android.calendar/time/",
+    "chrome": "https://www.google.com/",
+}
+
+
+def _play_music(query="", **_):
+    """Ask whatever music app the phone uses to play something."""
+    if not query.strip():
+        return "nothing to play — say what to put on"
+    # The documented Android intent for 'play X'. Spotify, YouTube Music and
+    # the stock players all answer it.
+    ok, _, problem = termux.run(
+        [
+            "am", "start", "-a", "android.media.action.MEDIA_PLAY_FROM_SEARCH",
+            "--es", "query", query,
+        ],
+        20,
+    )
+    if ok:
+        return f"playing {query}"
+    # No music app answered that. Open Spotify on the search instead.
+    url = "spotify:search:" + urllib.parse.quote(query)
+    ok, _, second = termux.run(["termux-open-url", url], 20)
+    if ok:
+        return f"opened Spotify searching for {query}"
+    return f"failed: {problem or second}"
+
+
+def _navigate(destination="", app="waze", **_):
+    place = urllib.parse.quote(destination)
+    if app.lower() == "waze":
+        url = f"https://www.waze.com/ul?q={place}&navigate=yes"
+    else:
+        url = f"https://www.google.com/maps/dir/?api=1&destination={place}"
+    return _simple(["termux-open-url", url], f"navigating to {destination}")
+
+
+def _open_app(name="", **_):
+    key = name.strip().lower()
+    target = APPS.get(key)
+    if target is None:
+        # Unknown app: search for it rather than failing outright.
+        target = "https://www.google.com/search?q=" + urllib.parse.quote(name)
+        ok, _, problem = termux.run(["termux-open-url", target], 20)
+        return (
+            f"'{name}' is not an app I know, so I searched the web for it"
+            if ok else f"failed: {problem}"
+        )
+    return _simple(["termux-open-url", target], f"opened {key}")
+
+
+def _search_web(query="", **_):
+    url = "https://www.google.com/search?q=" + urllib.parse.quote(query)
+    return _simple(["termux-open-url", url], f"searched for {query}")
+
+
+def _notifications(**_):
+    ok, output, problem = termux.run(["termux-notification-list"], 25)
+    if not ok:
+        return f"failed: {problem}"
+    try:
+        items = json.loads(output)
+    except ValueError:
+        return output
+    if not items:
+        return "nothing waiting"
+    lines = []
+    for item in items[:12]:
+        title = item.get("title") or item.get("packageName", "")
+        content = (item.get("content") or "").strip()
+        lines.append(f"{title}: {content}" if content else str(title))
+    return "\n".join(lines)
+
+
+def _sms_inbox(limit=5, **_):
+    ok, output, problem = termux.run(
+        ["termux-sms-list", "-l", str(int(limit)), "-t", "inbox"], 25
+    )
+    if not ok:
+        return f"failed: {problem}"
+    try:
+        messages = json.loads(output)
+    except ValueError:
+        return output
+    if not messages:
+        return "no messages"
+    return "\n".join(
+        f"{message.get('number', '?')}: {message.get('body', '')}"
+        for message in messages
+    )
+
+
 ALL = [
     Tool("current_time", "The date and time right now, on this phone.", _now),
     Tool(
@@ -298,6 +409,45 @@ ALL = [
         },
         ["number"],
         confirm=True,
+    ),
+    Tool(
+        "play_music",
+        "Play music. Give the artist, song or playlist as the query.",
+        _play_music,
+        {"query": {"type": "string", "description": "artist, song, album or playlist"}},
+        ["query"],
+    ),
+    Tool(
+        "navigate",
+        "Start turn-by-turn navigation to a place.",
+        _navigate,
+        {
+            "destination": {"type": "string", "description": "address or place name"},
+            "app": {"type": "string", "description": "waze or google, default waze"},
+        },
+        ["destination"],
+    ),
+    Tool(
+        "open_app",
+        "Open an app on the phone: spotify, whatsapp, youtube, maps, waze, "
+        "gmail, telegram, instagram, netflix, camera, settings, calendar.",
+        _open_app,
+        {"name": {"type": "string"}},
+        ["name"],
+    ),
+    Tool(
+        "search_web", "Look something up on the web, in the browser.", _search_web,
+        {"query": {"type": "string"}}, ["query"],
+    ),
+    Tool(
+        "read_notifications",
+        "Read the notifications waiting on the phone.",
+        _notifications,
+        confirm=True,
+    ),
+    Tool(
+        "read_messages", "Read the most recent text messages received.", _sms_inbox,
+        {"limit": {"type": "number"}}, confirm=True,
     ),
     Tool(
         "open_url", "Open a web page or a deep link on the phone.", _open_url,

@@ -7,6 +7,13 @@ server in the middle.
 Say "text Dani that I'm running late" and it finds the number, asks you
 once, and sends it.
 
+```sh
+ai --jarvis
+```
+
+One flag: he listens, answers out loud in a lower voice, does what you
+asked, and keeps listening until you say stop.
+
 ---
 
 ## מהיר בעברית
@@ -87,6 +94,8 @@ model is given a list of actions and decides on its own when to use them.
 | screen | `notification`, `toast`, `open_url` |
 | text | `clipboard_read`, `clipboard_write` |
 | people | `find_contact`, `send_sms` !, `call` !, `whatsapp` ! |
+| apps | `play_music`, `navigate`, `open_app`, `search_web`, `open_url` |
+| inbox | `read_notifications` !, `read_messages` ! |
 | private | `location` ! |
 | power | `run_shell` ! (only with `--allow-shell`) |
 
@@ -98,10 +107,18 @@ takes the hands away entirely.
 ```sh
 ai "turn on the flashlight"
 ai "wake me at 6:30 for the shoot"
-ai "how much battery do I have left"
+ai "play some miles davis"
+ai "navigate to Tel Aviv port"
 ai "text Dani that I am running twenty minutes late"
+ai "read me my notifications"
 ai --tools                        # the full list
 ```
+
+Music goes through Android's own "play this" intent, which Spotify,
+YouTube Music and the stock players all answer — so it plays in whatever
+you actually use. If nothing answers, it opens Spotify on the search.
+Navigation opens Waze by default, Google Maps if you ask for it. Apps open
+through deep links, so no special permission is involved.
 
 `run_shell` is the whole phone in one tool — it is hidden unless you pass
 `--allow-shell`, and it still asks before every command.
@@ -156,6 +173,36 @@ echo "from a pipe" | say
 listen                               print what the microphone hears
 ```
 
+## Talking to him
+
+```sh
+ai --jarvis
+```
+
+He greets you, listens, answers out loud, and listens again — no keyboard,
+no pressing anything between questions. Say **stop** (or *די*) to end it.
+Three silences in a row and he stops on his own rather than spinning.
+
+The voice is the phone's own text-to-speech, pitched down and slowed
+slightly, which is most of what makes it sound like him:
+
+```sh
+ai --jarvis --pitch 0.7 --rate 0.9      # deeper, slower
+ai --voice --pitch 1.2 "hello"          # or don't
+```
+
+For a better voice than the stock one, install a neural TTS engine from
+the Play Store (Google's own, or Acapela / RHVoice for other languages) and
+pick it in Settings → Accessibility → Text-to-speech. Everything here uses
+whatever engine the phone is set to.
+
+The manner comes from `personas/jarvis.txt` — calm, short, dry, no
+enthusiasm, addresses you as sir now and then. It is a plain text file:
+edit it, or write your own next to it and use `--persona yourname`.
+
+A wake lock is taken while he is listening, because Android otherwise
+freezes the loop after a few minutes.
+
 ## Which model it uses
 
 Model availability differs by key and by region, so the default is a
@@ -193,7 +240,8 @@ PROMPT
 | `doctor.sh` | diagnoses the phone, end to end |
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
-| `tests/` | 44 tests, no phone or network needed |
+| `personas/` | how he speaks — plain text, edit freely |
+| `tests/` | 57 tests, no phone or network needed |
 
 ## Tests
 
@@ -226,7 +274,9 @@ becomes its specification.
 
 ## What is not here yet
 
-* A wake word — you still start it yourself.
+* A wake word. You start him with `ai --jarvis`; he does not wake on his
+  own name yet. That needs an always-on listener, which costs battery and
+  needs care.
 * Calendar and email; both need OAuth, which is a bigger piece of work.
 * Anything that survives the phone rebooting: no background service yet.
 * A native APK. See above.

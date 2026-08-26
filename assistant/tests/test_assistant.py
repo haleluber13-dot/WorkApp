@@ -470,5 +470,113 @@ class ModelRepairTest(unittest.TestCase):
 
 
 
+class AppToolTest(unittest.TestCase):
+    def test_navigation_builds_a_waze_link(self):
+        with mock.patch.object(termux, "run", return_value=(True, "", "")) as run:
+            tools.execute("navigate", {"destination": "תל אביב"}, tools.available())
+        url = run.call_args[0][0][1]
+        self.assertIn("waze.com/ul?q=", url)
+        self.assertIn("navigate=yes", url)
+
+    def test_google_maps_when_asked_for(self):
+        with mock.patch.object(termux, "run", return_value=(True, "", "")) as run:
+            tools.execute(
+                "navigate", {"destination": "Haifa", "app": "google"}, tools.available()
+            )
+        self.assertIn("google.com/maps/dir", run.call_args[0][0][1])
+
+    def test_music_asks_android_before_falling_back_to_spotify(self):
+        with mock.patch.object(termux, "run", return_value=(True, "", "")) as run:
+            answer = tools.execute(
+                "play_music", {"query": "Miles Davis"}, tools.available()
+            )
+        command = run.call_args[0][0]
+        self.assertIn("android.media.action.MEDIA_PLAY_FROM_SEARCH", command)
+        self.assertIn("Miles Davis", command)
+        self.assertIn("playing", answer.lower())
+
+    def test_music_falls_back_when_no_player_answers(self):
+        results = [(False, "", "no activity found"), (True, "", "")]
+        with mock.patch.object(termux, "run", side_effect=results) as run:
+            answer = tools.execute("play_music", {"query": "כוורת"}, tools.available())
+        self.assertIn("spotify:search:", run.call_args[0][0][1])
+        self.assertIn("Spotify", answer)
+
+    def test_an_unknown_app_is_searched_for_rather_than_failing(self):
+        with mock.patch.object(termux, "run", return_value=(True, "", "")) as run:
+            answer = tools.execute(
+                "open_app", {"name": "some app I invented"}, tools.available()
+            )
+        self.assertIn("google.com/search", run.call_args[0][0][1])
+        self.assertIn("searched", answer)
+
+    def test_reading_messages_needs_a_yes(self):
+        with mock.patch.object(termux, "run") as run:
+            tools.execute(
+                "read_messages", {}, tools.available(), ask=lambda _: False
+            )
+        run.assert_not_called()
+
+
+class JarvisPresetTest(unittest.TestCase):
+    def test_one_flag_sets_voice_microphone_and_manner(self):
+        args = assistant.apply_jarvis(
+            assistant.build_parser().parse_args(["--jarvis"])
+        )
+        self.assertTrue(args.mic)
+        self.assertTrue(args.voice)
+        self.assertEqual(args.persona, "jarvis")
+        self.assertLess(args.pitch, 1.0, "his voice is deeper than the default")
+        self.assertLessEqual(args.rate, 1.0)
+
+    def test_what_the_user_asked_for_is_not_overridden(self):
+        args = assistant.apply_jarvis(
+            assistant.build_parser().parse_args(
+                ["--jarvis", "--pitch", "1.4", "--persona", "plain"]
+            )
+        )
+        self.assertEqual(args.pitch, 1.4)
+        self.assertEqual(args.persona, "plain")
+
+
+class ConversationTest(unittest.TestCase):
+    def test_the_words_that_end_it(self):
+        for word in ("stop", "Stop.", "די", "להתראות", "that's all"):
+            self.assertTrue(assistant.is_goodbye(word), word)
+
+    def test_ordinary_speech_does_not_end_it(self):
+        for word in ("stop the music", "play something", "מה השעה"):
+            self.assertFalse(assistant.is_goodbye(word), word)
+
+    def test_the_persona_is_read_from_the_project(self):
+        text = assistant.load_system("jarvis")
+        self.assertIn("Jarvis", text)
+        self.assertNotIn("*", text)  # it is spoken aloud; no markdown
+
+    def test_an_unknown_persona_falls_back_instead_of_crashing(self):
+        with mock.patch.object(sys, "stderr", io.StringIO()), \
+             mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"):
+            self.assertEqual(assistant.load_system("nobody"), assistant.DEFAULT_SYSTEM)
+
+    def test_a_dead_microphone_stops_the_loop_instead_of_spinning(self):
+        args = assistant.build_parser().parse_args(["--mic", "--quiet", "--no-memory"])
+        attempts = []
+
+        class DeafVoice(voice.Voice):
+            def listen(self, timeout=60):
+                attempts.append(1)
+                return ""
+
+            def speak(self, text):
+                return True
+
+        with mock.patch.object(termux, "run", return_value=(True, "", "")), \
+             mock.patch.object(termux, "have", return_value=True):
+            assistant.converse(args, DeafVoice())
+
+        self.assertEqual(len(attempts), 3, "it should give up after three silences")
+
+
+
 if __name__ == "__main__":
     unittest.main()

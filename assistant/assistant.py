@@ -24,6 +24,13 @@ HOME = os.path.expanduser("~/.personal-ai")
 HISTORY_FILE = os.path.join(HOME, "history.json")
 SYSTEM_FILE = os.path.join(HOME, "system.txt")
 MODEL_FILE = os.path.join(HOME, "model")
+PERSONA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "personas")
+
+# Said out loud, these end the conversation.
+STOP_WORDS = (
+    "stop", "goodbye", "good bye", "that is all", "that's all", "thank you that is all",
+    "די", "תפסיק", "מספיק", "להתראות", "זהו",
+)
 
 DEFAULT_SYSTEM = (
     "You are a personal assistant running on a phone, in a terminal. "
@@ -107,7 +114,19 @@ def repair_model(args):
     return choice
 
 
-def load_system():
+def load_system(persona=None):
+    """The instructions the model works under.
+
+    A persona shipped with the project, then whatever the user wrote in
+    ~/.personal-ai/system.txt, then the plain default.
+    """
+    if persona:
+        path = os.path.join(PERSONA_DIR, f"{persona}.txt")
+        try:
+            with open(path, encoding="utf-8") as handle:
+                return handle.read().strip()
+        except OSError:
+            print(f"[no persona called '{persona}' — using the default]", file=sys.stderr)
     try:
         with open(SYSTEM_FILE, encoding="utf-8") as handle:
             written = handle.read().strip()
@@ -130,7 +149,7 @@ def answer(args, history, prompt, allowed, ask=None, report=None):
     for _ in range(MAX_TOOL_STEPS):
         response = gemini.raw_turn(
             contents,
-            system=load_system(),
+            system=load_system(getattr(args, "persona", None)),
             tools=declarations,
             model=args.model,
             timeout=args.timeout,
@@ -244,12 +263,26 @@ def one_shot(args, speaker):
     return 0
 
 
+def is_goodbye(said):
+    """True when the words spoken mean 'we are done'."""
+    cleaned = said.strip().lower().rstrip(".!?")
+    return cleaned in STOP_WORDS
+
+
 def converse(args, speaker):
     history = [] if args.no_memory else load_history()
-    print("Personal assistant. /help for commands, /quit to leave.\n")
+    if args.mic:
+        print("Listening. Say 'stop' when you are done.\n")
+        # Android suspends background work aggressively; without this the
+        # loop dies quietly a few minutes in.
+        voice_module.termux.run(["termux-wake-lock"], 10)
+        speaker.speak("At your service.")
+    else:
+        print("Personal assistant. /help for commands, /quit to leave.\n")
     if history:
         print(f"(carrying {len(history) // 2} earlier exchanges)\n")
 
+    silence = 0
     while True:
         if args.mic:
             print("listening...", end=" ", flush=True)
@@ -257,11 +290,20 @@ def converse(args, speaker):
             print(prompt or "(nothing heard)")
             if not prompt:
                 speaker.warn_once(sys.stderr)
-                if not speaker.enabled and not voice_module.termux.have(
-                    voice_module.LISTEN_CMD
-                ):
+                if not voice_module.termux.have(voice_module.LISTEN_CMD):
                     return 1
+                silence += 1
+                # Three silences in a row means the microphone is not
+                # working, not that there is nothing to say.
+                if silence >= 3:
+                    print("Nothing heard three times over. Stopping.")
+                    speaker.speak("I will be here when you need me.")
+                    break
                 continue
+            silence = 0
+            if is_goodbye(prompt):
+                speaker.speak("Very good.")
+                break
         else:
             try:
                 prompt = input("you> ").strip()
@@ -290,6 +332,9 @@ def converse(args, speaker):
         history = history + [("user", prompt), ("model", text)]
         if not args.no_memory:
             save_history(history)
+
+    if args.mic:
+        voice_module.termux.run(["termux-wake-unlock"], 10)
     return 0
 
 
@@ -329,6 +374,19 @@ def handle_command(args, speaker, line):
     return True
 
 
+def apply_jarvis(args):
+    """One flag for the whole thing: his voice, his manner, no keyboard.
+
+    Anything the user set explicitly is left alone.
+    """
+    args.mic = True
+    args.voice = True
+    args.persona = args.persona or "jarvis"
+    args.pitch = 0.8 if args.pitch is None else args.pitch    # deeper
+    args.rate = 0.95 if args.rate is None else args.rate      # unhurried
+    return args
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="ai",
@@ -342,6 +400,11 @@ def build_parser():
     parser.add_argument("--voice", action="store_true", help="read answers out loud")
     parser.add_argument("--mic", action="store_true", help="take questions from the microphone")
     parser.add_argument("--lang", default=os.environ.get("AI_TTS_LANG"), help="TTS language, e.g. he-IL")
+    parser.add_argument("--jarvis", action="store_true",
+                        help="hands free: he listens, answers out loud, and keeps listening")
+    parser.add_argument("--persona", default=None, help="a personality from personas/, e.g. jarvis")
+    parser.add_argument("--pitch", type=float, default=None, help="voice pitch; below 1.0 is deeper")
+    parser.add_argument("--rate", type=float, default=None, help="speaking rate; below 1.0 is slower")
     parser.add_argument("--no-tools", action="store_true", help="answer only, never touch the phone")
     parser.add_argument("--allow-shell", action="store_true", help="let it run shell commands (asks first)")
     parser.add_argument("--yes", action="store_true", help="do not ask before risky actions")
@@ -366,6 +429,9 @@ def main(argv=None):
         print("Memory cleared.")
         return 0
 
+    if args.jarvis:
+        apply_jarvis(args)
+
     if args.tools:
         for tool in tools_module.available(args.allow_shell):
             mark = "!" if tool.confirm else " "
@@ -386,6 +452,8 @@ def main(argv=None):
             lang=args.lang,
             timeout=args.speak_timeout,
             enabled=args.voice or args.mic,
+            pitch=args.pitch,
+            rate=args.rate,
         )
         if args.prompt:
             return one_shot(args, speaker)
