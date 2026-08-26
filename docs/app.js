@@ -291,9 +291,24 @@ function hlsPlayer(cam, controls) {
     const hls = new window.Hls({ liveDurationInfinity: true, lowLatencyMode: false });
     hls.loadSource(cam.url);
     hls.attachMedia(video);
-    // A live cam that has dropped should not sit black forever.
+
+    // A live cam drops segments now and then; giving up on the first fatal
+    // error would blank a tile that was about to recover. Walk hls.js's own
+    // recovery ladder first and only surrender when it stops helping.
+    let recoveries = 0;
     hls.on(window.Hls.Events.ERROR, (_, data) => {
-      if (data.fatal) { hls.destroy(); video.replaceWith(el('div', 'placeholder', 'Stream unavailable')); }
+      if (!data.fatal) return;
+      const K = window.Hls.ErrorTypes;
+      if (recoveries < 3 && data.type === K.NETWORK_ERROR) {
+        recoveries++;
+        hls.startLoad();
+      } else if (recoveries < 3 && data.type === K.MEDIA_ERROR) {
+        recoveries++;
+        hls.recoverMediaError();
+      } else {
+        hls.destroy();
+        video.replaceWith(el('div', 'placeholder', 'Stream unavailable'));
+      }
     });
     video._hls = hls;
   } else {
