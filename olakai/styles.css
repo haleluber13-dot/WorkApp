@@ -1,0 +1,307 @@
+/* OlaKai — the same palette as the Android app: deep water carries the UI,
+   aqua marks anything live, coral marks anything urgent. */
+:root {
+  --abyss: #03101c;
+  --deep: #07223a;
+  --mid: #0b3557;
+  --aqua: #2be3c6;
+  --foam: #e8fbf7;
+  --sand: #f3e2c0;
+  --coral: #ff7a5a;
+  --sunset: #ffb35c;
+  --dusk: #6c5ce7;
+  --slate: #9fb6c6;
+  --ink: #00080f;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--abyss);
+  color: var(--foam);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Home-screen apps must not rubber-band the whole page. */
+  overscroll-behavior-y: none;
+}
+
+body {
+  padding-top: var(--safe-top);
+  padding-bottom: calc(58px + var(--safe-bottom));
+  background: linear-gradient(160deg, var(--abyss), #061a2c 55%, var(--abyss));
+  min-height: 100vh;
+}
+
+h1, h2 { margin: 0; font-weight: 800; letter-spacing: -0.02em; }
+
+.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px 4px;
+}
+.brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.brand img { border-radius: 8px; }
+.brand h1 { font-size: 21px; }
+.brand p { margin: 0; font-size: 11px; color: var(--slate); }
+.topbar-actions { display: flex; gap: 6px; }
+
+.icon-btn {
+  background: rgba(255,255,255,.08); color: var(--foam);
+  border: 0; border-radius: 10px; width: 36px; height: 36px;
+  font-size: 17px; cursor: pointer;
+}
+.icon-btn.on { background: rgba(43,227,198,.22); color: var(--aqua); }
+
+.controls { padding: 6px 14px 10px; }
+#search, .field input {
+  width: 100%; padding: 11px 13px; font-size: 15px;
+  background: rgba(255,255,255,.08); color: var(--foam);
+  border: 0; border-radius: 12px; outline: none;
+}
+#search::placeholder { color: var(--slate); }
+
+.chips { display: flex; gap: 6px; margin-top: 9px; overflow-x: auto; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+  background: rgba(255,255,255,.08); color: var(--slate);
+  border: 0; border-radius: 10px; cursor: pointer; white-space: nowrap;
+}
+.chip.on { background: rgba(43,227,198,.22); color: var(--aqua); }
+
+main { display: flex; }
+.wall {
+  flex: 1; display: grid; gap: 10px; padding: 0 14px 20px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 700px)  { .wall { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1080px) { .wall { grid-template-columns: 1fr 1fr 1fr; } }
+
+.tile {
+  position: relative; aspect-ratio: 16 / 10; overflow: hidden;
+  background: #000; border-radius: 16px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.10);
+}
+.tile iframe, .tile img, .tile video { width: 100%; height: 100%; border: 0; display: block; object-fit: cover; }
+/* A playing iframe would otherwise swallow the tap, so a live tile could not be
+   opened. Tiles have no player controls anyway; the focused player does. */
+.tile iframe, .tile video { pointer-events: none; }
+.tile .placeholder, #player .placeholder {
+  width: 100%; height: 100%;
+  background: linear-gradient(150deg, var(--deep), var(--mid), #10547f);
+  display: grid; place-items: center; color: var(--slate); font-size: 13px;
+}
+/* Light at the top, clear through the middle so the wave is never dimmed. */
+.tile .scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom,
+    rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 28%,
+    rgba(0,0,0,.25) 72%, rgba(0,8,20,.70) 100%);
+}
+.tile .caption { position: absolute; left: 11px; right: 11px; bottom: 9px; }
+.tile .caption b { display: block; font-size: 15px; font-weight: 800; }
+.tile .caption span { display: block; font-size: 11px; color: var(--slate); }
+.tile .caption em { font-style: normal; font-size: 11.5px; color: var(--aqua); font-weight: 600; }
+.tile .badges { position: absolute; left: 9px; top: 9px; display: flex; gap: 6px; }
+
+.live, .paused {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 7px; border-radius: 6px; font-size: 9px; font-weight: 800;
+  letter-spacing: .09em; background: rgba(27,15,18,.8);
+}
+.live::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--coral);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+.paused { color: var(--slate); }
+
+.score {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 8px; font-weight: 800; font-size: 13px;
+  background: rgba(2,16,24,.72); border: 1px solid rgba(255,255,255,.18);
+}
+
+.rail {
+  display: none; width: 320px; flex: 0 0 320px;
+  padding: 0 12px 20px; background: rgba(255,255,255,.04);
+}
+.rail.open { display: block; }
+@media (min-width: 900px) { .rail { display: block; } }
+
+.rail-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; margin-bottom: 8px; border-radius: 14px;
+  background: rgba(255,255,255,.07); cursor: pointer;
+}
+.rail-row.sel { background: rgba(38,224,200,.16); }
+.rail-row .bar { width: 3px; height: 34px; border-radius: 2px; flex: 0 0 3px; }
+.rail-row .txt { flex: 1; min-width: 0; }
+.rail-row b { display: block; font-size: 14px; }
+.rail-row span { display: block; font-size: 11px; color: var(--slate); }
+.rail-row em { font-style: normal; font-size: 11px; font-weight: 600; }
+.rail-row .star { font-size: 16px; color: var(--slate); }
+.rail-row .star.on { color: var(--sunset); }
+.rail-head {
+  font-size: 10px; letter-spacing: .14em; font-weight: 800;
+  color: var(--aqua); padding: 14px 4px 8px;
+}
+
+.sheet {
+  position: fixed; inset: 0; z-index: 40; overflow-y: auto;
+  background: var(--abyss);
+  padding-top: var(--safe-top);
+  padding-bottom: calc(58px + var(--safe-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+.sheet-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+.sheet-title { flex: 1; min-width: 0; }
+.sheet-title h2 { font-size: 19px; }
+.sheet-title p { margin: 0; font-size: 12px; color: var(--slate); }
+
+.player-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+#player { width: 100%; height: 100%; }
+#player iframe, #player video { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+
+.cam-switch { display: flex; gap: 8px; padding: 9px 14px; overflow-x: auto; }
+.cam-switch button {
+  flex: 0 0 auto; padding: 6px 10px; border: 0; border-radius: 10px;
+  background: rgba(255,255,255,.08); color: var(--slate); font-size: 12px; font-weight: 600;
+}
+.cam-switch button.on { background: rgba(43,227,198,.22); color: var(--aqua); }
+
+.metrics {
+  display: flex; gap: 20px; overflow-x: auto; padding: 12px 14px; margin: 0 12px;
+  background: rgba(10,33,55,.95); border: 1px solid rgba(255,255,255,.12); border-radius: 18px;
+}
+.metrics div { flex: 0 0 auto; }
+.metrics b { display: block; font-size: 15px; }
+.metrics span { font-size: 9px; letter-spacing: .1em; font-weight: 800; color: var(--slate); }
+
+.body { padding: 16px; }
+.body p { line-height: 1.55; }
+.section {
+  font-size: 10px; letter-spacing: .16em; font-weight: 800;
+  color: var(--aqua); margin: 20px 0 8px;
+}
+.facts { display: grid; grid-template-columns: 78px 1fr; gap: 7px 10px; font-size: 13px; }
+.facts dt { font-size: 10px; letter-spacing: .08em; font-weight: 800; color: var(--slate); }
+.facts dd { margin: 0; }
+.hazard { color: var(--foam); font-size: 13px; margin: 4px 0; }
+.hazard::before { content: "• "; color: var(--coral); }
+.tip {
+  background: rgba(10,33,55,.95); border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px; padding: 12px; color: var(--sand); font-size: 13px;
+}
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.tag {
+  font-size: 9px; letter-spacing: .08em; font-weight: 800; color: var(--aqua);
+  background: rgba(43,227,198,.14); padding: 4px 7px; border-radius: 6px;
+}
+
+.cta {
+  display: block; width: 100%; margin: 16px 0; padding: 13px;
+  background: var(--aqua); color: var(--ink);
+  border: 0; border-radius: 14px; font-size: 15px; font-weight: 800; cursor: pointer;
+}
+.linkish { background: none; border: 0; color: var(--slate); font-size: 11px; cursor: pointer; }
+
+.field span { display: block; font-size: 11px; color: var(--slate); margin-bottom: 5px; }
+.hits { margin: 6px 0; }
+.hits button {
+  display: block; width: 100%; text-align: left; background: none; border: 0;
+  color: var(--foam); padding: 9px 4px; font-size: 13px; cursor: pointer;
+}
+.hits code { color: var(--aqua); font-weight: 800; margin-right: 8px; }
+
+.dates { display: flex; gap: 8px; margin: 14px 0 6px; }
+.date-box {
+  flex: 1; padding: 10px; border-radius: 14px;
+  background: rgba(10,33,55,.95); border: 1px solid rgba(255,255,255,.12);
+}
+.date-box .label { display: block; font-size: 9px; letter-spacing: .1em; font-weight: 800; color: var(--slate); }
+.date-box strong { display: block; margin: 4px 0 7px; font-size: 14px; }
+.nudge { display: flex; gap: 6px; }
+.nudge button {
+  background: rgba(255,255,255,.10); color: var(--aqua);
+  border: 0; border-radius: 7px; padding: 4px 8px; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+
+.slider-row { display: flex; font-size: 11px; font-weight: 700; color: var(--slate); margin-top: 14px; }
+.grow { flex: 1; }
+#weight { width: 100%; accent-color: var(--aqua); }
+
+.picks { display: flex; gap: 10px; overflow-x: auto; padding: 12px 0; }
+.pick {
+  flex: 0 0 210px; padding: 14px; border-radius: 18px; cursor: pointer;
+  background: rgba(10,33,55,.95); border: 1px solid rgba(255,255,255,.16);
+}
+.pick .rank { font-size: 10px; letter-spacing: .12em; font-weight: 800; }
+.pick .price { font-size: 25px; font-weight: 800; margin: 6px 0 2px; }
+.pick .sub, .pick .why { font-size: 11.5px; color: var(--slate); }
+.pick .why { margin-top: 8px; line-height: 1.4; }
+
+.opt {
+  display: flex; align-items: center; gap: 10px; padding: 12px;
+  margin: 5px 0; border-radius: 12px; background: rgba(255,255,255,.07); cursor: pointer;
+}
+.opt .grow b { display: block; font-size: 14px; }
+.opt .grow span { font-size: 11px; color: var(--slate); }
+.opt .p { font-size: 17px; font-weight: 800; color: var(--aqua); }
+
+.links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.links a {
+  background: rgba(255,255,255,.08); color: var(--aqua); text-decoration: none;
+  padding: 8px 11px; border-radius: 10px; font-size: 12px; font-weight: 600;
+}
+.note { font-size: 11px; color: var(--slate); margin-top: 8px; }
+
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  display: flex; background: rgba(0,8,15,.94);
+  border-top: 1px solid rgba(255,255,255,.08);
+  padding-bottom: var(--safe-bottom);
+  backdrop-filter: blur(12px);
+}
+.tab {
+  flex: 1; padding: 13px 0; background: none; border: 0;
+  color: var(--slate); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.tab.on { color: var(--aqua); }
+
+.atlas { position: fixed; inset: 0; z-index: 30; padding-top: var(--safe-top); background: var(--abyss); }
+#map { width: 100%; height: calc(100% - 58px - var(--safe-bottom)); display: block; touch-action: none; }
+.atlas-hint {
+  position: absolute; left: 16px; top: calc(var(--safe-top) + 12px);
+  margin: 0; font-size: 11px; color: var(--slate);
+}
+
+/* The no-cam player: operators that do have a live view, offered in place of
+   the video rather than buried at the bottom of the page. */
+.nocam { flex-direction: column; gap: 10px; padding: 18px; text-align: center; }
+.nocam b { font-size: 14px; color: var(--foam); font-weight: 700; }
+.nocam span { font-size: 11px; color: var(--slate); }
+.nocam-links { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.nocam-links a {
+  background: rgba(255,255,255,.10); color: var(--aqua); text-decoration: none;
+  padding: 8px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 700;
+}
+.nocam-links a.primary { background: var(--aqua); color: var(--ink); }
+
+/* Operator cards: a live cam we may link to but not embed. Visually distinct
+   from a paused tile so nobody waits for video that is never coming. */
+.tile .placeholder.operator {
+  flex-direction: column; gap: 6px; text-align: center;
+  /* The caption sits over the bottom ~62px of every tile; keep clear of it. */
+  padding: 18px 16px 66px;
+  background: linear-gradient(150deg, #0a3550, #0e5273);
+}
+.tile .placeholder.operator b { color: var(--foam); font-size: 15px; font-weight: 800; }
+.tile .placeholder.operator span { color: var(--aqua); font-size: 11.5px; font-weight: 600; }
+.operator-badge {
+  display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 6px;
+  font-size: 9px; font-weight: 800; letter-spacing: .09em;
+  background: var(--aqua); color: var(--ink);
+}
