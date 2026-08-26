@@ -145,6 +145,7 @@ private fun OlaKaiRoot(
                     onToggleFavourite = { wallViewModel.toggleFavourite(it.id) },
                     onRefresh = wallViewModel::refreshConditions,
                     onBudget = wallViewModel::setLiveBudget,
+                    onUseFeet = wallViewModel::setUseFeet,
                 )
 
                 tab == Tab.ATLAS -> AtlasScreen(

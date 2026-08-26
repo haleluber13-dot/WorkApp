@@ -33,6 +33,10 @@ the swell/wind/tide/season it wants, the hazards, and a line of local knowledge.
 Drawn on a Canvas from a bundled coastline file, so it needs no map SDK, no API
 key, and no tiles.
 
+**Settings** — metres or feet, and how many cams may decode at once (the "N live"
+chip on the wall). Turn it down if the wall stutters, up if your phone can take
+it.
+
 **Trip** — for any spot: the destination airport, then the **cheapest**, the
 **fastest**, and the **best value** way to get there. A slider moves the trade
 between money and time and the best-value pick re-ranks instantly. Deep links
@@ -80,8 +84,18 @@ python3 tools/resolve_cams.py --out /tmp/cams.json   # search + verify candidate
 # review /tmp/cams.json, then curate into app/src/main/assets/cams.json
 ```
 
-`SpotRepository` also reads a remote catalog override, so a broken cam can be
-fixed for every install without shipping an update.
+### Fixing cams without shipping an update
+
+Point the app at a hosted `spots.json` and it supersedes the bundled catalog on
+launch:
+
+```properties
+# local.properties
+catalog.url=https://example.com/olakai/spots.json
+```
+
+The download is parsed before it is persisted, so a truncated response cannot
+brick the spot list, and any failure falls back to the bundled copy silently.
 
 ## Flights
 

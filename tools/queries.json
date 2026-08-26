@@ -24,7 +24,9 @@
   "queries": [
    "Waimea Bay live cam",
    "Waimea Bay surf live",
-   "Waimea Bay live webcam Hawaii north shore"
+   "Waimea Bay live webcam Hawaii north shore",
+   "Haleiwa live cam Hawaii",
+   "North Shore Oahu beach live webcam 24/7"
   ],
   "keywords": [
    "waimea"
@@ -38,7 +40,9 @@
  {
   "id": "sunset-beach",
   "queries": [
-   "Sunset Beach Oahu live cam"
+   "Sunset Beach Oahu live cam",
+   "Sunset Beach Oahu live webcam",
+   "Pupukea live cam Hawaii"
   ],
   "keywords": [
    "sunset"
@@ -75,7 +79,9 @@
   "id": "hookipa",
   "queries": [
    "Hookipa live cam Maui",
-   "Maui live surf cam"
+   "Maui live surf cam",
+   "Paia Maui live cam",
+   "Maui north shore live webcam"
   ],
   "keywords": [
    "hookipa",
@@ -106,7 +112,9 @@
   "id": "malibu",
   "queries": [
    "Malibu surfrider live cam",
-   "Malibu beach live webcam"
+   "Malibu beach live webcam",
+   "Zuma Beach live cam",
+   "Santa Monica live webcam beach"
   ],
   "keywords": [
    "malibu",
@@ -129,7 +137,9 @@
   "queries": [
    "Santa Cruz live cam surf",
    "Steamer Lane live cam",
-   "Santa Cruz California live webcam ocean"
+   "Santa Cruz California live webcam ocean",
+   "Santa Cruz wharf live cam",
+   "Capitola live webcam California beach"
   ],
   "keywords": [
    "santa cruz",
@@ -144,7 +154,9 @@
   "id": "ocean-beach-sf",
   "queries": [
    "Ocean Beach San Francisco live cam",
-   "San Francisco beach live webcam"
+   "San Francisco beach live webcam",
+   "San Francisco beach live webcam ocean",
+   "Pacifica live cam beach California"
   ],
   "keywords": [
    "ocean beach",
@@ -176,7 +188,9 @@
   "queries": [
    "Cocoa Beach live cam surf",
    "Cocoa Beach pier live webcam",
-   "Cocoa Beach Florida live webcam ocean pier"
+   "Cocoa Beach Florida live webcam ocean pier",
+   "Cocoa Beach live cam 24/7",
+   "Cape Canaveral beach live webcam"
   ],
   "keywords": [
    "cocoa"
@@ -191,7 +205,9 @@
   "id": "sebastian-inlet",
   "queries": [
    "Sebastian Inlet live cam",
-   "Sebastian Inlet Florida live webcam"
+   "Sebastian Inlet Florida live webcam",
+   "Melbourne Beach Florida live webcam",
+   "Vero Beach live cam Florida"
   ],
   "keywords": [
    "sebastian"
@@ -236,7 +252,9 @@
   "queries": [
    "Puerto Escondido live cam Zicatela",
    "Zicatela live surf cam",
-   "Zicatela Puerto Escondido camara en vivo playa"
+   "Zicatela Puerto Escondido camara en vivo playa",
+   "Puerto Escondido en vivo camara",
+   "Oaxaca playa en vivo webcam"
   ],
   "keywords": [
    "puerto escondido",
@@ -252,7 +270,9 @@
   "id": "sayulita",
   "queries": [
    "Sayulita live cam beach",
-   "Sayulita Nayarit camara en vivo playa"
+   "Sayulita Nayarit camara en vivo playa",
+   "Punta Mita live webcam",
+   "Bucerias camara en vivo playa"
   ],
   "keywords": [
    "sayulita"
@@ -266,7 +286,9 @@
   "id": "tamarindo",
   "queries": [
    "Tamarindo live cam Costa Rica",
-   "Costa Rica surf live cam"
+   "Costa Rica surf live cam",
+   "Playa Tamarindo camara en vivo",
+   "Guanacaste live webcam beach"
   ],
   "keywords": [
    "tamarindo",
@@ -283,7 +305,9 @@
  {
   "id": "santa-teresa",
   "queries": [
-   "Santa Teresa Costa Rica live cam"
+   "Santa Teresa Costa Rica live cam",
+   "Mal Pais live cam Costa Rica",
+   "Playa Hermosa Costa Rica live cam"
   ],
   "keywords": [
    "santa teresa"
@@ -298,7 +322,9 @@
   "id": "punta-de-lobos",
   "queries": [
    "Punta de Lobos live cam Pichilemu",
-   "Pichilemu camara en vivo playa Chile"
+   "Pichilemu camara en vivo playa Chile",
+   "Pichilemu en vivo webcam",
+   "Chile playa camara en vivo surf"
   ],
   "keywords": [
    "punta de lobos",
@@ -314,7 +340,9 @@
   "queries": [
    "Florianopolis live cam praia",
    "Brasil surf ao vivo camera praia",
-   "Florianopolis camera ao vivo praia Joaquina"
+   "Florianopolis camera ao vivo praia Joaquina",
+   "Praia Mole ao vivo camera",
+   "Barra da Lagoa ao vivo webcam"
   ],
   "keywords": [
    "florianopolis",
@@ -331,7 +359,9 @@
  {
   "id": "rio",
   "queries": [
-   "Rio de Janeiro live cam Copacabana praia ao vivo"
+   "Rio de Janeiro live cam Copacabana praia ao vivo",
+   "Arpoador ao vivo camera",
+   "Ipanema ao vivo webcam praia"
   ],
   "keywords": [
    "rio",
@@ -372,7 +402,9 @@
   "queries": [
    "Ericeira live cam surf",
    "Ericeira ao vivo camera praia",
-   "Ericeira camera ao vivo Ribeira d'Ilhas"
+   "Ericeira camera ao vivo Ribeira d'Ilhas",
+   "Ribeira d'Ilhas live cam",
+   "Ericeira surf live stream Portugal"
   ],
   "keywords": [
    "ericeira"
@@ -387,7 +419,9 @@
   "queries": [
    "Peniche Supertubos live cam",
    "Peniche ao vivo praia",
-   "Peniche camera ao vivo Baleal surf"
+   "Peniche camera ao vivo Baleal surf",
+   "Baleal live cam Portugal",
+   "Peniche surf live stream"
   ],
   "keywords": [
    "peniche",
@@ -418,7 +452,9 @@
   "queries": [
    "Mundaka live cam surf",
    "Mundaka en directo camara",
-   "Mundaka camara en directo Urdaibai"
+   "Mundaka camara en directo Urdaibai",
+   "Bakio playa en directo",
+   "Urdaibai camara en directo"
   ],
   "keywords": [
    "mundaka"
@@ -436,7 +472,9 @@
   "queries": [
    "Zarautz playa en directo camara",
    "Zarautz live cam",
-   "Zarautz camara en directo playa Gipuzkoa"
+   "Zarautz camara en directo playa Gipuzkoa",
+   "Zarautz en directo playa camara surf",
+   "Orio playa en directo"
   ],
   "keywords": [
    "zarautz"
@@ -452,7 +490,9 @@
   "id": "san-sebastian",
   "queries": [
    "San Sebastian Zurriola en directo camara playa",
-   "Donostia Zurriola camara en directo"
+   "Donostia Zurriola camara en directo",
+   "Zurriola surf en directo",
+   "La Concha en directo camara"
   ],
   "keywords": [
    "san sebastian",
@@ -471,7 +511,9 @@
   "queries": [
    "Hossegor live cam surf",
    "Hossegor webcam direct plage",
-   "Hossegor webcam en direct plage Landes"
+   "Hossegor webcam en direct plage Landes",
+   "Seignosse webcam direct",
+   "Capbreton webcam plage direct surf"
   ],
   "keywords": [
    "hossegor",
@@ -488,7 +530,9 @@
   "queries": [
    "Biarritz live cam plage",
    "Biarritz webcam direct",
-   "Biarritz Grande Plage webcam en direct"
+   "Biarritz Grande Plage webcam en direct",
+   "Anglet webcam direct plage",
+   "Cote des Basques webcam"
   ],
   "keywords": [
    "biarritz"
@@ -503,7 +547,9 @@
   "id": "lacanau",
   "queries": [
    "Lacanau webcam direct plage live",
-   "Lacanau Ocean webcam en direct plage"
+   "Lacanau Ocean webcam en direct plage",
+   "Carcans plage webcam direct",
+   "Gironde plage webcam en direct"
   ],
   "keywords": [
    "lacanau"
@@ -517,7 +563,9 @@
   "id": "fistral",
   "queries": [
    "Fistral beach live cam Newquay",
-   "Newquay live webcam surf"
+   "Newquay live webcam surf",
+   "Newquay live cam beach",
+   "Cornwall surf live stream webcam"
   ],
   "keywords": [
    "fistral",
@@ -538,7 +586,9 @@
   "id": "bundoran",
   "queries": [
    "Bundoran live cam surf Ireland",
-   "Bundoran Donegal live webcam"
+   "Bundoran Donegal live webcam",
+   "Donegal live webcam beach",
+   "Rossnowlagh live cam Ireland"
   ],
   "keywords": [
    "bundoran"
@@ -552,7 +602,9 @@
   "id": "lahinch",
   "queries": [
    "Lahinch live cam Ireland beach",
-   "Lahinch Clare live webcam beach Ireland"
+   "Lahinch Clare live webcam beach Ireland",
+   "Clare live webcam Ireland coast",
+   "Doolin live cam Ireland"
   ],
   "keywords": [
    "lahinch",
@@ -567,7 +619,9 @@
   "id": "fuerteventura",
   "queries": [
    "Fuerteventura live cam surf Corralejo",
-   "Fuerteventura camara en directo playa Corralejo"
+   "Fuerteventura camara en directo playa Corralejo",
+   "Corralejo en directo camara playa",
+   "El Cotillo en directo webcam"
   ],
   "keywords": [
    "fuerteventura",
@@ -597,7 +651,9 @@
  {
   "id": "tenerife",
   "queries": [
-   "Tenerife live cam Playa de las Americas"
+   "Tenerife live cam Playa de las Americas",
+   "Playa de las Americas en directo camara",
+   "El Medano en directo webcam Tenerife"
   ],
   "keywords": [
    "tenerife",
@@ -618,7 +674,9 @@
   "queries": [
    "Taghazout live cam surf Morocco",
    "Anchor Point Morocco live cam",
-   "Taghazout Agadir live webcam Morocco beach"
+   "Taghazout Agadir live webcam Morocco beach",
+   "Agadir live webcam beach",
+   "Morocco beach live stream camera"
   ],
   "keywords": [
    "taghazout",
@@ -637,7 +695,9 @@
   "id": "jeffreys-bay",
   "queries": [
    "Jeffreys Bay live cam surf",
-   "J-Bay live cam supertubes"
+   "J-Bay live cam supertubes",
+   "Jeffreys Bay live stream South Africa",
+   "Eastern Cape live webcam beach"
   ],
   "keywords": [
    "jeffreys",
@@ -691,7 +751,9 @@
   "id": "canggu",
   "queries": [
    "Canggu live cam Bali beach",
-   "Batu Bolong live cam"
+   "Batu Bolong live cam",
+   "Canggu live stream beach Bali",
+   "Berawa live cam Bali"
   ],
   "keywords": [
    "canggu",
@@ -711,7 +773,9 @@
  {
   "id": "kuta",
   "queries": [
-   "Kuta beach Bali live cam"
+   "Kuta beach Bali live cam",
+   "Kuta Beach Bali live stream",
+   "Seminyak live webcam Bali"
   ],
   "keywords": [
    "kuta",
@@ -731,7 +795,9 @@
   "id": "bondi",
   "queries": [
    "Bondi beach live cam",
-   "Bondi live webcam Sydney"
+   "Bondi live webcam Sydney",
+   "Bondi Beach live stream Australia",
+   "Coogee live cam Sydney beach"
   ],
   "keywords": [
    "bondi",
@@ -771,7 +837,9 @@
   "id": "bells-beach",
   "queries": [
    "Bells Beach live cam surf Torquay",
-   "Torquay Victoria live webcam beach Australia"
+   "Torquay Victoria live webcam beach Australia",
+   "Torquay live cam surf Victoria",
+   "Jan Juc live webcam"
   ],
   "keywords": [
    "bells",
@@ -787,7 +855,9 @@
   "id": "byron-bay",
   "queries": [
    "Byron Bay live cam beach",
-   "Byron Bay NSW live webcam Main Beach"
+   "Byron Bay NSW live webcam Main Beach",
+   "Byron Bay live stream beach",
+   "Lennox Head live cam NSW"
   ],
   "keywords": [
    "byron"
@@ -802,7 +872,9 @@
   "id": "margaret-river",
   "queries": [
    "Margaret River live cam surf",
-   "Margaret River Western Australia live webcam"
+   "Margaret River Western Australia live webcam",
+   "Yallingup live cam",
+   "Western Australia beach live webcam"
   ],
   "keywords": [
    "margaret"
@@ -816,7 +888,9 @@
   "id": "piha",
   "queries": [
    "Piha live cam surf New Zealand",
-   "Piha Auckland live webcam New Zealand"
+   "Piha Auckland live webcam New Zealand",
+   "Auckland west coast live cam",
+   "Muriwai live webcam New Zealand"
   ],
   "keywords": [
    "piha"
@@ -866,7 +940,9 @@
  {
   "id": "chiba",
   "queries": [
-   "Chiba surf live cam 一宮 ライブカメラ 海"
+   "Chiba surf live cam 一宮 ライブカメラ 海",
+   "九十九里 ライブカメラ 海",
+   "千葉 サーフィン ライブカメラ 波"
   ],
   "keywords": [
    "chiba",
@@ -886,7 +962,9 @@
   "id": "arugam-bay",
   "queries": [
    "Arugam Bay live cam surf Sri Lanka",
-   "Arugam Bay Sri Lanka live webcam"
+   "Arugam Bay Sri Lanka live webcam",
+   "Sri Lanka east coast live webcam beach",
+   "Pottuvil live cam"
   ],
   "keywords": [
    "arugam"
@@ -901,7 +979,9 @@
   "id": "weligama",
   "queries": [
    "Weligama live cam Sri Lanka beach",
-   "Weligama Mirissa Sri Lanka live webcam beach"
+   "Weligama Mirissa Sri Lanka live webcam beach",
+   "Mirissa live webcam beach",
+   "Unawatuna live cam Sri Lanka"
   ],
   "keywords": [
    "weligama"
@@ -916,7 +996,9 @@
   "id": "cloud-nine",
   "queries": [
    "Cloud 9 Siargao live cam surf",
-   "Siargao General Luna live webcam Philippines"
+   "Siargao General Luna live webcam Philippines",
+   "Siargao live stream beach",
+   "Philippines beach live webcam surf"
   ],
   "keywords": [
    "siargao",
@@ -934,7 +1016,9 @@
   "queries": [
    "Tel Aviv beach live cam surf",
    "גלים תל אביב מצלמה חיה חוף",
-   "Tel Aviv Israel live webcam beach מצלמה חיה חוף"
+   "Tel Aviv Israel live webcam beach מצלמה חיה חוף",
+   "Herzliya beach live cam",
+   "Israel beach live webcam מצלמה חיה"
   ],
   "keywords": [
    "tel aviv",
@@ -952,7 +1036,9 @@
   "id": "unstad",
   "queries": [
    "Unstad live cam surf Lofoten",
-   "Lofoten Norway live webcam Unstad"
+   "Lofoten Norway live webcam Unstad",
+   "Lofoten live webcam Norway",
+   "Norway coast live cam beach"
   ],
   "keywords": [
    "unstad",
@@ -967,7 +1053,9 @@
  {
   "id": "teahupoo",
   "queries": [
-   "Teahupoo live cam Tahiti surf"
+   "Teahupoo live cam Tahiti surf",
+   "Tahiti live webcam beach",
+   "Papeete live cam Tahiti"
   ],
   "keywords": [
    "teahupoo",
@@ -983,7 +1071,9 @@
   "id": "tavarua",
   "queries": [
    "Fiji live cam surf Cloudbreak",
-   "Fiji live webcam beach Namotu"
+   "Fiji live webcam beach Namotu",
+   "Fiji live webcam beach resort",
+   "Denarau live cam Fiji"
   ],
   "keywords": [
    "fiji",
@@ -1000,7 +1090,9 @@
   "id": "popoyo",
   "queries": [
    "Popoyo live cam Nicaragua surf",
-   "Nicaragua live webcam beach Popoyo Tola"
+   "Nicaragua live webcam beach Popoyo Tola",
+   "San Juan del Sur live webcam",
+   "Nicaragua beach live cam"
   ],
   "keywords": [
    "popoyo",

@@ -6,6 +6,7 @@ import android.location.Location
 import android.location.LocationManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.olakai.app.BuildConfig
 import com.olakai.app.Graph
 import com.olakai.app.data.model.Cam
 import com.olakai.app.data.model.Conditions
@@ -93,6 +94,11 @@ class WallViewModel(context: Context) : ViewModel() {
     }
 
     private suspend fun load() {
+        // A hosted catalog, when one is configured, wins over the bundled copy.
+        // Failure here is silent by design: the bundled catalog still works.
+        if (BuildConfig.CATALOG_URL.isNotBlank()) {
+            Graph.spots.refreshFromRemote(BuildConfig.CATALOG_URL)
+        }
         val spots = runCatching { Graph.spots.spots() }.getOrElse {
             _state.update { s -> s.copy(loading = false, error = "Could not read the spot catalog.") }
             return

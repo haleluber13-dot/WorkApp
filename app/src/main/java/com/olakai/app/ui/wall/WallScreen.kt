@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.olakai.app.data.model.Spot
 import com.olakai.app.ui.components.CamTileView
 import com.olakai.app.ui.components.SectionLabel
+import com.olakai.app.ui.components.SettingsSheet
 import com.olakai.app.ui.components.SpotRail
 import com.olakai.app.ui.theme.Ocean
 
@@ -74,11 +75,25 @@ fun WallScreen(
     onToggleFavourite: (Spot) -> Unit,
     onRefresh: () -> Unit,
     onBudget: (Int) -> Unit,
+    onUseFeet: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // On a phone the rail has nowhere to sit permanently, so it slides in over
     // the grid instead of being cut from the product.
     var railOpen by rememberSaveable { mutableStateOf(false) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+
+    if (settingsOpen) {
+        SettingsSheet(
+            useFeet = state.useFeet,
+            liveBudget = state.liveBudget,
+            camCount = state.tiles.size,
+            spotCount = state.spots.size,
+            onUseFeet = onUseFeet,
+            onLiveBudget = onBudget,
+            onDismiss = { settingsOpen = false },
+        )
+    }
 
     Column(modifier.fillMaxSize()) {
         WallHeader(
@@ -90,7 +105,7 @@ fun WallScreen(
             onSort = onSort,
             onToggleFavourites = onToggleFavourites,
             onRefresh = onRefresh,
-            onBudget = onBudget,
+            onSettings = { settingsOpen = true },
         )
 
         if (state.loading) {
@@ -246,7 +261,7 @@ private fun WallHeader(
     onSort: (WallSort) -> Unit,
     onToggleFavourites: () -> Unit,
     onRefresh: () -> Unit,
-    onBudget: (Int) -> Unit,
+    onSettings: () -> Unit,
 ) {
     Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -341,7 +356,7 @@ private fun WallHeader(
             // lever on how the wall performs, so it belongs in reach.
             FilterChip(
                 selected = false,
-                onClick = { onBudget(if (state.liveBudget >= 9) 1 else state.liveBudget + 2) },
+                onClick = onSettings,
                 label = { Text("${state.liveBudget} live", fontSize = 12.sp) },
                 leadingIcon = { Icon(Icons.Filled.GridView, null, Modifier.size(14.dp)) },
                 colors = chipColors(),

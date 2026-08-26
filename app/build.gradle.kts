@@ -7,10 +7,11 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// Optional flight-API credentials. Put them in local.properties (git-ignored) as:
-//   amadeus.clientId=...
-//   amadeus.clientSecret=...
-// The app works without them: it falls back to the offline estimator + deep links.
+// Optional configuration, all read from local.properties (git-ignored) or the
+// environment. Every one of these is optional -- the app ships working without
+// any of them.
+//   amadeus.clientId / amadeus.clientSecret  live flight fares
+//   catalog.url                              hosted spot catalog override
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -32,6 +33,9 @@ android {
 
         buildConfigField("String", "AMADEUS_CLIENT_ID", "\"${secret("amadeus.clientId")}\"")
         buildConfigField("String", "AMADEUS_CLIENT_SECRET", "\"${secret("amadeus.clientSecret")}\"")
+        // Optional: a hosted spots.json that supersedes the bundled catalog, so
+        // a dead cam can be fixed for every install without an app update.
+        buildConfigField("String", "CATALOG_URL", "\"${secret("catalog.url")}\"")
     }
 
     buildTypes {
