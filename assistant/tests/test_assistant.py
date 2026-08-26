@@ -266,6 +266,41 @@ class HearingTest(PhoneTestCase):
 
 
 class RecordingTest(PhoneTestCase):
+    def test_an_earlier_recording_is_stopped_before_starting_a_new_one(self):
+        """Android allows one at a time; an interrupted run leaves one going."""
+        commands = []
+
+        def recorder(command, timeout=20, stdin_text=None):
+            commands.append(command)
+            return True, "", ""
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "turn.m4a")
+            with mock.patch.object(termux, "run", recorder), \
+                 mock.patch.object(ears.time, "sleep", lambda _: None):
+                ears.record(seconds=1, path=path)
+
+        self.assertEqual(commands[0], [ears.RECORD_CMD, "-q"],
+                         "it must stop a stale recording first")
+
+    def test_the_size_is_reported_when_nothing_was_captured(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "turn.m4a")
+
+            def recorder(command, timeout=20, stdin_text=None):
+                if "-f" in command:
+                    with open(path, "wb") as handle:
+                        handle.write(b"\0" * 300)
+                return True, "", ""
+
+            with mock.patch.object(termux, "run", recorder), \
+                 mock.patch.object(ears.time, "sleep", lambda _: None):
+                ok, problem = ears.record(seconds=1, path=path)
+
+        self.assertFalse(ok)
+        self.assertIn("300 bytes", problem)
+        self.assertIn("another app", problem)
+
     def test_an_empty_file_is_treated_as_nothing_heard(self):
         """A recorder that runs but captures nothing leaves a header behind."""
         with tempfile.TemporaryDirectory() as folder:
@@ -690,6 +725,74 @@ class ModelRepairTest(PhoneTestCase):
                  mock.patch.dict(os.environ, {"GEMINI_MODEL": "gemini-2.0-flash"}):
                 gemini.remember_model("gemini-flash-latest")
                 self.assertEqual(gemini.preferred_model(), "gemini-2.0-flash")
+
+    def test_a_model_that_is_listed_but_refused_is_not_offered_again(self):
+        """Being advertised and being callable are different things."""
+        class Missing(urllib.error.HTTPError):
+            def __init__(self):
+                super().__init__("u", 404, "err", {}, None)
+
+            def read(self):
+                return b'{"error":{"message":"not found"}}'
+
+        offered = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"]
+        attempts = []
+
+        def fake_request(url, payload, key, timeout):
+            if url.endswith("/models"):
+                return {"models": [
+                    {"name": f"models/{name}",
+                     "supportedGenerationMethods": ["generateContent"]}
+                    for name in offered
+                ]}
+            name = url.split("/models/")[1].split(":")[0]
+            attempts.append(name)
+            if name != "gemini-flash-latest":
+                raise Missing()
+            return {"candidates": [{"content": {"parts": [{"text": "done"}]}}]}
+
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.object(gemini, "_request", fake_request), \
+                 mock.patch.object(gemini, "MODEL_FILE", os.path.join(folder, "model")), \
+                 mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+                answer = gemini.with_model_repair(
+                    lambda model: gemini.generate("hi", model=model),
+                    "gemini-2.5-flash",
+                )
+
+        self.assertEqual(answer, "done")
+        self.assertEqual(len(attempts), len(set(attempts)), "it retried a dead model")
+        self.assertEqual(attempts[-1], "gemini-flash-latest")
+
+    def test_a_key_that_refuses_everything_says_what_it_offered(self):
+        class Missing(urllib.error.HTTPError):
+            def __init__(self):
+                super().__init__("u", 404, "err", {}, None)
+
+            def read(self):
+                return b'{"error":{"message":"not found"}}'
+
+        def all_refused(url, payload, key, timeout):
+            if url.endswith("/models"):
+                return {"models": [{
+                    "name": "models/gemini-2.5-flash",
+                    "supportedGenerationMethods": ["generateContent"],
+                }]}
+            raise Missing()
+
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.object(gemini, "_request", all_refused), \
+                 mock.patch.object(gemini, "MODEL_FILE", os.path.join(folder, "model")), \
+                 mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+                with self.assertRaises(gemini.GeminiError) as caught:
+                    gemini.with_model_repair(
+                        lambda model: gemini.generate("hi", model=model),
+                        "gemini-2.5-flash",
+                    )
+
+        message = str(caught.exception)
+        self.assertIn("gemini-2.5-flash", message)
+        self.assertIn("Offered", message)
 
     def test_transcription_repairs_the_model_too(self):
         """The bug this fixes: listening failed on a model chat had replaced."""

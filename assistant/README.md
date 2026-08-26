@@ -268,6 +268,9 @@ the question you asked. You do not have to do anything.
 
 The choice is shared: chatting, acting and listening all read the same
 remembered name, so a model repaired in one place is repaired everywhere.
+A model that is refused is never offered again, because a key can list a
+model and still decline to serve it — so it walks down the list rather
+than handing back the one that just failed.
 
 To choose yourself: `ai --models` to see the list, then `ai --model NAME`
 for one question, or write the name into `~/.personal-ai/model` to keep it.
@@ -300,7 +303,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 80 tests, no phone or network needed |
+| `tests/` | 84 tests, no phone or network needed |
 
 ## Tests
 

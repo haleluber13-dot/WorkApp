@@ -296,11 +296,18 @@ PREFERRED = (
 NOT_FOR_CHAT = ("embedding", "aqa", "image", "-tts", "live", "audio", "vision", "learnlm")
 
 
-def choose_model(models):
-    """Pick the best chat model out of what a key actually offers."""
+def choose_model(models, exclude=()):
+    """Pick the best chat model out of what a key actually offers.
+
+    `exclude` names models already shown not to work. Being listed and
+    being callable are not the same thing — a key can advertise a model
+    and still refuse it — so a model that has failed is never chosen
+    again.
+    """
     usable = [
         name for name in models
         if name.startswith("gemini-")
+        and name not in exclude
         and not any(word in name for word in NOT_FOR_CHAT)
     ]
     if not usable:
@@ -335,14 +342,18 @@ def remember_model(name):
         handle.write(name + "\n")
 
 
-def repair_model(current, key=None, announce=None):
+def repair_model(current, key=None, announce=None, exclude=()):
     """Find a model this key can actually run, and remember it."""
-    choice = choose_model(list_models(key))
+    offered = list_models(key)
+    choice = choose_model(offered, exclude=set(exclude) | {current})
     if not choice:
         raise GeminiError(
-            "This key cannot run any chat model. It may be a key for a "
-            "different Google service. Make a new one at "
-            "https://aistudio.google.com/apikey"
+            "None of the models this key offers would run.\n"
+            f"Tried: {', '.join(sorted(set(exclude) | {current}))}\n"
+            f"Offered: {', '.join(offered) or 'nothing'}\n"
+            "A key can list a model and still refuse it — usually the key "
+            "is restricted, or belongs to a project without access. Make a "
+            "fresh one at https://aistudio.google.com/apikey"
         )
     remember_model(choice)
     if announce:
@@ -350,16 +361,27 @@ def repair_model(current, key=None, announce=None):
     return choice
 
 
-def with_model_repair(attempt, model, key=None, announce=None):
-    """Run `attempt(model)`, and if the model is wrong, fix it and retry.
+def with_model_repair(attempt, model, key=None, announce=None, tries=4):
+    """Run `attempt(model)`; when the model is refused, try another.
 
-    Every path that talks to Gemini needs this, not just the chat one:
-    a key that cannot run the default model cannot transcribe with it
-    either.
+    Every path that talks to Gemini needs this, not just the chat one: a
+    key that cannot run the default model cannot transcribe with it
+    either. And one replacement is not enough — a key may advertise
+    several models it will not actually serve — so keep going down the
+    list rather than offering the same one twice.
     """
-    try:
-        return attempt(model)
-    except GeminiError as error:
-        if error.kind != "model_missing":
-            raise
-        return attempt(repair_model(model, key=key, announce=announce))
+    tried = []
+    current = model
+    for _ in range(tries):
+        try:
+            return attempt(current)
+        except GeminiError as error:
+            if error.kind != "model_missing":
+                raise
+            tried.append(current)
+            current = repair_model(current, key=key, announce=announce, exclude=tried)
+    raise GeminiError(
+        "Gave up after trying: " + ", ".join(tried + [current]) + ". "
+        "Run `ai --models` to see the list, then `ai --model NAME` to pick "
+        "one by hand."
+    )

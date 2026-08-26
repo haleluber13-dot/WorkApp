@@ -21,10 +21,19 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import voice
 
+import ears
+
 speaker = voice.Voice(hearing=sys.argv[2], enabled=False)
 if speaker.hearing == "gemini":
     print("recording... speak now", file=sys.stderr)
-heard = speaker.listen()
+    def countdown(left):
+        print(f"  {left}...", end=" ", file=sys.stderr, flush=True)
+    heard, problem = ears.listen(speaker.record_seconds, on_progress=countdown)
+    print(f"\n  ({ears.describe()} bytes captured)", file=sys.stderr)
+    speaker.last_problem = problem
+else:
+    heard = speaker.listen()
+
 if heard:
     print(heard)
 else:
