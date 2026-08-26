@@ -21,8 +21,13 @@ KEY_FILE = os.path.expanduser("~/.personal-ai/key")
 class GeminiError(RuntimeError):
     """An error worth showing to the person using the assistant.
 
-    The message is written to be read out loud, not debugged.
+    The message is written to be read out loud, not debugged. `kind`
+    marks the errors that callers can do something about on their own.
     """
+
+    def __init__(self, message, kind=""):
+        super().__init__(message)
+        self.kind = kind
 
 
 def find_key(explicit=None):
@@ -88,7 +93,8 @@ def _explain_http_error(error, model):
     if error.code == 404:
         return GeminiError(
             f"The model '{model}' does not exist for this key. "
-            "Run `ai --models` to see what your key can actually use."
+            "Run `ai --models` to see what your key can actually use.",
+            kind="model_missing",
         )
     if error.code == 429:
         return GeminiError(
@@ -275,3 +281,33 @@ def list_models(key=None, timeout=30):
             continue
         names.append(model.get("name", "").removeprefix("models/"))
     return sorted(name for name in names if name)
+
+
+# Best first: a fast, current, generally-available chat model. Anything
+# built for another job entirely is skipped outright.
+PREFERRED = (
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.0-flash",
+    "gemini-2.5-pro",
+    "gemini-pro-latest",
+)
+NOT_FOR_CHAT = ("embedding", "aqa", "image", "-tts", "live", "audio", "vision", "learnlm")
+
+
+def choose_model(models):
+    """Pick the best chat model out of what a key actually offers."""
+    usable = [
+        name for name in models
+        if name.startswith("gemini-")
+        and not any(word in name for word in NOT_FOR_CHAT)
+    ]
+    if not usable:
+        return None  # this key has no chat model at all
+
+    for wanted in PREFERRED:
+        if wanted in usable:
+            return wanted
+    # Nothing known: prefer a plain name over a dated preview build.
+    plain = [name for name in usable if "preview" not in name and "exp" not in name]
+    return sorted(plain or usable, key=len)[0]

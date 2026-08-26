@@ -3,6 +3,7 @@
 Run them anywhere:  python3 -m unittest discover -s tests
 """
 
+import io
 import json
 import os
 import subprocess
@@ -389,6 +390,83 @@ class ToolLoopTest(unittest.TestCase):
             answer, done = assistant.answer(args, [], "loop", tools.available())
         self.assertIn("too many steps", answer.lower())
         self.assertEqual(len(done), assistant.MAX_TOOL_STEPS)
+
+
+
+class ChooseModelTest(unittest.TestCase):
+    def test_prefers_a_fast_current_model(self):
+        self.assertEqual(
+            gemini.choose_model(["gemini-2.5-pro", "gemini-2.5-flash"]),
+            "gemini-2.5-flash",
+        )
+
+    def test_falls_back_through_the_generations(self):
+        self.assertEqual(
+            gemini.choose_model(["gemini-2.0-flash", "gemini-pro-latest"]),
+            "gemini-2.0-flash",
+        )
+
+    def test_skips_models_built_for_another_job(self):
+        chosen = gemini.choose_model(
+            ["gemini-2.5-flash-image-preview", "gemini-2.5-flash-preview-tts",
+             "gemini-2.5-flash-preview-09-2025"]
+        )
+        self.assertEqual(chosen, "gemini-2.5-flash-preview-09-2025")
+
+    def test_an_unknown_future_model_is_still_usable(self):
+        self.assertEqual(gemini.choose_model(["gemini-9-flash"]), "gemini-9-flash")
+
+    def test_a_key_with_no_chat_model_returns_nothing(self):
+        self.assertIsNone(gemini.choose_model(["text-embedding-004"]))
+        self.assertIsNone(gemini.choose_model([]))
+
+
+class ModelRepairTest(unittest.TestCase):
+    def test_a_missing_model_is_replaced_and_remembered(self):
+        class Missing(urllib.error.HTTPError):
+            def __init__(self):
+                super().__init__("u", 404, "err", {}, None)
+
+            def read(self):
+                return b'{"error":{"message":"not found"}}'
+
+        def fake_request(url, payload, key, timeout):
+            if url.endswith("/models"):
+                return {"models": [{
+                    "name": "models/gemini-flash-latest",
+                    "supportedGenerationMethods": ["generateContent"],
+                }]}
+            if "gemini-2.5-flash" in url:
+                raise Missing()
+            return {"candidates": [{"content": {"parts": [{"text": "done"}]}}]}
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "model")
+            args = assistant.build_parser().parse_args(["--quiet"])
+            args.model = "gemini-2.5-flash"
+            with mock.patch.object(gemini, "_request", fake_request), \
+                 mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
+                 mock.patch.object(assistant, "HOME", folder), \
+                 mock.patch.object(assistant, "MODEL_FILE", path), \
+                 mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"), \
+                 mock.patch.object(sys, "stderr", io.StringIO()):
+                text, _ = assistant.run_once(args, voice.Voice(enabled=False), "hi", [])
+
+            self.assertEqual(text, "done")
+            self.assertEqual(args.model, "gemini-flash-latest")
+            with open(path, encoding="utf-8") as handle:
+                self.assertEqual(handle.read().strip(), "gemini-flash-latest")
+
+    def test_other_errors_are_not_swallowed_by_the_repair(self):
+        def always_401(url, payload, key, timeout):
+            raise FakeHTTPError(401, "nope")
+
+        args = assistant.build_parser().parse_args(["--quiet"])
+        with mock.patch.object(gemini, "_request", always_401), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"):
+            with self.assertRaises(gemini.GeminiError):
+                assistant.run_once(args, voice.Voice(enabled=False), "hi", [])
 
 
 

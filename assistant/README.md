@@ -156,6 +156,18 @@ echo "from a pipe" | say
 listen                               print what the microphone hears
 ```
 
+## Which model it uses
+
+Model availability differs by key and by region, so the default is a
+starting guess, not a promise. The first time the API says a model does not
+exist, the assistant lists what your key really has, picks the best chat
+model on it, remembers that in `~/.personal-ai/model`, and carries on with
+the question you asked. You do not have to do anything.
+
+To choose yourself: `ai --models` to see the list, then `ai --model NAME`
+for one question, or write the name into `~/.personal-ai/model` to keep it.
+`GEMINI_MODEL` in the environment overrides both.
+
 ## Make it yours
 
 Write `~/.personal-ai/system.txt` and that becomes its personality and
@@ -181,7 +193,7 @@ PROMPT
 | `doctor.sh` | diagnoses the phone, end to end |
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
-| `tests/` | 37 tests, no phone or network needed |
+| `tests/` | 44 tests, no phone or network needed |
 
 ## Tests
 

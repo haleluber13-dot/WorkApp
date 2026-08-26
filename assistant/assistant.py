@@ -23,6 +23,7 @@ import voice as voice_module  # noqa: E402
 HOME = os.path.expanduser("~/.personal-ai")
 HISTORY_FILE = os.path.join(HOME, "history.json")
 SYSTEM_FILE = os.path.join(HOME, "system.txt")
+MODEL_FILE = os.path.join(HOME, "model")
 
 DEFAULT_SYSTEM = (
     "You are a personal assistant running on a phone, in a terminal. "
@@ -68,6 +69,42 @@ def save_history(history):
             ensure_ascii=False,
             indent=1,
         )
+
+
+def load_model():
+    """The model chosen last time, if there was one."""
+    try:
+        with open(MODEL_FILE, encoding="utf-8") as handle:
+            return handle.read().strip()
+    except OSError:
+        return ""
+
+
+def save_model(name):
+    os.makedirs(HOME, exist_ok=True)
+    with open(MODEL_FILE, "w", encoding="utf-8") as handle:
+        handle.write(name + "\n")
+
+
+def repair_model(args):
+    """Called when the key does not serve the model we asked for.
+
+    Keys differ by account and by region, so rather than making someone
+    read a list and pick, find one that works and remember it.
+    """
+    models = gemini.list_models()
+    choice = gemini.choose_model(models)
+    if not choice:
+        raise gemini.GeminiError(
+            "This key cannot run any chat model. It may be an API key for a "
+            "different Google service. Make a new one at "
+            "https://aistudio.google.com/apikey"
+        )
+    print(f"[{args.model} is not available to your key — using {choice} instead]",
+          file=sys.stderr)
+    args.model = choice
+    save_model(choice)
+    return choice
 
 
 def load_system():
@@ -172,10 +209,12 @@ def doctor(args):
     for name in (preferred or models)[:8]:
         print(f"         {name}")
     if args.model not in models:
-        print(
-            f"\n  Note: '{args.model}' is not in that list. "
-            "Pass --model with one of the names above."
-        )
+        choice = gemini.choose_model(models)
+        if choice:
+            save_model(choice)
+            print(f"\n  '{args.model}' is not available to this key — switched to {choice}.")
+        else:
+            print(f"\n  '{args.model}' is not available, and no chat model is.")
     print(f"\n  [ok  ] {len(tools_module.available(args.allow_shell))} actions available")
     return 0
 
@@ -184,7 +223,13 @@ def run_once(args, speaker, prompt, history):
     allowed = [] if args.no_tools else tools_module.available(args.allow_shell)
     ask = make_asker(args, speaker)
     report = (lambda line: print(f"  · {line}")) if not args.quiet else None
-    return answer(args, history, prompt, allowed, ask=ask, report=report)
+    try:
+        return answer(args, history, prompt, allowed, ask=ask, report=report)
+    except gemini.GeminiError as error:
+        if error.kind != "model_missing":
+            raise
+        repair_model(args)
+        return answer(args, history, prompt, allowed, ask=ask, report=report)
 
 
 def one_shot(args, speaker):
@@ -290,7 +335,10 @@ def build_parser():
         description="A personal assistant for Termux, powered by Gemini.",
     )
     parser.add_argument("prompt", nargs="*", help="ask one question and exit")
-    parser.add_argument("--model", default=os.environ.get("GEMINI_MODEL", gemini.DEFAULT_MODEL))
+    parser.add_argument(
+        "--model",
+        default=os.environ.get("GEMINI_MODEL") or load_model() or gemini.DEFAULT_MODEL,
+    )
     parser.add_argument("--voice", action="store_true", help="read answers out loud")
     parser.add_argument("--mic", action="store_true", help="take questions from the microphone")
     parser.add_argument("--lang", default=os.environ.get("AI_TTS_LANG"), help="TTS language, e.g. he-IL")
