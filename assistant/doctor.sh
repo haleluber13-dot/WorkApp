@@ -11,6 +11,8 @@ gone() { printf '  \033[33mMISSING \033[0m %s\n' "$1"; }
 note() { printf '            %s\n' "$1"; }
 
 blocked=""
+working=""
+missing=""
 
 # probe LABEL TIMEOUT COMMAND...
 # Runs one harmless command and reports what happened.
@@ -18,12 +20,13 @@ probe() {
     local label="$1" limit="$2"; shift 2
     if ! command -v "$1" >/dev/null 2>&1; then
         gone "$label — $1 not installed"
+        missing="$missing $label"
         return
     fi
     local output
     output="$(timeout "$limit" "$@" </dev/null 2>&1)"
     case $? in
-        0)   ok "$label" ;;
+        0)   ok "$label"; working="$working $label" ;;
         124) bad "$label — no answer in ${limit}s"; blocked="$blocked $label" ;;
         *)   bad "$label — $(echo "$output" | head -1 | cut -c1-45)"
              blocked="$blocked $label" ;;
@@ -64,7 +67,11 @@ echo "  ...recording three seconds from the microphone:"
 recording="$HOME/.personal-ai/doctor-test.m4a"
 mkdir -p "$HOME/.personal-ai"; rm -f "$recording"
 if command -v termux-microphone-record >/dev/null 2>&1; then
-    timeout 10 termux-microphone-record -f "$recording" -l 3 -e aac </dev/null >/dev/null 2>&1
+    # Stop anything already recording first: Android allows one at a time,
+    # and an interrupted run refuses every recording after it. No encoder
+    # is named — the default is AAC, and naming one the device lacks hangs.
+    timeout 8 termux-microphone-record -q </dev/null >/dev/null 2>&1
+    timeout 10 termux-microphone-record -f "$recording" -l 3 </dev/null >/dev/null 2>&1
     sleep 4
     timeout 8 termux-microphone-record -q </dev/null >/dev/null 2>&1
     size=$(stat -c%s "$recording" 2>/dev/null || echo 0)
@@ -79,9 +86,13 @@ else
     gone "termux-microphone-record"
 fi
 
-echo "  ...and Android's own speech recogniser:"
+echo "  ...and Android's own speech recogniser (optional):"
+# Not counted as a fault: many phones have none, and the assistant
+# records and lets Gemini listen instead.
+saved_blocked="$blocked"
 probe "android speech recogniser" 10 termux-speech-to-text
-note "Many phones, Samsung's especially, do not have one. That is fine:"
+blocked="$saved_blocked"
+note "Many phones, Samsung's especially, do not have one. That is fine —"
 note "the assistant records instead and lets Gemini do the listening."
 note "Test the whole thing with:  listen --record"
 
@@ -99,28 +110,26 @@ fi
 
 echo
 if [ -n "$blocked" ]; then
-    echo "BLOCKED:$blocked"
+    echo "WHERE TO FIX WHAT IS BLOCKED"
+    echo "  Permissions:  Settings > Apps > Termux:API > Permissions"
+    echo "  Notifications: Settings > Notifications > Advanced >"
+    echo "                 Notification access > Termux:API"
+    echo "  Speech:       Settings > General management > Text-to-speech"
+    echo "  Battery:      Settings > Apps > Termux:API > Battery > Unrestricted"
+    echo "                and Settings > Battery > Background usage limits"
     echo
-    echo "Nearly always a permission. Open:"
-    echo "  Settings > Apps > Termux:API > Permissions"
-    echo "and allow Microphone, Contacts, SMS, Phone, Camera, Location —"
-    echo "whichever of them you want it to use."
-    echo
-    echo "Notifications are separate, and not under Permissions:"
-    echo "  Settings > Notifications > Advanced > Notification access > Termux:API"
-    echo
-    echo "Text to speech is separate again — it is the phone's own engine:"
-    echo "  Settings > General management > Text-to-speech output"
-    echo "  Pick an engine, tap the gear, install the voice data, and press"
-    echo "  'Listen to an example'. Silent there means silent here."
-else
-    echo "Everything checked is working."
+    echo "  Or let the phone open each of those for you:"
+    echo "    bash ~/WorkApp/assistant/permissions.sh"
 fi
 
-echo
-echo "Last thing, and it bites later rather than now: Android freezes"
-echo "background services to save battery, which turns working commands into"
-echo "hanging ones after a few days."
-echo "  Settings > Apps > Termux:API > Battery > Unrestricted"
-echo "  Settings > Apps > Termux > Battery > Unrestricted"
+echo "=================================================="
+[ -n "$working" ] && printf 'WORKING: %s\n' "$working"
+[ -n "$blocked" ] && printf 'BLOCKED: %s\n' "$blocked"
+[ -n "$missing" ] && printf 'MISSING: %s\n' "$missing"
+if [ -z "$blocked" ] && [ -z "$missing" ]; then
+    echo "Everything works. Try:  ai --jarvis --wake"
+elif [ -z "$blocked" ]; then
+    echo "Nothing is blocked. Try:  ai --jarvis --wake"
+fi
+echo "=================================================="
 echo
