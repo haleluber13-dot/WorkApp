@@ -34,12 +34,10 @@ STOP_WORDS = (
 )
 
 MIC_HELP = (
-    "The microphone did not answer.\n"
-    "  1. Termux:API needs permission: Settings > Apps > Termux:API >\n"
-    "     Permissions > Microphone > Allow.\n"
-    "  2. termux-speech-to-text uses Google's speech service. On phones\n"
-    "     without the Google app it cannot work at all.\n"
-    "Test it on its own with:  listen\n"
+    "Could not hear anything.\n"
+    "Termux:API needs the Microphone permission: Settings > Apps >\n"
+    "Termux:API > Permissions > Microphone > Allow.\n"
+    "Test recording on its own with:  listen --record\n"
     "Typing works either way — carry on below."
 )
 
@@ -448,6 +446,10 @@ def build_parser():
     parser.add_argument("--timeout", type=int, default=60, help="seconds to wait for Gemini")
     parser.add_argument("--speak-timeout", type=int, default=25, help="seconds to wait for the phone to speak")
     parser.add_argument("--listen-timeout", type=int, default=25, help="seconds to wait for the microphone")
+    parser.add_argument("--ears", choices=("auto", "android", "gemini"), default="auto",
+                        help="how to hear: android's recogniser, Gemini, or try android then Gemini")
+    parser.add_argument("--record-seconds", type=int, default=8,
+                        help="how long a spoken turn may be, when listening through Gemini")
     parser.add_argument("--max-tokens", type=int, default=None)
     parser.add_argument("--models", action="store_true", help="list the models this key can use")
     parser.add_argument("--tools", action="store_true", help="list what it can do to the phone")
@@ -489,6 +491,9 @@ def main(argv=None):
             enabled=args.voice or args.mic,
             pitch=args.pitch,
             rate=args.rate,
+            hearing=args.ears,
+            model=args.model,
+            record_seconds=args.record_seconds,
         )
         if args.prompt:
             return one_shot(args, speaker)

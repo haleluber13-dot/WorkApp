@@ -201,16 +201,35 @@ keyboard rather than retrying — a broken mic is broken, and waiting on it
 twenty times over is just a hang with extra steps. Type `/quit` to leave
 from there.
 
-Test the microphone on its own:
+### Two ways to hear
+
+`termux-speech-to-text` is a wrapper around Android's own recogniser, and
+many phones — Samsung's especially — do not have one. So there is a second
+way: record a few seconds and let Gemini listen to the audio. Better with
+Hebrew than the Android recogniser, nothing extra to install, and it uses
+the key you already have.
+
+It picks for itself. Android first; the moment that turns out not to work,
+it says so once and records from then on. Pin it if you want to:
 
 ```sh
-listen        # then say something
+ai --jarvis --ears gemini        # always record and send
+ai --jarvis --ears android       # only the phone's recogniser
+ai --jarvis --record-seconds 12  # allow longer sentences
 ```
 
-Silence usually means one of two things: Termux:API has no microphone
-permission (Settings → Apps → Termux:API → Permissions → Microphone), or
-the phone has no Google speech service, which is what
-`termux-speech-to-text` uses. Typing works either way.
+Test hearing on its own:
+
+```sh
+listen              # whichever way works
+listen --record     # the recording path specifically
+```
+
+Nothing captured means the Microphone permission: Settings → Apps →
+Termux:API → Permissions → Microphone. `doctor.sh` records three seconds
+and tells you whether anything arrived.
+
+Typing works either way.
 
 The voice is the phone's own text-to-speech, pitched down and slowed
 slightly, which is most of what makes it sound like him:
@@ -263,6 +282,7 @@ PROMPT
 | `assistant.py` | the CLI: conversation, memory, flags |
 | `gemini.py` | Gemini REST client, standard library only |
 | `voice.py` | speech in and out, every call bounded by a timeout |
+| `ears.py` | hearing without Google: record, then let Gemini listen |
 | `tools.py` | the actions it can take, and which ones must be confirmed |
 | `termux.py` | one place where termux-api commands are run, always with a timeout |
 | `bin/ai`, `bin/say`, `bin/listen` | what lands on your PATH |
@@ -270,7 +290,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 66 tests, no phone or network needed |
+| `tests/` | 75 tests, no phone or network needed |
 
 ## Tests
 
@@ -307,5 +327,7 @@ becomes its specification.
   own name yet. That needs an always-on listener, which costs battery and
   needs care.
 * Calendar and email; both need OAuth, which is a bigger piece of work.
+* Hearing you while he is still speaking — a turn is recorded for a fixed
+  few seconds, so you wait for him to finish.
 * Anything that survives the phone rebooting: no background service yet.
 * A native APK. See above.

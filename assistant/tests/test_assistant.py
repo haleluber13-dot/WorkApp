@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import assistant  # noqa: E402
 import gemini  # noqa: E402
+import ears  # noqa: E402
 import termux  # noqa: E402
 import tools  # noqa: E402
 import voice  # noqa: E402
@@ -221,6 +222,125 @@ class CircuitBreakerTest(PhoneTestCase):
 
         self.assertTrue(ok)
         self.assertEqual(output, "fine")
+
+
+class HearingTest(PhoneTestCase):
+    """Two ways to hear, and the rule for falling between them."""
+
+    def test_android_is_tried_first_and_kept_when_it_works(self):
+        with mock.patch.object(termux, "run", return_value=(True, "hello there", "")), \
+             mock.patch.object(ears, "listen") as gemini_ears:
+            speaker = voice.Voice(hearing="auto")
+            self.assertEqual(speaker.listen(), "hello there")
+        gemini_ears.assert_not_called()
+        self.assertEqual(speaker.hearing, "auto")
+
+    def test_a_phone_with_no_recogniser_switches_to_gemini_for_good(self):
+        with mock.patch.object(termux, "run", return_value=(False, "", "no recogniser")), \
+             mock.patch.object(ears, "available", return_value=True), \
+             mock.patch.object(ears, "listen", return_value=("שלום", "")) as gemini_ears, \
+             mock.patch.object(sys, "stderr", io.StringIO()):
+            speaker = voice.Voice(hearing="auto")
+            self.assertEqual(speaker.listen(), "שלום")
+            self.assertEqual(speaker.hearing, "gemini", "it should not try android again")
+            speaker.listen()
+
+        self.assertEqual(gemini_ears.call_count, 2)
+        self.assertTrue(speaker.mic_working)
+
+    def test_pinning_android_means_no_fallback(self):
+        with mock.patch.object(termux, "run", return_value=(False, "", "no recogniser")), \
+             mock.patch.object(ears, "listen") as gemini_ears:
+            speaker = voice.Voice(hearing="android")
+            self.assertEqual(speaker.listen(), "")
+        gemini_ears.assert_not_called()
+        self.assertFalse(speaker.mic_working)
+
+    def test_a_failed_recording_is_reported_not_hidden(self):
+        with mock.patch.object(ears, "available", return_value=True), \
+             mock.patch.object(ears, "listen", return_value=("", "no microphone permission")):
+            speaker = voice.Voice(hearing="gemini")
+            self.assertEqual(speaker.listen(), "")
+        self.assertFalse(speaker.mic_working)
+        self.assertIn("permission", speaker.last_problem)
+
+
+class RecordingTest(PhoneTestCase):
+    def test_an_empty_file_is_treated_as_nothing_heard(self):
+        """A recorder that runs but captures nothing leaves a header behind."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "turn.m4a")
+
+            def recorder(command, timeout=20, stdin_text=None):
+                if command[0] == ears.RECORD_CMD and "-f" in command:
+                    with open(path, "wb") as handle:
+                        handle.write(b"\0" * 40)
+                return True, "", ""
+
+            with mock.patch.object(termux, "run", recorder), \
+                 mock.patch.object(ears.time, "sleep", lambda _: None):
+                ok, problem = ears.record(seconds=1, path=path)
+        self.assertFalse(ok)
+        self.assertIn("empty", problem)
+
+    def test_a_missing_file_points_at_the_permission(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "never-written.m4a")
+            with mock.patch.object(termux, "run", return_value=(True, "", "")), \
+                 mock.patch.object(ears.time, "sleep", lambda _: None):
+                ok, problem = ears.record(seconds=1, path=path)
+        self.assertFalse(ok)
+        self.assertIn("Microphone", problem)
+
+    def test_the_recording_is_sent_to_gemini_as_audio(self):
+        sent = []
+
+        def fake_request(url, payload, key, timeout):
+            sent.append(payload)
+            return {"candidates": [{"content": {"parts": [{"text": "מה השעה"}]}}]}
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "turn.m4a")
+            with open(path, "wb") as handle:
+                handle.write(b"RIFF" + b"\1" * 5000)
+            with mock.patch.object(gemini, "_request", fake_request), \
+                 mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+                heard = ears.transcribe(path)
+
+        self.assertEqual(heard, "מה השעה")
+        part = sent[0]["contents"][0]["parts"][1]["inline_data"]
+        self.assertIn("audio/", part["mime_type"])
+        self.assertTrue(part["data"], "the audio itself must be attached")
+
+    def test_silence_comes_back_as_nothing_said(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "turn.m4a")
+            with open(path, "wb") as handle:
+                handle.write(b"\1" * 5000)
+            response = {"candidates": [{"content": {"parts": [{"text": "(silence)"}]}}]}
+            with mock.patch.object(gemini, "_request", return_value=response), \
+                 mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+                self.assertEqual(ears.transcribe(path), "")
+
+    def test_a_rejected_audio_format_is_retried_as_another(self):
+        tried = []
+
+        def picky(url, payload, key, timeout):
+            mime = payload["contents"][0]["parts"][1]["inline_data"]["mime_type"]
+            tried.append(mime)
+            if mime != "audio/mp4":
+                raise FakeHTTPError(400, "unsupported mime type")
+            return {"candidates": [{"content": {"parts": [{"text": "heard it"}]}}]}
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "turn.m4a")
+            with open(path, "wb") as handle:
+                handle.write(b"\1" * 5000)
+            with mock.patch.object(gemini, "_request", picky), \
+                 mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+                self.assertEqual(ears.transcribe(path), "heard it")
+
+        self.assertEqual(tried, ["audio/aac", "audio/mp4"])
 
 
 class DiagnosisTest(PhoneTestCase):
@@ -683,7 +803,7 @@ class ConversationTest(PhoneTestCase):
              mock.patch.object(sys, "stderr", io.StringIO()) as complaint, \
              mock.patch.object(assistant, "can_type", return_value=True), \
              mock.patch("builtins.input", lambda _="": next(typed)):
-            assistant.converse(args, voice.Voice(enabled=False))
+            assistant.converse(args, voice.Voice(enabled=False, hearing="android"))
 
         self.assertEqual(len(attempts), 1, "it tried the broken microphone twice")
         self.assertFalse(args.mic, "it should have switched to typing")
@@ -701,7 +821,9 @@ class ConversationTest(PhoneTestCase):
              mock.patch.object(termux, "have", return_value=True), \
              mock.patch.object(sys, "stderr", io.StringIO()), \
              mock.patch.object(assistant, "can_type", return_value=False):
-            self.assertEqual(assistant.converse(args, voice.Voice(enabled=False)), 0)
+            self.assertEqual(
+                assistant.converse(args, voice.Voice(enabled=False, hearing="android")), 0
+            )
 
     def test_a_dead_microphone_stops_the_loop_instead_of_spinning(self):
         args = assistant.build_parser().parse_args(["--mic", "--quiet", "--no-memory"])

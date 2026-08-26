@@ -1,16 +1,33 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Print whatever the microphone hears. Gives up rather than hanging.
+# Print what the microphone hears.
+#
+#   listen              Android's recogniser, falling back to Gemini
+#   listen --record     skip Android; record and let Gemini listen
+#   listen --android    Android only, no fallback
+#
+# Never hangs: every path has a timeout.
 set -uo pipefail
+here="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
 
-if ! command -v termux-speech-to-text >/dev/null 2>&1; then
-    echo "termux-speech-to-text is missing. Run: pkg install termux-api" >&2
-    exit 3
-fi
+hearing="auto"
+case "${1:-}" in
+    --record|--gemini) hearing="gemini" ;;
+    --android)         hearing="android" ;;
+    --help|-h)         sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+esac
 
-timeout "${LISTEN_TIMEOUT:-60}" termux-speech-to-text </dev/null
-status=$?
+exec python3 -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+import voice
 
-if [ "$status" -eq 124 ]; then
-    echo "Nothing came back from the microphone. Check that the Termux:API app is installed and has microphone permission." >&2
-fi
-exit "$status"
+speaker = voice.Voice(hearing=sys.argv[2], enabled=False)
+if speaker.hearing == "gemini":
+    print("recording... speak now", file=sys.stderr)
+heard = speaker.listen()
+if heard:
+    print(heard)
+else:
+    print(speaker.last_problem or "nothing heard", file=sys.stderr)
+    sys.exit(1)
+' "$here" "$hearing"

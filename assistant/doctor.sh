@@ -60,9 +60,30 @@ echo "  ...speaking out loud (you should hear 'test'):"
 probe "text to speech"       12 termux-tts-speak "test"
 
 echo
-echo "  The microphone cannot be tested without you talking. Run:  listen"
-echo "  then say something. Silence means the Microphone permission, or no"
-echo "  Google speech service on the phone."
+echo "  ...recording three seconds from the microphone:"
+recording="$HOME/.personal-ai/doctor-test.m4a"
+mkdir -p "$HOME/.personal-ai"; rm -f "$recording"
+if command -v termux-microphone-record >/dev/null 2>&1; then
+    timeout 10 termux-microphone-record -f "$recording" -l 3 -e aac </dev/null >/dev/null 2>&1
+    sleep 4
+    timeout 8 termux-microphone-record -q </dev/null >/dev/null 2>&1
+    size=$(stat -c%s "$recording" 2>/dev/null || echo 0)
+    if [ "$size" -gt 1200 ]; then
+        ok "microphone records ($size bytes captured)"
+    else
+        bad "microphone captured nothing"
+        blocked="$blocked microphone"
+    fi
+    rm -f "$recording"
+else
+    gone "termux-microphone-record"
+fi
+
+echo "  ...and Android's own speech recogniser:"
+probe "android speech recogniser" 10 termux-speech-to-text
+note "Many phones, Samsung's especially, do not have one. That is fine:"
+note "the assistant records instead and lets Gemini do the listening."
+note "Test the whole thing with:  listen --record"
 
 echo
 echo "THE GEMINI KEY"

@@ -1,5 +1,8 @@
 """Talking and listening on Termux, without ever hanging the terminal."""
 
+import sys
+
+import ears
 import termux
 
 SPEAK_CMD = "termux-tts-speak"
@@ -10,12 +13,18 @@ ENGINES_CMD = "termux-tts-engines"
 class Voice:
     """Speech in and out, degrading to silence rather than to a hang."""
 
-    def __init__(self, lang=None, timeout=25, enabled=True, pitch=None, rate=None):
+    def __init__(self, lang=None, timeout=25, enabled=True, pitch=None, rate=None,
+                 hearing="auto", model=None, record_seconds=8):
         self.lang = lang
         self.timeout = timeout
         self.enabled = enabled
         self.pitch = pitch  # below 1.0 is deeper
         self.rate = rate    # below 1.0 is slower
+        # "auto" tries Android first and falls back to Gemini for good;
+        # "android" and "gemini" pin one of them.
+        self.hearing = hearing
+        self.model = model
+        self.record_seconds = record_seconds
         self.last_problem = ""
         self.mic_working = None  # None until tried; False when it failed
         self._warned = False
@@ -44,12 +53,38 @@ class Voice:
         """Return what the microphone heard.
 
         An empty string can mean two very different things, so `mic_working`
-        says which: False means the command failed or never came back, and
-        the caller should stop asking. True with an empty string just means
-        nobody said anything.
+        says which: False means hearing failed outright and the caller
+        should stop asking. True with an empty string just means nobody
+        said anything.
         """
-        ok, heard, problem = termux.run([LISTEN_CMD], timeout)
-        if not ok:
+        if self.hearing in ("auto", "android"):
+            ok, heard, problem = termux.run([LISTEN_CMD], timeout)
+            if ok:
+                self.mic_working = True
+                return heard
+            if self.hearing == "android":
+                self.last_problem = problem
+                self.mic_working = False
+                return ""
+            # Android cannot hear on this phone. Do not try it again.
+            self.hearing = "gemini"
+            print(
+                "[the phone has no speech recogniser — listening through "
+                "Gemini instead]",
+                file=sys.stderr,
+            )
+
+        return self._listen_through_gemini()
+
+    def _listen_through_gemini(self):
+        if not ears.available():
+            self.last_problem = (
+                f"{ears.RECORD_CMD} is missing (`pkg install termux-api`)."
+            )
+            self.mic_working = False
+            return ""
+        heard, problem = ears.listen(self.record_seconds, model=self.model)
+        if problem:
             self.last_problem = problem
             self.mic_working = False
             return ""
