@@ -59,7 +59,7 @@ spot. Conditions refresh on open and every ten minutes after.
 
 ## About the cams — read this
 
-The catalog ships **24 verified cams across 19 spots**, not 60. That is
+The catalog ships **32 verified cams across 21 spots**, not 60. That is
 deliberate:
 
 - Commercial cams (Surfline and similar) are **not embeddable**. The app does not
@@ -70,9 +70,13 @@ deliberate:
   filed under**. The resolver's false positives — a Bay Bridge camera surfacing
   for Ocean Beach, a bar called "Bondi" in Koh Samui — were dropped rather than
   shipped.
-- Cams are pinned to a **channel**, not a video id, and embedded through
-  `youtube.com/embed/live_stream?channel=…`. When an operator restarts their
-  broadcast the entry keeps working instead of going dead.
+- Cams are pinned to a **channel**, not a video id. At playback time the app
+  resolves the channel's current broadcast from its own `/live` page and embeds
+  that concrete video, so an operator restarting their stream does not kill the
+  tile. It will only accept an id that came from a watch page — when a channel
+  is offline YouTube serves an ordinary channel page whose first video is a
+  recommendation, and a random video in a surf cam tile is worse than a stale
+  one.
 
 Spots with no cam still have everything else: live conditions, the full write-up,
 the travel board, and links to Windy's webcam map and Surfline for that location.
@@ -139,7 +143,7 @@ every push.
 app/src/main/
   assets/
     spots.json          60 spots: place data, hazards, seasons, airports
-    cams.json           24 curated, verified live cams
+    cams.json           32 curated, verified live cams
     airports.json       4,007 airports with IATA codes and coordinates
     world_land.json     simplified coastlines for the Atlas
   java/com/olakai/app/
@@ -164,9 +168,17 @@ tools/
 ## Performance
 
 A wall of live video is the whole idea, and also the thing most likely to make a
-phone stutter. Only the first *N* tiles hold a decoder — four by default,
-adjustable from the wall's own toolbar up to nine. Everything past the budget
-renders a still card. Fifty cams cost the same as four.
+phone stutter. Only the first *N* tiles hold a decoder — two by default, raisable in Settings.
+Each live tile is its own renderer process and hardware video decoder instance,
+and phones cap concurrent decoders lower than you would expect; past the cap
+extra tiles simply render black. Everything past the budget renders a still
+card, so fifty cams cost what two do.
+
+The embed is loaded as a **top-level navigation** to `youtube.com/embed/<id>`,
+never as an iframe inside a `data:` document — the latter leaves the page on an
+origin the IFrame player refuses to run on, which is the classic cause of a
+black embed in Android WebView. Everything autoplays muted, because browsers
+refuse to autoplay audible video at all.
 
 ## Licensing and attribution
 

@@ -39,10 +39,11 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.olakai.app.Graph
 import com.olakai.app.data.model.Cam
+import com.olakai.app.data.youtube.PlayerPage
 
 private const val TAG = "LiveVideo"
 
-/** Tag key for the URL a WebView already loaded; any int with a high byte >= 2. */
+/** Tag key for the page a WebView already loaded; any int with a high byte >= 2. */
 private val R_LOADED = "olakai_loaded_url".hashCode()
 
 /**
@@ -51,12 +52,24 @@ private val R_LOADED = "olakai_loaded_url".hashCode()
  * YouTube's terms require playback through their player rather than by pulling
  * the underlying stream, so this is a WebView on the IFrame embed page.
  *
- * Two details are load-bearing, and getting either wrong shows a black player:
- *  - the embed page is loaded as a top-level navigation, so the document really
- *    is on youtube.com. Wrapping it in an iframe inside a `data:` document
- *    leaves the page on an origin the player refuses to run on.
- *  - the URL names a concrete video id. `embed/live_stream?channel=` is the
- *    obvious choice for a live channel and does not resolve reliably.
+ * Two details are load-bearing, and getting either wrong shows a black player.
+ *
+ * First, the embed gates on the **Referer**. It must come from a page, and that
+ * page must not be youtube.com itself. Measured against this catalog's own
+ * videos, all five behaved identically:
+ *
+ * ```
+ * referer (none, i.e. a top-level loadUrl)  -> "Video player configuration error"
+ * referer https://www.youtube.com/          -> "This video is unavailable"
+ * referer https://com.olakai.app            -> plays
+ * ```
+ *
+ * So the player lives in a one-line host page served from the app's own
+ * pseudo-domain, and `origin` matches that domain. The widely copied recipe of
+ * passing `https://www.youtube.com` as the base URL is the broken case.
+ *
+ * Second, the URL names a concrete video id. `embed/live_stream?channel=` is
+ * the obvious choice for a live channel and no longer resolves at all.
  */
 @Composable
 fun YouTubeLive(
@@ -78,6 +91,7 @@ fun YouTubeLive(
         }
     }
 
+    val context = LocalContext.current
     var failed by remember(cam.id) { mutableStateOf(false) }
 
     if (failed) {
@@ -89,8 +103,9 @@ fun YouTubeLive(
         return
     }
 
-    val url = remember(videoId, showControls) {
-        embedUrl(cam.embedUrl(videoId), showControls)
+    val origin = remember(context) { "https://" + context.packageName }
+    val page = remember(videoId, showControls, origin) {
+        PlayerPage.html(cam.embedUrl(videoId), showControls, origin)
     }
     val label = cam.id
 
@@ -110,11 +125,11 @@ fun YouTubeLive(
                 .getOrElse { WebView(context) }
         },
         update = { view ->
-            // Load once per URL. Reloading on every recomposition would restart
+            // Load once per page. Reloading on every recomposition would restart
             // the stream and thrash the decoder.
-            if (view.getTag(R_LOADED) != url) {
-                view.setTag(R_LOADED, url)
-                view.loadUrl(url)
+            if (view.getTag(R_LOADED) != page) {
+                view.setTag(R_LOADED, page)
+                view.loadDataWithBaseURL(origin, page, "text/html", "utf-8", null)
             }
         },
         // Runs after the view is detached, which is what WebView.destroy()
@@ -204,29 +219,6 @@ private fun createPlayerWebView(
         // Android appends "; wv" to mark a WebView. YouTube treats that as an
         // embedded browser and can serve a degraded player, so drop it.
         userAgentString = userAgentString.replace("; wv", "")
-    }
-}
-
-/**
- * Query string for the IFrame player.
- *
- * `mute=1` is not a preference, it is a requirement: browsers refuse to autoplay
- * audible video, so an unmuted embed simply sits there paused. Tiles stay muted
- * for good; the focused player shows controls, and unmuting by hand is itself
- * the gesture that permits audio.
- *
- * `fs=0` because a plain WebChromeClient implements neither onShowCustomView
- * nor onHideCustomView -- offering a fullscreen button we cannot service would
- * blank the video with no way back.
- */
-private fun embedUrl(base: String, controls: Boolean): String {
-    val joiner = if (base.contains('?')) "&" else "?"
-    return base + joiner + buildString {
-        append("autoplay=1")
-        append("&mute=1")
-        append("&playsinline=1")
-        append("&controls=").append(if (controls) 1 else 0)
-        append("&modestbranding=1&rel=0&fs=0&iv_load_policy=3")
     }
 }
 

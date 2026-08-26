@@ -117,6 +117,13 @@
    "title": "Costa da Caparica panorama",
    "channel": "Playocean",
    "channelUrl": "https://www.youtube.com/@PlayoceanLive"
+  },
+  {
+   "videoId": "qhU5x83fUt8",
+   "channelId": "UCHSNLuGE3aeMG1RaS4r6sFg",
+   "title": "Costa da Caparica — second panorama",
+   "channel": "Playocean",
+   "channelUrl": "https://www.youtube.com/@PlayoceanLive"
   }
  ],
  "lanzarote": [
@@ -144,6 +151,13 @@
    "title": "Muizenberg Beach",
    "channel": "REEF SOUTH AFRICA",
    "channelUrl": "https://www.youtube.com/@Reef-SA"
+  },
+  {
+   "videoId": "VuE8e798RuM",
+   "channelId": "UCf6fbt2V_PXTFtdg1fruTDA",
+   "title": "Muizenberg — Wave Watchers surf cam",
+   "channel": "Muizenberg Wave Watchers",
+   "channelUrl": "https://www.youtube.com/@MuizenbergWaveWatchers"
   }
  ],
  "uluwatu": [
@@ -194,6 +208,13 @@
    "title": "Kugenuma — Shonan surf beach",
    "channel": "NAMIARUMOVIE",
    "channelUrl": "https://www.youtube.com/@NAMIARUMOVIE"
+  },
+  {
+   "videoId": "xPgeZzojY5o",
+   "channelId": "UCfoiWJgMmg4p9olz1WE0-9A",
+   "title": "Katase Higashihama — Enoshima",
+   "channel": "FlyingSuika",
+   "channelUrl": "https://www.youtube.com/@FlyingSuika"
   }
  ],
  "chiba": [
@@ -203,6 +224,45 @@
    "title": "Chiba — Tateyama Hojo Beach",
    "channel": "e-CAM(イーカム)チャンネル",
    "channelUrl": "https://www.youtube.com/@e-CAM"
+  },
+  {
+   "videoId": "G2tN6QaDbJQ",
+   "channelId": "UCUvFTwKs1hFuF1heSDzFfaQ",
+   "title": "Hebara Beach — Katsuura",
+   "channel": "wowpowcom",
+   "channelUrl": "https://www.youtube.com/@wowpowcom"
+  },
+  {
+   "videoId": "47xoP12hJxs",
+   "channelId": "UC-Sf0AZzGEmdSNO_QuVLRgg",
+   "title": "Ichinomiya / Chosei — Hitotsumatsu coast",
+   "channel": "千葉県長生村",
+   "channelUrl": "https://www.youtube.com/@%E5%8D%83%E8%91%89%E7%9C%8C%E9%95%B7%E7%94%9F%E6%9D%91"
+  },
+  {
+   "videoId": "Ay5sDDxzh5Q",
+   "channelId": "UCphRpVsW5x8nrZqOCHlmL3g",
+   "title": "Hebara Point — Katsuura",
+   "channel": "サンセットタウン",
+   "channelUrl": "https://www.youtube.com/@%E3%82%B5%E3%83%B3%E3%82%BB%E3%83%83%E3%83%88%E3%82%BF%E3%82%A6%E3%83%B3"
+  }
+ ],
+ "san-sebastian": [
+  {
+   "videoId": "6Pk_8BViotw",
+   "channelId": "UCsMjKXwh0yqJeRb-7kUZwHA",
+   "title": "La Concha — San Sebastián",
+   "channel": "Spain Live Cams",
+   "channelUrl": "https://www.youtube.com/@spainlivecams"
+  }
+ ],
+ "cocoa-beach": [
+  {
+   "videoId": "oX0XTHVXtvM",
+   "channelId": "UC6gJnNUaS0myMN_2oNxeayg",
+   "title": "Satellite Beach — Brevard coast",
+   "channel": "Satellite Beach - Florida ",
+   "channelUrl": "https://www.youtube.com/@SatelliteBeach"
   }
  ]
 }
