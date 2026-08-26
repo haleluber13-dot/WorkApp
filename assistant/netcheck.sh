@@ -18,6 +18,12 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 
 model="$(cat "$HOME/.personal-ai/model" 2>/dev/null || echo gemini-flash-latest)"
+
+# Termux has no /tmp. TMPDIR is set there; the fallback is for everywhere else.
+work="${TMPDIR:-/tmp}"
+mkdir -p "$work" 2>/dev/null
+out="$work/netcheck.out"
+err="$work/netcheck.err"
 root="https://generativelanguage.googleapis.com"
 body='{"contents":[{"role":"user","parts":[{"text":"Reply with one word: ready"}]}]}'
 form='   %{http_code} in %{time_total}s\n'
@@ -25,8 +31,8 @@ form='   %{http_code} in %{time_total}s\n'
 try() {  # try LABEL curl-args...
     local label="$1"; shift
     printf '  %-34s' "$label"
-    curl -sS -m 25 -o /tmp/nc.out -w "$form" "$@" 2>/tmp/nc.err \
-        || printf '   FAILED: %s\n' "$(head -1 /tmp/nc.err | cut -c1-60)"
+    curl -sS -m 25 -o "$out" -w "$form" "$@" 2>"$err" \
+        || printf '   FAILED: %s\n' "$(head -1 "$err" 2>/dev/null | cut -c1-60)"
 }
 
 echo
@@ -56,8 +62,8 @@ try "POST, no Expect header"    -X POST -H "Expect:" -H "x-goog-api-key: $key" \
 
 echo
 echo "  (last answer, if any:)"
-head -c 200 /tmp/nc.out 2>/dev/null | sed 's/^/   /'
-rm -f /tmp/nc.out /tmp/nc.err
+head -c 200 "$out" 2>/dev/null | sed 's/^/   /'
+rm -f "$out" "$err"
 echo
 echo
 echo "200 anywhere in the generation rows means that variant works and the"
