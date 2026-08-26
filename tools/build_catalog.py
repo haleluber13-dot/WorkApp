@@ -767,6 +767,27 @@ SPOTS = [
    ["FAO","LIS"],"About 90 min north-west of Faro",90,
    "Schengen area — check your entry requirements",
    meo=[("arrifana", "Arrifana")]),
+ s("anglet","Anglet","Pyrénées-Atlantiques","France","FR",43.4930,-1.5350,"Europe/Paris",
+   ["Beach break","Consistent","Advanced"],
+   "Four and a half kilometres of beach between Biarritz and the mouth of the Adour, cut into a dozen named breaks by groynes. Les Cavaliers is the one that matters: a heavy, fast peak beside the northern jetty that has hosted European contests for decades, while Chambre d'Amour and the Sables d'Or at the southern end are gentler. The groynes hold the sand, which makes it more reliable than most French beach breaks.",
+   "Beach break between groynes","Sand","Punchy peaks; Les Cavaliers is fast and heavy","Intermediate to advanced",
+   "W–NW Atlantic swell","E–SE offshore","Mid to low tide",
+   "September–November","14–22°C — 3/2, 4/3 in winter","Busy in summer, spread over a dozen beaches",
+   ["Strong rips between the groynes","Current off the Adour rivermouth","Water quality after heavy rain"],
+   "Walk the promenade and pick your groyne. Each bay holds a different bank, and the one that is closing out at Cavaliers is often perfect two beaches south.",
+   ["BIQ"],"10 min north of Biarritz airport",10,
+   "Schengen area — check your entry requirements"),
+
+ s("hendaye","Hendaye","Pyrénées-Atlantiques","France","FR",43.3760,-1.7770,"Europe/Paris",
+   ["Beach break","Beginner","Sheltered"],
+   "The longest beach in the French Basque country, three kilometres of sand on the Spanish border with the twin rocks of Les Jumeaux offshore. Cap du Figuier shelters the bay, so the waves arrive softened — which makes Hendaye the region's learn-to-surf beach, and the place everyone goes when the rest of the coast is too big to paddle out.",
+   "Beach break","Sand","Long, soft, forgiving walls","Beginner to intermediate",
+   "NW Atlantic swell, softened by the headland","S offshore","Mid tide",
+   "September–May; works all year","13–21°C — 3/2 to 4/3","Busy with schools in summer",
+   ["Rip beside the rocks at the west end","Crowds of beginners","Estuary current at the Spanish end"],
+   "When Hossegor and Anglet are closing out, this is the bay that is still rideable.",
+   ["BIQ","EAS"],"About 35 min south of Biarritz; 25 min from San Sebastián",35,
+   "Schengen area — check your entry requirements"),
 ]
 
 def main():

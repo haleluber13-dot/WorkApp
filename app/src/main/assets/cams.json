@@ -264,5 +264,35 @@
    "channel": "Satellite Beach - Florida ",
    "channelUrl": "https://www.youtube.com/@SatelliteBeach"
   }
+ ],
+ "biarritz": [
+  {
+   "url": "https://live.viewsurf.com/liveedge/biarritzgrandeplage_1_1.stream/playlist.m3u8",
+   "title": "Grande Plage",
+   "channel": "Viewsurf",
+   "channelUrl": "https://www.viewsurf.com/univers/mer/vue/6913-france-nouvelle-aquitaine-biarritz-grande-plage"
+  }
+ ],
+ "anglet": [
+  {
+   "url": "https://live.viewsurf.com/liveedge/anglet01_1_1.stream/playlist.m3u8",
+   "title": "Anglet — Chambre d'Amour",
+   "channel": "Viewsurf",
+   "channelUrl": "https://www.viewsurf.com/univers/mer"
+  },
+  {
+   "url": "https://live.viewsurf.com/liveedge/anglet02_1_1.stream/playlist.m3u8",
+   "title": "Anglet — Les Cavaliers",
+   "channel": "Viewsurf",
+   "channelUrl": "https://www.viewsurf.com/univers/mer"
+  }
+ ],
+ "hendaye": [
+  {
+   "url": "https://ds2-cache.quanteec.com/contents/encodings/live/22117aeb-79a5-4a35-3436-3230-6d61-63-95bf-b3a9947c789fd/master.m3u8",
+   "title": "Plage des Jumeaux",
+   "channel": "Viewsurf",
+   "channelUrl": "https://www.viewsurf.com/univers/mer"
+  }
  ]
 }
