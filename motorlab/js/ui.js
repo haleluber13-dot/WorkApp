@@ -304,6 +304,13 @@ export function pickFile(accept, cb){
       const r = new FileReader(); r.onload = () => cb(r.result, f.name); r.readAsText(f); } });
   document.body.appendChild(input); input.click(); setTimeout(() => input.remove(), 4000);
 }
+export function pickBinaryFile(accept, cb){
+  const input = h('input', { type:'file', accept, style:{ display:'none' },
+    onchange:(e) => { const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader(); r.onload = () => cb(r.result, f.name, f.size); r.readAsArrayBuffer(f); } });
+  document.body.appendChild(input); input.click(); setTimeout(() => input.remove(), 4000);
+}
+
 export function tabs(host, items, active, onChange){
   host.innerHTML = '';
   for (const t of items)

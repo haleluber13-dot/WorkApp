@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, group, tag, at, rot,
          boundsOf, deg, TAU, lathe } from '../lib/geo.js';
 import { wheelRadius, weightDistribution } from '../data/vehicles.js';
+import { custom, fitToVehicle } from '../lib/importModel.js';
 
 const M = (mm) => mm / 1000;
 
@@ -285,34 +286,26 @@ function buildCar(v, tree){
     st.add(at(box(M(140), M(220), wid*0.72, MAT.plastic()), axF*0.12, floorY + M(590), 0));
     add('seats', st);
   }
-  if (has('body') && !open){
+  if (has('body') && custom.group){
+    /* an imported model replaces the generated shell; everything under it stays */
     const bd = group('body');
-    const paint = new THREE.MeshStandardMaterial({ color:v.colour, metalness:.62, roughness:.26,
-      transparent:true, opacity:0.30, side:THREE.DoubleSide });
-    const shape = bodyProfile(v, len, hgt, floorY);
-    /* wheel arches are cut right through, so the suspension is visible in them */
-    for (const [ax, r] of [[axF, rF], [axR, rR]]){
-      const arch = new THREE.Path();
-      arch.absarc(ax, r * 0.92, r * 1.24, 0, Math.PI * 2, true);
-      shape.holes.push(arch);
-    }
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: wid*0.94, bevelEnabled:true,
-      bevelSize:M(45), bevelThickness:M(34), bevelSegments:2, curveSegments:14 });
-    geo.translate(0, 0, -wid*0.47);
-    bd.add(new THREE.Mesh(geo, paint));
-    /* the greenhouse, inset and darker */
-    const glass = glassProfile(v, len, hgt, floorY);
-    if (glass){
-      const gg = new THREE.ExtrudeGeometry(glass, { depth: wid*0.80, bevelEnabled:false, curveSegments:10 });
-      gg.translate(0, 0, -wid*0.40);
-      bd.add(new THREE.Mesh(gg, new THREE.MeshPhysicalMaterial({ color:0x0e1620, metalness:.2,
-        roughness:.08, transmission:.55, transparent:true, opacity:.55, side:THREE.DoubleSide })));
-    }
+    bd.add(fitToVehicle(custom.group, len, { lift: floorY * 0.02 }));
+    add('body', bd);
+  } else if (has('body') && !open){
+    const bd = group('body');
+    const opacity = globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8;
+    const shell = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, false).filter(Boolean);
+    bd.add(new THREE.Mesh(loft(shell, 30), MAT.paint(v.colour, opacity)));
+    const glass = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, true).filter(Boolean);
+    if (glass.length > 3)
+      bd.add(new THREE.Mesh(loft(glass, 26), new THREE.MeshPhysicalMaterial({
+        color:0x2b3a4c, metalness:0.0, roughness:0.04, clearcoat:1, clearcoatRoughness:0.02,
+        transparent:true, opacity:0.62, envMapIntensity:2.4, side:THREE.DoubleSide })));
     add('body', bd);
   }
   if (open && has('body')){
     const bd = group('body');
-    const paint = new THREE.MeshStandardMaterial({ color:v.colour, metalness:.5, roughness:.35, transparent:true, opacity:.4 });
+    const paint = MAT.paint(v.colour, globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8);
     bd.add(at(roundBox(len*0.55, hgt*0.36, wid*0.42, .06, paint), len*0.02, floorY + hgt*0.2, 0));
     bd.add(at(box(len*0.2, M(50), wid*0.6, paint), len*0.36, floorY + hgt*0.1, 0));
     add('body', bd);
@@ -321,90 +314,174 @@ function buildCar(v, tree){
   return finalize(root, nodes, anim, v);
 }
 
-/* Side elevations. The silhouette is most of what makes a car recognisable,
- * so each body style gets its own bonnet line, screen rake and tail. */
-function bodyProfile(v, len, hgt, floorY){
-  const s = new THREE.Shape();
-  const x = len/2, sill = floorY * 0.42;
-  const b = v.body;
-  const H = (f) => floorY + hgt * f;
+/* ----------------------------------------------------------------------
+ * A car body is a lofted surface, not a flat extrusion. Each style is defined
+ * by four longitudinal curves — roofline, sill line, body width and greenhouse
+ * width — sampled into cross-sections and skinned. That is what gives it a
+ * crowned roof, a tapering nose, hips over the rear arches and tumblehome.
+ * t runs 0 at the front bumper to 1 at the tail.
+ * -------------------------------------------------------------------- */
+const BODY_LINES = {
+  coupe: {
+    roof:[[0,0.26],[0.08,0.33],[0.22,0.40],[0.36,0.47],[0.46,0.64],[0.56,0.85],[0.66,0.90],
+          [0.78,0.86],[0.90,0.62],[1,0.46]],
+    sill:[[0,0.124],[0.10,0.081],[0.35,0.068],[0.65,0.068],[0.90,0.081],[1,0.136]],
+    wide:[[0,0.40],[0.08,0.70],[0.20,0.90],[0.34,0.96],[0.52,0.97],[0.68,1.00],[0.84,0.94],[0.94,0.74],[1,0.44]],
+    glass:[[0,0.30],[0.42,0.62],[0.58,0.80],[0.74,0.78],[0.88,0.56],[1,0.34]],
+    squ:2.9, beltline:0.62,
+  },
+  super: {
+    roof:[[0,0.22],[0.10,0.28],[0.26,0.33],[0.38,0.40],[0.48,0.58],[0.58,0.72],[0.68,0.74],
+          [0.80,0.68],[0.92,0.52],[1,0.44]],
+    sill:[[0,0.099],[0.12,0.062],[0.40,0.056],[0.70,0.056],[0.92,0.074],[1,0.124]],
+    wide:[[0,0.46],[0.10,0.78],[0.24,0.94],[0.40,0.96],[0.56,0.98],[0.72,1.00],[0.86,0.96],[0.95,0.78],[1,0.52]],
+    glass:[[0,0.28],[0.44,0.60],[0.58,0.70],[0.70,0.68],[0.84,0.52],[1,0.32]],
+    squ:3.3, beltline:0.52,
+  },
+  hatch: {
+    roof:[[0,0.30],[0.10,0.38],[0.24,0.46],[0.36,0.53],[0.46,0.74],[0.58,0.95],[0.74,0.97],
+          [0.86,0.94],[0.95,0.80],[1,0.52]],
+    sill:[[0,0.136],[0.10,0.093],[0.35,0.081],[0.65,0.081],[0.90,0.093],[1,0.149]],
+    wide:[[0,0.44],[0.09,0.74],[0.22,0.92],[0.38,0.97],[0.58,0.98],[0.76,0.97],[0.90,0.90],[1,0.56]],
+    glass:[[0,0.32],[0.42,0.70],[0.58,0.88],[0.78,0.88],[0.92,0.72],[1,0.40]],
+    squ:2.6, beltline:0.66,
+  },
+  sedan: {
+    roof:[[0,0.28],[0.10,0.35],[0.24,0.43],[0.36,0.50],[0.46,0.70],[0.58,0.92],[0.70,0.93],
+          [0.80,0.80],[0.90,0.62],[1,0.54]],
+    sill:[[0,0.136],[0.10,0.087],[0.35,0.074],[0.65,0.074],[0.90,0.087],[1,0.149]],
+    wide:[[0,0.42],[0.09,0.72],[0.22,0.91],[0.38,0.96],[0.56,0.98],[0.74,0.98],[0.88,0.90],[1,0.52]],
+    glass:[[0,0.30],[0.42,0.66],[0.58,0.86],[0.72,0.84],[0.86,0.60],[1,0.36]],
+    squ:2.7, beltline:0.64,
+  },
+  suv: {
+    roof:[[0,0.34],[0.10,0.44],[0.24,0.54],[0.36,0.60],[0.46,0.82],[0.58,1.00],[0.76,1.01],
+          [0.90,0.98],[0.97,0.88],[1,0.58]],
+    sill:[[0,0.161],[0.10,0.118],[0.35,0.105],[0.65,0.105],[0.90,0.118],[1,0.174]],
+    wide:[[0,0.46],[0.09,0.76],[0.22,0.93],[0.38,0.98],[0.60,0.99],[0.78,0.98],[0.92,0.92],[1,0.58]],
+    glass:[[0,0.36],[0.42,0.76],[0.58,0.94],[0.80,0.94],[0.94,0.80],[1,0.44]],
+    squ:2.4, beltline:0.70,
+  },
+  pickup: {
+    roof:[[0,0.32],[0.10,0.50],[0.22,0.62],[0.34,0.66],[0.42,0.94],[0.52,1.02],[0.60,1.02],
+          [0.64,0.66],[0.70,0.62],[0.95,0.62],[1,0.60]],
+    sill:[[0,0.161],[0.10,0.124],[0.40,0.118],[0.70,0.118],[0.92,0.13],[1,0.174]],
+    wide:[[0,0.50],[0.09,0.80],[0.22,0.94],[0.40,0.97],[0.62,0.97],[0.80,0.99],[0.94,0.96],[1,0.62]],
+    glass:[[0,0.36],[0.40,0.66],[0.47,0.96],[0.58,0.96],[0.63,0.66],[1,0.40]],
+    squ:2.2, beltline:0.64,
+  },
+  semi: {
+    roof:[[0,0.40],[0.08,0.72],[0.16,0.86],[0.24,1.02],[0.40,1.04],[0.56,1.04],[0.62,0.70],
+          [0.72,0.66],[0.95,0.66],[1,0.62]],
+    sill:[[0,0.186],[0.10,0.149],[0.50,0.143],[0.90,0.149],[1,0.186]],
+    wide:[[0,0.56],[0.10,0.86],[0.24,0.98],[0.50,1.00],[0.72,0.98],[0.90,0.94],[1,0.66]],
+    glass:[[0,0.44],[0.22,0.72],[0.30,1.00],[0.52,1.00],[0.60,0.72],[1,0.44]],
+    squ:2.0, beltline:0.72,
+  },
+  rally: {
+    roof:[[0,0.30],[0.10,0.38],[0.24,0.46],[0.36,0.52],[0.46,0.74],[0.58,0.94],[0.74,0.95],
+          [0.86,0.90],[0.95,0.74],[1,0.50]],
+    sill:[[0,0.149],[0.10,0.105],[0.35,0.093],[0.65,0.093],[0.90,0.105],[1,0.161]],
+    wide:[[0,0.46],[0.09,0.78],[0.22,0.98],[0.38,1.02],[0.58,1.03],[0.76,1.02],[0.90,0.94],[1,0.58]],
+    glass:[[0,0.32],[0.42,0.70],[0.58,0.88],[0.78,0.86],[0.92,0.70],[1,0.40]],
+    squ:2.5, beltline:0.66,
+  },
+};
+BODY_LINES.stockcar = BODY_LINES.rally;
 
-  s.moveTo(-x * 0.98, sill);
-  s.lineTo(x * 0.98, sill);                                   // underside
-  s.quadraticCurveTo(x, sill, x, H(0.24));                    // front bumper
-  if (b === 'pickup' || b === 'semi'){
-    s.lineTo(x * 0.86, H(0.62));
-    s.lineTo(x * 0.30, H(0.66));                              // long flat bonnet
-    s.quadraticCurveTo(x * 0.16, H(0.70), x * 0.06, H(0.98));  // upright screen
-    s.lineTo(-x * 0.10, H(1.00));
-    s.lineTo(-x * 0.14, H(0.60));                             // back of cab
-    s.lineTo(-x * 0.20, H(0.58));
-    s.lineTo(-x * 0.20, H(0.66));                             // bed side
-    s.lineTo(-x * 0.98, H(0.66));
-    s.lineTo(-x * 0.98, H(0.26));
-  } else if (b === 'super'){
-    s.quadraticCurveTo(x * 0.92, H(0.30), x * 0.62, H(0.34));  // low nose
-    s.quadraticCurveTo(x * 0.30, H(0.38), x * 0.10, H(0.56));  // steep screen
-    s.quadraticCurveTo(-x * 0.06, H(0.72), -x * 0.26, H(0.74));// low cabin
-    s.quadraticCurveTo(-x * 0.52, H(0.74), -x * 0.72, H(0.56));// fastback
-    s.lineTo(-x * 0.96, H(0.46));
-    s.lineTo(-x * 0.98, H(0.28));
-  } else if (b === 'coupe'){
-    s.quadraticCurveTo(x * 0.94, H(0.34), x * 0.58, H(0.42));
-    s.quadraticCurveTo(x * 0.30, H(0.46), x * 0.06, H(0.72));
-    s.quadraticCurveTo(-x * 0.16, H(0.92), -x * 0.40, H(0.90));// roof peak set back
-    s.quadraticCurveTo(-x * 0.68, H(0.86), -x * 0.86, H(0.54));// long fastback tail
-    s.lineTo(-x * 0.98, H(0.44));
-    s.lineTo(-x * 0.98, H(0.26));
-  } else if (b === 'hatch'){
-    s.quadraticCurveTo(x * 0.94, H(0.36), x * 0.62, H(0.44));
-    s.quadraticCurveTo(x * 0.34, H(0.48), x * 0.10, H(0.78));
-    s.quadraticCurveTo(-x * 0.10, H(0.98), -x * 0.44, H(0.96));
-    s.lineTo(-x * 0.80, H(0.88));                             // near-vertical hatch
-    s.quadraticCurveTo(-x * 0.96, H(0.84), -x * 0.96, H(0.46));
-    s.lineTo(-x * 0.98, H(0.28));
-  } else if (b === 'suv'){
-    s.quadraticCurveTo(x * 0.94, H(0.42), x * 0.66, H(0.52));
-    s.quadraticCurveTo(x * 0.38, H(0.56), x * 0.16, H(0.82));
-    s.quadraticCurveTo(-x * 0.04, H(1.00), -x * 0.46, H(0.99));
-    s.lineTo(-x * 0.86, H(0.92));
-    s.quadraticCurveTo(-x * 0.98, H(0.88), -x * 0.98, H(0.48));
-    s.lineTo(-x * 0.98, H(0.30));
-  } else if (b === 'rally' || b === 'stockcar'){
-    s.quadraticCurveTo(x * 0.94, H(0.36), x * 0.60, H(0.46));
-    s.quadraticCurveTo(x * 0.32, H(0.50), x * 0.08, H(0.80));
-    s.lineTo(-x * 0.30, H(0.94));
-    s.lineTo(-x * 0.62, H(0.90));
-    s.quadraticCurveTo(-x * 0.90, H(0.86), -x * 0.96, H(0.50));
-    s.lineTo(-x * 0.98, H(0.30));
-  } else {                                                     // saloon
-    s.quadraticCurveTo(x * 0.94, H(0.34), x * 0.62, H(0.42));
-    s.quadraticCurveTo(x * 0.34, H(0.46), x * 0.12, H(0.74));
-    s.quadraticCurveTo(-x * 0.08, H(0.94), -x * 0.34, H(0.94));
-    s.quadraticCurveTo(-x * 0.56, H(0.92), -x * 0.66, H(0.62));// C-pillar into a boot
-    s.lineTo(-x * 0.96, H(0.58));
-    s.lineTo(-x * 0.98, H(0.28));
+function curveAt(pts, t){
+  if (t <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++){
+    if (t <= pts[i][0]){
+      const [t0, v0] = pts[i-1], [t1, v1] = pts[i];
+      const k = (t - t0) / Math.max(1e-6, t1 - t0);
+      return v0 + (v1 - v0) * (k * k * (3 - 2 * k));      // smoothstep, so the panel line is fair
+    }
   }
-  s.lineTo(-x * 0.98, sill);
-  return s;
+  return pts[pts.length - 1][1];
 }
 
-/** The glasshouse, roughly following the roofline but inset. */
-function glassProfile(v, len, hgt, floorY){
-  const b = v.body;
-  if (b === 'semi') return null;
-  const x = len/2, H = (f) => floorY + hgt * f;
-  const s = new THREE.Shape();
-  const beltline = b === 'super' ? 0.52 : b === 'coupe' ? 0.62 : b === 'suv' ? 0.70 : 0.64;
-  const roof = b === 'super' ? 0.70 : b === 'coupe' ? 0.86 : b === 'suv' ? 0.95 : 0.90;
-  s.moveTo(x * 0.14, H(beltline));
-  s.quadraticCurveTo(x * 0.02, H(roof * 0.94), -x * 0.14, H(roof));
-  s.lineTo(-x * 0.48, H(roof));
-  s.quadraticCurveTo(-x * 0.62, H(roof * 0.96), -x * 0.66, H(beltline));
-  s.closePath();
-  return s;
+/** Skin a set of cross-sections into a closed surface. */
+function loft(sections, N){
+  const pos = [], idx = [];
+  const rings = sections.length;
+  for (const sec of sections){
+    for (let j = 0; j < N; j++){
+      const th = (j / N) * Math.PI * 2;
+      const cz = Math.cos(th), cy = Math.sin(th);
+      const n = sec.squ;
+      const sz = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / n);
+      const sy = Math.sign(cy) * Math.pow(Math.abs(cy), 2 / n);
+      /* tumblehome: the section narrows as it rises toward the roof */
+      const w = cy >= 0 ? sec.wBot + (sec.wTop - sec.wBot) * cy : sec.wBot;
+      const yMid = (sec.yTop + sec.yBot) / 2, hH = Math.max(1e-4, (sec.yTop - sec.yBot) / 2);
+      pos.push(sec.x, yMid + hH * sy, w * sz);
+    }
+  }
+  for (let i = 0; i < rings - 1; i++)
+    for (let j = 0; j < N; j++){
+      const a = i*N + j, b = i*N + (j+1)%N, c = (i+1)*N + (j+1)%N, d = (i+1)*N + j;
+      idx.push(a, b, c, a, c, d);
+    }
+  for (const [ringIndex, flip] of [[0, false], [rings-1, true]]){
+    const base = pos.length / 3;
+    let cx = 0, cy = 0, cz = 0;
+    for (let j = 0; j < N; j++){
+      cx += pos[(ringIndex*N + j)*3]; cy += pos[(ringIndex*N + j)*3+1]; cz += pos[(ringIndex*N + j)*3+2];
+    }
+    pos.push(cx/N, cy/N, cz/N);
+    for (let j = 0; j < N; j++){
+      const a = ringIndex*N + j, b = ringIndex*N + (j+1)%N;
+      if (flip) idx.push(base, b, a); else idx.push(base, a, b);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
 }
 
+/** Cross-sections for a car body, with the wheel arches scalloped out. */
+function bodySections(v, len, hgt, floorY, axF, axR, rF, rR, glassOnly){
+  const L = BODY_LINES[v.body] || BODY_LINES.sedan;
+  const halfW = M(v.widthMm) / 2;
+  /* the bodywork has to cover the wheels — this is what gives a car its hips */
+  const overF = (M(v.trackF || v.widthMm * 0.85) / 2) * 0.86 + M(40) + M(v.tyreF) / 2;
+  const overR = (M(v.trackR || v.widthMm * 0.85) / 2) * 0.86 + M(40) + M(v.tyreR) / 2;
+  const STATIONS = 56;
+  const out = [];
+  for (let i = 0; i < STATIONS; i++){
+    const t = i / (STATIONS - 1);
+    const x = len/2 - t * len;
+    let wide = curveAt(L.wide, t) * halfW;
+    const roofY = floorY + hgt * curveAt(L.roof, t);
+    let sillY = floorY + hgt * curveAt(L.sill, t);
+    /* scallop the sill up over each axle — that is the wheel arch — and flare
+       the section out over it so the tyre sits inside the bodywork */
+    for (const [ax, r, over] of [[axF, rF, overF], [axR, rR, overR]]){
+      const d = Math.abs(x - ax) / (r * 1.45);
+      if (d < 1){
+        const k = 1 - d * d;
+        sillY = Math.max(sillY, r * 1.22 * (1 - d * d * 0.42));
+        wide = Math.max(wide, (over + M(28)) * (0.94 + 0.06 * k));
+      }
+    }
+    if (glassOnly){
+      const gTop = floorY + hgt * curveAt(L.glass, t);
+      const belt = floorY + hgt * L.beltline;
+      if (gTop <= belt + 0.01){ out.push(null); continue; }
+      out.push({ x, yBot:belt, yTop:gTop, wBot:wide * 0.90, wTop:wide * 0.70, squ:L.squ * 1.15 });
+    } else {
+      out.push({ x, yBot:sillY, yTop:Math.max(roofY, sillY + 0.02),
+                 wBot:wide, wTop:wide * (0.70 + 0.22 * (1 - curveAt(L.glass, t))), squ:L.squ });
+    }
+  }
+  /* close the ends without pinching them to a point — cars have flat faces */
+  const taper = (s, k) => s && Object.assign(s, { wBot:s.wBot*k, wTop:s.wTop*k, squ:(s.squ||2.6)*1.5 });
+  taper(out[0], 0.66); taper(out[out.length-1], 0.70);
+  return out;
+}
 /* ====================================================================== */
 function buildBike(v, tree){
   const root = group('bike'); const nodes = new Map();
@@ -558,7 +635,7 @@ function buildBike(v, tree){
   }
   if (has('body')){
     const bd = group('body');
-    const paint = new THREE.MeshStandardMaterial({ color:v.colour, metalness:.5, roughness:.3, transparent:true, opacity:.42, side:THREE.DoubleSide });
+    const paint = MAT.paint(v.colour, globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8);
     bd.add(at(roundBox(M(560), M(180), M(300), .07, paint), axR*0.55, rR + M(640), 0));
     if (v.body === 'sportbike') bd.add(at(roundBox(M(700), M(560), M(560), .1, paint), axF*0.4, rR + M(480), 0));
     bd.add(at(rot(cyl(M(18), M(18), M(680), MAT.black(), 10), Math.PI/2, 0, 0), headX + M(60), headY + M(120), 0));

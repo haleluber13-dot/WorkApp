@@ -1,6 +1,7 @@
 /* Settings — everything in the app is adjustable from here. */
 import { h, section, kv, note, para, chip, btn, toast, field, select, slider, toggle,
-         download, pickFile, confirmDialog, modal } from '../ui.js';
+         download, pickFile, pickBinaryFile, confirmDialog, modal } from '../ui.js';
+import { loadGLB, clearCustom, custom } from '../lib/importModel.js';
 import { state, save, DEFAULT_SETTINGS, resetAll, resetProject, exportSave, importSave, invalidateTrees } from '../store.js';
 import { checkForUpdates, updateState, DEFAULT_FEED } from '../updates.js';
 import { progressSummary } from '../game.js';
@@ -56,10 +57,13 @@ export function render(ctx, tab){
 
     section('3D view',
       field('Render quality', select([
-        { value:'high', label:'High — shadows, antialiasing' },
-        { value:'balanced', label:'Balanced' },
-        { value:'fast', label:'Fast — for older devices' },
+        { value:'balanced', label:'Balanced — reflections and shadows (recommended)' },
+        { value:'high', label:'High — adds ambient occlusion and bloom; needs a real GPU' },
+        { value:'fast', label:'Fast — for older phones and laptops' },
       ], s.quality, (v) => set('quality', v))),
+      slider({ label:'Reflections', min:0, max:2, step:0.05, value:s.reflections ?? 0.85,
+        format:(v) => v.toFixed(2) + '×', onInput:(v) => setQuiet('reflections', v) }),
+      note('Reflections come from an environment map, not a texture. Turning them down makes metal look like painted plastic — which is exactly why a part with nothing to reflect never looks real.'),
       slider({ label:'Field of view', min:25, max:70, step:1, value:s.fov, format:(v)=>v+'°',
         onInput:(v) => setQuiet('fov', v) }),
       toggle('Ground grid', s.showGrid, (v) => set('showGrid', v)),
@@ -68,7 +72,29 @@ export function render(ctx, tab){
       toggle('Part labels on by default', s.autoLabels, (v) => set('autoLabels', v)),
       toggle('Zoom to a part when you select it', s.autoFrame, (v) => set('autoFrame', v)),
       slider({ label:'Default explode', min:0, max:100, step:5, value:s.explodeDefault, format:(v)=>v+'%',
-        onInput:(v) => setQuiet('explodeDefault', v) })),
+        onInput:(v) => setQuiet('explodeDefault', v) }),
+      slider({ label:'Bodywork opacity', min:0.15, max:1, step:0.05, value:s.bodyOpacity ?? 0.5,
+        format:(v) => v >= 0.99 ? 'solid' : Math.round(v*100)+'%',
+        onInput:(v) => set('bodyOpacity', v) }),
+      note('Turn the bodywork up to solid for a finished car, or back down to see the chassis, suspension and drivetrain through it.')),
+
+    section('Bring your own model',
+      para('Scanned and CAD-derived vehicle models are licensed work, so none ship with MotorLab. If you have one you are entitled to use, load it here — a <b>.glb</b> or <b>.gltf</b> file. It is scaled to this vehicle\'s real length and used as the shell, with the generated chassis, suspension, brakes and drivetrain still underneath it where you can work on them.'),
+      custom.name ? kv('Loaded', custom.name) : null,
+      h('div', { class:'btnrow' },
+        btn(custom.name ? 'Load a different model' : 'Load a .glb / .gltf', { class:'btn--pri', onClick:() =>
+          pickBinaryFile('.glb,.gltf,model/gltf-binary,model/gltf+json', async (buf, name, size) => {
+            if (size > 80 * 1024 * 1024){ toast('That file is over 80 MB — too big to hold in the browser.', 'bad'); return; }
+            try {
+              const r = await loadGLB(buf, name);
+              ctx.reloadModel(); ctx.refresh();
+              toast(`${r.name} loaded — ${r.meshes} meshes, ${r.triangles.toLocaleString()} triangles.`, 'good');
+            } catch (err){ toast(String(err.message || err), 'bad'); }
+          }) }),
+        custom.name ? btn('Remove it', { onClick:() => {
+          clearCustom(); ctx.reloadModel(); ctx.refresh(); toast('Back to the generated bodywork.');
+        } }) : null),
+      note('The model is held for this session only — it is far too large for the browser\'s save storage, so load it again next time. Nothing is uploaded anywhere.')),
 
     section('Appearance',
       field('Accent colour', h('div', { style:{ display:'flex', gap:'6px', flexWrap:'wrap' } },

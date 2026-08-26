@@ -2,6 +2,13 @@
  * view, cutaway sectioning, floating labels and the animation loop. */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
 export class Viewport {
   constructor(canvas, labelHost){
@@ -28,8 +35,10 @@ export class Viewport {
     this.controls.maxDistance = 40;
     this.controls.maxPolarAngle = Math.PI * 0.92;
 
+    this._environment();
     this._lights();
     this._ground();
+    this._buildComposer('high');
 
     this.model = null;
     this.explode = 0;
@@ -61,20 +70,78 @@ export class Viewport {
     this.start();
   }
 
+  /* Image-based lighting. Metal with nothing to reflect reads as grey plastic —
+   * this is the single biggest difference between a CG part and a real one. */
+  _environment(){
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    pmrem.compileEquirectangularShader();
+    const room = new RoomEnvironment();
+    this.envMap = pmrem.fromScene(room, 0.03).texture;
+    this.scene.environment = this.envMap;
+    this.scene.environmentIntensity = 0.85;
+    room.dispose?.();
+    pmrem.dispose();
+  }
+
+  /* Ambient occlusion darkens the creases where parts meet, which is what makes
+   * an assembly look solid rather than like floating shapes. */
+  _buildComposer(quality){
+    this.composer?.dispose?.();
+    this.composer = null;
+    this.ssaoPass = null;
+    this._verified = false;
+    /* Only the top tier goes through a render pipeline. Everything below it
+     * renders straight to the canvas, which always works — the realism comes
+     * from the environment map and the materials, not from the post-passes. */
+    if (quality !== 'high') return;
+    try {
+      const r = this.canvas.parentElement.getBoundingClientRect();
+      const w = Math.max(2, r.width | 0), h = Math.max(2, r.height | 0);
+      const composer = new EffectComposer(this.renderer);
+      composer.setPixelRatio(1);
+      composer.setSize(w, h);
+      const ssao = new SSAOPass(this.scene, this.camera, w, h);
+      ssao.kernelRadius = 0.05;
+      ssao.minDistance = 0.0008;
+      ssao.maxDistance = 0.08;
+      composer.addPass(ssao);
+      this.ssaoPass = ssao;
+      const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.30, 0.7, 0.92);
+      composer.addPass(bloom);
+      composer.addPass(new OutputPass());
+      composer.addPass(new SMAAPass(w, h));
+      this.composer = composer;
+      this.bloomPass = bloom;
+    } catch (err){
+      console.warn('Post-processing unavailable, falling back to direct rendering', err);
+      this.composer = null;
+    }
+  }
+
+  setQuality(quality){
+    this.quality = quality;
+    this.renderer.setPixelRatio(quality === 'fast' ? 1 : Math.min(devicePixelRatio, quality === 'high' ? 2 : 1.5));
+    this.renderer.shadowMap.enabled = quality !== 'fast';
+    this._buildComposer(quality);
+    this.resize();
+  }
+
   _lights(){
-    this.scene.add(new THREE.HemisphereLight(0xa8c0e0, 0x232833, 1.15));
-    const key = new THREE.DirectionalLight(0xffffff, 2.5);
+    this.scene.add(new THREE.HemisphereLight(0xa8c0e0, 0x232833, 0.45));
+    const key = new THREE.DirectionalLight(0xfff4e6, 2.9);
     key.position.set(3.4, 5.2, 2.6);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
     const d = 5;
     key.shadow.camera.left = -d; key.shadow.camera.right = d;
     key.shadow.camera.top = d;  key.shadow.camera.bottom = -d;
-    key.shadow.bias = -0.0006;
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.012;
+    key.shadow.radius = 3;
     this.scene.add(key); this.key = key;
-    const rim = new THREE.DirectionalLight(0x7fb4ff, 1.15); rim.position.set(-4, 2.4, -3.4);
+    const rim = new THREE.DirectionalLight(0x86b6ff, 1.5); rim.position.set(-4.2, 2.4, -3.6);
     this.scene.add(rim);
-    const fill = new THREE.PointLight(0xffb070, 0.8, 16); fill.position.set(0, 1.4, 3.2);
+    const fill = new THREE.PointLight(0xffb070, 0.6, 16); fill.position.set(0, 1.4, 3.2);
     this.scene.add(fill);
   }
 
@@ -324,6 +391,8 @@ export class Viewport {
     const r = this.canvas.parentElement.getBoundingClientRect();
     if (!r.width || !r.height) return;
     this.renderer.setSize(r.width, r.height, false);
+    this.composer?.setSize(r.width, r.height);
+    this.ssaoPass?.setSize(r.width, r.height);
     this.camera.aspect = r.width / r.height;
     this.camera.updateProjectionMatrix();
   }
@@ -341,11 +410,36 @@ export class Viewport {
       this.model?.update?.(s);
       this.controls.update();
       this._updateLabels();
-      this.renderer.render(this.scene, this.camera);
+      if (this.composer){ this.composer.render(dt); this._verifyComposer(); }
+      else this.renderer.render(this.scene, this.camera);
     };
     loop();
   }
   stop(){ cancelAnimationFrame(this._raf); this._raf = null; }
+
+  /* Some drivers cannot give us the float render targets the pipeline needs and
+   * quietly hand back an empty frame. Check once, and fall back rather than
+   * leaving somebody staring at a black viewport. */
+  _verifyComposer(){
+    if (!this.composer || this._verified) return;
+    this._checks = (this._checks || 0) + 1;
+    if (this._checks < 6) return;
+    this._verified = true;
+    try {
+      const gl = this.renderer.getContext();
+      const w = this.renderer.domElement.width, h = this.renderer.domElement.height;
+      if (!w || !h) return;
+      const px = new Uint8Array(4 * 256);
+      gl.readPixels((w >> 1) - 8, (h >> 1) - 8, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let sum = 0;
+      for (let i = 0; i < px.length; i += 4) sum += px[i] + px[i+1] + px[i+2];
+      if (sum === 0){
+        console.warn('MotorLab: this GPU returned an empty frame from the render pipeline — using direct rendering instead.');
+        this.composer = null; this.ssaoPass = null;
+        this.onQualityFallback?.();
+      }
+    } catch { /* readPixels unavailable; leave the pipeline alone */ }
+  }
 
   /* A real engine does not step between speeds: the starter drags it over, it
    * catches, it settles to a hunting idle, and the flywheel resists every

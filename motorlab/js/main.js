@@ -8,6 +8,7 @@ import { buildEngine } from './build/engineModel.js';
 import { buildVehicle } from './build/vehicleModel.js';
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
+import { restoreCustom } from './lib/importModel.js';
 
 import garage   from './workspaces/garage.js';
 import { engineWs, chassisWs } from './workspaces/engine.js';
@@ -57,6 +58,13 @@ function boot(){
 
   if (!WS_BY_ID[state.workspace]) state.workspace = 'garage';
   goto(state.workspace, { silent:true });
+
+  /* bring back any vehicle model imported in a previous session */
+  restoreCustom().then(r => {
+    if (!r) return;
+    if (currentModel?.kind === 'vehicle'){ currentModel = null; reloadModel(); }
+    toast(`${r.name} restored — ${r.triangles.toLocaleString()} triangles.`);
+  }).catch(() => {});
 
   if (state.settings.autoCheckUpdates)
     checkForUpdates(state.settings.feedUrl).then(r => {
@@ -302,12 +310,24 @@ function bindTools(){
 function applySettings(){
   const s = state.settings;
   document.documentElement.style.setProperty('--acc', s.accent);
+  const opacity = s.bodyOpacity ?? 0.5;
+  if (globalThis.__MOTORLAB_BODY_OPACITY !== opacity){
+    globalThis.__MOTORLAB_BODY_OPACITY = opacity;
+    if (currentModel?.kind === 'vehicle'){ currentModel = null; reloadModel(); }
+  }
   if (!viewport) return;
   viewport.camera.fov = s.fov; viewport.camera.updateProjectionMatrix();
   viewport.ground.visible = s.showGrid;
-  viewport.renderer.shadowMap.enabled = s.showShadows;
   viewport.key.castShadow = s.showShadows;
-  viewport.renderer.setPixelRatio(s.quality === 'fast' ? 1 : Math.min(devicePixelRatio, s.quality === 'high' ? 2 : 1.5));
+  viewport.onQualityFallback = () => {
+    if (state.settings.quality !== 'high') return;
+    state.settings.quality = 'balanced'; save();
+    toast('This device could not run the ambient-occlusion pipeline — switched to Balanced.', 'bad');
+    refresh();
+  };
+  if (viewport.quality !== s.quality) viewport.setQuality(s.quality);
+  viewport.renderer.shadowMap.enabled = s.showShadows && s.quality !== 'fast';
+  if (viewport.scene) viewport.scene.environmentIntensity = s.reflections ?? 0.85;
   viewport.setGhost(s.autoGhost);
   viewport.resize();
 }

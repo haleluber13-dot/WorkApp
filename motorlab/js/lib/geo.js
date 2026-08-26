@@ -1,26 +1,129 @@
 /* MotorLab — small geometry/material toolkit shared by every 3D builder. */
 import * as THREE from 'three';
 
+/* ----------------------------------------------------------------------
+ * Procedural surface detail. A perfectly uniform surface is the giveaway that
+ * something is computer generated — real castings have grain, machined faces
+ * have tool marks, rubber has a matte tooth. Generated once into a canvas.
+ * -------------------------------------------------------------------- */
+const _tex = new Map();
+function makeTex(key, size, draw){
+  if (_tex.has(key)) return _tex.get(key);
+  if (typeof document === 'undefined'){ _tex.set(key, null); return null; }   // node-side model tests
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  _tex.set(key, t);
+  return t;
+}
+/** Sand-cast grain: clustered speckle, the surface an engine block actually has. */
+function castGrain(){
+  return makeTex('cast', 256, (g, n) => {
+    g.fillStyle = '#9a9a9a'; g.fillRect(0, 0, n, n);
+    const img = g.getImageData(0, 0, n, n), d = img.data;
+    for (let i = 0; i < d.length; i += 4){
+      const v = 154 + (Math.random() - 0.5) * 92;
+      d[i] = d[i+1] = d[i+2] = v;
+    }
+    g.putImageData(img, 0, 0);
+    for (let i = 0; i < 900; i++){                     // pitting
+      g.fillStyle = `rgba(90,90,90,${0.05 + Math.random()*0.16})`;
+      g.beginPath();
+      g.arc(Math.random()*n, Math.random()*n, Math.random()*2.6 + 0.4, 0, Math.PI*2);
+      g.fill();
+    }
+  });
+}
+/** Machined face: fine parallel tool marks. */
+function machined(){
+  return makeTex('machined', 256, (g, n) => {
+    g.fillStyle = '#6f6f6f'; g.fillRect(0, 0, n, n);
+    for (let y = 0; y < n; y++){
+      g.fillStyle = `rgba(255,255,255,${Math.random()*0.13})`;
+      g.fillRect(0, y, n, 1);
+      g.fillStyle = `rgba(0,0,0,${Math.random()*0.10})`;
+      g.fillRect(0, y + 0.5, n, 0.5);
+    }
+  });
+}
+/** Rubber: matte, slightly noisy, no specular structure. */
+function rubberTooth(){
+  return makeTex('rubber', 128, (g, n) => {
+    g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 5000; i++){
+      g.fillStyle = `rgba(0,0,0,${Math.random()*0.20})`;
+      g.fillRect(Math.random()*n, Math.random()*n, 1.4, 1.4);
+    }
+  });
+}
+function withRepeat(t, r){
+  if (!t) return null;
+  const c = t.clone(); c.needsUpdate = true;
+  c.repeat.set(r, r);
+  return c;
+}
+
+/* Materials are shared: a V12 uses one aluminium, not twelve. */
+const _mat = new Map();
+const mat = (key, make) => { if (!_mat.has(key)) _mat.set(key, make()); return _mat.get(key); };
+
 export const MAT = {
-  alloy:    () => new THREE.MeshStandardMaterial({ color:0x9aa3ad, metalness:.68, roughness:.42 }),
-  alloyDark:() => new THREE.MeshStandardMaterial({ color:0x6d757f, metalness:.7,  roughness:.5  }),
-  iron:     () => new THREE.MeshStandardMaterial({ color:0x4a4f57, metalness:.55, roughness:.72 }),
-  steel:    () => new THREE.MeshStandardMaterial({ color:0xb9c0c8, metalness:.9,  roughness:.28 }),
-  chrome:   () => new THREE.MeshStandardMaterial({ color:0xe6ebf2, metalness:1.0, roughness:.08 }),
-  copper:   () => new THREE.MeshStandardMaterial({ color:0xc4763a, metalness:.9,  roughness:.35 }),
-  brass:    () => new THREE.MeshStandardMaterial({ color:0xc9a227, metalness:.85, roughness:.34 }),
-  bearing:  () => new THREE.MeshStandardMaterial({ color:0xd7c9a8, metalness:.75, roughness:.45 }),
-  rubber:   () => new THREE.MeshStandardMaterial({ color:0x1b1d21, metalness:.05, roughness:.95 }),
-  plastic:  () => new THREE.MeshStandardMaterial({ color:0x2a2f38, metalness:.1,  roughness:.72 }),
-  hot:      () => new THREE.MeshStandardMaterial({ color:0x8a6252, metalness:.6,  roughness:.62 }),
-  red:      () => new THREE.MeshStandardMaterial({ color:0xc0392b, metalness:.35, roughness:.5  }),
-  orange:   () => new THREE.MeshStandardMaterial({ color:0xd9741f, metalness:.4,  roughness:.45 }),
-  blue:     () => new THREE.MeshStandardMaterial({ color:0x2f6fb0, metalness:.4,  roughness:.45 }),
-  black:    () => new THREE.MeshStandardMaterial({ color:0x15171c, metalness:.25, roughness:.7  }),
-  glass:    () => new THREE.MeshPhysicalMaterial({ color:0x9fd4ff, metalness:0, roughness:.08, transmission:.85, transparent:true, opacity:.4 }),
-  gasket:   () => new THREE.MeshStandardMaterial({ color:0xd06a2a, metalness:.3,  roughness:.6  }),
-  wire:     (c) => new THREE.MeshStandardMaterial({ color:c, metalness:.2, roughness:.6 }),
+  /* sand-cast aluminium: bright, fairly rough, grainy */
+  alloy: () => mat('alloy', () => new THREE.MeshStandardMaterial({
+    color:0xa8b0ba, metalness:0.88, roughness:0.52, envMapIntensity:1.15,
+    roughnessMap: withRepeat(castGrain(), 3), bumpMap: withRepeat(castGrain(), 3), bumpScale:0.6 })),
+  alloyDark: () => mat('alloyDark', () => new THREE.MeshStandardMaterial({
+    color:0x767e88, metalness:0.86, roughness:0.62, envMapIntensity:1.0,
+    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.7 })),
+  /* cast iron: darker, rougher, still metal */
+  iron: () => mat('iron', () => new THREE.MeshStandardMaterial({
+    color:0x4e535b, metalness:0.82, roughness:0.72, envMapIntensity:0.85,
+    roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.8 })),
+  /* forged and machined steel: tool marks, low roughness */
+  steel: () => mat('steel', () => new THREE.MeshStandardMaterial({
+    color:0xc2c9d2, metalness:1.0, roughness:0.26, envMapIntensity:1.3,
+    roughnessMap: withRepeat(machined(), 2), bumpMap: withRepeat(machined(), 2), bumpScale:0.25 })),
+  chrome: () => mat('chrome', () => new THREE.MeshStandardMaterial({
+    color:0xeef2f7, metalness:1.0, roughness:0.06, envMapIntensity:1.6 })),
+  copper: () => mat('copper', () => new THREE.MeshStandardMaterial({
+    color:0xc4763a, metalness:1.0, roughness:0.32, envMapIntensity:1.3 })),
+  brass: () => mat('brass', () => new THREE.MeshStandardMaterial({
+    color:0xc9a227, metalness:1.0, roughness:0.30, envMapIntensity:1.3 })),
+  bearing: () => mat('bearing', () => new THREE.MeshStandardMaterial({
+    color:0xd7c9a8, metalness:0.85, roughness:0.34, envMapIntensity:1.2 })),
+  rubber: () => mat('rubber', () => new THREE.MeshStandardMaterial({
+    color:0x14161a, metalness:0.0, roughness:0.94, envMapIntensity:0.35,
+    roughnessMap: withRepeat(rubberTooth(), 6), bumpMap: withRepeat(rubberTooth(), 6), bumpScale:0.5 })),
+  plastic: () => mat('plastic', () => new THREE.MeshStandardMaterial({
+    color:0x23282f, metalness:0.0, roughness:0.58, envMapIntensity:0.7 })),
+  /* exhaust side: heat-discoloured, oxidised, barely reflective */
+  hot: () => mat('hot', () => new THREE.MeshStandardMaterial({
+    color:0x8d6552, metalness:0.72, roughness:0.66, envMapIntensity:0.8,
+    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.6 })),
+  /* painted components get a clearcoat, which is what makes paint read as paint */
+  red: () => mat('red', () => new THREE.MeshPhysicalMaterial({
+    color:0xb52a20, metalness:0.15, roughness:0.34, clearcoat:1, clearcoatRoughness:0.10, envMapIntensity:1.1 })),
+  orange: () => mat('orange', () => new THREE.MeshPhysicalMaterial({
+    color:0xd9741f, metalness:0.30, roughness:0.32, clearcoat:0.8, clearcoatRoughness:0.16, envMapIntensity:1.1 })),
+  blue: () => mat('blue', () => new THREE.MeshPhysicalMaterial({
+    color:0x2f6fb0, metalness:0.25, roughness:0.34, clearcoat:0.8, clearcoatRoughness:0.14, envMapIntensity:1.1 })),
+  black: () => mat('black', () => new THREE.MeshStandardMaterial({
+    color:0x101216, metalness:0.30, roughness:0.62, envMapIntensity:0.7 })),
+  glass: () => mat('glass', () => new THREE.MeshPhysicalMaterial({
+    color:0x9fd4ff, metalness:0, roughness:0.05, transmission:0.9, thickness:0.02,
+    transparent:true, opacity:0.45, envMapIntensity:1.4 })),
+  gasket: () => mat('gasket', () => new THREE.MeshStandardMaterial({
+    color:0xc4631f, metalness:0.55, roughness:0.44, envMapIntensity:0.9 })),
+  wire: (c) => mat('wire' + c, () => new THREE.MeshStandardMaterial({
+    color:c, metalness:0.0, roughness:0.48, envMapIntensity:0.6 })),
   emissive: (c, i=1.4) => new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:i, roughness:.4 }),
+  /* body paint: metallic base under a clearcoat, tinted so the structure shows */
+  paint: (colour, opacity = 1) => new THREE.MeshPhysicalMaterial({
+    color:colour, metalness:0.72, roughness:0.26, clearcoat:1, clearcoatRoughness:0.045,
+    envMapIntensity:1.35, transparent: opacity < 1, opacity, side: opacity < 1 ? THREE.DoubleSide : THREE.FrontSide }),
 };
 
 /* cached geometry so a V12 does not build 12 identical cylinders from scratch */

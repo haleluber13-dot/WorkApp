@@ -40,6 +40,31 @@ bike and a shifter kart.
 | **News & Updates** | New cars, bikes, engines and tech — and the channel the app updates itself from. |
 | **Settings** | Units, 3D quality, ambient conditions, difficulty, game mode, save import/export. |
 
+## Bring your own vehicle model
+
+No scanned or CAD-derived vehicles ship with MotorLab. The good ones are
+licensed work — from the studios that built them and, for production cars, from
+the manufacturers whose designs they are — and redistributing them is not ours
+to do. Owning a game that contains them is a licence to play that game, not a
+licence to reuse its assets.
+
+What the app does instead is take a model **you** are entitled to use.
+**Settings → Bring your own model** accepts a `.glb` or `.gltf`. It is scaled to
+the vehicle's real length, sat on the ground and used as the shell, with the
+generated chassis, subframes, suspension, brakes and drivetrain still underneath
+it where you can strip and rebuild them. It is stored in the browser's IndexedDB
+so it survives a reload, and it never leaves the device.
+
+Places to get one legitimately:
+
+- **Scan a real car yourself** with a phone — Polycam, RealityScan or Scaniverse
+  all export glTF. This is the genuine article: a real scan of a real car, and
+  entirely yours.
+- **Sketchfab**, filtered to Creative Commons or CC0 — thousands of vehicles,
+  many of them photogrammetry, downloadable as glTF.
+- **CC0 asset libraries** such as Quaternius and Kenney for stylised vehicles.
+- **Manufacturer press and configurator releases**, where the terms allow it.
+
 ## The parts and the motion are the lesson
 
 Nothing here is a box standing in for a component. Every part is drawn from the
@@ -56,8 +81,19 @@ profile the real one has, because the shape is usually the explanation:
   poppets with 45° seat faces and springs that visibly compress.
 - **Turbochargers** have spiral volutes and bladed compressor and turbine wheels
   on a shared shaft.
-- **Cars** get a real silhouette per body style — bonnet line, screen rake and
-  tail — with wheel arches cut through and an inset glasshouse.
+- **Cars** are lofted surfaces, not extrusions: 56 cross-sections along the
+  length, each a superellipse with its own width, roof height, sill height and
+  tumblehome, flared into hips over the wheels and scalloped into wheel arches.
+  Paint is a metallic base under a clearcoat; the glazing is separate.
+
+And the rendering matters as much as the geometry. Lighting is image-based —
+the scene carries an environment map, so metal has something to reflect. Without
+it, a perfectly correct aluminium casting renders as grey plastic, which is the
+single biggest reason CG parts look fake. Cast surfaces carry sand-cast grain,
+machined faces carry tool marks, rubber is matte and unreflective, and painted
+parts get a clearcoat. Ambient occlusion and bloom are available on the High
+quality tier, and if a device cannot run that pipeline the app detects the empty
+frame and falls back on its own.
 
 The motion is derived, not looped:
 
