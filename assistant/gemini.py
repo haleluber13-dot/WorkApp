@@ -183,7 +183,7 @@ def extract_text(response):
     return text
 
 
-def _payload(contents, system, tools, max_tokens, temperature):
+def _payload(contents, system, tools, max_tokens, temperature, thinking=None):
     payload = {"contents": contents}
     if system:
         payload["systemInstruction"] = {"parts": [{"text": system}]}
@@ -194,6 +194,10 @@ def _payload(contents, system, tools, max_tokens, temperature):
         config["maxOutputTokens"] = int(max_tokens)
     if temperature is not None:
         config["temperature"] = float(temperature)
+    if thinking is not None:
+        # Newer models think before answering, which is worth waiting for
+        # in an essay and not in a spoken reply. A budget of 0 turns it off.
+        config["thinkingConfig"] = {"thinkingBudget": int(thinking)}
     if config:
         payload["generationConfig"] = config
     return payload
@@ -238,10 +242,11 @@ def raw_turn(
     attempts=3,
     max_tokens=None,
     temperature=None,
+    thinking=None,
 ):
     """One round trip, returning the whole response. Used by the tool loop."""
     key = find_key(key)
-    payload = _payload(contents, system, tools, max_tokens, temperature)
+    payload = _payload(contents, system, tools, max_tokens, temperature, thinking)
     url = f"{API_ROOT}/models/{model}:generateContent"
     return _call(url, payload, key, timeout, attempts, model)
 
@@ -256,6 +261,7 @@ def generate(
     attempts=3,
     max_tokens=None,
     temperature=None,
+    thinking=None,
 ):
     """Ask Gemini one question and return the text of the answer."""
     response = raw_turn(
@@ -267,6 +273,7 @@ def generate(
         attempts=attempts,
         max_tokens=max_tokens,
         temperature=temperature,
+        thinking=thinking,
     )
     return extract_text(response)
 

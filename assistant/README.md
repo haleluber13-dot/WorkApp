@@ -259,6 +259,24 @@ edit it, or write your own next to it and use `--persona yourname`.
 A wake lock is taken while he is listening, because Android otherwise
 freezes the loop after a few minutes.
 
+## When answers take too long
+
+Newer models think before they answer. That is worth waiting for in an
+essay and not in a spoken reply, and on a phone a long think is
+indistinguishable from a hang:
+
+```sh
+ai --no-thinking "..."           # answer straight away
+```
+
+`bash netcheck.sh` asks five different models the same one-word question
+and prints how long each took. Whichever answers fastest is the one to
+keep:
+
+```sh
+echo gemini-flash-lite-latest > ~/.personal-ai/model
+```
+
 ## When it seems stuck
 
 It says what it is doing, on stderr, as it goes:

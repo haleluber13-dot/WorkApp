@@ -1007,6 +1007,40 @@ class JarvisPresetTest(PhoneTestCase):
         self.assertEqual(args.persona, "plain")
 
 
+class ThinkingTest(PhoneTestCase):
+    def test_thinking_is_left_alone_by_default(self):
+        payload = gemini._payload(
+            [{"role": "user", "parts": [{"text": "hi"}]}], None, None, None, None
+        )
+        self.assertNotIn("generationConfig", payload)
+
+    def test_it_can_be_turned_off_for_speed(self):
+        payload = gemini._payload(
+            [{"role": "user", "parts": [{"text": "hi"}]}], None, None, None, None,
+            thinking=0,
+        )
+        self.assertEqual(
+            payload["generationConfig"]["thinkingConfig"]["thinkingBudget"], 0
+        )
+
+    def test_the_flag_reaches_the_request(self):
+        sent = []
+
+        def fake_request(url, payload, key, timeout):
+            sent.append(payload)
+            return {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]}
+
+        args = assistant.build_parser().parse_args(["--no-thinking", "--quiet"])
+        with mock.patch.object(gemini, "_request", fake_request), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"):
+            assistant.run_once(args, voice.Voice(enabled=False), "hi", [])
+
+        self.assertEqual(
+            sent[0]["generationConfig"]["thinkingConfig"]["thinkingBudget"], 0
+        )
+
+
 class ProgressTest(PhoneTestCase):
     """Silence and a hang look identical from the outside."""
 

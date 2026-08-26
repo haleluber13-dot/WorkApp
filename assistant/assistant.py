@@ -145,6 +145,7 @@ def answer(args, history, prompt, allowed, ask=None, report=None):
             model=args.model,
             timeout=args.timeout,
             max_tokens=args.max_tokens,
+            thinking=0 if args.no_thinking else None,
         )
         if report:
             report(f"answered in {time.monotonic() - started:.1f}s")
@@ -515,6 +516,8 @@ def build_parser():
     parser.add_argument("--record-seconds", type=int, default=8,
                         help="how long a spoken turn may be, when listening through Gemini")
     parser.add_argument("--max-tokens", type=int, default=None)
+    parser.add_argument("--no-thinking", action="store_true",
+                        help="tell the model not to think first — faster, and a spoken reply rarely needs it")
     parser.add_argument("--models", action="store_true", help="list the models this key can use")
     parser.add_argument("--tools", action="store_true", help="list what it can do to the phone")
     parser.add_argument("--doctor", action="store_true", help="check the setup and say what is broken")
