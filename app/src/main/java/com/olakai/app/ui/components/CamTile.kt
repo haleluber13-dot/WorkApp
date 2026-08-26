@@ -69,14 +69,14 @@ fun CamTileView(
             )
             .clickable(onClick = onClick),
     ) {
-        if (live) {
-            when (tile.cam.kind) {
+        when {
+            tile.isOperatorLink -> OperatorCard(tile)
+            live -> when (tile.cam.kind) {
                 CamKind.YOUTUBE -> YouTubeLive(tile.cam, Modifier.fillMaxSize())
                 CamKind.HLS -> HlsLive(tile.cam, Modifier.fillMaxSize())
                 else -> StillFrame(tile)
             }
-        } else {
-            StillFrame(tile)
+            else -> StillFrame(tile)
         }
 
         // Legibility scrim -- cam feeds are bright and captions sit on top.
@@ -103,7 +103,11 @@ fun CamTileView(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (live) LiveDot() else Tag("PAUSED", color = Ocean.Slate)
+            when {
+                tile.isOperatorLink -> Tag("${tile.cam.provider.substringBefore(' ')} ↗", color = Ocean.Aqua)
+                live -> LiveDot()
+                else -> Tag("PAUSED", color = Ocean.Slate)
+            }
             ScoreBadge(tile.conditions, compact = true)
         }
 
@@ -138,6 +142,41 @@ fun CamTileView(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+/**
+ * A cam we may link to but not embed. Says so plainly, so nobody sits waiting
+ * for video that is never going to start.
+ */
+@Composable
+private fun OperatorCard(tile: CamTile) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.linearGradient(listOf(Color(0xFF0A3550), Color(0xFF0E5273))))
+            // The caption sits over the bottom of every tile; keep clear of it.
+            .padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 62.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            tile.cam.title.substringAfter("— ", tile.cam.title),
+            color = Ocean.Foam,
+            fontWeight = FontWeight.Black,
+            fontSize = 15.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Live at ${tile.cam.provider} · tap to watch",
+            color = Ocean.Aqua,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
     }
 }
 

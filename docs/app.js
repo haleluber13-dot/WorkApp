@@ -60,7 +60,12 @@ async function boot() {
       channel: c.channel || '',
       pageUrl: c.channelUrl || (c.videoId ? `https://www.youtube.com/watch?v=${c.videoId}` : c.url || ''),
     })).filter((c) => c.url || c.channelId || c.videoId);
-    return { ...spot, liveCams: resolved };
+    // Spots whose only live view is an operator's own page still deserve a
+    // place on the wall -- otherwise a MEO cam is invisible unless you happen
+    // to open that spot from the list.
+    const operatorCams = (spot.externalCams || [])
+      .filter((c) => c.provider === 'MEO Beachcam');
+    return { ...spot, liveCams: resolved, operatorCams };
   });
 
   const savedOrigin = localStorage.getItem('olakai.origin');
@@ -197,7 +202,11 @@ function visibleSpots() {
 
 /* Round-robin across spots rather than grouping a spot's cams together: three
    Waikiki angles in a row buries everything else at the top of the wall. Every
-   spot shows its best cam first, then second cams follow, and so on. */
+   spot shows its best cam first, then second cams follow, and so on.
+
+   Operator cams (MEO Beachcam) cannot be embedded -- they answer 403 to anyone
+   but their own player -- so they come last, as cards that open the operator's
+   page rather than tiles that would sit black. */
 function tiles() {
   const spots = visibleSpots();
   const out = [];
@@ -206,6 +215,13 @@ function tiles() {
     spots.forEach((spot) => {
       const cam = (spot.liveCams || [])[round];
       if (cam) out.push({ spot, cam });
+    });
+  }
+  const linkDepth = Math.max(0, ...spots.map((s) => (s.operatorCams || []).length));
+  for (let round = 0; round < linkDepth; round++) {
+    spots.forEach((spot) => {
+      const cam = (spot.operatorCams || [])[round];
+      if (cam) out.push({ spot, cam, operator: true });
     });
   }
   return out;
@@ -217,21 +233,30 @@ function renderWall() {
   wall.querySelectorAll('video').forEach((v) => { if (v._hls) v._hls.destroy(); });
   wall.innerHTML = '';
   const list = tiles();
+  const playable = list.filter((t) => !t.operator).length;
   $('#subtitle').textContent =
-    `${list.length} cams · ${S.budget} playing · ${S.spots.length} spots`;
+    `${playable} cams · ${list.length - playable} at operators · ${S.spots.length} spots`;
 
   if (!list.length) {
     wall.appendChild(el('p', 'note', 'No cams match that search.'));
     return;
   }
 
-  list.forEach(({ spot, cam }, index) => {
-    const live = index < S.budget;
+  let livePlayed = 0;
+  list.forEach(({ spot, cam, operator }, index) => {
+    // Only embeddable tiles consume the playback budget.
+    const live = !operator && livePlayed < S.budget;
+    if (live) livePlayed++;
     const c = S.conditions[spot.id];
     const s = score(c);
     const tile = el('div', 'tile');
 
-    if (live) {
+    if (operator) {
+      const box = el('div', 'placeholder operator');
+      box.appendChild(el('b', '', escapeHtml(cam.title.replace('MEO Beachcam — ', ''))));
+      box.appendChild(el('span', '', 'Live at MEO Beachcam · tap to watch'));
+      tile.appendChild(box);
+    } else if (live) {
       tile.appendChild(playerFor(cam, false));
     } else if (cam.kind === 'youtube' && cam.videoId) {
       const img = el('img');
@@ -247,7 +272,9 @@ function renderWall() {
 
     tile.appendChild(el('div', 'scrim'));
     const badges = el('div', 'badges');
-    badges.appendChild(el('span', live ? 'live' : 'paused', live ? 'LIVE' : 'PAUSED'));
+    badges.appendChild(operator
+      ? el('span', 'operator-badge', 'MEO ↗')
+      : el('span', live ? 'live' : 'paused', live ? 'LIVE' : 'PAUSED'));
     const badge = el('span', 'score', `<b style="color:${scoreColor(s)}">${c ? s : '–'}</b>`);
     badge.style.borderColor = scoreColor(s) + '73';
     badges.appendChild(badge);
@@ -257,7 +284,9 @@ function renderWall() {
       `<b>${escapeHtml(spot.name)}</b><span>${escapeHtml(spot.subtitle || spot.region + ', ' + spot.country)}</span>` +
       `<em>${escapeHtml(summaryLine(c))}</em>`));
 
-    tile.onclick = () => openFocus(spot);
+    tile.onclick = operator
+      ? () => window.open(cam.pageUrl || cam.source, '_blank', 'noopener')
+      : () => openFocus(spot);
     wall.appendChild(tile);
   });
 }

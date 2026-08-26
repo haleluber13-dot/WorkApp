@@ -139,8 +139,12 @@ private fun OlaKaiRoot(
                         focused = selected
                     },
                     onFocusTile = { tile ->
-                        wallViewModel.select(tile.spot.id)
-                        focused = tile.spot
+                        if (tile.isOperatorLink) {
+                            openUrl(tile.cam.pageUrl.ifBlank { tile.cam.source })
+                        } else {
+                            wallViewModel.select(tile.spot.id)
+                            focused = tile.spot
+                        }
                     },
                     onToggleFavourite = { wallViewModel.toggleFavourite(it.id) },
                     onRefresh = wallViewModel::refreshConditions,

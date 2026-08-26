@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.olakai.app.BuildConfig
 import com.olakai.app.Graph
 import com.olakai.app.data.model.Cam
+import com.olakai.app.data.model.CamKind
 import com.olakai.app.data.model.Conditions
 import com.olakai.app.data.model.Spot
 import com.olakai.app.util.distanceKm
@@ -20,12 +21,19 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** One live tile on the wall: a camera, the spot it points at, and its numbers. */
+/** One tile on the wall: a camera, the spot it points at, and its numbers. */
 data class CamTile(
     val cam: Cam,
     val spot: Spot,
     val conditions: Conditions?,
-)
+) {
+    /**
+     * True for a cam we may link to but not embed -- MEO Beachcam answers 403
+     * to anyone but their own player. These render as cards that open the
+     * operator's page rather than tiles that would sit black forever.
+     */
+    val isOperatorLink: Boolean get() = cam.kind == CamKind.EXTERNAL
+}
 
 enum class WallSort(val label: String) {
     FIRING("Firing now"),
@@ -55,7 +63,10 @@ data class WallUiState(
      * most phones, and a stuttering wall is worse than a paused one.
      */
     val liveTileIds: Set<String>
-        get() = tiles.take(liveBudget).map { it.cam.id }.toSet()
+        get() = tiles.filterNot { it.isOperatorLink }
+            .take(liveBudget)
+            .map { it.cam.id }
+            .toSet()
 
     val selectedSpot: Spot? get() = spots.firstOrNull { it.id == selectedSpotId }
 }
@@ -190,13 +201,28 @@ class WallViewModel(context: Context) : ViewModel() {
             // second cams follow, and so on.
             val camsBySpot = ordered.map { spot -> spot to spot.cams.filter { it.isLiveVideo } }
             val depth = camsBySpot.maxOfOrNull { it.second.size } ?: 0
-            val tiles = (0 until depth).flatMap { round ->
+            val playable = (0 until depth).flatMap { round ->
                 camsBySpot.mapNotNull { (spot, cams) ->
                     cams.getOrNull(round)?.let { cam ->
                         CamTile(cam = cam, spot = spot, conditions = s.conditions[spot.id])
                     }
                 }
             }
+
+            // Operator cams last: a spot whose only live view is MEO's own page
+            // is otherwise invisible unless you happen to open it from the list.
+            val operatorBySpot = ordered.map { spot ->
+                spot to spot.externalCams.filter { it.provider == OPERATOR_PROVIDER }
+            }
+            val operatorDepth = operatorBySpot.maxOfOrNull { it.second.size } ?: 0
+            val operatorTiles = (0 until operatorDepth).flatMap { round ->
+                operatorBySpot.mapNotNull { (spot, cams) ->
+                    cams.getOrNull(round)?.let { cam ->
+                        CamTile(cam = cam, spot = spot, conditions = s.conditions[spot.id])
+                    }
+                }
+            }
+            val tiles = playable + operatorTiles
             s.copy(tiles = tiles)
         }
     }
@@ -227,5 +253,8 @@ class WallViewModel(context: Context) : ViewModel() {
 
     private companion object {
         const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
+
+        /** Operators whose cams get a wall card even though they cannot embed. */
+        const val OPERATOR_PROVIDER = "MEO Beachcam"
     }
 }
