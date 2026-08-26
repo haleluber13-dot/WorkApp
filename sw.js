@@ -1,9 +1,11 @@
-const CACHE = "globewatch-v3";
+const CACHE = "globewatch-v4";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest",
   "./assets/css/style.css",
   "./assets/js/data.js", "./assets/js/store.js", "./assets/js/globe.js",
   "./assets/js/ui.js", "./assets/js/app.js",
+  "./assets/vendor/globe.gl.min.js", "./assets/vendor/hls.min.js", "./assets/vendor/dash.all.min.js",
+  "./assets/vendor/img/earth-night.jpg", "./assets/vendor/img/earth-topology.png",
   "./assets/icons/icon.svg"
 ];
 self.addEventListener("install", (e) => {
