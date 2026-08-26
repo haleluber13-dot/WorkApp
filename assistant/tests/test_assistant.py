@@ -22,6 +22,19 @@ import tools  # noqa: E402
 import voice  # noqa: E402
 
 
+class PhoneTestCase(unittest.TestCase):
+    """Base for anything that touches the phone.
+
+    termux remembers, for the life of the process, which commands have
+    already gone silent — right for a one-shot CLI, wrong for a test suite
+    where each case needs a phone with no history.
+    """
+
+    def setUp(self):
+        termux.forget_failures()
+        self.addCleanup(termux.forget_failures)
+
+
 class FakeHTTPError(urllib.error.HTTPError):
     """An HTTPError whose body can be read, like a real one."""
 
@@ -33,7 +46,7 @@ class FakeHTTPError(urllib.error.HTTPError):
         return self._body
 
 
-class BuildContentsTest(unittest.TestCase):
+class BuildContentsTest(PhoneTestCase):
     def test_history_and_prompt_become_one_list(self):
         contents = gemini.build_contents(
             [("user", "hi"), ("model", "hello")], "how are you"
@@ -52,7 +65,7 @@ class BuildContentsTest(unittest.TestCase):
             gemini.build_contents([("assistant", "hi")], "x")
 
 
-class ExtractTextTest(unittest.TestCase):
+class ExtractTextTest(PhoneTestCase):
     def test_joins_the_parts(self):
         response = {
             "candidates": [
@@ -77,7 +90,7 @@ class ExtractTextTest(unittest.TestCase):
             gemini.extract_text({"candidates": []})
 
 
-class ErrorMessageTest(unittest.TestCase):
+class ErrorMessageTest(PhoneTestCase):
     def test_invalid_key_names_the_key(self):
         error = gemini._explain_http_error(
             FakeHTTPError(400, '{"error":{"message":"API_KEY_INVALID"}}'), "m"
@@ -94,7 +107,7 @@ class ErrorMessageTest(unittest.TestCase):
         self.assertIn("quota", str(error).lower())
 
 
-class RetryTest(unittest.TestCase):
+class RetryTest(PhoneTestCase):
     def test_retries_then_succeeds(self):
         attempts = []
 
@@ -131,7 +144,7 @@ class RetryTest(unittest.TestCase):
         self.assertIn("online", str(caught.exception))
 
 
-class KeyTest(unittest.TestCase):
+class KeyTest(PhoneTestCase):
     def test_environment_wins(self):
         with mock.patch.dict(os.environ, {"GEMINI_API_KEY": " abc "}):
             self.assertEqual(gemini.find_key(), "abc")
@@ -153,7 +166,64 @@ class KeyTest(unittest.TestCase):
         self.assertIn("aistudio.google.com", str(caught.exception))
 
 
-class DiagnosisTest(unittest.TestCase):
+class CircuitBreakerTest(PhoneTestCase):
+    def test_a_silent_command_is_not_waited_on_twice(self):
+        attempts = []
+
+        def silent(command, **kwargs):
+            attempts.append(command[0])
+            raise subprocess.TimeoutExpired(command[0], 8)
+
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", silent):
+            for _ in range(4):
+                ok, _, problem = termux.run(["termux-tts-speak", "hi"], 8)
+
+        self.assertFalse(ok)
+        self.assertTrue(problem)
+        # One real attempt, plus the probe that worked out what it meant.
+        self.assertEqual(attempts.count("termux-tts-speak"), 1)
+
+    def test_an_unreachable_app_short_circuits_everything(self):
+        attempts = []
+
+        def silent(command, **kwargs):
+            attempts.append(command[0])
+            raise subprocess.TimeoutExpired(command[0], 8)
+
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", silent):
+            termux.run(["termux-torch", "on"], 8)
+            before = len(attempts)
+            for command in ("termux-volume", "termux-clipboard-get", "termux-wifi-connectioninfo"):
+                ok, _, problem = termux.run([command], 8)
+
+        self.assertFalse(ok)
+        self.assertIn("Termux:API app is not answering", problem)
+        self.assertEqual(len(attempts), before, "it kept waiting on a dead phone")
+
+    def test_forgetting_lets_it_try_again(self):
+        calls = []
+
+        def works(command, **kwargs):
+            calls.append(command[0])
+            return subprocess.CompletedProcess(command, 0, "fine", "")
+
+        def silent(command, **kwargs):
+            raise subprocess.TimeoutExpired(command[0], 8)
+
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"):
+            with mock.patch.object(termux.subprocess, "run", silent):
+                termux.run(["termux-volume"], 8)
+            termux.forget_failures()
+            with mock.patch.object(termux.subprocess, "run", works):
+                ok, output, _ = termux.run(["termux-volume"], 8)
+
+        self.assertTrue(ok)
+        self.assertEqual(output, "fine")
+
+
+class DiagnosisTest(PhoneTestCase):
     """A timeout means different things depending on what else works."""
 
     @staticmethod
@@ -191,7 +261,7 @@ class DiagnosisTest(unittest.TestCase):
         self.assertIn("Termux:API app is not answering", problem)
 
 
-class VoiceTest(unittest.TestCase):
+class VoiceTest(PhoneTestCase):
     def test_a_hang_turns_voice_off_instead_of_blocking(self):
         speaker = voice.Voice()
         with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
@@ -233,7 +303,7 @@ class VoiceTest(unittest.TestCase):
         run.assert_not_called()
 
 
-class HistoryTest(unittest.TestCase):
+class HistoryTest(PhoneTestCase):
     def test_saved_history_comes_back(self):
         with tempfile.TemporaryDirectory() as folder:
             path = os.path.join(folder, "history.json")
@@ -275,7 +345,7 @@ class HistoryTest(unittest.TestCase):
                 self.assertEqual(assistant.load_history(), [("user", "keep")])
 
 
-class ListModelsTest(unittest.TestCase):
+class ListModelsTest(PhoneTestCase):
     def test_only_models_that_can_answer_are_listed(self):
         response = {
             "models": [
@@ -288,7 +358,7 @@ class ListModelsTest(unittest.TestCase):
         self.assertEqual(names, ["gemini-2.5-flash"])
 
 
-class ToolTest(unittest.TestCase):
+class ToolTest(PhoneTestCase):
     def test_every_tool_declares_itself_legally(self):
         for tool in tools.ALL:
             declared = tool.declaration()
@@ -362,7 +432,7 @@ class ToolTest(unittest.TestCase):
         self.assertTrue(url.startswith("https://wa.me/972501234567?text="))
 
 
-class ToolLoopTest(unittest.TestCase):
+class ToolLoopTest(PhoneTestCase):
     def test_a_reply_can_carry_words_and_an_action(self):
         response = {
             "candidates": [
@@ -431,7 +501,7 @@ class ToolLoopTest(unittest.TestCase):
 
 
 
-class ChooseModelTest(unittest.TestCase):
+class ChooseModelTest(PhoneTestCase):
     def test_prefers_a_fast_current_model(self):
         self.assertEqual(
             gemini.choose_model(["gemini-2.5-pro", "gemini-2.5-flash"]),
@@ -459,7 +529,7 @@ class ChooseModelTest(unittest.TestCase):
         self.assertIsNone(gemini.choose_model([]))
 
 
-class ModelRepairTest(unittest.TestCase):
+class ModelRepairTest(PhoneTestCase):
     def test_a_missing_model_is_replaced_and_remembered(self):
         class Missing(urllib.error.HTTPError):
             def __init__(self):
@@ -508,7 +578,7 @@ class ModelRepairTest(unittest.TestCase):
 
 
 
-class AppToolTest(unittest.TestCase):
+class AppToolTest(PhoneTestCase):
     def test_navigation_builds_a_waze_link(self):
         with mock.patch.object(termux, "run", return_value=(True, "", "")) as run:
             tools.execute("navigate", {"destination": "תל אביב"}, tools.available())
@@ -556,7 +626,7 @@ class AppToolTest(unittest.TestCase):
         run.assert_not_called()
 
 
-class JarvisPresetTest(unittest.TestCase):
+class JarvisPresetTest(PhoneTestCase):
     def test_one_flag_sets_voice_microphone_and_manner(self):
         args = assistant.apply_jarvis(
             assistant.build_parser().parse_args(["--jarvis"])
@@ -577,7 +647,7 @@ class JarvisPresetTest(unittest.TestCase):
         self.assertEqual(args.persona, "plain")
 
 
-class ConversationTest(unittest.TestCase):
+class ConversationTest(PhoneTestCase):
     def test_the_words_that_end_it(self):
         for word in ("stop", "Stop.", "די", "להתראות", "that's all"):
             self.assertTrue(assistant.is_goodbye(word), word)

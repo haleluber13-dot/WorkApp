@@ -82,6 +82,11 @@ which it blocks, then lists the exact settings screens for the blocked ones.
 Permissions, notification access and text-to-speech live in three different
 places on Android, and it names all three.
 
+A command that has already gone silent is not waited on again in the same
+run, and once the app itself is shown to be unreachable every other call
+fails instantly — otherwise one spoken question that touches three tools
+costs a minute of nothing.
+
 When a command does time out, the assistant works out what that means
 rather than guessing: it asks the phone something that needs no permission
 at all, and if *that* answers, the app is fine and the silence belongs to
@@ -265,7 +270,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 63 tests, no phone or network needed |
+| `tests/` | 66 tests, no phone or network needed |
 
 ## Tests
 

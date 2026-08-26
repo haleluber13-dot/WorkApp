@@ -60,16 +60,33 @@ FEATURE_HELP = {
 }
 
 
+# Once something has been shown not to answer, there is nothing to gain by
+# waiting on it again in the same run. A Jarvis question that calls three
+# tools should not cost a minute of silence to fail.
+_app_unreachable = False
+_silent_commands = set()
+
+
+def forget_failures():
+    """Start trusting the phone again (used by the tests, and by --doctor)."""
+    global _app_unreachable
+    _app_unreachable = False
+    _silent_commands.clear()
+
+
 def why_no_answer(command):
     """Work out what a timeout actually means, instead of guessing.
 
     Ask the phone something that needs no permission. If that answers, the
     app is fine and the silence belongs to this command alone.
     """
+    global _app_unreachable
     if command[0] in PROBE:
+        _app_unreachable = True
         return API_MISSING_HELP
     ok, _, _ = run(PROBE, 6)
     if not ok:
+        _app_unreachable = True
         return API_MISSING_HELP
     return FEATURE_HELP.get(
         command[0],
@@ -89,6 +106,13 @@ def run(command, timeout=20, stdin_text=None):
     if not have(command[0]):
         hint = "termux-api" if command[0].startswith("termux-") else "the package that provides it"
         return False, "", f"{command[0]} is not installed (`pkg install {hint}`)."
+    if _app_unreachable and command[0].startswith("termux-"):
+        return False, "", API_MISSING_HELP
+    if command[0] in _silent_commands:
+        return False, "", FEATURE_HELP.get(
+            command[0], f"{command[0]} did not answer earlier in this run."
+        )
+
     try:
         finished = subprocess.run(
             command,
@@ -100,7 +124,9 @@ def run(command, timeout=20, stdin_text=None):
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return False, "", why_no_answer(command)
+        problem = why_no_answer(command)
+        _silent_commands.add(command[0])
+        return False, "", problem
     except OSError as error:
         return False, "", f"could not start {command[0]}: {error}"
     if finished.returncode != 0:
