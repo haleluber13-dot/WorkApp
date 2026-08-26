@@ -188,6 +188,34 @@ echo "from a pipe" | say
 listen                               print what the microphone hears
 ```
 
+## Seeing that he is running
+
+While he is listening there is a notification in the shade with an icon
+that changes as he works — a microphone while listening, a spark while
+working the phone, a speaker while talking — and a **Stop** button. It is
+visible on the lock screen, so you can tell at a glance whether he is
+awake.
+
+`--no-notify` turns it off.
+
+Install the **Termux:Widget** app and `setup.sh` puts two shortcuts on
+the home screen: **Jarvis** and **Jarvis (wake word)**. Long-press the
+home screen → Widgets → Termux to place them.
+
+## Calling him by name
+
+```sh
+ai --jarvis --wake
+```
+
+He listens continuously and ignores everything that is not addressed to
+him. Say **"jarvis, turn on the torch"** and only that reaches Gemini —
+the rest of your conversation costs nothing and goes nowhere. Say just
+**"jarvis"** and he answers "Yes?" and waits for the request.
+
+Hebrew spellings count too (ג'רוויס, גרוויס), because a transcriber will
+not always choose the same one. `--wake computer` uses a different name.
+
 ## Talking to him
 
 ```sh
@@ -202,6 +230,17 @@ If the microphone does not answer, he says so once and hands you the
 keyboard rather than retrying — a broken mic is broken, and waiting on it
 twenty times over is just a hang with extra steps. Type `/quit` to leave
 from there.
+
+### When a permission is the problem
+
+```sh
+bash ~/WorkApp/assistant/permissions.sh
+```
+
+It opens the three settings screens directly — Termux:API permissions,
+battery, text-to-speech — one at a time, waits while you change each,
+then runs the checks. Android keeps them in three unrelated places and
+Samsung buries two of them.
 
 ### Two ways to hear
 
@@ -406,7 +445,9 @@ which voice reads the latin-letter replies.
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
 | `memory.py` | what he knows about you, kept in ~/.personal-ai/memory.md |
-| `tests/` | 108 tests, no phone or network needed |
+| `status.py` | the live notification: what he is doing, and a stop button |
+| `permissions.sh` | opens the settings screens Android hides |
+| `tests/` | 118 tests, no phone or network needed |
 
 ## Tests
 
@@ -439,9 +480,6 @@ becomes its specification.
 
 ## What is not here yet
 
-* A wake word. You start him with `ai --jarvis`; he does not wake on his
-  own name yet. That needs an always-on listener, which costs battery and
-  needs care.
 * Calendar and email; both need OAuth, which is a bigger piece of work.
 * Hearing you while he is still speaking — a turn is recorded for a fixed
   few seconds, so you wait for him to finish.

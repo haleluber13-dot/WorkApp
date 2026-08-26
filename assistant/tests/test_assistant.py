@@ -19,6 +19,7 @@ import assistant  # noqa: E402
 import gemini  # noqa: E402
 import ears  # noqa: E402
 import memory  # noqa: E402
+import status  # noqa: E402
 import termux  # noqa: E402
 import tools  # noqa: E402
 import voice  # noqa: E402
@@ -1244,6 +1245,79 @@ class ProgressTest(PhoneTestCase):
             assistant.run_once(args, voice.Voice(enabled=False), "hello", [])
 
         self.assertEqual(shown.getvalue(), "")
+
+
+class WakeWordTest(PhoneTestCase):
+    def test_being_addressed_gives_up_the_request(self):
+        self.assertEqual(
+            assistant.heard_wake("hello jarvis turn on the torch"),
+            (True, "turn on the torch"),
+        )
+
+    def test_hebrew_spellings_count(self):
+        woken, asked = assistant.heard_wake("ג'רוויס תדליק את הפנס")
+        self.assertTrue(woken)
+        self.assertEqual(asked, "תדליק את הפנס")
+
+    def test_talking_about_something_else_is_ignored(self):
+        self.assertEqual(
+            assistant.heard_wake("so I told him about the torch"), (False, "")
+        )
+
+    def test_the_name_alone_wakes_him_with_nothing_asked(self):
+        self.assertEqual(assistant.heard_wake("Jarvis?"), (True, ""))
+
+    def test_a_custom_word_replaces_the_defaults(self):
+        args = assistant.build_parser().parse_args(["--wake", "computer"])
+        self.assertEqual(assistant.wake_words(args), ["computer"])
+        self.assertFalse(assistant.heard_wake("jarvis hello", ["computer"])[0])
+
+    def test_nothing_reaches_gemini_until_he_is_called(self):
+        """The point of a wake word: silence costs nothing."""
+        heard = iter(["just chatting to someone else", "jarvis what is the time", "stop"])
+        asked = []
+
+        def fake_request(url, payload, key, timeout):
+            asked.append(payload["contents"][-1]["parts"][0]["text"])
+            return {"candidates": [{"content": {"parts": [{"text": "Noon."}]}}]}
+
+        args = assistant.build_parser().parse_args(
+            ["--mic", "--wake", "--quiet", "--no-memory", "--no-notify"]
+        )
+        with mock.patch.object(gemini, "_request", fake_request), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"), \
+             mock.patch.object(termux, "run", return_value=(True, "", "")), \
+             mock.patch.object(voice.Voice, "speak", lambda self, text: True), \
+             mock.patch.object(voice.Voice, "listen",
+                               lambda self, timeout=60: next(heard, "")):
+            assistant.converse(args, voice.Voice())
+
+        self.assertEqual(asked, ["what is the time"])
+
+
+class StatusTest(PhoneTestCase):
+    def test_each_state_has_an_icon_and_words(self):
+        for state, (icon, said, colour) in status.STATES.items():
+            self.assertTrue(icon and said, state)
+            self.assertRegex(colour, r"^#[0-9a-f]{6}$")
+
+    def test_showing_a_state_is_one_ongoing_notification(self):
+        with mock.patch.object(termux, "run", return_value=(True, "", "")) as run:
+            status.show("listening")
+        command = run.call_args[0][0]
+        self.assertIn("--ongoing", command)
+        self.assertIn("mic", command)
+        self.assertIn(status.NOTIFICATION_ID, command)
+
+    def test_an_unknown_state_still_shows_something(self):
+        with mock.patch.object(termux, "run", return_value=(True, "", "")) as run:
+            status.show("nonsense")
+        self.assertIn("--title", run.call_args[0][0])
+
+    def test_a_busy_phone_does_not_stall_the_conversation(self):
+        with mock.patch.object(termux, "run", return_value=(False, "", "timed out")):
+            self.assertFalse(status.show("thinking"))
 
 
 class ConversationTest(PhoneTestCase):

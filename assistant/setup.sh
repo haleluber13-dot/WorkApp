@@ -41,6 +41,24 @@ for tool in ai say listen; do
 done
 
 echo
+echo "==> Home screen shortcuts"
+mkdir -p "$HOME/.shortcuts"
+cat > "$HOME/.shortcuts/Jarvis.sh" <<SHORTCUT
+#!/data/data/com.termux/files/usr/bin/bash
+# Tap this on the home screen to wake him. Needs the Termux:Widget app.
+exec $here/bin/ai --jarvis
+SHORTCUT
+cat > "$HOME/.shortcuts/Jarvis (wake word).sh" <<SHORTCUT
+#!/data/data/com.termux/files/usr/bin/bash
+exec $here/bin/ai --jarvis --wake
+SHORTCUT
+chmod +x "$HOME/.shortcuts/"*.sh
+echo "  Jarvis"
+echo "  Jarvis (wake word)"
+echo "  Install the Termux:Widget app, then long-press the home screen >"
+echo "  Widgets > Termux, to get a tappable icon for each."
+
+echo
 echo "==> Checking the phone"
 bash "$here/doctor.sh"
 

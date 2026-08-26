@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import gemini  # noqa: E402
 import memory  # noqa: E402
+import status as status_module  # noqa: E402
 import tools as tools_module  # noqa: E402
 import voice as voice_module  # noqa: E402
 
@@ -34,6 +35,36 @@ STOP_WORDS = (
     "that is all", "that's all", "thank you that is all",
     "די", "עצור", "תפסיק", "מספיק", "להתראות", "זהו", "תודה זהו",
 )
+
+# Said before a request, to wake him. Hebrew spellings included because
+# a transcriber will not always choose the same one.
+WAKE_WORDS = ("jarvis", "jervis", "ג'רוויס", "גרוויס", "ג'ארוויס", "גארוויס")
+
+
+def wake_words(args):
+    """The phrases that count as being addressed."""
+    return WAKE_WORDS if args.wake is True else [args.wake]
+
+
+def wake_phrase(args):
+    """One of them, for telling the user what to say."""
+    return wake_words(args)[0]
+
+
+def heard_wake(said, words=WAKE_WORDS):
+    """Was he addressed, and what was asked? Returns (woken, request).
+
+    "hello jarvis turn on the torch" -> (True, "turn on the torch")
+    "so I told him about the torch"  -> (False, "")
+    """
+    lowered = said.lower()
+    for word in words:
+        at = lowered.find(word.lower())
+        if at != -1:
+            rest = said[at + len(word):]
+            return True, rest.strip(" ,.:;!?-–—")
+    return False, ""
+
 
 MIC_HELP = (
     "Could not hear anything.\n"
@@ -317,9 +348,14 @@ def doctor(args):
 def run_once(args, speaker, prompt, history):
     allowed = [] if args.no_tools else tools_module.available(args.allow_shell)
     ask = make_asker(args, speaker)
-    report = None if args.quiet else (
-        lambda line: print(f"  · {line}", file=sys.stderr, flush=True)
-    )
+    def report(line):
+        if not args.quiet:
+            print(f"  · {line}", file=sys.stderr, flush=True)
+        if args.mic and not args.no_notify and "(" in line:
+            status_module.show("acting", line.split("(")[0].replace("_", " "))
+
+    if args.quiet and (args.no_notify or not args.mic):
+        report = None
     try:
         return answer(args, history, prompt, allowed, ask=ask, report=report)
     except gemini.GeminiError as error:
@@ -357,12 +393,21 @@ def is_goodbye(said):
 
 def converse(args, speaker):
     history = [] if args.no_memory else load_history()
+    show = (lambda state, detail="": None) if args.no_notify else (
+        lambda state, detail="": status_module.show(state, detail)
+    )
+
     if args.mic:
-        print("Listening. Say 'stop' when you are done, or press ctrl-c.\n")
+        if args.wake:
+            print(f"Waiting to be called: say '{wake_phrase(args)}'. Ctrl-c to stop.\n")
+        else:
+            print("Listening. Say 'stop' when you are done, or press ctrl-c.\n")
         # Android suspends background work aggressively; without this the
         # loop dies quietly a few minutes in.
         voice_module.termux.run(["termux-wake-lock"], 10)
-        speaker.speak("At your service.")
+        show("ready")
+        if not args.wake:
+            speaker.speak("At your service.")
     else:
         print("Personal assistant. /help for commands, /quit to leave.\n")
     if history:
@@ -371,6 +416,7 @@ def converse(args, speaker):
     silence = 0
     while True:
         if args.mic:
+            show("asleep" if args.wake else "listening")
             print("listening... (ctrl-c to stop)", end=" ", flush=True)
             try:
                 prompt = speaker.listen(timeout=args.listen_timeout)
@@ -403,6 +449,22 @@ def converse(args, speaker):
             if is_goodbye(prompt):
                 speaker.speak("Very good.")
                 break
+
+            if args.wake:
+                woken, asked = heard_wake(prompt, wake_words(args))
+                if not woken:
+                    print("  (not for me)")
+                    continue
+                if not asked:
+                    # Addressed with nothing after it: answer and listen again.
+                    show("listening")
+                    speaker.speak("Yes?")
+                    print("  woken — go ahead")
+                    asked = speaker.listen(timeout=args.listen_timeout)
+                    print(f"  {asked or '(nothing heard)'}")
+                    if not asked:
+                        continue
+                prompt = asked
         else:
             try:
                 prompt = input("you> ").strip()
@@ -419,6 +481,7 @@ def converse(args, speaker):
                 history = []
             continue
 
+        show("thinking")
         try:
             text, _ = run_once(args, speaker, prompt, history)
         except gemini.GeminiError as error:
@@ -429,6 +492,7 @@ def converse(args, speaker):
             break
 
         print(f"\n{text}\n")
+        show("speaking", text[:60])
         speaker.speak(text)
         speaker.warn_once(sys.stderr)
         history = history + [("user", prompt), ("model", text)]
@@ -437,6 +501,8 @@ def converse(args, speaker):
 
     if args.mic:
         voice_module.termux.run(["termux-wake-unlock"], 10)
+        if not args.no_notify:
+            status_module.clear()
     return 0
 
 
@@ -511,6 +577,11 @@ def build_parser():
     parser.add_argument("--jarvis", action="store_true",
                         help="hands free: he listens, answers out loud, and keeps listening")
     parser.add_argument("--persona", default=None, help="a personality from personas/, e.g. jarvis")
+    parser.add_argument("--wake", nargs="?", const=True, default=None,
+                        metavar="PHRASE",
+                        help="only answer when addressed by name (default: jarvis)")
+    parser.add_argument("--no-notify", action="store_true",
+                        help="do not show the live notification")
     parser.add_argument("--pitch", type=float, default=None, help="voice pitch; below 1.0 is deeper")
     parser.add_argument("--rate", type=float, default=None, help="speaking rate; below 1.0 is slower")
     parser.add_argument("--no-tools", action="store_true", help="answer only, never touch the phone")
