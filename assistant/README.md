@@ -269,6 +269,9 @@ indistinguishable from a hang:
 ai --no-thinking "..."           # answer straight away
 ```
 
+When a model does run out of patience, the assistant drops to the
+quickest one the key offers rather than failing, and says so.
+
 `bash netcheck.sh` asks five different models the same one-word question
 and prints how long each took. Whichever answers fastest is the one to
 keep:
@@ -357,7 +360,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 90 tests, no phone or network needed |
+| `tests/` | 96 tests, no phone or network needed |
 
 ## Tests
 

@@ -128,8 +128,14 @@ def _call(url, payload, key, timeout, attempts, model, sleep=time.sleep):
             retryable = True
         except TimeoutError:
             last = GeminiError(
-                f"Gemini did not answer within {timeout} seconds. "
-                "A weak signal usually explains it."
+                f"{model} did not answer within {timeout} seconds.\n"
+                "Usually the model is thinking rather than the network "
+                "failing: newer models reason before replying, and nothing "
+                "comes back until they finish. Try a faster one:\n"
+                "  ai --no-thinking \"...\"\n"
+                "  echo gemini-flash-lite-latest > ~/.personal-ai/model\n"
+                "`bash netcheck.sh` times every model your key offers.",
+                kind="timeout",
             )
             retryable = True
         if not retryable or attempt == attempts:
@@ -365,6 +371,18 @@ def remember_model(name):
         handle.write(name + "\n")
 
 
+def choose_faster(models, exclude=()):
+    """The quickest model on offer, for when one is thinking too long."""
+    quick = [
+        name for name in models
+        if name.startswith("gemini-")
+        and "lite" in name
+        and name not in exclude
+        and not any(word in name for word in NOT_FOR_CHAT)
+    ]
+    return sorted(quick, key=_rank)[0] if quick else None
+
+
 def repair_model(current, key=None, announce=None, exclude=()):
     """Find a model this key can actually run, and remember it."""
     offered = list_models(key)
@@ -399,6 +417,17 @@ def with_model_repair(attempt, model, key=None, announce=None, tries=4):
         try:
             return attempt(current)
         except GeminiError as error:
+            if error.kind == "timeout":
+                # Not a broken model — a slow one. Drop to the quickest
+                # thing this key has, once, rather than failing outright.
+                tried.append(current)
+                quicker = choose_faster(list_models(key), exclude=tried)
+                if quicker is None:
+                    raise
+                if announce:
+                    announce(f"[{current} took too long — trying {quicker}]")
+                current = quicker
+                continue
             if error.kind != "model_missing":
                 raise
             tried.append(current)

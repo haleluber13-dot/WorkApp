@@ -1007,6 +1007,61 @@ class JarvisPresetTest(PhoneTestCase):
         self.assertEqual(args.persona, "plain")
 
 
+class SlowModelTest(PhoneTestCase):
+    """A model that thinks too long is slow, not broken."""
+
+    OFFERED = ["gemini-flash-latest", "gemini-flash-lite-latest",
+               "gemini-2.5-flash-lite", "gemini-3.5-flash"]
+
+    def _key_where(self, slow):
+        def fake_request(url, payload, key, timeout):
+            if url.endswith("/models"):
+                return {"models": [
+                    {"name": f"models/{name}",
+                     "supportedGenerationMethods": ["generateContent"]}
+                    for name in self.OFFERED
+                ]}
+            if any(name in url for name in slow):
+                raise TimeoutError()
+            return {"candidates": [{"content": {"parts": [{"text": "ready"}]}}]}
+        return fake_request
+
+    def test_it_drops_to_a_quicker_model(self):
+        said = []
+        with mock.patch.object(gemini, "_request",
+                               self._key_where(["gemini-flash-latest"])), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+            answer = gemini.with_model_repair(
+                lambda model: gemini.generate("hi", model=model, timeout=5, attempts=1),
+                "gemini-flash-latest",
+                announce=said.append,
+            )
+        self.assertEqual(answer, "ready")
+        self.assertIn("took too long", said[0])
+        self.assertIn("lite", said[0])
+
+    def test_it_gives_up_when_nothing_quicker_exists(self):
+        with mock.patch.object(gemini, "_request",
+                               self._key_where(self.OFFERED)), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+            with self.assertRaises(gemini.GeminiError) as caught:
+                gemini.with_model_repair(
+                    lambda model: gemini.generate("hi", model=model, timeout=5, attempts=1),
+                    "gemini-flash-latest",
+                )
+        self.assertIn("did not answer", str(caught.exception))
+
+    def test_the_timeout_message_names_the_likely_cause(self):
+        with mock.patch.object(gemini, "_request", side_effect=TimeoutError()), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}):
+            with self.assertRaises(gemini.GeminiError) as caught:
+                gemini.generate("hi", model="gemini-flash-latest", timeout=5, attempts=1)
+        message = str(caught.exception)
+        self.assertIn("thinking", message)
+        self.assertIn("gemini-flash-latest", message)
+        self.assertNotIn("weak signal", message)
+
+
 class ThinkingTest(PhoneTestCase):
     def test_thinking_is_left_alone_by_default(self):
         payload = gemini._payload(
