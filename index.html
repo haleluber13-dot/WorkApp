@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>GlobeWatch — Live Public Cameras of the World</title>
+  <meta name="description" content="A floating globe of public live cameras worldwide — streets, roads, airports, harbors and skylines. Search, focus, favorite and add your own.">
+  <meta name="theme-color" content="#05070d">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/icons/icon-192.png">
+  <link rel="stylesheet" href="./assets/css/style.css">
+  <!-- 3D globe (loads from CDN; app degrades gracefully if blocked/offline) -->
+  <script src="https://unpkg.com/globe.gl@2.34.4/dist/globe.gl.min.js" defer></script>
+  <!-- HLS playback for .m3u8 public streams -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js" defer></script>
+</head>
+<body data-view="split">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand__dot"></span>
+      <div><b>GlobeWatch</b><small>live public cameras</small></div>
+    </div>
+    <div class="searchwrap">
+      <input id="search" type="search" placeholder="Search city, country, name, tag…  ( / )" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="viewtoggle" role="tablist" aria-label="Layout">
+      <button class="viewbtn" data-view="globe" title="Globe only">🌐</button>
+      <button class="viewbtn on" data-view="split" title="Globe + wall">▤</button>
+      <button class="viewbtn" data-view="wall" title="Wall only">▦</button>
+    </div>
+    <div class="topbar__actions">
+      <div class="stat"><span id="statTotal">0</span> feeds · <span id="statFav">0</span> ★</div>
+      <button id="btnFav" class="iconbtn" title="Favorites only">★</button>
+      <button id="btnAdd" class="iconbtn iconbtn--primary" title="Add location">＋</button>
+      <button id="btnSettings" class="iconbtn" title="Settings & data">⚙</button>
+    </div>
+  </header>
+
+  <nav id="catbar" class="catbar" aria-label="Categories"></nav>
+
+  <main class="stage">
+    <section class="globewrap">
+      <div id="globe" class="globe"></div>
+      <div class="globe__hint">Drag to spin · scroll to zoom · tap a point to focus</div>
+    </section>
+    <section class="wallwrap">
+      <div class="wallhead"><h2>Live wall</h2><span id="wallCount" class="pill">0 live</span></div>
+      <div id="wall" class="wall"></div>
+    </section>
+  </main>
+
+  <div id="focus" class="focus" role="dialog" aria-modal="true"></div>
+  <div id="modal" class="modal" role="dialog" aria-modal="true"></div>
+  <div id="toast" class="toast"></div>
+
+  <script src="./assets/js/data.js"></script>
+  <script src="./assets/js/store.js"></script>
+  <script src="./assets/js/globe.js"></script>
+  <script src="./assets/js/ui.js"></script>
+  <script src="./assets/js/app.js"></script>
+</body>
+</html>
