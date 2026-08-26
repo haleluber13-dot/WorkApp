@@ -4145,6 +4145,131 @@
      "pageUrl": "https://www.surfline.com/search/Arrifana"
     }
    ]
+  },
+  {
+   "id": "anglet",
+   "name": "Anglet",
+   "region": "Pyrénées-Atlantiques",
+   "country": "France",
+   "countryCode": "FR",
+   "lat": 43.493,
+   "lon": -1.535,
+   "timezone": "Europe/Paris",
+   "tags": [
+    "Beach break",
+    "Consistent",
+    "Advanced"
+   ],
+   "info": {
+    "about": "Four and a half kilometres of beach between Biarritz and the mouth of the Adour, cut into a dozen named breaks by groynes. Les Cavaliers is the one that matters: a heavy, fast peak beside the northern jetty that has hosted European contests for decades, while Chambre d'Amour and the Sables d'Or at the southern end are gentler. The groynes hold the sand, which makes it more reliable than most French beach breaks.",
+    "breakType": "Beach break between groynes",
+    "bottom": "Sand",
+    "wave": "Punchy peaks; Les Cavaliers is fast and heavy",
+    "level": "Intermediate to advanced",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E–SE offshore",
+    "bestTide": "Mid to low tide",
+    "bestSeason": "September–November",
+    "waterTemp": "14–22°C — 3/2, 4/3 in winter",
+    "crowd": "Busy in summer, spread over a dozen beaches",
+    "hazards": [
+     "Strong rips between the groynes",
+     "Current off the Adour rivermouth",
+     "Water quality after heavy rain"
+    ],
+    "localTip": "Walk the promenade and pick your groyne. Each bay holds a different bank, and the one that is closing out at Cavaliers is often perfect two beaches south."
+   },
+   "access": {
+    "airports": [
+     "BIQ"
+    ],
+    "transfer": "10 min north of Biarritz airport",
+    "transferMinutes": 10,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "anglet-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.493,-1.535,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.493,-1.535,10"
+    },
+    {
+     "id": "anglet-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Anglet",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Anglet"
+    }
+   ]
+  },
+  {
+   "id": "hendaye",
+   "name": "Hendaye",
+   "region": "Pyrénées-Atlantiques",
+   "country": "France",
+   "countryCode": "FR",
+   "lat": 43.376,
+   "lon": -1.777,
+   "timezone": "Europe/Paris",
+   "tags": [
+    "Beach break",
+    "Beginner",
+    "Sheltered"
+   ],
+   "info": {
+    "about": "The longest beach in the French Basque country, three kilometres of sand on the Spanish border with the twin rocks of Les Jumeaux offshore. Cap du Figuier shelters the bay, so the waves arrive softened — which makes Hendaye the region's learn-to-surf beach, and the place everyone goes when the rest of the coast is too big to paddle out.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Long, soft, forgiving walls",
+    "level": "Beginner to intermediate",
+    "bestSwell": "NW Atlantic swell, softened by the headland",
+    "bestWind": "S offshore",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May; works all year",
+    "waterTemp": "13–21°C — 3/2 to 4/3",
+    "crowd": "Busy with schools in summer",
+    "hazards": [
+     "Rip beside the rocks at the west end",
+     "Crowds of beginners",
+     "Estuary current at the Spanish end"
+    ],
+    "localTip": "When Hossegor and Anglet are closing out, this is the bay that is still rideable."
+   },
+   "access": {
+    "airports": [
+     "BIQ",
+     "EAS"
+    ],
+    "transfer": "About 35 min south of Biarritz; 25 min from San Sebastián",
+    "transferMinutes": 35,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "hendaye-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,43.376,-1.777,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,43.376,-1.777,10"
+    },
+    {
+     "id": "hendaye-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Hendaye",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Hendaye"
+    }
+   ]
   }
  ]
 }
