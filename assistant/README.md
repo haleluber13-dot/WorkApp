@@ -108,6 +108,7 @@ model is given a list of actions and decides on its own when to use them.
 | text | `clipboard_read`, `clipboard_write` |
 | people | `find_contact`, `send_sms` !, `call` !, `whatsapp` ! |
 | apps | `play_music`, `navigate`, `open_app`, `search_web`, `open_url` |
+| memory | `remember`, `forget` |
 | inbox | `read_notifications` !, `read_messages` ! |
 | private | `location` ! |
 | power | `run_shell` ! (only with `--allow-shell`) |
@@ -334,7 +335,20 @@ for one question, or write the name into `~/.personal-ai/model` to keep it.
 
 ## Make it yours
 
-Write `~/.personal-ai/system.txt` and that becomes its personality and
+Three layers, from quickest to deepest.
+
+**1. Tell him things.** He keeps what matters:
+
+```
+you> Dani is my gaffer and he only answers WhatsApp
+```
+
+That goes into `~/.personal-ai/memory.md` and is read into every
+conversation afterwards, so "tell Dani we start at seven" needs no
+explaining. It is a plain text file — edit or prune it by hand. `forget`
+drops anything: "forget about Dani".
+
+**2. Change how he behaves.** `~/.personal-ai/system.txt` replaces his
 standing instructions:
 
 ```sh
@@ -343,6 +357,37 @@ You are my assistant. I work in film production in Israel.
 Answer in Hebrew unless I write in English. Keep it short.
 PROMPT
 ```
+
+Or edit `personas/jarvis.txt` to keep his manner and change the details.
+
+**3. Give him hands.** Every action lives in `tools.py` as a name, a
+description the model reads, and a function. Adding one is a dozen lines.
+`--allow-shell` hands him the whole phone in one tool, asking before each
+command.
+
+## His voice
+
+The words are the phone's own text-to-speech, so the engine matters more
+than anything here:
+
+1. Play Store → install **Speech Services by Google** if the phone has
+   only Samsung's.
+2. Settings → General management → **Text-to-speech output** → choose it.
+3. Gear beside it → **Install voice data** → English (United Kingdom) →
+   pick a male voice. The accent does more of the work than the pitch.
+4. Press *Listen to an example*. If that is silent, so is he.
+
+Then:
+
+```sh
+ai --jarvis                       # en-GB, pitched down, unhurried
+ai --jarvis --pitch 0.7 --rate 0.9
+```
+
+The language follows the reply, not the setting: a Hebrew answer is
+spoken by a Hebrew voice and an English one by the English voice, in the
+same conversation. `--lang he-IL` forces one; `--fallback-lang` changes
+which voice reads the latin-letter replies.
 
 ## Layout
 
@@ -360,7 +405,8 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 96 tests, no phone or network needed |
+| `memory.py` | what he knows about you, kept in ~/.personal-ai/memory.md |
+| `tests/` | 108 tests, no phone or network needed |
 
 ## Tests
 

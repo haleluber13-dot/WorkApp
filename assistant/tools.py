@@ -11,6 +11,7 @@ import json
 import shlex
 import urllib.parse
 
+import memory
 import termux
 
 
@@ -331,7 +332,28 @@ def _sms_inbox(limit=5, **_):
     )
 
 
+def _remember(fact="", **_):
+    return memory.remember(fact)
+
+
+def _forget(about="", **_):
+    return memory.forget(about)
+
+
 ALL = [
+    Tool(
+        "remember",
+        "Keep something about the user for later conversations: how they "
+        "work, who people are, what they prefer. Use it whenever they say "
+        "something worth knowing next time, without being asked to.",
+        _remember,
+        {"fact": {"type": "string", "description": "one fact, in a short sentence"}},
+        ["fact"],
+    ),
+    Tool(
+        "forget", "Drop everything remembered about something.", _forget,
+        {"about": {"type": "string"}}, ["about"],
+    ),
     Tool("current_time", "The date and time right now, on this phone.", _now),
     Tool(
         "battery", "Battery percentage, charging state and temperature.", _battery

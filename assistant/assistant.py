@@ -19,6 +19,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import gemini  # noqa: E402
+import memory  # noqa: E402
 import tools as tools_module  # noqa: E402
 import voice as voice_module  # noqa: E402
 
@@ -103,10 +104,13 @@ def repair_model(args):
 
 
 def load_system(persona=None):
-    """The instructions the model works under.
+    """The instructions the model works under, plus what it remembers."""
+    return _base_system(persona) + memory.as_prompt()
 
-    A persona shipped with the project, then whatever the user wrote in
-    ~/.personal-ai/system.txt, then the plain default.
+
+def _base_system(persona=None):
+    """A persona shipped with the project, then ~/.personal-ai/system.txt,
+    then the plain default.
     """
     if persona:
         path = os.path.join(PERSONA_DIR, f"{persona}.txt")
@@ -482,6 +486,9 @@ def apply_jarvis(args):
     args.persona = args.persona or "jarvis"
     args.pitch = 0.8 if args.pitch is None else args.pitch    # deeper
     args.rate = 0.95 if args.rate is None else args.rate      # unhurried
+    # He is English. Hebrew replies still get a Hebrew voice: the language
+    # follows what is being said, not this setting.
+    args.fallback_lang = args.fallback_lang or "en-GB"
     return args
 
 
@@ -497,7 +504,10 @@ def build_parser():
     )
     parser.add_argument("--voice", action="store_true", help="read answers out loud")
     parser.add_argument("--mic", action="store_true", help="take questions from the microphone")
-    parser.add_argument("--lang", default=os.environ.get("AI_TTS_LANG"), help="TTS language, e.g. he-IL")
+    parser.add_argument("--lang", default=os.environ.get("AI_TTS_LANG"),
+                        help="force one TTS language, e.g. he-IL (default: follow the reply)")
+    parser.add_argument("--fallback-lang", default=os.environ.get("AI_TTS_FALLBACK"),
+                        help="voice for latin-letter replies, e.g. en-GB")
     parser.add_argument("--jarvis", action="store_true",
                         help="hands free: he listens, answers out loud, and keeps listening")
     parser.add_argument("--persona", default=None, help="a personality from personas/, e.g. jarvis")
@@ -565,6 +575,7 @@ def main(argv=None):
             hearing=args.ears,
             model=args.model,
             record_seconds=args.record_seconds,
+            fallback_lang=args.fallback_lang,
         )
         if args.prompt:
             return one_shot(args, speaker)

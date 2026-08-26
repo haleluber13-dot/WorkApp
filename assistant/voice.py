@@ -6,6 +6,27 @@ import ears
 import termux
 
 SPEAK_CMD = "termux-tts-speak"
+
+# Hebrew, then Arabic, Cyrillic, Greek — the ranges worth telling apart
+# on a phone that switches language mid-conversation.
+SCRIPTS = (
+    ("he-IL", range(0x0590, 0x0600)),
+    ("ar", range(0x0600, 0x0700)),
+    ("ru-RU", range(0x0400, 0x0500)),
+    ("el-GR", range(0x0370, 0x0400)),
+)
+
+
+def language_of(text):
+    """Guess a speech language from the letters used, or None.
+
+    An English voice reading Hebrew is unintelligible and the other way
+    round, so the language follows the reply rather than the setting.
+    """
+    for language, block in SCRIPTS:
+        if any(ord(character) in block for character in text):
+            return language
+    return None
 LISTEN_CMD = "termux-speech-to-text"
 ENGINES_CMD = "termux-tts-engines"
 
@@ -14,8 +35,11 @@ class Voice:
     """Speech in and out, degrading to silence rather than to a hang."""
 
     def __init__(self, lang=None, timeout=25, enabled=True, pitch=None, rate=None,
-                 hearing="auto", model=None, record_seconds=8):
+                 hearing="auto", model=None, record_seconds=8, fallback_lang=None):
+        # An explicit language always wins; otherwise the script decides,
+        # falling back to this for anything written in latin letters.
         self.lang = lang
+        self.fallback_lang = fallback_lang
         self.timeout = timeout
         self.enabled = enabled
         self.pitch = pitch  # below 1.0 is deeper
@@ -34,8 +58,9 @@ class Voice:
         if not self.enabled or not text.strip():
             return False
         command = [SPEAK_CMD]
-        if self.lang:
-            command += ["-l", self.lang]
+        language = self.lang or language_of(text) or self.fallback_lang
+        if language:
+            command += ["-l", language]
         if self.pitch:
             command += ["-p", str(self.pitch)]
         if self.rate:

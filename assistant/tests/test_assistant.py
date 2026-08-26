@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import assistant  # noqa: E402
 import gemini  # noqa: E402
 import ears  # noqa: E402
+import memory  # noqa: E402
 import termux  # noqa: E402
 import tools  # noqa: E402
 import voice  # noqa: E402
@@ -434,6 +435,103 @@ class DiagnosisTest(PhoneTestCase):
              mock.patch.object(termux.subprocess, "run", self._phone(False)):
             _, _, problem = termux.run(["termux-battery-status"], 8)
         self.assertIn("Termux:API app is not answering", problem)
+
+
+class SpokenLanguageTest(PhoneTestCase):
+    """An English voice reading Hebrew is noise, and the reverse too."""
+
+    def test_the_script_decides_the_voice(self):
+        self.assertEqual(voice.language_of("הדלקתי את הפנס"), "he-IL")
+        self.assertIsNone(voice.language_of("Torch is on, sir."))
+
+    def test_a_mixed_sentence_follows_the_other_script(self):
+        self.assertEqual(voice.language_of("Playing מיילס דייוויס"), "he-IL")
+
+    def test_hebrew_is_spoken_in_hebrew_even_with_an_english_fallback(self):
+        seen = {}
+
+        def fake_run(command, timeout=20, stdin_text=None):
+            seen["command"] = command
+            return True, "", ""
+
+        speaker = voice.Voice(fallback_lang="en-GB")
+        with mock.patch.object(termux, "run", fake_run):
+            speaker.speak("הדלקתי את הפנס")
+        self.assertIn("he-IL", seen["command"])
+
+    def test_english_uses_the_fallback(self):
+        seen = {}
+
+        def fake_run(command, timeout=20, stdin_text=None):
+            seen["command"] = command
+            return True, "", ""
+
+        speaker = voice.Voice(fallback_lang="en-GB")
+        with mock.patch.object(termux, "run", fake_run):
+            speaker.speak("Torch is on, sir.")
+        self.assertIn("en-GB", seen["command"])
+
+    def test_an_explicit_language_overrides_everything(self):
+        seen = {}
+
+        def fake_run(command, timeout=20, stdin_text=None):
+            seen["command"] = command
+            return True, "", ""
+
+        speaker = voice.Voice(lang="he-IL", fallback_lang="en-GB")
+        with mock.patch.object(termux, "run", fake_run):
+            speaker.speak("Torch is on, sir.")
+        self.assertIn("he-IL", seen["command"])
+        self.assertNotIn("en-GB", seen["command"])
+
+
+class MemoryTest(PhoneTestCase):
+    def setUp(self):
+        super().setUp()
+        self.folder = tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        patcher = mock.patch.object(
+            memory, "MEMORY_FILE", os.path.join(self.folder.name, "memory.md")
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_what_is_remembered_comes_back(self):
+        memory.remember("Dani is my gaffer")
+        self.assertEqual(memory.load(), ["Dani is my gaffer"])
+
+    def test_the_same_fact_is_not_kept_twice(self):
+        memory.remember("I shoot in Tel Aviv")
+        self.assertIn("already", memory.remember("I shoot in Tel Aviv"))
+        self.assertEqual(len(memory.load()), 1)
+
+    def test_forgetting_takes_out_everything_about_a_thing(self):
+        memory.remember("Dani is my gaffer")
+        memory.remember("Dani prefers WhatsApp")
+        memory.remember("Noa is the producer")
+        self.assertIn("forgot 2", memory.forget("dani"))
+        self.assertEqual(memory.load(), ["Noa is the producer"])
+
+    def test_it_reaches_the_system_prompt(self):
+        memory.remember("I work in film production")
+        with mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"):
+            system = assistant.load_system()
+        self.assertIn("I work in film production", system)
+
+    def test_an_empty_memory_adds_nothing(self):
+        self.assertEqual(memory.as_prompt(), "")
+
+    def test_the_model_can_remember_through_a_tool(self):
+        answer = tools.execute(
+            "remember", {"fact": "My call time is usually 6am"}, tools.available()
+        )
+        self.assertIn("remembered", answer)
+        self.assertIn("My call time is usually 6am", memory.load())
+
+    def test_a_hand_edited_file_is_read_as_written(self):
+        with open(memory.MEMORY_FILE, "w", encoding="utf-8") as handle:
+            handle.write("# my notes\n\n- I hate early calls\nplain line\n")
+        self.assertEqual(memory.load(), ["I hate early calls", "plain line"])
 
 
 class VoiceTest(PhoneTestCase):
