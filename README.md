@@ -27,10 +27,12 @@ desktop.
 - **Add / edit / delete** any location. Edits to built‑in cameras are stored as
   overrides and can be reset; your cameras and favorites persist in the browser.
 - **Import / export** your whole collection as JSON (backup or share).
-- **Load thousands more** public webcams worldwide via the official
-  [Windy Webcams API](https://api.windy.com/keys) — paste a free key in Settings.
-- **Multiple stream types**: YouTube video, YouTube channel (auto‑live), HLS
-  (`.m3u8` via hls.js), refreshing image snapshots, and embeddable pages.
+- **Load from providers**: one click loads Transport for London's ~900 public
+  traffic cameras (no key needed); a free [Windy Webcams API](https://api.windy.com/keys)
+  key pulls thousands more public webcams worldwide onto the globe.
+- **Every platform**: YouTube (video + channel auto‑live), Twitch (channel + video),
+  Kick, Vimeo, HLS (`.m3u8`), MP4, refreshing image snapshots, and any embeddable
+  page. **Paste any live link** into the Add form and it auto‑detects the platform.
 - **PWA** — installable, offline app shell, works on mobile and desktop.
 
 ## Run it
@@ -50,11 +52,19 @@ service worker and module loading behave normally.
 
 Click **＋** and fill in the form. Choose a **Source type**:
 
+> Tip: just paste a link into **"Paste any live link"** and the platform + id/URL
+> fill in automatically. Or set them manually:
+
 | Type | Put in "Stream id / URL" |
 |------|--------------------------|
-| YouTube video id | the video id, e.g. `eJ7ZkQ5TC08` |
-| YouTube channel id (auto‑live) | the channel id — always shows whatever is live now |
+| YouTube — video id | the video id, e.g. `eJ7ZkQ5TC08` |
+| YouTube — channel id (auto‑live) | the channel id — always shows whatever is live now |
+| Twitch — channel | the channel name, e.g. `somecam` |
+| Twitch — video id | the VOD/clip id |
+| Kick — channel | the channel name |
+| Vimeo — video id | the numeric id |
 | HLS `.m3u8` URL | direct stream URL |
+| MP4 video URL | direct `.mp4` URL |
 | Refreshing image URL | a public snapshot JPEG (refreshes every few seconds) |
 | Embeddable page URL | any page that allows being embedded |
 

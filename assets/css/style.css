@@ -184,3 +184,9 @@ body[data-view="wall"] .tile__media{height:150px}
   .topbar{flex-wrap:wrap;height:auto;padding:8px 12px;gap:8px}
   :root{--topbar:96px}
 }
+
+/* Auto-detect link field + platform badge */
+.autolink input{border-color:var(--accent)!important;background:rgba(56,189,248,.06)!important}
+.autolink{color:var(--accent)!important}
+.focus__plat{color:var(--muted);font-size:12px;border:1px solid var(--line2);
+  padding:2px 8px;border-radius:999px;margin-left:8px}

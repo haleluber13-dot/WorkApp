@@ -8,6 +8,9 @@
   const hlsPool = [];
 
   function catOf(id){ return (window.CATEGORIES||[]).find((c)=>c.id===id) || {icon:"📷",label:id,color:"#38bdf8"}; }
+  const PLATFORMS = {youtube:"YouTube",ytchannel:"YouTube Live",twitch:"Twitch",twitchvideo:"Twitch",
+    kick:"Kick",vimeo:"Vimeo",hls:"Live stream",video:"Video",image:"Snapshot",iframe:"Web"};
+  function platformName(cam){ return PLATFORMS[(cam.source&&cam.source.type)] || "Live"; }
 
   function poster(cam){
     if (cam.thumb) return cam.thumb;
@@ -16,43 +19,83 @@
     return null;
   }
 
-  /* Build a live player into `mount` (a DIV). Returns a cleanup fn. */
+  const ID_TYPES = ["youtube","ytchannel","twitch","twitchvideo","kick","vimeo"];
+
+  /* Build a live player into `mount` (a DIV). Returns a cleanup fn.
+     Supports YouTube, Twitch, Kick, Vimeo, HLS (.m3u8), MP4 video, refreshing
+     image snapshots, and any embeddable page — i.e. most live platforms. */
   function mountPlayer(mount, cam, { muted = true } = {}) {
     mount.innerHTML = "";
     const s = cam.source || {};
-    let cleanup = () => {};
-    const yt = (id, ch) => {
-      const q = "autoplay=1&mute=" + (muted?1:0) + "&playsinline=1&rel=0";
-      const src = ch ? "https://www.youtube.com/embed/live_stream?channel="+id+"&"+q
-                     : "https://www.youtube.com/embed/"+id+"?"+q;
-      mount.innerHTML = '<iframe allow="autoplay; encrypted-media; picture-in-picture" '+
-        'allowfullscreen referrerpolicy="strict-origin-when-cross-origin" src="'+attr(src)+'"></iframe>';
-    };
-    if (s.type === "youtube" && s.id) yt(s.id, false);
-    else if (s.type === "ytchannel" && s.id) yt(s.id, true);
-    else if (s.type === "hls" && s.url) {
-      const v = document.createElement("video");
-      v.controls = true; v.muted = muted; v.autoplay = true; v.playsInline = true;
-      mount.appendChild(v);
-      if (window.Hls && window.Hls.isSupported()) {
-        const hls = new Hls({ liveDurationInfinity: true }); hls.loadSource(s.url); hls.attachMedia(v);
-        hlsPool.push(hls); cleanup = () => { try{hls.destroy();}catch(_){} };
-      } else if (v.canPlayType("application/vnd.apple.mpegurl")) { v.src = s.url; }
-      else { mount.innerHTML = fallbackLink(cam, "This stream needs HLS support."); }
+    const m = muted ? 1 : 0, mb = muted ? "true" : "false";
+    const parent = (location.hostname || "localhost");
+    const frame = (src, allow) =>
+      mount.innerHTML = '<iframe allow="' + (allow || "autoplay; encrypted-media; picture-in-picture; fullscreen") +
+        '" allowfullscreen referrerpolicy="strict-origin-when-cross-origin" src="' + attr(src) + '"></iframe>';
+    const need = (msg) => { mount.innerHTML = fallbackLink(cam, msg); };
+
+    switch (s.type) {
+      case "youtube":
+        if (!s.id) { need("No video id set."); return noop(); }
+        frame("https://www.youtube.com/embed/"+s.id+"?autoplay=1&mute="+m+"&playsinline=1&rel=0"); return noop();
+      case "ytchannel":
+        if (!s.id) { need("No channel id set."); return noop(); }
+        frame("https://www.youtube.com/embed/live_stream?channel="+s.id+"&autoplay=1&mute="+m+"&playsinline=1&rel=0"); return noop();
+      case "twitch":
+        if (!s.id) { need("No Twitch channel set."); return noop(); }
+        frame("https://player.twitch.tv/?channel="+encodeURIComponent(s.id)+"&parent="+parent+"&muted="+mb+"&autoplay=true"); return noop();
+      case "twitchvideo":
+        if (!s.id) { need("No Twitch video id set."); return noop(); }
+        frame("https://player.twitch.tv/?video="+encodeURIComponent(s.id)+"&parent="+parent+"&muted="+mb+"&autoplay=true"); return noop();
+      case "kick":
+        if (!s.id) { need("No Kick channel set."); return noop(); }
+        frame("https://player.kick.com/"+encodeURIComponent(s.id)+"?autoplay=true&muted="+mb); return noop();
+      case "vimeo":
+        if (!s.id) { need("No Vimeo id set."); return noop(); }
+        frame("https://player.vimeo.com/video/"+encodeURIComponent(s.id)+"?autoplay=1&muted="+m); return noop();
+      case "hls":
+        if (!s.url) { need("No stream URL set."); return noop(); }
+        return mountHls(mount, cam, muted);
+      case "video":
+        if (!s.url) { need("No video URL set."); return noop(); }
+        { const v = document.createElement("video");
+          v.src = s.url; v.autoplay = true; v.loop = true; v.muted = muted; v.controls = true; v.playsInline = true;
+          mount.appendChild(v); return noop(); }
+      case "image":
+        if (!s.url) { need("No image URL set."); return noop(); }
+        return mountImage(mount, s);
+      case "iframe":
+        if (!s.url) { need("No URL set."); return noop(); }
+        mount.innerHTML = '<iframe allow="autoplay; fullscreen" allowfullscreen loading="lazy" ' +
+          'referrerpolicy="no-referrer" src="' + attr(s.url) + '"></iframe>' +
+          '<div class="iframe-guard">' + fallbackLink(cam, "If nothing loads, the source blocks embedding.") + '</div>';
+        return noop();
+      default:
+        need("No stream configured yet."); return noop();
     }
-    else if (s.type === "image" && s.url) {
-      const img = document.createElement("img"); img.className = "player-img"; img.alt = cam.name;
-      const refresh = () => { img.src = s.url + (s.url.indexOf("?")>=0?"&":"?") + "t=" + Date.now(); };
-      refresh(); const t = setInterval(refresh, 4000); mount.appendChild(img);
-      cleanup = () => clearInterval(t);
+  }
+  function noop(){ return () => {}; }
+
+  function mountHls(mount, cam, muted) {
+    const v = document.createElement("video");
+    v.controls = true; v.muted = muted; v.autoplay = true; v.playsInline = true;
+    mount.appendChild(v);
+    if (window.Hls && window.Hls.isSupported()) {
+      const hls = new Hls({ liveDurationInfinity: true });
+      hls.loadSource(cam.source.url); hls.attachMedia(v); hlsPool.push(hls);
+      hls.on(window.Hls.Events.ERROR, (_e, d) => { if (d && d.fatal) mount.innerHTML = fallbackLink(cam, "Stream unavailable."); });
+      return () => { try { hls.destroy(); } catch (_) {} };
     }
-    else if (s.type === "iframe" && s.url) {
-      mount.innerHTML = '<iframe allow="autoplay; fullscreen" allowfullscreen loading="lazy" '+
-        'referrerpolicy="no-referrer" src="'+attr(s.url)+'"></iframe>'+
-        '<div class="iframe-guard">'+fallbackLink(cam,"If nothing loads, the source blocks embedding.")+'</div>';
-    }
-    else mount.innerHTML = fallbackLink(cam, "No stream configured yet.");
-    return cleanup;
+    if (v.canPlayType("application/vnd.apple.mpegurl")) { v.src = cam.source.url; return noop(); }
+    mount.innerHTML = fallbackLink(cam, "This stream needs HLS support.");
+    return noop();
+  }
+
+  function mountImage(mount, s) {
+    const img = document.createElement("img"); img.className = "player-img"; img.alt = "";
+    const refresh = () => { img.src = s.url + (s.url.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now(); };
+    refresh(); const t = setInterval(refresh, 4000); mount.appendChild(img);
+    return () => clearInterval(t);
   }
 
   function fallbackLink(cam, why){
@@ -98,6 +141,7 @@
       '<div class="focus__panel" style="--cat:'+c.color+'">'+
         '<header class="focus__bar">'+
           '<div><span class="focus__cat">'+c.icon+' '+esc(c.label)+'</span>'+
+            '<span class="focus__plat">'+esc(platformName(cam))+'</span>'+
             '<h2>'+esc(cam.name)+'</h2>'+
             '<p>'+esc([cam.city,cam.country].filter(Boolean).join(", "))+
               (cam.lat!=null?' · '+cam.lat.toFixed(3)+', '+cam.lng.toFixed(3):'')+'</p></div>'+
@@ -137,13 +181,18 @@
     const cam = id ? Store.get(id) : null;
     const cats = (window.CATEGORIES||[]).map((c)=>'<option value="'+c.id+'"'+(cam&&cam.category===c.id?" selected":"")+'>'+c.icon+" "+esc(c.label)+'</option>').join("");
     const s = (cam&&cam.source)||{type:"youtube"};
-    const types=[["youtube","YouTube video id"],["ytchannel","YouTube channel id (auto-live)"],["hls","HLS .m3u8 URL"],["image","Refreshing image URL"],["iframe","Embeddable page URL"]];
+    const types=[["youtube","YouTube — video id"],["ytchannel","YouTube — channel id (auto-live)"],
+      ["twitch","Twitch — channel"],["twitchvideo","Twitch — video id"],["kick","Kick — channel"],
+      ["vimeo","Vimeo — video id"],["hls","HLS .m3u8 URL"],["video","MP4 video URL"],
+      ["image","Refreshing image URL"],["iframe","Embeddable page URL"]];
     const typeOpts = types.map((t)=>'<option value="'+t[0]+'"'+(s.type===t[0]?" selected":"")+'>'+t[1]+'</option>').join("");
     const val = (v)=> v==null?"":attr(v);
     modal(
       '<h2>'+(cam?"Edit camera":"Add a location")+'</h2>'+
       '<form id="editForm" class="form">'+
         '<label>Name<input name="name" required value="'+val(cam&&cam.name)+'"></label>'+
+        '<label class="autolink">Paste any live link — auto-detects the platform'+
+          '<input name="autolink" placeholder="YouTube · Twitch · Kick · Vimeo · .m3u8 · image URL · any page"></label>'+
         '<div class="row"><label>City<input name="city" value="'+val(cam&&cam.city)+'"></label>'+
           '<label>Country<input name="country" value="'+val(cam&&cam.country)+'"></label></div>'+
         '<div class="row"><label>Latitude<input name="lat" type="number" step="any" value="'+val(cam&&cam.lat)+'"></label>'+
@@ -159,11 +208,28 @@
           '<button type="submit" class="btn btn--primary">'+(cam?"Save":"Add")+'</button></div>'+
         '</div>'+
       '</form>');
-    $("#editForm").addEventListener("submit",(e)=>{
+    // Auto-detect platform from a pasted link and fill type + value
+    const form = $("#editForm");
+    const applyDetect = () => {
+      const raw = form.elements.autolink.value.trim();
+      if (!raw) return;
+      const d = Store.detectSource(raw);
+      if (d) {
+        form.elements.stype.value = d.type;
+        form.elements.sval.value = d.id || d.url || "";
+        toast("Detected: " + d.type);
+      } else if (/^https?:\/\//i.test(raw)) {
+        form.elements.stype.value = "iframe"; form.elements.sval.value = raw;
+      }
+    };
+    form.elements.autolink.addEventListener("input", applyDetect);
+    form.elements.autolink.addEventListener("paste", () => setTimeout(applyDetect, 0));
+
+    form.addEventListener("submit",(e)=>{
       e.preventDefault();
       const f=e.target; const g=(n)=>f.elements[n].value.trim();
       const stype=g("stype"), sval=g("sval");
-      const src = (stype==="youtube"||stype==="ytchannel")?{type:stype,id:sval}:{type:stype,url:sval};
+      const src = ID_TYPES.indexOf(stype)>=0 ? {type:stype,id:sval} : {type:stype,url:sval};
       const out={ id: cam?cam.id:undefined, name:g("name"), city:g("city"), country:g("country"),
         lat: g("lat")===""?null:parseFloat(g("lat")), lng: g("lng")===""?null:parseFloat(g("lng")),
         category:g("category"), source:src, page:g("page")||undefined,
@@ -182,10 +248,12 @@
       '<div class="form">'+
         '<label class="check"><input type="checkbox" id="setRotate"'+(s.autoRotate?" checked":"")+'> Auto-rotate globe</label>'+
         '<hr>'+
-        '<h3>Load public webcams worldwide</h3>'+
-        '<p class="muted">Free key from <a href="https://api.windy.com/keys" target="_blank" rel="noopener">api.windy.com/keys</a> pulls thousands of public webcams onto the globe.</p>'+
+        '<h3>Load live cameras from providers</h3>'+
+        '<p class="muted">London traffic cameras (Transport for London) load instantly — no key needed.</p>'+
+        '<button class="btn btn--primary" id="btnTfl">🚦 Load London traffic cams (no key)</button>'+
+        '<p class="muted" style="margin-top:10px">A free key from <a href="https://api.windy.com/keys" target="_blank" rel="noopener">api.windy.com/keys</a> pulls thousands of public webcams worldwide onto the globe.</p>'+
         '<label>Windy Webcams API key<input id="setWindy" value="'+attr(s.windyKey)+'" placeholder="paste key"></label>'+
-        '<button class="btn btn--primary" id="btnWindy">Load webcams near current view</button>'+
+        '<button class="btn btn--primary" id="btnWindy">🌍 Load Windy webcams</button>'+
         '<hr>'+
         '<h3>Backup</h3>'+
         '<div class="row2"><button class="btn" id="btnExport">⬇ Export JSON</button>'+
@@ -199,6 +267,12 @@
       Store.setSetting("windyKey", $("#setWindy").value.trim());
       try{ toast("Loading webcams…"); const n=await Store.loadWindy(); toast("Loaded "+n+" public webcams"); }
       catch(err){ toast(err.message, true); }
+    });
+    $("#btnTfl").addEventListener("click", async (e)=>{
+      const btn=e.currentTarget; btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";
+      try{ const n=await Store.loadTfL(); toast("Loaded "+n+" London traffic cams"); }
+      catch(err){ toast(err.message, true); }
+      finally{ btn.disabled=false; btn.textContent=old; }
     });
     $("#btnExport").addEventListener("click",()=>{
       const blob=new Blob([Store.exportJSON()],{type:"application/json"});

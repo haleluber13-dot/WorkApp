@@ -20,7 +20,7 @@
     removedIds: new Set(load(LS_KEYS.removed, [])),
     edits: load(LS_KEYS.edits, {}),          // id -> partial overrides
     favorites: new Set(load(LS_KEYS.fav, [])),
-    windyCams: [],                            // fetched at runtime, not persisted
+    providerCams: [],                         // fetched from providers at runtime, not persisted
     settings: Object.assign(
       { windyKey: "", autoRotate: true, showLabels: true, quality: "auto", theme: "midnight" },
       load(LS_KEYS.settings, {})
@@ -41,7 +41,7 @@
     /** All cameras merged: seed + windy + user, minus removed, with edits applied. */
     all() {
       const merged = [];
-      const base = this._seed.concat(this.windyCams).concat(this.userCams);
+      const base = this._seed.concat(this.providerCams).concat(this.userCams);
       for (const cam of base) {
         if (this.removedIds.has(cam.id)) continue;
         const patch = this.edits[cam.id];
@@ -154,12 +154,59 @@
         page: (w.urls && w.urls.detail) || (w.urls && w.urls.provider),
         _origin: "windy"
       })).filter((c) => c.lat != null && c.lng != null && c.source.url);
-      // merge (replace previous windy batch by id)
-      const map = new Map(this.windyCams.map((c) => [c.id, c]));
+      return this._mergeProvider(cams);
+    },
+
+    /** Load Transport for London public traffic cameras (JamCams) — no key needed. */
+    async loadTfL() {
+      const res = await fetch("https://api.tfl.gov.uk/Place/Type/JamCam");
+      if (!res.ok) throw new Error("TfL API error " + res.status);
+      const arr = await res.json();
+      const cams = (Array.isArray(arr) ? arr : []).map((p) => {
+        const props = {};
+        (p.additionalProperties || []).forEach((a) => { props[a.key] = a.value; });
+        const img = props.imageUrl || props.imageURL || props.image;
+        const vid = props.videoUrl || props.video;
+        let source = null;
+        if (vid && /\.m3u8/i.test(vid)) source = { type: "hls", url: vid };
+        else if (vid && /\.mp4/i.test(vid)) source = { type: "video", url: vid };
+        else if (img) source = { type: "image", url: img };
+        if (!source) return null;
+        return {
+          id: "tfl-" + p.id, name: p.commonName || ("JamCam " + p.id),
+          category: "road", city: "London", country: "UK",
+          lat: p.lat, lng: p.lon, tags: ["tfl", "traffic", "london"],
+          source: source, thumb: img, page: "https://tfl.gov.uk/traffic/status/",
+          _origin: "tfl"
+        };
+      }).filter((c) => c && c.lat != null && c.lng != null);
+      return this._mergeProvider(cams);
+    },
+
+    _mergeProvider(cams) {
+      const map = new Map(this.providerCams.map((c) => [c.id, c]));
       cams.forEach((c) => map.set(c.id, c));
-      this.windyCams = Array.from(map.values());
+      this.providerCams = Array.from(map.values());
       this.emit();
       return cams.length;
+    },
+
+    /** Recognize a pasted link from any common live platform. */
+    detectSource(input) {
+      const u = (input || "").trim();
+      if (!u) return null;
+      let m;
+      if ((m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/i))) return { type: "youtube", id: m[1] };
+      if ((m = u.match(/youtube\.com\/channel\/([\w-]+)/i))) return { type: "ytchannel", id: m[1] };
+      if ((m = u.match(/(?:twitch\.tv|player\.twitch\.tv)\/videos\/(\d+)/i)) || (m = u.match(/[?&]video=(\d+)/i))) return { type: "twitchvideo", id: m[1] };
+      if ((m = u.match(/(?:twitch\.tv\/|player\.twitch\.tv\/\?channel=)([A-Za-z0-9_]{3,})/i))) return { type: "twitch", id: m[1] };
+      if ((m = u.match(/(?:kick\.com|player\.kick\.com)\/([A-Za-z0-9_-]{2,})/i))) return { type: "kick", id: m[1] };
+      if ((m = u.match(/vimeo\.com\/(?:video\/|event\/)?(\d+)/i))) return { type: "vimeo", id: m[1] };
+      if (/\.m3u8(\?|#|$)/i.test(u)) return { type: "hls", url: u };
+      if (/\.mp4(\?|#|$)/i.test(u)) return { type: "video", url: u };
+      if (/\.(jpe?g|png|gif|webp|bmp)(\?|#|$)/i.test(u)) return { type: "image", url: u };
+      if (/^https?:\/\//i.test(u)) return { type: "iframe", url: u };
+      return null;
     }
   };
 

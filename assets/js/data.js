@@ -4,12 +4,17 @@
  * Feeds on the open web rotate over time — every entry is editable in-app, and
  * you can add your own or load thousands more via the Windy Webcams API in Settings.
  *
- * source.type:
- *   "youtube"  -> source.id is a YouTube video id (live stream)
- *   "ytchannel"-> source.id is a YouTube channelId (embeds whatever is live now)
- *   "hls"      -> source.url is an .m3u8 stream (played with hls.js)
- *   "image"    -> source.url is a refreshing JPEG snapshot (public traffic cams)
- *   "iframe"   -> source.url is an embeddable public page
+ * source.type (any live platform — the Add form auto-detects these from a pasted link):
+ *   "youtube"    -> source.id is a YouTube video id (live stream)
+ *   "ytchannel"  -> source.id is a YouTube channelId (embeds whatever is live now)
+ *   "twitch"     -> source.id is a Twitch channel name
+ *   "twitchvideo"-> source.id is a Twitch video id
+ *   "kick"       -> source.id is a Kick channel name
+ *   "vimeo"      -> source.id is a Vimeo video/event id
+ *   "hls"        -> source.url is an .m3u8 stream (played with hls.js)
+ *   "video"      -> source.url is an .mp4 stream/clip
+ *   "image"      -> source.url is a refreshing JPEG snapshot (public traffic cams)
+ *   "iframe"     -> source.url is any embeddable public page
  * Every entry also has `page` = the original public source page.
  */
 window.CATEGORIES = [

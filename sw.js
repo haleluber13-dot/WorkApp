@@ -1,4 +1,4 @@
-const CACHE = "globewatch-v1";
+const CACHE = "globewatch-v2";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest",
   "./assets/css/style.css",
