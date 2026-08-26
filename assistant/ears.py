@@ -40,8 +40,10 @@ def record(seconds=8, path=RECORDING):
         pass
 
     # Recording starts in the background and the command returns at once.
+    # No encoder is named: the default is AAC, and asking for one the
+    # device does not have is another way to hang.
     ok, _, problem = termux.run(
-        [RECORD_CMD, "-f", path, "-l", str(int(seconds)), "-e", "aac"], 15
+        [RECORD_CMD, "-f", path, "-l", str(int(seconds))], 15
     )
     if not ok:
         return False, problem

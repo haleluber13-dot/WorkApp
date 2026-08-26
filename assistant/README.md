@@ -226,8 +226,15 @@ listen --record     # the recording path specifically
 ```
 
 Nothing captured means the Microphone permission: Settings → Apps →
-Termux:API → Permissions → Microphone. `doctor.sh` records three seconds
-and tells you whether anything arrived.
+Termux:API → Permissions → Microphone. It is granted separately from the
+others, so contacts and SMS working tells you nothing about it.
+`doctor.sh` records three seconds and tells you whether anything arrived.
+
+A refused permission does not come back as an error — the app waits for a
+dialog that a background service may not show, and that wait can jam the
+whole Termux:API service, making the next command look broken too. If
+everything starts hanging at once: Settings → Apps → Termux:API → Force
+stop, then try again.
 
 Typing works either way.
 
@@ -290,7 +297,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 75 tests, no phone or network needed |
+| `tests/` | 77 tests, no phone or network needed |
 
 ## Tests
 

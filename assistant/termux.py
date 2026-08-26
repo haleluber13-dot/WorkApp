@@ -27,7 +27,38 @@ API_MISSING_HELP = (
 )
 
 
+# Commands that Android gates behind a runtime permission. When one of
+# these is refused the app does not fail — it waits for a dialog that a
+# background service is not allowed to show, and the wait can jam the
+# whole API service, so the next command looks like a dead app too.
+PERMISSION_GATED = {
+    "termux-microphone-record",
+    "termux-speech-to-text",
+    "termux-sms-send",
+    "termux-sms-list",
+    "termux-contact-list",
+    "termux-telephony-call",
+    "termux-location",
+    "termux-camera-photo",
+    "termux-camera-info",
+    "termux-notification-list",
+}
+
+WEDGED_NOTE = (
+    "\nA blocked command can leave the Termux:API service stuck, which "
+    "makes everything after it look broken too. If the next command also "
+    "hangs: Settings > Apps > Termux:API > Force stop, then try again."
+)
+
 FEATURE_HELP = {
+    "termux-microphone-record": (
+        "The microphone did not record.\n"
+        "Termux:API is missing the Microphone permission. The others may\n"
+        "well be granted — this one is separate:\n"
+        "  Settings > Apps > Termux:API > Permissions > Microphone > Allow\n"
+        "If Microphone is not listed there, open the Termux:API app once\n"
+        "from the app drawer and look again."
+    ),
     "termux-tts-speak": (
         "The Termux:API app is working — so this is text-to-speech itself.\n"
         "The phone has no speech engine set up, or the engine has no voice\n"
@@ -86,6 +117,11 @@ def why_no_answer(command):
         return API_MISSING_HELP
     ok, _, _ = run(PROBE, 6)
     if not ok:
+        if command[0] in PERMISSION_GATED:
+            # The app answered until this command ran, so the likely story
+            # is a refused permission that jammed the service — not a
+            # missing app. Say the useful thing first.
+            return FEATURE_HELP.get(command[0], "") + WEDGED_NOTE
         _app_unreachable = True
         return API_MISSING_HELP
     return FEATURE_HELP.get(

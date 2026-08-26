@@ -373,6 +373,26 @@ class DiagnosisTest(PhoneTestCase):
             _, _, problem = termux.run(["termux-speech-to-text"], 8)
         self.assertIn("Microphone", problem)
 
+    def test_a_jammed_permission_is_not_reported_as_a_missing_app(self):
+        """A refused permission can wedge the service, so the probe fails too.
+
+        Blaming the app there sends people reinstalling something that
+        works. Name the permission instead.
+        """
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", self._phone(False)):
+            _, _, problem = termux.run(["termux-microphone-record", "-f", "x"], 8)
+
+        self.assertIn("Microphone", problem)
+        self.assertIn("Force stop", problem)
+        self.assertNotIn("Install Termux:API", problem)
+
+    def test_an_ungated_command_still_blames_the_app(self):
+        with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
+             mock.patch.object(termux.subprocess, "run", self._phone(False)):
+            _, _, problem = termux.run(["termux-torch", "on"], 8)
+        self.assertIn("Termux:API app is not answering", problem)
+
     def test_the_probe_itself_does_not_probe_itself(self):
         """Or a dead phone would recurse until the stack gave out."""
         with mock.patch.object(termux.shutil, "which", return_value="/bin/x"), \
