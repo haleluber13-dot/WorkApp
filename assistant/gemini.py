@@ -16,6 +16,7 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 # Where the key is looked for, in order, when it is not passed explicitly.
 KEY_ENV_VARS = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
 KEY_FILE = os.path.expanduser("~/.personal-ai/key")
+MODEL_FILE = os.path.expanduser("~/.personal-ai/model")
 
 
 class GeminiError(RuntimeError):
@@ -311,3 +312,54 @@ def choose_model(models):
     # Nothing known: prefer a plain name over a dated preview build.
     plain = [name for name in usable if "preview" not in name and "exp" not in name]
     return sorted(plain or usable, key=len)[0]
+
+
+def preferred_model():
+    """The model to use: the environment, then what was chosen last time."""
+    chosen = os.environ.get("GEMINI_MODEL", "").strip()
+    if chosen:
+        return chosen
+    try:
+        with open(MODEL_FILE, encoding="utf-8") as handle:
+            remembered = handle.read().strip()
+        if remembered:
+            return remembered
+    except OSError:
+        pass
+    return DEFAULT_MODEL
+
+
+def remember_model(name):
+    os.makedirs(os.path.dirname(MODEL_FILE), exist_ok=True)
+    with open(MODEL_FILE, "w", encoding="utf-8") as handle:
+        handle.write(name + "\n")
+
+
+def repair_model(current, key=None, announce=None):
+    """Find a model this key can actually run, and remember it."""
+    choice = choose_model(list_models(key))
+    if not choice:
+        raise GeminiError(
+            "This key cannot run any chat model. It may be a key for a "
+            "different Google service. Make a new one at "
+            "https://aistudio.google.com/apikey"
+        )
+    remember_model(choice)
+    if announce:
+        announce(f"[{current} is not available to your key — using {choice} instead]")
+    return choice
+
+
+def with_model_repair(attempt, model, key=None, announce=None):
+    """Run `attempt(model)`, and if the model is wrong, fix it and retry.
+
+    Every path that talks to Gemini needs this, not just the chat one:
+    a key that cannot run the default model cannot transcribe with it
+    either.
+    """
+    try:
+        return attempt(model)
+    except GeminiError as error:
+        if error.kind != "model_missing":
+            raise
+        return attempt(repair_model(model, key=key, announce=announce))

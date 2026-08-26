@@ -266,6 +266,9 @@ exist, the assistant lists what your key really has, picks the best chat
 model on it, remembers that in `~/.personal-ai/model`, and carries on with
 the question you asked. You do not have to do anything.
 
+The choice is shared: chatting, acting and listening all read the same
+remembered name, so a model repaired in one place is repaired everywhere.
+
 To choose yourself: `ai --models` to see the list, then `ai --model NAME`
 for one question, or write the name into `~/.personal-ai/model` to keep it.
 `GEMINI_MODEL` in the environment overrides both.
@@ -297,7 +300,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 77 tests, no phone or network needed |
+| `tests/` | 80 tests, no phone or network needed |
 
 ## Tests
 

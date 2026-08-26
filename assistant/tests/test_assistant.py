@@ -670,6 +670,60 @@ class ChooseModelTest(PhoneTestCase):
 
 
 class ModelRepairTest(PhoneTestCase):
+    def test_every_path_shares_one_remembered_model(self):
+        """Chat and transcription must not each keep their own answer."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "model")
+            with mock.patch.object(gemini, "MODEL_FILE", path), \
+                 mock.patch.dict(os.environ, {}, clear=True):
+                gemini.remember_model("gemini-flash-latest")
+                self.assertEqual(gemini.preferred_model(), "gemini-flash-latest")
+                self.assertEqual(
+                    assistant.build_parser().parse_args([]).model,
+                    "gemini-flash-latest",
+                )
+
+    def test_the_environment_still_wins(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "model")
+            with mock.patch.object(gemini, "MODEL_FILE", path), \
+                 mock.patch.dict(os.environ, {"GEMINI_MODEL": "gemini-2.0-flash"}):
+                gemini.remember_model("gemini-flash-latest")
+                self.assertEqual(gemini.preferred_model(), "gemini-2.0-flash")
+
+    def test_transcription_repairs_the_model_too(self):
+        """The bug this fixes: listening failed on a model chat had replaced."""
+        class Missing(urllib.error.HTTPError):
+            def __init__(self):
+                super().__init__("u", 404, "err", {}, None)
+
+            def read(self):
+                return b'{"error":{"message":"not found"}}'
+
+        def fake_request(url, payload, key, timeout):
+            if url.endswith("/models"):
+                return {"models": [{
+                    "name": "models/gemini-flash-latest",
+                    "supportedGenerationMethods": ["generateContent"],
+                }]}
+            if "gemini-2.5-flash:" in url:
+                raise Missing()
+            return {"candidates": [{"content": {"parts": [{"text": "מה השעה"}]}}]}
+
+        with tempfile.TemporaryDirectory() as folder:
+            recording = os.path.join(folder, "turn.m4a")
+            with open(recording, "wb") as handle:
+                handle.write(b"\1" * 5000)
+            with mock.patch.object(gemini, "_request", fake_request), \
+                 mock.patch.object(gemini, "MODEL_FILE", os.path.join(folder, "model")), \
+                 mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}, clear=False), \
+                 mock.patch.dict(os.environ, {"GEMINI_MODEL": ""}):
+                heard = ears.transcribe(recording, model="gemini-2.5-flash")
+
+            self.assertEqual(heard, "מה השעה")
+            with open(os.path.join(folder, "model"), encoding="utf-8") as handle:
+                self.assertEqual(handle.read().strip(), "gemini-flash-latest")
+
     def test_a_missing_model_is_replaced_and_remembered(self):
         class Missing(urllib.error.HTTPError):
             def __init__(self):
@@ -695,7 +749,7 @@ class ModelRepairTest(PhoneTestCase):
             with mock.patch.object(gemini, "_request", fake_request), \
                  mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
                  mock.patch.object(assistant, "HOME", folder), \
-                 mock.patch.object(assistant, "MODEL_FILE", path), \
+                 mock.patch.object(gemini, "MODEL_FILE", path), \
                  mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"), \
                  mock.patch.object(sys, "stderr", io.StringIO()):
                 text, _ = assistant.run_once(args, voice.Voice(enabled=False), "hi", [])

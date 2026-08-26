@@ -31,8 +31,11 @@ TRANSCRIBE = (
 TOO_SMALL = 1200
 
 
-def record(seconds=8, path=RECORDING):
+def record(seconds=8, path=None):
     """Record from the microphone into `path`. Returns (ok, problem)."""
+    # Resolved here rather than as a default argument, so the location
+    # stays one value that can be changed in one place.
+    path = path or RECORDING
     os.makedirs(os.path.dirname(path), exist_ok=True)
     try:
         os.remove(path)
@@ -62,12 +65,21 @@ def record(seconds=8, path=RECORDING):
     return True, ""
 
 
-def transcribe(path=RECORDING, model=None, key=None, timeout=60):
+def transcribe(path=None, model=None, key=None, timeout=60, announce=None):
     """Send a recording to Gemini and return the words in it."""
+    path = path or RECORDING
     with open(path, "rb") as handle:
         encoded = base64.b64encode(handle.read()).decode("ascii")
 
-    model = model or gemini.DEFAULT_MODEL
+    return gemini.with_model_repair(
+        lambda chosen: _transcribe_with(encoded, chosen, key, timeout),
+        model or gemini.preferred_model(),
+        key=key,
+        announce=announce,
+    )
+
+
+def _transcribe_with(encoded, model, key, timeout):
     last = None
     for mime in MIME_TYPES:
         contents = [{
@@ -89,13 +101,14 @@ def transcribe(path=RECORDING, model=None, key=None, timeout=60):
     raise last
 
 
-def listen(seconds=8, model=None, key=None):
+def listen(seconds=8, model=None, key=None, announce=None, path=None):
     """Record and transcribe in one go. Returns (words, problem)."""
-    ok, problem = record(seconds)
+    path = path or RECORDING
+    ok, problem = record(seconds, path)
     if not ok:
         return "", problem
     try:
-        return transcribe(model=model, key=key), ""
+        return transcribe(path, model=model, key=key, announce=announce), ""
     except gemini.GeminiError as error:
         return "", str(error)
 
