@@ -29,10 +29,12 @@ desktop.
 - **Import / export** your whole collection as JSON (backup or share).
 - **Load from providers**: one click loads Transport for London's ~900 public
   traffic cameras (no key needed); a free [Windy Webcams API](https://api.windy.com/keys)
-  key pulls thousands more public webcams worldwide onto the globe.
+  key pulls thousands more public webcams worldwide — either a global sample or
+  **just the region you've zoomed the globe to**.
 - **Every platform**: YouTube (video + channel auto‑live), Twitch (channel + video),
-  Kick, Vimeo, HLS (`.m3u8`), MP4, refreshing image snapshots, and any embeddable
-  page. **Paste any live link** into the Add form and it auto‑detects the platform.
+  Kick, Vimeo, HLS (`.m3u8`), MPEG‑DASH (`.mpd`), MP4, refreshing image snapshots,
+  and any embeddable page. **Paste any live link** into the Add form and it
+  auto‑detects the platform.
 - **PWA** — installable, offline app shell, works on mobile and desktop.
 
 ## Run it
@@ -64,6 +66,7 @@ Click **＋** and fill in the form. Choose a **Source type**:
 | Kick — channel | the channel name |
 | Vimeo — video id | the numeric id |
 | HLS `.m3u8` URL | direct stream URL |
+| MPEG‑DASH `.mpd` URL | direct manifest URL |
 | MP4 video URL | direct `.mp4` URL |
 | Refreshing image URL | a public snapshot JPEG (refreshes every few seconds) |
 | Embeddable page URL | any page that allows being embedded |
@@ -93,3 +96,19 @@ assets/icons/            app icons
 - Live feeds on the open web rotate over time — every entry is editable, so if a
   stream goes dark, open its source page and update the id/URL.
 - When you change app files, bump `CACHE` in `sw.js` so clients pick up the update.
+
+## Publish a shareable link (GitHub Pages)
+
+This is a static site, so GitHub Pages can host it for free:
+
+1. On GitHub, open **Settings → Pages**.
+2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
+3. Pick the branch `claude/global-live-camera-app-49nlr4` (or `main` after merging)
+   and folder **/ (root)**, then **Save**.
+4. Wait ~1 minute. Your live URL will be:
+
+   **https://haleluber13-dot.github.io/WorkApp/**
+
+Because the app embeds third‑party live players (YouTube, Twitch, etc.), host it
+on a real web server like Pages — a sandboxed preview that blocks cross‑site
+embeds will show the shell but not the feeds.

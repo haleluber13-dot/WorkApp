@@ -9,7 +9,7 @@
 
   function catOf(id){ return (window.CATEGORIES||[]).find((c)=>c.id===id) || {icon:"📷",label:id,color:"#38bdf8"}; }
   const PLATFORMS = {youtube:"YouTube",ytchannel:"YouTube Live",twitch:"Twitch",twitchvideo:"Twitch",
-    kick:"Kick",vimeo:"Vimeo",hls:"Live stream",video:"Video",image:"Snapshot",iframe:"Web"};
+    kick:"Kick",vimeo:"Vimeo",hls:"Live stream",dash:"Live stream",video:"Video",image:"Snapshot",iframe:"Web"};
   function platformName(cam){ return PLATFORMS[(cam.source&&cam.source.type)] || "Live"; }
 
   function poster(cam){
@@ -56,6 +56,9 @@
       case "hls":
         if (!s.url) { need("No stream URL set."); return noop(); }
         return mountHls(mount, cam, muted);
+      case "dash":
+        if (!s.url) { need("No DASH URL set."); return noop(); }
+        return mountDash(mount, cam, muted);
       case "video":
         if (!s.url) { need("No video URL set."); return noop(); }
         { const v = document.createElement("video");
@@ -88,6 +91,20 @@
     }
     if (v.canPlayType("application/vnd.apple.mpegurl")) { v.src = cam.source.url; return noop(); }
     mount.innerHTML = fallbackLink(cam, "This stream needs HLS support.");
+    return noop();
+  }
+
+  function mountDash(mount, cam, muted) {
+    const v = document.createElement("video");
+    v.controls = true; v.muted = muted; v.autoplay = true; v.playsInline = true;
+    mount.appendChild(v);
+    if (window.dashjs && window.dashjs.MediaPlayer) {
+      const player = window.dashjs.MediaPlayer().create();
+      player.initialize(v, cam.source.url, true);
+      player.on(window.dashjs.MediaPlayer.events.ERROR, () => { mount.innerHTML = fallbackLink(cam, "Stream unavailable."); });
+      return () => { try { player.reset(); } catch (_) {} };
+    }
+    mount.innerHTML = fallbackLink(cam, "This stream needs MPEG-DASH support.");
     return noop();
   }
 
@@ -183,8 +200,8 @@
     const s = (cam&&cam.source)||{type:"youtube"};
     const types=[["youtube","YouTube — video id"],["ytchannel","YouTube — channel id (auto-live)"],
       ["twitch","Twitch — channel"],["twitchvideo","Twitch — video id"],["kick","Kick — channel"],
-      ["vimeo","Vimeo — video id"],["hls","HLS .m3u8 URL"],["video","MP4 video URL"],
-      ["image","Refreshing image URL"],["iframe","Embeddable page URL"]];
+      ["vimeo","Vimeo — video id"],["hls","HLS .m3u8 URL"],["dash","MPEG-DASH .mpd URL"],
+      ["video","MP4 video URL"],["image","Refreshing image URL"],["iframe","Embeddable page URL"]];
     const typeOpts = types.map((t)=>'<option value="'+t[0]+'"'+(s.type===t[0]?" selected":"")+'>'+t[1]+'</option>').join("");
     const val = (v)=> v==null?"":attr(v);
     modal(
@@ -253,7 +270,8 @@
         '<button class="btn btn--primary" id="btnTfl">🚦 Load London traffic cams (no key)</button>'+
         '<p class="muted" style="margin-top:10px">A free key from <a href="https://api.windy.com/keys" target="_blank" rel="noopener">api.windy.com/keys</a> pulls thousands of public webcams worldwide onto the globe.</p>'+
         '<label>Windy Webcams API key<input id="setWindy" value="'+attr(s.windyKey)+'" placeholder="paste key"></label>'+
-        '<button class="btn btn--primary" id="btnWindy">🌍 Load Windy webcams</button>'+
+        '<div class="row2"><button class="btn btn--primary" id="btnWindy">🌍 Load Windy webcams</button>'+
+        '<button class="btn btn--primary" id="btnWindyHere">📍 Load near current globe view</button></div>'+
         '<hr>'+
         '<h3>Backup</h3>'+
         '<div class="row2"><button class="btn" id="btnExport">⬇ Export JSON</button>'+
@@ -267,6 +285,21 @@
       Store.setSetting("windyKey", $("#setWindy").value.trim());
       try{ toast("Loading webcams…"); const n=await Store.loadWindy(); toast("Loaded "+n+" public webcams"); }
       catch(err){ toast(err.message, true); }
+    });
+    $("#btnWindyHere").addEventListener("click", async (e)=>{
+      Store.setSetting("windyKey", $("#setWindy").value.trim());
+      const btn=e.currentTarget; btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";
+      try{
+        const pov = window.GlobeView && GlobeView.getPOV ? GlobeView.getPOV() : null;
+        let nearby = null;
+        if (pov && pov.lat!=null){
+          const radiusKm = Math.min(250, Math.max(25, Math.round(pov.altitude*110)));
+          nearby = pov.lat.toFixed(3)+","+pov.lng.toFixed(3)+","+radiusKm;
+        }
+        const n = await Store.loadWindy(nearby);
+        toast(nearby ? ("Loaded "+n+" webcams near the current view") : ("Globe not ready — loaded "+n+" webcams"));
+      } catch(err){ toast(err.message, true); }
+      finally{ btn.disabled=false; btn.textContent=old; }
     });
     $("#btnTfl").addEventListener("click", async (e)=>{
       const btn=e.currentTarget; btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";

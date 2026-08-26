@@ -53,6 +53,9 @@
 
     setAutoRotate(on) { if (this.world) this.world.controls().autoRotate = !!on; },
 
+    /** Current camera target { lat, lng, altitude } or null if globe unavailable. */
+    getPOV() { return this.world ? this.world.pointOfView() : null; },
+
     focus(cam) {
       if (!this.world || !cam) return;
       this.world.pointOfView({ lat: cam.lat, lng: cam.lng, altitude: 1.1 }, 900);

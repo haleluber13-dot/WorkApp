@@ -203,6 +203,7 @@
       if ((m = u.match(/(?:kick\.com|player\.kick\.com)\/([A-Za-z0-9_-]{2,})/i))) return { type: "kick", id: m[1] };
       if ((m = u.match(/vimeo\.com\/(?:video\/|event\/)?(\d+)/i))) return { type: "vimeo", id: m[1] };
       if (/\.m3u8(\?|#|$)/i.test(u)) return { type: "hls", url: u };
+      if (/\.mpd(\?|#|$)/i.test(u)) return { type: "dash", url: u };
       if (/\.mp4(\?|#|$)/i.test(u)) return { type: "video", url: u };
       if (/\.(jpe?g|png|gif|webp|bmp)(\?|#|$)/i.test(u)) return { type: "image", url: u };
       if (/^https?:\/\//i.test(u)) return { type: "iframe", url: u };
