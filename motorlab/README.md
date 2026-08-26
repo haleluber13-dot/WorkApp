@@ -40,6 +40,51 @@ bike and a shifter kart.
 | **News & Updates** | New cars, bikes, engines and tech — and the channel the app updates itself from. |
 | **Settings** | Units, 3D quality, ambient conditions, difficulty, game mode, save import/export. |
 
+## The parts and the motion are the lesson
+
+Nothing here is a box standing in for a component. Every part is drawn from the
+profile the real one has, because the shape is usually the explanation:
+
+- **Pistons** are revolved from a real profile — domed or dished crown, three
+  ring grooves in the right places, a tapered skirt and pin bosses.
+- **Connecting rods** are I-beams with a big end, a small end and the flanges
+  that stop them buckling.
+- **Crankshafts** have main journals, rod throws and cast counterweights sitting
+  opposite the pin, arranged at the angles the firing order actually demands.
+- **Cam lobes** are real harmonic lobes — a base circle with a nose — and the
+  lobe you can see is the lobe doing the lifting. **Valves** are tulip-headed
+  poppets with 45° seat faces and springs that visibly compress.
+- **Turbochargers** have spiral volutes and bladed compressor and turbine wheels
+  on a shared shaft.
+- **Cars** get a real silhouette per body style — bonnet line, screen rake and
+  tail — with wheel arches cut through and an inset glasshouse.
+
+The motion is derived, not looped:
+
+- Crank–slider kinematics, with each cylinder phased by **where it sits in the
+  firing order** over the full 720° cycle. Watch a V8 and you can read its firing
+  order off the pistons.
+- Valve lift comes from the **cam lobe profile at its current angle**, so the
+  nose visibly pushes the valve open — and on a pushrod engine the lifter,
+  pushrod and rocker all follow it.
+- **Combustion flashes in firing order**, drawn through the casting so you can
+  see which cylinder is on its power stroke.
+- **Engine shake** is computed from the layout's primary and secondary
+  imbalance: a big single hammers, an inline-6 barely moves, a flat-plane V8
+  buzzes where a cross-plane one does not.
+- Starting is a **sequence**: the starter drags it over, it catches and flares,
+  then settles to a hunting idle. After that the flywheel's inertia governs how
+  fast it picks up revs — a race engine snaps, a truck diesel takes its time.
+- The **turbo shaft lags** behind the engine, spooling up and coasting down.
+- Vehicles get wheel rotation, steering, per-corner suspension travel over the
+  road surface, and squat and dive under acceleration and braking.
+
+**Part names appear when you touch a part** — hover or select — rather than
+covering the model in labels. The 🏷 button pins them all when you want the map.
+
+Press **C** for a cutaway: it sections the castings and leaves the crank, rods,
+pistons, cams and valves whole inside the cut, like a museum display engine.
+
 ## The simulation
 
 Torque comes from mean effective pressure, which comes from how much air the

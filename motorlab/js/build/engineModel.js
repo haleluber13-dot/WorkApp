@@ -6,7 +6,9 @@
  */
 import * as THREE from 'three';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, tag, at, rot,
-         boundsOf, slider, epitrochoid, deg, TAU } from '../lib/geo.js';
+         boundsOf, slider, epitrochoid, deg, TAU,
+         lathe, pistonMesh, rodMesh, counterweight, camLobe, lobeLift, valveMesh, springMesh,
+         volute, bladedWheel, flameMesh, puffMesh, imbalance } from '../lib/geo.js';
 import { firingOrder } from '../data/engines.js';
 
 const M = (mm) => mm / 1000;   // spec is in millimetres, scene is in metres
@@ -42,13 +44,23 @@ function cylSlot(e, i, L){
   return { bank: i % 2, idx: Math.floor(i / 2) };
 }
 
-/** Crank pin angle for each cylinder, derived from the real firing order. */
-function pinAngles(e){
+/** Crank angle at which each cylinder fires, over the full cycle (0…720°). */
+function fireAngles(e){
   const fo = firingOrder(e);
   const per = (360 * e.revsPerCycle) / e.cyl;
   const out = new Array(e.cyl).fill(0);
-  fo.forEach((cylNo, k) => { out[cylNo - 1] = deg((k * per) % 360); });
+  fo.forEach((cylNo, k) => { out[cylNo - 1] = deg(k * per); });
   return out;
+}
+/** The same angles reduced to one crank revolution — where the rod journal sits. */
+function pinAngles(e){ return fireAngles(e).map(a => a % TAU); }
+
+/** Valve event centres and duration, in crank degrees of the 720° cycle. */
+function camTiming(e){
+  const duration = deg(e.class === 'race' ? 285 : e.camProfile === 'aggressive' ? 255 : 228);
+  /* boosted engines run a wider lobe separation, so less overlap around TDC */
+  const spread = e.aspiration === 'na' ? 0 : deg(9);
+  return { duration, intake: deg(450) + spread, exhaust: deg(270) - spread };
 }
 
 function cylPosition(e, i, L){
@@ -71,11 +83,15 @@ function buildPiston(e, tree){
     if (!nodes.has(id)) nodes.set(id, []);
     nodes.get(id).push(obj);
   };
-  const anim = { pistons:[], rods:[], crank:null, cams:[], valves:[], pulleys:[], fans:[], flames:[], turbos:[], rotors:[] };
+  const anim = { pistons:[], rods:[], crank:null, cams:[], lobes:[], valves:[], springs:[],
+                 followers:[], pulleys:[], fans:[], flames:[], puffs:[], turbos:[], rotors:[],
+                 shake: imbalance(e) };
   const has = (id) => !!tree.byId[id];
   const airCooled = (e.coolant || '').startsWith('air');
   const ohv = e.cam === 'OHV';
   const pins = pinAngles(e);
+  const fires = fireAngles(e);
+  const CAM = camTiming(e);
 
   /* ---- block ---- */
   const blockG = group('block');
@@ -124,32 +140,32 @@ function buildPiston(e, tree){
   }
   add('mainbearings', mbG); add('maincaps', mcG);
 
-  /* ---- crankshaft ---- */
+  /* ---- crankshaft: main journals, rod throws, counterweights ---- */
   const crankG = group('crank');
-  const mainJ = cyl(L.crankR * 0.5, L.crankR * 0.5, L.len * 0.98, MAT.steel(), 20);
-  rot(mainJ, 0, 0, Math.PI/2); crankG.add(mainJ);
+  const jR = L.crankR * 0.52, pinR = L.crankR * 0.44;
+  for (let i = 0; i < nMains; i++){
+    const x = (i - (nMains - 1) / 2) * (L.len / Math.max(1, nMains - 1)) * 0.92;
+    const j = cyl(jR, jR, M(26), MAT.steel(), 20);
+    rot(j, 0, 0, Math.PI/2); j.position.x = x; crankG.add(j);
+  }
+  crankG.add(rot(cyl(jR * 0.62, jR * 0.62, L.len * 0.99, MAT.steel(), 14), 0, 0, Math.PI/2));
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
-    const th = pins[i];
-    const web = box(M(14), L.crankR * 2.1, L.crankR * 1.3, MAT.steel());
-    web.position.set(p.x, 0, 0);
     const throwG = group('throw');
-    const pin = cyl(L.crankR * 0.42, L.crankR * 0.42, L.pitch * 0.52, MAT.steel(), 16);
-    rot(pin, 0, 0, Math.PI/2);
-    pin.position.set(p.x, L.crankR, 0);
-    const cw = box(M(16), L.crankR * 1.6, L.crankR * 1.1, MAT.steel());
-    cw.position.set(p.x, -L.crankR * 0.75, 0);
-    throwG.add(pin, cw, web);
-    throwG.userData.pinAngle = th;
-    throwG.rotation.x = th;
-    /* rotate the throw about the crank axis, which passes through y=0,z=0 */
-    const holder = group('holder'); holder.add(throwG);
-    crankG.add(holder);
-    throwG.position.set(0,0,0);
-    /* reposition children so rotation happens about the crank centreline */
-    pin.position.set(p.x, L.crankR, 0);
-    cw.position.set(p.x, -L.crankR * 0.75, 0);
-    web.position.set(p.x, L.crankR * 0.1, 0);
+    const pin = cyl(pinR, pinR, L.pitch * 0.46, MAT.steel(), 18);
+    rot(pin, 0, 0, Math.PI/2); pin.position.set(p.x, L.crankR, 0);
+    throwG.add(pin);
+    for (const side of [-1, 1]){
+      const web = box(M(15), L.crankR * 1.5, L.crankR * 1.15, MAT.steel());
+      web.position.set(p.x + side * L.pitch * 0.28, L.crankR * 0.45, 0);
+      throwG.add(web);
+      const cw = counterweight(L.crankR * 1.62, M(17), MAT.steel());
+      cw.rotation.x = Math.PI;                       // opposite the pin
+      cw.position.set(p.x + side * L.pitch * 0.30, 0, 0);
+      throwG.add(cw);
+    }
+    throwG.rotation.x = pins[i];
+    crankG.add(throwG);
   }
   const snout = cyl(L.crankR * 0.36, L.crankR * 0.36, M(70), MAT.steel(), 16);
   rot(snout, 0, 0, Math.PI/2); snout.position.x = -L.len/2 - M(30); crankG.add(snout);
@@ -158,32 +174,36 @@ function buildPiston(e, tree){
 
   /* ---- pistons + rods ---- */
   const pistG = group('pistons'), rodG = group('rods');
+  const pinBoreR = L.bore * 0.105;
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
     const pg = group('p' + i);
-    const crown = cyl(L.bore/2 * 0.985, L.bore/2 * 0.985, L.bore * 0.52, MAT.alloy(), 22);
-    pg.add(crown);
+    pg.add(pistonMesh(L.bore, MAT.alloy(), { dish: e.injection === 'direct' ? 0.12 : e.cr > 11 ? 0.02 : 0.07 }));
     for (let r = 0; r < 3; r++){
-      const ring = torus(L.bore/2 * 0.99, M(1.6), r === 2 ? MAT.iron() : MAT.steel(), 22);
-      rot(ring, Math.PI/2, 0, 0); ring.position.y = L.bore*0.16 - r * M(5);
+      const ring = torus(L.bore/2 * 0.995, M(1.7), r === 2 ? MAT.iron() : MAT.steel(), 26);
+      rot(ring, Math.PI/2, 0, 0);
+      ring.position.y = L.bore * (0.146 - r * 0.062);
       pg.add(ring);
     }
-    const pinM = cyl(M(9), M(9), L.bore * 0.62, MAT.steel(), 12);
-    rot(pinM, 0, 0, Math.PI/2); pinM.position.y = -L.bore*0.06; pg.add(pinM);
+    const wrist = cyl(pinBoreR, pinBoreR, L.bore * 0.66, MAT.steel(), 14);
+    rot(wrist, 0, 0, Math.PI/2); wrist.position.y = -L.bore * 0.045; pg.add(wrist);
     pg.userData.cylIndex = i;
     pistG.add(pg);
 
     const rg = group('r' + i);
-    const beam = box(M(15), L.rodLen, M(26), MAT.steel());
-    beam.position.y = -L.rodLen/2; rg.add(beam);
-    const bigEnd = tubeMesh(L.crankR * 0.62, L.crankR * 0.42, M(24), MAT.steel(), 16);
-    rot(bigEnd, 0, 0, Math.PI/2); bigEnd.position.y = -L.rodLen; rg.add(bigEnd);
-    const smallEnd = tubeMesh(M(15), M(9), M(20), MAT.steel(), 14);
-    rot(smallEnd, 0, 0, Math.PI/2); rg.add(smallEnd);
+    rg.add(rodMesh(L.rodLen, L.crankR * 0.66, pinBoreR, MAT.steel()));
     rodG.add(rg);
 
-    anim.pistons.push({ node:pg, i, x:p.x, angle:p.angle, pin:pins[i] });
-    anim.rods.push({ node:rg, i, x:p.x, angle:p.angle, pin:pins[i] });
+    anim.pistons.push({ node:pg, i, x:p.x, angle:p.angle, fire:fires[i] });
+    anim.rods.push({ node:rg, i, x:p.x, angle:p.angle, fire:fires[i] });
+
+    /* combustion flash, drawn through the casting so the firing order is visible */
+    const flame = flameMesh(L.bore * 0.42);
+    flame.material.depthTest = false;
+    flame.position.set(p.x, L.deckH - L.bore * 0.10, 0);
+    const fh = group('flame'); fh.add(flame); fh.rotation.x = p.angle;
+    root.add(fh);
+    anim.flames.push({ node:flame, mat:flame.material, fire:fires[i] });
   }
   add('pistons', pistG); add('rods', rodG);
 
@@ -209,20 +229,33 @@ function buildPiston(e, tree){
     }
     if (!ohv){
       const nCams = e.cam === 'SOHC' ? 1 : 2;
+      const lobesPer = Math.max(1, Math.floor(e.valvesPerCyl / 2));
+      const baseR = L.bore * 0.135, liftR = L.bore * 0.062, lobeW = L.bore * 0.11;
+      const inBank = [...Array(e.cyl).keys()].filter(i => (L.banks >= 2 ? cylSlot(e, i, L).bank % 2 : 0) === b);
       for (let c = 0; c < nCams; c++){
         const zc = nCams === 1 ? 0 : (c ? 1 : -1) * L.bore * 0.34;
-        const shaft = cyl(M(16), M(16), L.len * 0.94, MAT.steel(), 16);
-        rot(shaft, 0, 0, Math.PI/2);
+        const camY = L.deckH + L.bore * 0.55;
         const cg = group('cam');
-        cg.add(shaft);
-        for (let i = 0; i < L.perBank * (e.valvesPerCyl / 2); i++){
-          const lobe = cyl(M(21), M(21), M(11), MAT.steel(), 16);
-          rot(lobe, 0, 0, Math.PI/2);
-          lobe.position.set((i - (L.perBank*(e.valvesPerCyl/2) - 1)/2) * (L.pitch/(e.valvesPerCyl/2)), M(5), 0);
-          cg.add(lobe);
+        cg.add(rot(cyl(baseR * 0.52, baseR * 0.52, L.len * 0.94, MAT.steel(), 16), 0, 0, Math.PI/2));
+        /* one cam serves both sides on a SOHC head, so it carries both events */
+        const events = nCams === 1 ? ['intake', 'exhaust'] : [c === 0 ? 'intake' : 'exhaust'];
+        for (const i of inBank){
+          const px = cylPosition(e, i, L).x;
+          for (const ev of events){
+            const centre = ev === 'intake' ? CAM.intake : CAM.exhaust;
+            const phase = -(fires[i] + centre) / 2;
+            for (let j = 0; j < lobesPer; j++){
+              const lobe = camLobe(baseR, liftR, CAM.duration, lobeW, MAT.steel());
+              const holder = group('lobe');
+              holder.add(lobe);
+              holder.position.x = px + (j - (lobesPer - 1)/2) * lobeW * 1.7
+                                + (events.length > 1 ? (ev === 'intake' ? -lobeW : lobeW) * 1.9 : 0);
+              cg.add(holder);
+              anim.lobes.push({ node:holder, phase, up:false });
+            }
+          }
         }
-        const holder = mk(cg, L.deckH + L.bore * 0.55, zc);
-        camG.add(holder);
+        camG.add(mk(cg, camY, zc));
         anim.cams.push({ node:cg, bank:b, index:c });
         for (let i = 0; i < L.perBank + 1; i++){
           const cap = roundBox(M(30), M(16), M(34), 0.006, MAT.alloyDark());
@@ -234,19 +267,26 @@ function buildPiston(e, tree){
     for (let i = 0; i < e.cyl; i++){
       const s = cylSlot(e, i, L); if ((L.banks >= 2 ? s.bank % 2 : 0) !== b) continue;
       const p = cylPosition(e, i, L);
-      for (let v = 0; v < Math.max(2, e.valvesPerCyl); v++){
-        const intake = v < Math.max(1, e.valvesPerCyl/2);
-        const zoff = (intake ? -1 : 1) * L.bore * 0.2 + ((v % 2) ? L.bore*0.09 : -L.bore*0.09);
+      const nv = Math.max(2, e.valvesPerCyl);
+      const perSide = Math.max(1, Math.floor(nv / 2));
+      const maxLift = L.bore * 0.105;
+      for (let v = 0; v < nv; v++){
+        const intake = v < perSide;
+        const j = intake ? v : v - perSide;
+        const zoff = (intake ? -1 : 1) * L.bore * 0.21
+                   + (perSide > 1 ? (j - (perSide - 1)/2) * L.bore * 0.19 : 0);
+        const headR = L.bore * (intake ? 0.20 : 0.175);
         const vg = group('v');
-        const stem = cyl(M(3.2), M(3.2), L.bore * 0.72, MAT.steel(), 10);
-        const headV = cyl(L.bore * (intake ? 0.185 : 0.16), L.bore * (intake ? 0.185 : 0.16) * 0.75, M(5), intake ? MAT.steel() : MAT.hot(), 16);
-        headV.position.y = -L.bore * 0.36;
-        const spring = cyl(M(13), M(13), L.bore * 0.26, MAT.steel(), 10);
-        spring.position.y = L.bore * 0.16;
-        vg.add(stem, headV, spring);
-        const holder = mk(at(vg, p.x, 0, zoff), L.deckH + L.bore * 0.30, zoff);
-        valG.add(holder);
-        anim.valves.push({ node:vg, cyl:i, intake, bank:b, pin:pins[i], lift:L.bore * 0.10 });
+        vg.add(valveMesh(headR, L.bore * 0.038, L.bore * 0.86, intake ? MAT.steel() : MAT.hot()));
+        valG.add(mk(at(vg, p.x, 0, zoff), L.deckH + L.bore * 0.32, zoff));
+        /* the spring seats on the head and is compressed by the retainer */
+        const sp = springMesh(L.bore * 0.115, L.bore * 0.30, 6, L.bore * 0.020, MAT.steel());
+        const spHolder = mk(at(sp, p.x, 0, zoff), L.deckH + L.bore * 0.44, zoff);
+        valG.add(spHolder);
+        const centre = intake ? CAM.intake : CAM.exhaust;
+        anim.valves.push({ node:vg, cyl:i, intake, bank:b, lift:maxLift,
+                           phase:-(fires[i] + centre) / 2, duration:CAM.duration,
+                           spring:sp, springHome:sp.position.y });
       }
       /* spark plug / injector / coil */
       if (e.fuel !== 'diesel'){
@@ -273,31 +313,44 @@ function buildPiston(e, tree){
   /* ---- OHV valvetrain ---- */
   if (ohv){
     const camIn = group('camin');
-    const shaft = cyl(M(19), M(19), L.len * 0.96, MAT.steel(), 16);
-    rot(shaft, 0, 0, Math.PI/2); camIn.add(shaft);
-    for (let i = 0; i < e.cyl; i++){
-      const lobe = cyl(M(24), M(24), M(12), MAT.steel(), 14);
-      rot(lobe, 0, 0, Math.PI/2);
-      lobe.position.set((i - (e.cyl-1)/2) * (L.len/e.cyl), M(6), 0);
-      camIn.add(lobe);
-    }
-    camIn.position.y = L.crankR * 1.55;
-    anim.cams.push({ node:camIn, bank:0, index:0 });
-    add('cam', camIn);
-
+    const baseR = L.bore * 0.15, liftR = L.bore * 0.055, lobeW = L.bore * 0.12;
+    camIn.add(rot(cyl(baseR * 0.55, baseR * 0.55, L.len * 0.96, MAT.steel(), 16), 0, 0, Math.PI/2));
+    const camY = L.crankR * 1.55;
     const liftG = group('lifters'), prG = group('pushrods'), rkG = group('rockers');
     for (let i = 0; i < e.cyl; i++){
       const p = cylPosition(e, i, L);
-      for (const sgn of [-1, 1]){
-        const lf = cyl(M(11), M(11), M(40), MAT.steel(), 10);
-        at(lf, p.x, L.crankR * 2.2, sgn * L.bore * 0.18); liftG.add(lf);
-        const pr = cyl(M(4), M(4), L.deckH * 0.72, MAT.steel(), 8);
-        at(pr, p.x, L.crankR * 2.2 + L.deckH * 0.4, sgn * L.bore * 0.2); prG.add(pr);
-        const rk = box(M(52), M(13), M(15), MAT.steel());
-        at(rot(rk, 0, 0, sgn * 0.12), p.x, L.deckH + L.bore * 0.42, sgn * L.bore * 0.3);
-        rkG.add(rk);
+      const side = L.banks >= 2 ? (cylSlot(e, i, L).bank ? 1 : -1) : 1;
+      for (const which of ['intake', 'exhaust']){
+        const centre = which === 'intake' ? CAM.intake : CAM.exhaust;
+        const phase = -(fires[i] + centre) / 2;
+        const sgn = which === 'intake' ? -1 : 1;
+        const lobe = camLobe(baseR, liftR, CAM.duration, lobeW, MAT.steel());
+        const holder = group('lobe'); holder.add(lobe);
+        holder.position.set(p.x + sgn * lobeW * 0.9, 0, 0);
+        camIn.add(holder);
+        anim.lobes.push({ node:holder, phase, up:true });
+
+        const lz = sgn * L.bore * 0.18 * (L.banks >= 2 ? side : 1);
+        const lf = cyl(L.bore * 0.062, L.bore * 0.062, L.bore * 0.24, MAT.steel(), 12);
+        at(lf, p.x + sgn * lobeW * 0.9, camY + baseR + L.bore * 0.14, lz);
+        liftG.add(lf);
+        const prLen = L.deckH * 0.66;
+        const pr = cyl(L.bore * 0.024, L.bore * 0.024, prLen, MAT.steel(), 8);
+        at(pr, p.x + sgn * lobeW * 0.9, camY + baseR + L.bore * 0.26 + prLen/2, lz);
+        prG.add(pr);
+        const rk = box(L.bore * 0.30, L.bore * 0.075, L.bore * 0.09, MAT.steel());
+        const rkH = group('rk'); rkH.add(rk);
+        rk.position.x = -sgn * L.bore * 0.12;
+        rkH.position.set(p.x + sgn * lobeW * 0.9, L.deckH + L.bore * 0.42, lz * 1.4);
+        rkG.add(rkH);
+        anim.followers.push({ lifter:lf, pushrod:pr, rocker:rkH, phase, duration:CAM.duration,
+                              travel:L.bore * 0.055, rockSign:sgn,
+                              lifterHome:lf.position.y, pushrodHome:pr.position.y });
       }
     }
+    camIn.position.y = camY;
+    anim.cams.push({ node:camIn, bank:0, index:0 });
+    add('cam', camIn);
     add('lifters', liftG); add('pushrods', prG); add('rockers', rkG);
   }
 
@@ -383,20 +436,20 @@ function buildPiston(e, tree){
       const t = group('t');
       const zs = (i % 2 ? 1 : -1) * (L.banks >= 2 ? L.bore * 0.05 : L.bore * 1.0);
       const xs = (Math.floor(i/2) - (n > 2 ? 0.5 : 0)) * L.len * 0.4;
-      const turbine = cyl(L.bore * 0.42, L.bore * 0.42, L.bore * 0.34, MAT.hot(), 22);
-      rot(turbine, Math.PI/2, 0, 0); turbine.position.z = -L.bore * 0.22;
-      const compr = cyl(L.bore * 0.38, L.bore * 0.38, L.bore * 0.3, MAT.alloy(), 22);
-      rot(compr, Math.PI/2, 0, 0); compr.position.z = L.bore * 0.22;
-      const chra = cyl(L.bore * 0.16, L.bore * 0.16, L.bore * 0.2, MAT.alloyDark(), 16);
+      const turbine = volute(L.bore * 0.22, L.bore * 0.46, L.bore * 0.30, MAT.hot());
+      rot(turbine, 0, Math.PI/2, 0); turbine.position.z = -L.bore * 0.24;
+      const compr = volute(L.bore * 0.20, L.bore * 0.42, L.bore * 0.26, MAT.alloy());
+      rot(compr, 0, Math.PI/2, 0); compr.position.z = L.bore * 0.24;
+      const chra = cyl(L.bore * 0.15, L.bore * 0.15, L.bore * 0.24, MAT.alloyDark(), 18);
       rot(chra, Math.PI/2, 0, 0);
+      const oilFeed = pipe([[0, L.bore*0.14, 0], [0, L.bore*0.34, -L.bore*0.1]], L.bore*0.022, MAT.steel(), 6);
       const wheel = group('w');
-      for (let bl = 0; bl < 9; bl++){
-        const v = box(M(3), L.bore*0.26, L.bore*0.1, MAT.chrome());
-        v.rotation.z = (bl/9) * TAU; v.position.y = 0;
-        wheel.add(v);
-      }
-      rot(wheel, Math.PI/2, 0, 0); wheel.position.z = L.bore * 0.22;
-      t.add(turbine, compr, chra, wheel);
+      const cw = bladedWheel(L.bore * 0.19, 9, L.bore * 0.14, MAT.chrome(), 0.55);
+      const tw = bladedWheel(L.bore * 0.20, 11, L.bore * 0.14, MAT.steel(), -0.45);
+      rot(cw, Math.PI/2, 0, 0); cw.position.z = L.bore * 0.24;
+      rot(tw, Math.PI/2, 0, 0); tw.position.z = -L.bore * 0.24;
+      wheel.add(cw, tw);
+      t.add(turbine, compr, chra, oilFeed, wheel);
       at(t, xs, L.banks >= 2 ? L.deckH + L.bore * 0.9 : L.deckH * 0.55, zs);
       anim.turbos.push(wheel);
       tg.add(t);
@@ -436,6 +489,7 @@ function buildPiston(e, tree){
   add('exmanifold', exG);
   const dp = pipe([[0, L.deckH*0.42, L.bore*1.0],[L.len*0.6, L.crankR, L.bore*1.4],[L.len*1.3, L.crankR*0.4, L.bore*1.4]], M(24), MAT.iron(), 10);
   add('exhaust', dp);
+  addPuffs(root, anim, new THREE.Vector3(L.len*1.32, L.crankR*0.4, L.bore*1.4), L.bore);
 
   /* ---- cooling / accessories ---- */
   if (has('waterpump')){
@@ -460,14 +514,14 @@ function buildPiston(e, tree){
   const pulley = group('pulley');
   pulley.add(rot(tubeMesh(L.crankR * 1.15, L.crankR * 0.35, M(34), MAT.iron(), 24), 0, 0, Math.PI/2));
   at(pulley, frontX - M(46), 0, 0);
-  anim.pulleys.push(pulley);
+  anim.pulleys.push({ node:pulley, ratio:1 });
   add('crankpulley', pulley);
 
   const alt = group('alt');
   alt.add(rot(cyl(M(56), M(56), M(110), MAT.alloy(), 18), 0, 0, Math.PI/2));
   const altP = rot(tubeMesh(M(30), M(12), M(22), MAT.steel(), 18), 0, 0, Math.PI/2);
   altP.position.x = -M(66); alt.add(altP);
-  anim.pulleys.push(altP);
+  anim.pulleys.push({ node:altP, ratio:2.6 });
   add('alternator', at(alt, frontX - M(40), L.deckH * 0.72, -L.bore * 0.75));
 
   add('starter', at(rot(cyl(M(48), M(48), M(150), MAT.alloyDark(), 16), 0, 0, Math.PI/2), L.len * 0.4, -L.crankR*0.2, L.bore * 0.8));
@@ -475,7 +529,7 @@ function buildPiston(e, tree){
   const fw = group('fw');
   fw.add(rot(tubeMesh(L.bore * 1.05, L.crankR * 0.3, M(30), MAT.iron(), 32), 0, 0, Math.PI/2));
   at(fw, L.len/2 + M(26), 0, 0);
-  anim.pulleys.push(fw);
+  anim.pulleys.push({ node:fw, ratio:1 });
   add('flywheel', fw);
   const cl = group('cl');
   cl.add(rot(tubeMesh(L.bore * 0.95, L.crankR * 0.35, M(46), MAT.steel(), 28), 0, 0, Math.PI/2));
@@ -515,7 +569,9 @@ function buildRotary(e, tree){
   const root = group('engine'); const nodes = new Map();
   const add = (id, obj) => { if (!obj) return; tag(obj, id); root.add(obj);
     if (!nodes.has(id)) nodes.set(id, []); nodes.get(id).push(obj); };
-  const anim = { pistons:[], rods:[], crank:null, cams:[], valves:[], pulleys:[], fans:[], rotors:[], turbos:[] };
+  const anim = { pistons:[], rods:[], crank:null, cams:[], lobes:[], valves:[], springs:[],
+                 followers:[], pulleys:[], fans:[], flames:[], puffs:[], turbos:[], rotors:[],
+                 shake: imbalance(e) };
   const n = e.cyl;
   const has = (id) => !!tree.byId[id];
   const xOf = (i) => (i - (n-1)/2) * pitch;
@@ -591,6 +647,12 @@ function buildRotary(e, tree){
     rg.userData.baseX = xOf(i);
     rotG.add(rg);
     anim.rotors.push(rg);
+    /* each rotor face fires once per shaft revolution */
+    const flame = flameMesh(R * 0.30);
+    flame.material.depthTest = false;
+    flame.position.set(xOf(i), 0, R * 0.55);
+    root.add(flame);
+    anim.flames.push({ node:flame, mat:flame.material, fire:(i / n) * TAU, cycle:TAU });
   }
   add('pistons', rotG); add('apex', apexG);
 
@@ -653,6 +715,7 @@ function buildRotary(e, tree){
     exG.add(pipe([[xOf(i), 0, R*1.0],[xOf(i), -R*0.3, R*1.3],[xOf(n-1)+pitch*0.4, -R*0.35, R*1.35]], M(20), MAT.hot(), 8));
   add('exmanifold', exG);
   add('exhaust', pipe([[xOf(n-1)+pitch*0.4, -R*0.35, R*1.35],[xOf(n-1)+pitch*1.6, -R*0.5, R*1.2]], M(30), MAT.iron(), 10));
+  addPuffs(root, anim, new THREE.Vector3(xOf(n-1)+pitch*1.65, -R*0.5, R*1.2), R*0.6);
 
   add('waterpump', at(rot(cyl(M(50), M(50), M(46), MAT.alloyDark(), 16), 0,0,Math.PI/2), xOf(0)-pitch*0.9, R*0.3, -R*0.4));
   const rad = group('rad'); rad.add(box(pitch*(n+1.6), R*1.3, M(48), MAT.alloyDark()));
@@ -663,12 +726,12 @@ function buildRotary(e, tree){
 
   const pul = group('pul');
   pul.add(rot(tubeMesh(M(70), M(26), M(34), MAT.iron(), 22), 0,0,Math.PI/2));
-  at(pul, xOf(0) - pitch*1.1, 0, 0); anim.pulleys.push(pul);
+  at(pul, xOf(0) - pitch*1.1, 0, 0); anim.pulleys.push({ node:pul, ratio:1 });
   add('crankpulley', pul);
   add('alternator', at(rot(cyl(M(56), M(56), M(110), MAT.alloy(), 16), 0,0,Math.PI/2), xOf(0)-pitch*0.9, R*0.75, -R*0.6));
   add('starter', at(rot(cyl(M(48), M(48), M(150), MAT.alloyDark(), 16), 0,0,Math.PI/2), xOf(n-1)+pitch*0.6, -R*0.35, -R*0.5));
   const fw = group('fw'); fw.add(rot(tubeMesh(R*0.95, M(30), M(30), MAT.iron(), 30), 0,0,Math.PI/2));
-  at(fw, xOf(n-1) + pitch*0.75, 0, 0); anim.pulleys.push(fw);
+  at(fw, xOf(n-1) + pitch*0.75, 0, 0); anim.pulleys.push({ node:fw, ratio:1 });
   add('flywheel', fw);
   add('clutch', at(rot(tubeMesh(R*0.85, M(34), M(46), MAT.steel(), 26), 0,0,Math.PI/2), xOf(n-1)+pitch*1.05, 0, 0));
 
@@ -682,6 +745,15 @@ function buildRotary(e, tree){
   return finalize(e, root, nodes, anim, { bore:R, deckH:R, len:pitch*n, crankR:ecc, rodLen:R, stroke:M(80) });
 }
 
+function addPuffs(root, anim, at3, scale){
+  for (let i = 0; i < 5; i++){
+    const m = puffMesh(scale * 0.16);
+    m.position.copy(at3);
+    root.add(m);
+    anim.puffs.push({ node:m, mat:m.material, home:at3.clone(), offset:i / 5 });
+  }
+}
+
 /* ====================================================================== */
 function finalize(e, root, nodes, anim, L){
   /* remember home transforms + choose an explode direction per part */
@@ -693,7 +765,8 @@ function finalize(e, root, nodes, anim, L){
     }
   }
   const bounds = boundsOf(root);
-  root.position.y -= 0;
+  anim.rootNode = root;
+  anim.homePos = root.position.clone();
   return {
     root, nodes, anim, home, bounds, layout:L,
     partIds: [...nodes.keys()],
@@ -752,49 +825,100 @@ function explodeDir(id, obj, L){
 
 /* ---------------------------------------------------------------------- */
 function animate(e, anim, state, L){
-  const th = state.crankAngle || 0;
+  const th = state.crankAngle || 0;                 // 0…4π, one full four-stroke cycle
+  const rpm = state.rpm || 0;
+  const running = rpm > 1;
+  const load = state.load ?? 0.5;
+  const dt = state.dt ?? 0.016;
+  const CYCLE = Math.PI * 4;
+
   if (anim.crank) anim.crank.rotation.x = th;
-  /* rotary */
+
+  /* rotors orbit the eccentric shaft at a third of its speed */
   for (const r of anim.rotors){
     const ph = th + r.userData.phase;
     r.position.set(r.userData.baseX, L.crankR * Math.sin(ph), L.crankR * Math.cos(ph));
     r.rotation.x = -ph / 3;
   }
-  /* pistons + rods */
+
+  /* crank–slider: each cylinder is offset by where it sits in the firing order */
   for (const p of anim.pistons){
-    const t = th - p.pin;
+    const t = th - p.fire;
     const y = slider(L.crankR, L.rodLen, t);
-    const node = p.node;
-    const c = Math.cos(p.angle), s = Math.sin(p.angle);
-    node.position.set(p.x, y * c, -y * s);
-    node.rotation.x = p.angle;
+    p.node.position.set(p.x, y * Math.cos(p.angle), -y * Math.sin(p.angle));
+    p.node.rotation.x = p.angle;
   }
   for (const r of anim.rods){
-    const t = th - r.pin;
+    const t = th - r.fire;
     const y = slider(L.crankR, L.rodLen, t);
     const pinY = L.crankR * Math.cos(t), pinZ = L.crankR * Math.sin(t);
-    /* rod tilt within the bank plane */
+    /* the rod leans in its own bank plane, chasing the crank pin */
     const localPinY = pinY * Math.cos(-r.angle) - pinZ * Math.sin(-r.angle);
     const localPinZ = pinY * Math.sin(-r.angle) + pinZ * Math.cos(-r.angle);
     const tilt = Math.atan2(localPinZ, y - localPinY);
-    const node = r.node;
-    const c = Math.cos(r.angle), sN = Math.sin(r.angle);
-    node.position.set(r.x, y * c, -y * sN);
-    node.rotation.set(r.angle, 0, 0);
-    node.rotateX(tilt);
+    r.node.position.set(r.x, y * Math.cos(r.angle), -y * Math.sin(r.angle));
+    r.node.rotation.set(r.angle, 0, 0);
+    r.node.rotateX(-tilt);
   }
-  /* cams at half crank speed; valves lift on their own phase */
-  for (const c of anim.cams) c.node.rotation.x = th / 2;
+
+  /* camshafts turn at half crank speed; the lobe you can see is the lobe that lifts */
+  const camRot = th / 2;
+  for (const c of anim.cams) if (c.spin) c.node.rotation.x = camRot;
+  for (const lo of anim.lobes)
+    lo.node.rotation.x = camRot + lo.phase + (lo.up ? Math.PI : 0);
   for (const v of anim.valves){
-    const t = ((th - v.pin) / 2) % TAU;
-    const centre = v.intake ? Math.PI * 0.5 : Math.PI * 1.5;
-    let d = ((t - centre + Math.PI * 3) % TAU) - Math.PI;
-    const win = 1.25;
-    const lift = Math.abs(d) < win ? Math.pow(Math.cos((d / win) * Math.PI / 2), 2) : 0;
-    v.node.position.y = -lift * v.lift;
+    const lift = lobeLift(camRot + v.phase, v.duration) * v.lift;
+    v.node.position.y = -lift;
+    if (v.spring){
+      const f = lift / v.lift;
+      v.spring.scale.y = 1 - f * 0.30;
+      v.spring.position.y = v.springHome - lift * 0.5;
+    }
   }
-  for (const p of anim.pulleys) p.rotation.x = th * 1.8;
-  for (const f of anim.fans) f.rotation.z = th * 0.6;
-  const boost = state.boost || 0;
-  for (const t of anim.turbos) t.rotation.z = th * (3 + boost * 6);
+  for (const f of anim.followers){
+    const lift = lobeLift(camRot + f.phase, f.duration) * f.travel;
+    f.lifter.position.y = f.lifterHome + lift;
+    f.pushrod.position.y = f.pushrodHome + lift;
+    f.rocker.rotation.z = f.rockSign * (lift / f.travel) * 0.16;
+  }
+
+  /* combustion: a flash in the cylinder that is on its power stroke */
+  for (const fl of anim.flames){
+    const cycle = fl.cycle || CYCLE;
+    let psi = (th - fl.fire) % cycle;
+    if (psi < 0) psi += cycle;
+    const win = deg(70);
+    const k = psi < win ? 1 - psi / win : 0;
+    const inten = running ? k * (0.30 + 0.70 * load) : 0;
+    fl.mat.opacity = inten * 0.5;
+    fl.node.scale.setScalar(0.5 + inten * 0.9);
+  }
+
+  /* exhaust leaving the tailpipe */
+  const time = state.time || 0;
+  for (const p of anim.puffs){
+    if (!running){ p.mat.opacity = 0; continue; }
+    const t = ((time * (0.7 + rpm / 2600) + p.offset) % 1);
+    p.mat.opacity = (1 - t) * 0.22 * Math.min(1, load + 0.25);
+    p.node.position.set(p.home.x + t * L.bore * 2.4, p.home.y + t * L.bore * 0.55, p.home.z);
+    p.node.scale.setScalar(0.5 + t * 2.4);
+  }
+
+  /* belt drive and cooling fan */
+  for (const p of anim.pulleys) p.node.rotation.x = th * (p.ratio ?? 1);
+  for (const f of anim.fans) f.rotation.z = time * (running ? 6 + rpm / 900 : 0);
+
+  /* the turbo shaft has real inertia — it does not stop when you lift */
+  anim.turboAngle = (anim.turboAngle || 0) + (state.turboSpin || 0) * dt;
+  for (const t of anim.turbos) t.rotation.z = anim.turboAngle;
+
+  /* vibration: primary and secondary imbalance, which is why an inline-6 is smooth
+     and a big single is not */
+  if (anim.rootNode && anim.homePos){
+    const [p1, p2] = anim.shake || [0, 0];
+    const amp = running ? Math.min(1, rpm / 3500) * L.bore * 0.035 : 0;
+    const dy = (Math.cos(th) * p1 * 0.7 + Math.cos(th * 2) * p2) * amp;
+    const dz = (Math.sin(th) * p1 + Math.sin(th * 2) * p2 * 0.6) * amp * 0.6;
+    anim.rootNode.position.set(anim.homePos.x, anim.homePos.y + dy, anim.homePos.z + dz);
+  }
 }

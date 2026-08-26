@@ -239,29 +239,64 @@ function bindTools(){
   $('#explode').oninput = (e) => viewport.setExplode(parseFloat(e.target.value)/100);
 
   const rpm = $('#rpmIdle'), read = $('#rpmRead'), crank = $('#btnCrank');
+  const setBoost = () => {
+    const e = engine(), s = viewport.state;
+    if (!e.boostTarget){ s.boost = 0; return; }
+    const spool = e.spoolRpm || 2200;
+    s.boost = e.boostTarget / (1 + Math.exp(-(s.rpm - spool) / (spool * 0.2)));
+  };
+  const missingParts = () => {
+    if (current().model !== 'engine') return [];
+    const inst = installedSet(), t = tree();
+    return t.parts.filter(p => !inst.has(p.id));
+  };
   rpm.oninput = () => {
     const v = parseInt(rpm.value, 10);
     read.textContent = v;
-    viewport.state.rpm = v;
-    const e = engine();
-    viewport.state.boost = e.boostTarget ? Math.min(e.boostTarget, e.boostTarget * (v / (e.spoolRpm || 2500))) : 0;
-    crank.classList.toggle('on', v > 0);
+    if (v <= 0){ viewport.stopEngine(); return; }
+    const missing = missingParts();
+    if (missing.length){
+      rpm.value = 0; read.textContent = '0';
+      viewport.stopEngine();
+      toast(`It will not run like this — ${missing.length} parts are still off, starting with ${missing[0].name}.`, 'bad');
+      return;
+    }
+    viewport.revTo(v);
   };
   crank.onclick = () => {
     const e = engine();
-    const running = viewport.state.rpm > 0;
-    const target = running ? 0 : e.idle;
-    rpm.value = target; read.textContent = target;
-    viewport.state.rpm = target;
-    crank.classList.toggle('on', !running);
-    if (!running){
-      const inst = installedSet(), t = tree();
-      const missing = t.parts.filter(p => !inst.has(p.id));
-      if (missing.length && current().model === 'engine')
-        toast(`It will not run like this — ${missing.length} parts are still off, starting with ${missing[0].name}.`, 'bad');
-      else toast(`Running at ${target} rpm. Drag the slider to rev it.`);
+    const s = viewport.state;
+    const live = s.rpm > 40 || s.cranking > 0;
+    if (live){
+      viewport.stopEngine();
+      rpm.value = 0;
+      toast('Shut down.' + (e.aspiration !== 'na' ? ' On a real turbo car you would let it idle first — shutting down hot cokes the bearing oil.' : ''));
+      return;
     }
+    const missing = missingParts();
+    if (missing.length){
+      toast(`It will not run like this — ${missing.length} parts are still off, starting with ${missing[0].name}.`, 'bad');
+      return;
+    }
+    viewport.startEngine(e.idle, {
+      redline: e.redline, spoolRpm: e.spoolRpm || 2200,
+      /* a light bike or race flywheel picks up revs far faster than a truck's */
+      inertia: e.class === 'race' ? 0.32 : e.class === 'bike' ? 0.45
+             : e.fuel === 'diesel' ? 2.2 : 1,
+    });
+    rpm.value = e.idle;
+    toast('Cranking…');
   };
+  /* keep the readout honest while the engine settles */
+  setInterval(() => {
+    const bar = $('#crankBar');
+    if (!bar || bar.hidden) return;
+    const s = viewport.state;
+    read.textContent = Math.round(s.rpm);
+    crank.classList.toggle('on', s.rpm > 40 || s.cranking > 0);
+    crank.textContent = s.cranking > 0 ? '… cranking' : (s.rpm > 40 ? '■ Stop' : '▶ Crank');
+    setBoost();
+  }, 90);
 }
 
 function applySettings(){

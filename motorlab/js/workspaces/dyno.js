@@ -79,9 +79,12 @@ function doPull(ctx){
   if (run.hp >= 500) unlock('500hp');
   if (run.hp >= 1000) unlock('1000hp');
   if (run.health.score < 20) unlock('grenade');
-  ctx.viewport.state.rpm = run.hpRpm;
+  /* let it actually sweep up to the power peak and settle back */
+  const e2 = engine();
+  if (ctx.viewport.state.rpm < 40) ctx.viewport.startEngine(e2.idle, { redline:e2.redline, spoolRpm:e2.spoolRpm || 2200 });
+  setTimeout(() => ctx.viewport.revTo(run.hpRpm), 900);
   ctx.viewport.state.boost = Math.max(...run.points.map(p => p.boost));
-  setTimeout(() => { ctx.viewport.state.rpm = 0; ctx.viewport.state.boost = 0; }, 2600);
+  setTimeout(() => ctx.viewport.revTo(e2.idle), 4200);
   runChallengeCheck(ctx, run);
   toast(`${Math.round(U.power(run.hp).v)} ${U.power(run.hp).u} — ${run.health.verdict.toLowerCase()}.`,
         run.health.score > 60 ? 'good' : 'bad');
@@ -133,8 +136,13 @@ function renderAccel(ctx, wrap){
       run.launchSlip > 0.8 ? note('The launch is traction-limited for a long time — more power will not help here. Grip, weight distribution or a different launch rpm will.', 'warn')
                            : note('The launch is close to traction-limited, which is roughly where you want it.')),
     h('div', { class:'btnrow' }, btn('Send it', { class:'btn--pri', onClick:() => {
-      ctx.viewport.state.speed = 14; ctx.viewport.state.rpm = engine().redline * 0.8;
-      setTimeout(() => { ctx.viewport.state.speed = 0; ctx.viewport.state.rpm = 0; }, 3200);
+      const ev = engine();
+      if (ctx.viewport.state.rpm < 40) ctx.viewport.startEngine(ev.idle, { redline:ev.redline });
+      ctx.viewport.setAttitude(1);                     // squat on the launch
+      ctx.viewport.state.speed = 14;
+      setTimeout(() => ctx.viewport.revTo(ev.redline * 0.86), 700);
+      setTimeout(() => ctx.viewport.setAttitude(-0.7), 2900);   // and dive when it stops
+      setTimeout(() => { ctx.viewport.state.speed = 0; ctx.viewport.revTo(ev.idle); }, 3600);
       runChallengeCheck(ctx, dynoRun(e, t, m, v));
       toast(`${s(run.marks.kph100)} to 100 km/h, ${s(run.marks.q)} over the quarter.`, 'good');
     } })),

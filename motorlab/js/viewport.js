@@ -43,15 +43,17 @@ export class Viewport {
     this.highlight = new Set();
     this.labelEls = new Map();
 
-    this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
     this.ray = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
 
     this.onPick = null; this.onContext = null; this.onHover = null;
     this._bindInput();
 
-    this.state = { crankAngle:0, rpm:0, boost:0, running:false, time:0,
-                   wheelAngle:0, steer:0, suspTravel:0, speed:0 };
+    this.state = { crankAngle:0, rpm:0, targetRpm:0, boost:0, running:false, time:0, dt:0.016,
+                   load:0.55, cranking:0, idleRpm:800, redline:7000, spoolRpm:2200,
+                   inertia:1, turboSpin:0, wheelAngle:0, steer:0, suspTravel:0, speed:0,
+                   pitch:0, roll:0 };
     this._clock = new THREE.Clock();
     this._raf = null;
     this.resize();
@@ -163,7 +165,7 @@ export class Viewport {
     this.camera.updateProjectionMatrix();
     this.controls.update();
     this.ground.position.y = Math.min(0, b.min.y);
-    this.clipPlane.constant = c.z;
+    this.clipPlane.constant = c.z;   // section straight down the cylinder axis
   }
 
   focusPart(id){
@@ -201,12 +203,26 @@ export class Viewport {
   setExplode(f){ this.explode = f; this.model?.setExplode(f); }
   setGhost(on){ this.ghost = on; this._applyMaterials(); }
   setWire(on){ this.wire = on; this._applyMaterials(); }
+  /* Only the castings get sectioned. The crank, rods, pistons, cams and valves
+   * stay whole inside the cut, which is the whole point of a cutaway. */
+  static CASTINGS = new Set(['block','head','headgasket','valvecover','oilpan','frontcover',
+    'intake','rotorhousing','stationary','clutch','flywheel','radiator','intercooler',
+    'exmanifold','exhaust','turbo','blower','body','chassis','cage','tank','gearbox','diff']);
+  planesFor(id){
+    return (this.cutaway && Viewport.CASTINGS.has(id)) ? [this.clipPlane] : [];
+  }
   setCutaway(on){
     this.cutaway = on;
-    const planes = on ? [this.clipPlane] : [];
-    this.model?.root.traverse(o => { if (o.isMesh && o.material){ 
-      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.clippingPlanes = planes; m.needsUpdate = true; });
-    }});
+    if (!this.model) return;
+    for (const [id, objs] of this.model.nodes){
+      const planes = this.planesFor(id);
+      for (const root of objs) root.traverse(o => {
+        if (!o.isMesh || !o.material) return;
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+          m.clippingPlanes = planes; m.side = on ? THREE.DoubleSide : m.side; m.needsUpdate = true;
+        });
+      });
+    }
   }
   setLabels(on){ this.showLabels = on; if (!on) this._clearLabels(); }
   select(id){ this.selected = id; this._applyMaterials(); }
@@ -239,11 +255,11 @@ export class Viewport {
           m.emissive = new THREE.Color(sel ? 0xff7a1a : hl ? 0x22d3ee : 0x2f5f9f);
           m.emissiveIntensity = sel ? 0.65 : hl ? 0.5 : 0.32;
           m.wireframe = this.wire;
-          m.clippingPlanes = this.cutaway ? [this.clipPlane] : [];
+          m.clippingPlanes = this.planesFor(id);
           o.material = m;
         } else {
           base.wireframe = this.wire;
-          base.clippingPlanes = this.cutaway ? [this.clipPlane] : [];
+          base.clippingPlanes = this.planesFor(id);
           o.material = base;
         }
       });
@@ -255,30 +271,36 @@ export class Viewport {
   setLabelSource(fn){ this.labelFn = fn; }
 
   _updateLabels(){
-    if (!this.showLabels || !this.model || !this.labelHost){ if (this.labelEls.size) this._clearLabels(); return; }
+    if (!this.model || !this.labelHost){ if (this.labelEls.size) this._clearLabels(); return; }
+    /* A part names itself when you touch it — hover or selection. The pin
+     * button is there for when you deliberately want the whole map at once. */
+    const want = new Set();
+    if (this.hovered) want.add(this.hovered);
+    if (this.selected) want.add(this.selected);
+    for (const id of this.highlight) want.add(id);
+    if (this.showLabels) for (const id of this.model.nodes.keys()) want.add(id);
+    if (!want.size){ if (this.labelEls.size) this._clearLabels(); return; }
+
     const rect = this.canvas.getBoundingClientRect();
     const v = new THREE.Vector3();
     const seen = new Set();
-    const placed = [];            // screen boxes already used, to avoid a wall of text
-    const MAXLABELS = 26;
-    /* nearest first, so the labels you keep are the ones closest to the camera */
-    const entries = [...this.model.nodes.entries()].map(([id, objs]) => {
-      const b = new THREE.Box3(); objs.forEach(o => b.expandByObject(o));
-      return b.isEmpty() ? null : { id, objs, centre:b.getCenter(new THREE.Vector3()) };
-    }).filter(Boolean).sort((a, b) =>
-      a.centre.distanceToSquared(this.camera.position) - b.centre.distanceToSquared(this.camera.position));
-    for (const { id, objs, centre } of entries){
+    const placed = [];
+    for (const id of want){
+      const objs = this.model.nodes.get(id);
+      if (!objs?.length) continue;
       const info = this.labelFn ? this.labelFn(id) : { name:id, installed:this.installed.has(id) };
       if (!info) continue;
-      v.copy(centre);
-      const p = v.clone().project(this.camera);
+      const b = new THREE.Box3(); objs.forEach(o => b.expandByObject(o));
+      if (b.isEmpty()) continue;
+      b.getCenter(v);
+      const p = v.project(this.camera);
       if (p.z > 1 || p.x < -1.05 || p.x > 1.05 || p.y < -1.05 || p.y > 1.05) continue;
       const sx = (p.x*0.5 + 0.5) * rect.width, sy = (-p.y*0.5 + 0.5) * rect.height;
-      const wEst = 20 + info.name.length * 5.6, hEst = 20;
-      const clash = placed.some(q => Math.abs(q.x - sx) < (q.w + wEst)/2 && Math.abs(q.y - sy) < hEst);
-      const keep = this.selected === id || this.highlight.has(id);
-      if ((clash || placed.length >= MAXLABELS) && !keep) continue;
-      placed.push({ x:sx, y:sy, w:wEst });
+      if (this.showLabels && id !== this.hovered && id !== this.selected){
+        const wEst = 20 + info.name.length * 5.6;
+        if (placed.some(q => Math.abs(q.x - sx) < (q.w + wEst)/2 && Math.abs(q.y - sy) < 20)) continue;
+        placed.push({ x:sx, y:sy, w:wEst });
+      }
       seen.add(id);
       let el = this.labelEls.get(id);
       if (!el){
@@ -312,7 +334,8 @@ export class Viewport {
       this._raf = requestAnimationFrame(loop);
       const dt = Math.min(0.05, this._clock.getDelta());
       const s = this.state;
-      s.time += dt;
+      s.time += dt; s.dt = dt;
+      this._engineDynamics(dt, s);
       if (s.rpm > 0) s.crankAngle = (s.crankAngle + (s.rpm/60) * Math.PI * 2 * dt) % (Math.PI*2*2);
       if (s.speed) s.wheelAngle = (s.wheelAngle + s.speed * dt) % (Math.PI*2);
       this.model?.update?.(s);
@@ -323,4 +346,57 @@ export class Viewport {
     loop();
   }
   stop(){ cancelAnimationFrame(this._raf); this._raf = null; }
+
+  /* A real engine does not step between speeds: the starter drags it over, it
+   * catches, it settles to a hunting idle, and the flywheel resists every
+   * change after that. The turbo shaft lags behind all of it. */
+  _engineDynamics(dt, s){
+    /* wall-clock, so the start sequence takes the same time on any frame rate */
+    if (s.crankEnd && performance.now() < s.crankEnd){
+      s.cranking = (s.crankEnd - performance.now()) / 1000;
+      s.rpm += ((s.crankSpeed || 240) - s.rpm) * Math.min(1, dt * 7);
+    } else if (s.crankEnd){
+      s.crankEnd = 0; s.cranking = 0;
+      s.rpm = s.idleRpm * 1.35;                      // it catches and flares
+      s.targetRpm = s.idleRpm;
+    } else if (s.targetRpm != null){
+      /* a heavy flywheel picks up slowly and holds revs on the way down */
+      const rising = s.targetRpm > s.rpm;
+      const rate = (rising ? 2.6 : 1.9) / Math.max(0.35, s.inertia);
+      s.rpm += (s.targetRpm - s.rpm) * Math.min(1, dt * rate);
+      if (s.targetRpm > 0 && Math.abs(s.rpm - s.targetRpm) < s.targetRpm * 0.06){
+        const hunt = s.targetRpm <= s.idleRpm * 1.15 ? 18 : 5;
+        s.rpm = s.targetRpm + Math.sin(s.time * 5.7) * hunt + Math.sin(s.time * 13.1) * hunt * 0.4;
+      }
+      if (s.rpm < 30) s.rpm = s.targetRpm > 0 ? s.rpm : 0;
+    }
+    s.running = s.rpm > 40;
+    s.load = Math.min(1, 0.25 + 0.75 * (s.rpm / Math.max(1000, s.redline)));
+    /* compressor inertia: spins up with exhaust energy, coasts back down */
+    const want = s.running && s.boost >= 0
+      ? Math.min(62, (s.rpm / Math.max(600, s.spoolRpm)) * 26 * (1 + (s.boost || 0)))
+      : 0;
+    s.turboSpin += (want - s.turboSpin) * Math.min(1, dt * (want > s.turboSpin ? 1.5 : 0.8));
+    /* the body settles back after a launch or a corner */
+    s.pitch += (0 - s.pitch) * Math.min(1, dt * 2.0);
+    s.roll  += (0 - s.roll)  * Math.min(1, dt * 2.4);
+  }
+
+  /** Weight transfer for the vehicle view: +1 squats the rear, −1 dives the nose. */
+  setAttitude(pitch, roll = 0){ this.state.pitch = pitch; this.state.roll = roll; }
+
+  /** Turn it over: the starter, then it catches. */
+  startEngine(idleRpm, opts = {}){
+    const s = this.state;
+    s.idleRpm = idleRpm;
+    s.redline = opts.redline ?? s.redline;
+    s.spoolRpm = opts.spoolRpm ?? s.spoolRpm;
+    s.inertia = opts.inertia ?? 1;
+    s.crankSpeed = Math.max(180, idleRpm * 0.3);
+    s.crankEnd = performance.now() + 900;
+    s.cranking = 0.9;
+    s.targetRpm = idleRpm;
+  }
+  stopEngine(){ const s = this.state; s.cranking = 0; s.crankEnd = 0; s.targetRpm = 0; }
+  revTo(rpm){ const s = this.state; s.cranking = 0; s.crankEnd = 0; s.targetRpm = rpm; }
 }

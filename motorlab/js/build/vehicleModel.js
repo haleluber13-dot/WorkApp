@@ -3,7 +3,7 @@
  * and tagged by part id so the same teardown UI works on a whole car. */
 import * as THREE from 'three';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, group, tag, at, rot,
-         boundsOf, deg, TAU } from '../lib/geo.js';
+         boundsOf, deg, TAU, lathe } from '../lib/geo.js';
 import { wheelRadius, weightDistribution } from '../data/vehicles.js';
 
 const M = (mm) => mm / 1000;
@@ -18,7 +18,7 @@ function buildCar(v, tree){
   const add = (id, obj) => { if (!obj) return; tag(obj, id); root.add(obj);
     if (!nodes.has(id)) nodes.set(id, []); nodes.get(id).push(obj); };
   const has = (id) => !!tree.byId[id];
-  const anim = { wheels:[], steer:[], susp:[], fans:[] };
+  const anim = { wheels:[], steer:[], susp:[], fans:[], corners:[] };
 
   const wb = M(v.wheelbase), tf = M(v.trackF) || M(1200), tr = M(v.trackR) || M(1200);
   const rF = wheelRadius(v, false), rR = wheelRadius(v, true);
@@ -111,83 +111,100 @@ function buildCar(v, tree){
     const sfx = end === 'F' ? 'f' : 'r';
     const z = side * track/2;
     const type = end === 'F' ? v.suspF : v.suspR;
-    if (type === 'none'){
-      if (has('upr'+sfx)) add('upr'+sfx, at(box(M(90), M(180), M(90), MAT.steel()), x, r, z*0.86));
-      return;
-    }
     const inner = side * track*0.14, outer = z*0.86;
+    const unsprung = [];                      // moves with the wheel, not the body
 
-    if (has('lca'+sfx)){
-      const a = group('lca');
-      a.add(pipe([[x - M(120), floorY*0.72, inner],[x, r*0.55, outer]], M(24), MAT.alloyDark(), 6));
-      a.add(pipe([[x + M(140), floorY*0.72, inner],[x, r*0.55, outer]], M(24), MAT.alloyDark(), 6));
-      add('lca'+sfx, a);
-    }
-    if (has('uca'+sfx)){
-      const a = group('uca');
-      a.add(pipe([[x - M(90), floorY + M(320), inner*1.4],[x, r*1.28, outer*0.94]], M(20), MAT.alloyDark(), 6));
-      a.add(pipe([[x + M(110), floorY + M(320), inner*1.4],[x, r*1.28, outer*0.94]], M(20), MAT.alloyDark(), 6));
-      add('uca'+sfx, a);
-    }
-    const dampId = has('strut'+sfx) ? 'strut'+sfx : 'damp'+sfx;
-    if (has(dampId)){
-      const d = group('damp');
-      const top = has('strut'+sfx) ? floorY + M(620) : floorY + M(430);
-      const bot = has('strut'+sfx) ? r*0.6 : r*1.15;
-      const hlen = top - bot;
-      d.add(at(cyl(M(26), M(26), hlen, MAT.steel(), 12), x, (top+bot)/2, outer*0.92));
-      /* coil spring */
-      const pts = [];
-      for (let i = 0; i <= 80; i++){
-        const t = i/80, ang = t * TAU * 7;
-        pts.push(new THREE.Vector3(x + Math.cos(ang)*M(58), bot + hlen*0.15 + t*hlen*0.72, outer*0.92 + Math.sin(ang)*M(58)));
+    /* ---- linkage, spring and damper (a kart has none of this) ---- */
+    if (type !== 'none'){
+      if (has('lca'+sfx)){
+        const a = group('lca');
+        a.add(pipe([[x - M(120), floorY*0.72, inner],[x, r*0.55, outer]], M(24), MAT.alloyDark(), 6));
+        a.add(pipe([[x + M(140), floorY*0.72, inner],[x, r*0.55, outer]], M(24), MAT.alloyDark(), 6));
+        add('lca'+sfx, a);
       }
-      d.add(pipe(pts, M(11), MAT.orange(), 6));
-      d.userData.travelAxis = true;
-      add(dampId, d);
-      anim.susp.push({ node:d, side, end });
+      if (has('uca'+sfx)){
+        const a = group('uca');
+        a.add(pipe([[x - M(90), floorY + M(320), inner*1.4],[x, r*1.28, outer*0.94]], M(20), MAT.alloyDark(), 6));
+        a.add(pipe([[x + M(110), floorY + M(320), inner*1.4],[x, r*1.28, outer*0.94]], M(20), MAT.alloyDark(), 6));
+        add('uca'+sfx, a);
+      }
+      const dampId = has('strut'+sfx) ? 'strut'+sfx : 'damp'+sfx;
+      if (has(dampId)){
+        const d = group('damp');
+        const top = has('strut'+sfx) ? floorY + M(620) : floorY + M(430);
+        const bot = has('strut'+sfx) ? r*0.6 : r*1.15;
+        const hlen = top - bot;
+        d.add(at(cyl(M(26), M(26), hlen, MAT.steel(), 12), x, (top+bot)/2, outer*0.92));
+        d.add(at(cyl(M(34), M(34), hlen*0.42, MAT.alloyDark(), 12), x, bot + hlen*0.21, outer*0.92));
+        /* the coil spring, drawn as a real helix around the damper body */
+        const pts = [];
+        for (let i = 0; i <= 96; i++){
+          const t = i/96, ang = t * TAU * 7;
+          pts.push(new THREE.Vector3(x + Math.cos(ang)*M(58), bot + hlen*0.16 + t*hlen*0.70, outer*0.92 + Math.sin(ang)*M(58)));
+        }
+        d.add(pipe(pts, M(11), MAT.orange(), 6));
+        add(dampId, d);
+        anim.susp.push({ node:d, side, end });
+      }
+      if (has('arb'+sfx)){
+        const b = group('arb');
+        b.add(pipe([[x + (end==='F'?M(220):-M(220)), floorY*0.8, 0],
+                    [x + (end==='F'?M(220):-M(220)), floorY*0.8, outer*0.6],
+                    [x, r*0.7, outer*0.8]], M(14), MAT.steel(), 6));
+        add('arb'+sfx, b);
+      }
     }
+
+    /* ---- upright, brakes and wheel: every corner has these ---- */
     if (has('upr'+sfx)){
       const u = group('upr');
       u.add(at(box(M(110), r*0.85, M(80), MAT.alloy()), x, r, outer));
       u.add(at(rot(cyl(M(45), M(45), M(70), MAT.steel(), 12), Math.PI/2, 0, 0), x, r, outer + side*M(30)));
-      add('upr'+sfx, u);
+      add('upr'+sfx, u); unsprung.push(u);
+    } else if (type === 'none'){
+      /* a stub axle: a kart calls it a spindle, a dragster just bolts it to the frame */
+      const u = at(box(M(90), r*0.7, M(90), MAT.steel()), x, r, outer);
+      add(has('spindles') ? 'spindles' : has('wheels') ? 'wheels' : 'chassis', u);
+      unsprung.push(u);
     }
-    if (has('arb'+sfx)){
-      const b = group('arb');
-      b.add(pipe([[x + (end==='F'?M(220):-M(220)), floorY*0.8, 0],
-                  [x + (end==='F'?M(220):-M(220)), floorY*0.8, outer*0.6],
-                  [x, r*0.7, outer*0.8]], M(14), MAT.steel(), 6));
-      add('arb'+sfx, b);
-    }
-    /* brakes */
     const dia = end === 'F' ? v.brakeF : v.brakeR;
     if (dia && has('disc'+sfx)){
       const disc = rot(tubeMesh(M(dia/2), M(dia/6), M(28), MAT.iron(), 30), 0, 0, Math.PI/2);
-      add('disc'+sfx, at(disc, x, r, outer + side*M(14)));
+      add('disc'+sfx, at(disc, x, r, outer + side*M(14))); unsprung.push(disc);
     }
     if (dia && has('cal'+sfx)){
       const c = roundBox(M(90), M(150), M(120), .01, MAT.red());
       add('cal'+sfx, at(c, x - M(dia/2)*0.75, r + M(dia/2)*0.6, outer + side*M(14)));
+      unsprung.push(c);
     }
-    /* wheel */
     if (has('wheels')){
       const w = group('wheel');
       const width = M(end === 'F' ? v.tyreF : v.tyreR);
       const rimR = M((end === 'F' ? v.rimF : v.rimR) * 25.4 / 2);
-      w.add(rot(tubeMesh(r, rimR, width, MAT.rubber(), 30), 0, 0, Math.PI/2));
-      w.add(rot(tubeMesh(rimR, rimR*0.34, width*0.86, MAT.chrome(), 26), 0, 0, Math.PI/2));
-      for (let s2 = 0; s2 < 8; s2++){
-        const sp = box(width*0.5, rimR*0.9, M(26), MAT.alloy());
-        sp.rotation.x = (s2/8)*TAU;
-        sp.position.set(0, Math.cos((s2/8)*TAU)*rimR*0.5, Math.sin((s2/8)*TAU)*rimR*0.5);
+      /* tyre with a shoulder radius, then the rim barrel, then the spokes */
+      w.add(rot(lathe([
+        [rimR*1.00, -width/2], [r*0.93, -width/2], [r*1.00, -width*0.30],
+        [r*1.00,  width*0.30], [r*0.93,  width/2], [rimR*1.00, width/2],
+      ], MAT.rubber(), 34), 0, 0, Math.PI/2));
+      w.add(rot(tubeMesh(rimR, rimR*0.34, width*0.88, MAT.chrome(), 28), 0, 0, Math.PI/2));
+      const nSpokes = v.class === 'kart' ? 5 : 8;
+      for (let s2 = 0; s2 < nSpokes; s2++){
+        const sp = box(width*0.42, rimR*0.92, M(24), MAT.alloy());
+        const a = (s2/nSpokes)*TAU;
+        sp.rotation.x = a;
+        sp.position.set(0, Math.cos(a)*rimR*0.5, Math.sin(a)*rimR*0.5);
         w.add(sp);
       }
+      w.add(rot(cyl(rimR*0.30, rimR*0.30, width*0.5, MAT.alloyDark(), 16), 0, 0, Math.PI/2));
       at(w, x, r, outer + side*M(40));
       anim.wheels.push({ node:w, end, side, radius:r });
       if (end === 'F') anim.steer.push(w);
-      add('wheels', w);
+      add('wheels', w); unsprung.push(w);
     }
+    anim.corners.push({ end, side, x, nodes:unsprung,
+                        home:new Map(unsprung.map(n => [n, n.position.y])),
+                        phase: x * 9 + side * 1.7,
+                        sprung: type !== 'none' });
   };
   for (const end of ['F','R']) for (const side of [-1,1]) corner(end, side);
 
@@ -270,12 +287,27 @@ function buildCar(v, tree){
   }
   if (has('body') && !open){
     const bd = group('body');
-    const paint = new THREE.MeshStandardMaterial({ color:v.colour, metalness:.55, roughness:.32,
-      transparent:true, opacity:0.34, side:THREE.DoubleSide });
+    const paint = new THREE.MeshStandardMaterial({ color:v.colour, metalness:.62, roughness:.26,
+      transparent:true, opacity:0.30, side:THREE.DoubleSide });
     const shape = bodyProfile(v, len, hgt, floorY);
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: wid*0.94, bevelEnabled:true, bevelSize:M(40), bevelThickness:M(30), bevelSegments:2, curveSegments:8 });
-    geo.rotateY(0); geo.translate(0, 0, -wid*0.47);
+    /* wheel arches are cut right through, so the suspension is visible in them */
+    for (const [ax, r] of [[axF, rF], [axR, rR]]){
+      const arch = new THREE.Path();
+      arch.absarc(ax, r * 0.92, r * 1.24, 0, Math.PI * 2, true);
+      shape.holes.push(arch);
+    }
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: wid*0.94, bevelEnabled:true,
+      bevelSize:M(45), bevelThickness:M(34), bevelSegments:2, curveSegments:14 });
+    geo.translate(0, 0, -wid*0.47);
     bd.add(new THREE.Mesh(geo, paint));
+    /* the greenhouse, inset and darker */
+    const glass = glassProfile(v, len, hgt, floorY);
+    if (glass){
+      const gg = new THREE.ExtrudeGeometry(glass, { depth: wid*0.80, bevelEnabled:false, curveSegments:10 });
+      gg.translate(0, 0, -wid*0.40);
+      bd.add(new THREE.Mesh(gg, new THREE.MeshPhysicalMaterial({ color:0x0e1620, metalness:.2,
+        roughness:.08, transmission:.55, transparent:true, opacity:.55, side:THREE.DoubleSide })));
+    }
     add('body', bd);
   }
   if (open && has('body')){
@@ -289,35 +321,87 @@ function buildCar(v, tree){
   return finalize(root, nodes, anim, v);
 }
 
+/* Side elevations. The silhouette is most of what makes a car recognisable,
+ * so each body style gets its own bonnet line, screen rake and tail. */
 function bodyProfile(v, len, hgt, floorY){
   const s = new THREE.Shape();
-  const x = len/2, y0 = floorY*0.55, roof = floorY + hgt*0.92;
-  const wsBase = -len*0.02, wsTop = -len*0.16, rearTop = -len*0.30;
+  const x = len/2, sill = floorY * 0.42;
   const b = v.body;
-  s.moveTo(-x, y0);
-  s.lineTo(x, y0);
-  s.lineTo(x, floorY + hgt*0.32);
-  s.lineTo(len*0.24, floorY + hgt*0.40);
-  s.lineTo(wsBase, floorY + hgt*0.46);
-  s.lineTo(wsTop, roof);
+  const H = (f) => floorY + hgt * f;
+
+  s.moveTo(-x * 0.98, sill);
+  s.lineTo(x * 0.98, sill);                                   // underside
+  s.quadraticCurveTo(x, sill, x, H(0.24));                    // front bumper
   if (b === 'pickup' || b === 'semi'){
-    s.lineTo(-len*0.05, roof);
-    s.lineTo(-len*0.07, floorY + hgt*0.42);
-    s.lineTo(-x, floorY + hgt*0.44);
+    s.lineTo(x * 0.86, H(0.62));
+    s.lineTo(x * 0.30, H(0.66));                              // long flat bonnet
+    s.quadraticCurveTo(x * 0.16, H(0.70), x * 0.06, H(0.98));  // upright screen
+    s.lineTo(-x * 0.10, H(1.00));
+    s.lineTo(-x * 0.14, H(0.60));                             // back of cab
+    s.lineTo(-x * 0.20, H(0.58));
+    s.lineTo(-x * 0.20, H(0.66));                             // bed side
+    s.lineTo(-x * 0.98, H(0.66));
+    s.lineTo(-x * 0.98, H(0.26));
+  } else if (b === 'super'){
+    s.quadraticCurveTo(x * 0.92, H(0.30), x * 0.62, H(0.34));  // low nose
+    s.quadraticCurveTo(x * 0.30, H(0.38), x * 0.10, H(0.56));  // steep screen
+    s.quadraticCurveTo(-x * 0.06, H(0.72), -x * 0.26, H(0.74));// low cabin
+    s.quadraticCurveTo(-x * 0.52, H(0.74), -x * 0.72, H(0.56));// fastback
+    s.lineTo(-x * 0.96, H(0.46));
+    s.lineTo(-x * 0.98, H(0.28));
+  } else if (b === 'coupe'){
+    s.quadraticCurveTo(x * 0.94, H(0.34), x * 0.58, H(0.42));
+    s.quadraticCurveTo(x * 0.30, H(0.46), x * 0.06, H(0.72));
+    s.quadraticCurveTo(-x * 0.16, H(0.92), -x * 0.40, H(0.90));// roof peak set back
+    s.quadraticCurveTo(-x * 0.68, H(0.86), -x * 0.86, H(0.54));// long fastback tail
+    s.lineTo(-x * 0.98, H(0.44));
+    s.lineTo(-x * 0.98, H(0.26));
   } else if (b === 'hatch'){
-    s.lineTo(rearTop*0.9, roof);
-    s.lineTo(-x*0.96, floorY + hgt*0.42);
-    s.lineTo(-x, floorY + hgt*0.34);
-  } else if (b === 'super' || b === 'coupe'){
-    s.lineTo(rearTop, roof*0.98);
-    s.lineTo(-x*0.72, floorY + hgt*0.5);
-    s.lineTo(-x, floorY + hgt*0.36);
-  } else {
-    s.lineTo(rearTop, roof);
-    s.lineTo(-x*0.62, floorY + hgt*0.48);
-    s.lineTo(-x, floorY + hgt*0.36);
+    s.quadraticCurveTo(x * 0.94, H(0.36), x * 0.62, H(0.44));
+    s.quadraticCurveTo(x * 0.34, H(0.48), x * 0.10, H(0.78));
+    s.quadraticCurveTo(-x * 0.10, H(0.98), -x * 0.44, H(0.96));
+    s.lineTo(-x * 0.80, H(0.88));                             // near-vertical hatch
+    s.quadraticCurveTo(-x * 0.96, H(0.84), -x * 0.96, H(0.46));
+    s.lineTo(-x * 0.98, H(0.28));
+  } else if (b === 'suv'){
+    s.quadraticCurveTo(x * 0.94, H(0.42), x * 0.66, H(0.52));
+    s.quadraticCurveTo(x * 0.38, H(0.56), x * 0.16, H(0.82));
+    s.quadraticCurveTo(-x * 0.04, H(1.00), -x * 0.46, H(0.99));
+    s.lineTo(-x * 0.86, H(0.92));
+    s.quadraticCurveTo(-x * 0.98, H(0.88), -x * 0.98, H(0.48));
+    s.lineTo(-x * 0.98, H(0.30));
+  } else if (b === 'rally' || b === 'stockcar'){
+    s.quadraticCurveTo(x * 0.94, H(0.36), x * 0.60, H(0.46));
+    s.quadraticCurveTo(x * 0.32, H(0.50), x * 0.08, H(0.80));
+    s.lineTo(-x * 0.30, H(0.94));
+    s.lineTo(-x * 0.62, H(0.90));
+    s.quadraticCurveTo(-x * 0.90, H(0.86), -x * 0.96, H(0.50));
+    s.lineTo(-x * 0.98, H(0.30));
+  } else {                                                     // saloon
+    s.quadraticCurveTo(x * 0.94, H(0.34), x * 0.62, H(0.42));
+    s.quadraticCurveTo(x * 0.34, H(0.46), x * 0.12, H(0.74));
+    s.quadraticCurveTo(-x * 0.08, H(0.94), -x * 0.34, H(0.94));
+    s.quadraticCurveTo(-x * 0.56, H(0.92), -x * 0.66, H(0.62));// C-pillar into a boot
+    s.lineTo(-x * 0.96, H(0.58));
+    s.lineTo(-x * 0.98, H(0.28));
   }
-  s.lineTo(-x, y0);
+  s.lineTo(-x * 0.98, sill);
+  return s;
+}
+
+/** The glasshouse, roughly following the roofline but inset. */
+function glassProfile(v, len, hgt, floorY){
+  const b = v.body;
+  if (b === 'semi') return null;
+  const x = len/2, H = (f) => floorY + hgt * f;
+  const s = new THREE.Shape();
+  const beltline = b === 'super' ? 0.52 : b === 'coupe' ? 0.62 : b === 'suv' ? 0.70 : 0.64;
+  const roof = b === 'super' ? 0.70 : b === 'coupe' ? 0.86 : b === 'suv' ? 0.95 : 0.90;
+  s.moveTo(x * 0.14, H(beltline));
+  s.quadraticCurveTo(x * 0.02, H(roof * 0.94), -x * 0.14, H(roof));
+  s.lineTo(-x * 0.48, H(roof));
+  s.quadraticCurveTo(-x * 0.62, H(roof * 0.96), -x * 0.66, H(beltline));
+  s.closePath();
   return s;
 }
 
@@ -327,7 +411,7 @@ function buildBike(v, tree){
   const add = (id, obj) => { if (!obj) return; tag(obj, id); root.add(obj);
     if (!nodes.has(id)) nodes.set(id, []); nodes.get(id).push(obj); };
   const has = (id) => !!tree.byId[id];
-  const anim = { wheels:[], steer:[], susp:[], fans:[] };
+  const anim = { wheels:[], steer:[], susp:[], fans:[], corners:[] };
 
   const wb = M(v.wheelbase);
   const rF = wheelRadius(v, false), rR = wheelRadius(v, true);
@@ -501,12 +585,27 @@ function finalize(root, nodes, anim, v){
     },
     update(state){
       const spin = state.wheelAngle || 0;
+      const t = state.time || 0;
+      const moving = Math.abs(state.speed || 0) > 0.01;
       for (const w of anim.wheels) w.node.rotation.z = -spin;
       const st = (state.steer || 0) * 0.5;
       for (const s of anim.steer) s.rotation.y = st;
-      const t = (state.suspTravel || 0);
-      for (const s of anim.susp) s.node.position.y = -t;
-      for (const f of anim.fans) f.rotation.x = (state.time || 0) * 6;
+      /* Suspension travel: pitch under acceleration or braking, roll from
+       * steering, plus the road surface itself once the wheels are turning. */
+      const pitch = state.pitch || 0, roll = state.roll || 0;
+      for (const c of anim.corners){
+        if (!c.sprung) continue;
+        const road = moving ? Math.sin(t * 6.3 + c.phase) * 0.009 + Math.sin(t * 11.7 + c.phase * 2) * 0.004 : 0;
+        const dive = pitch * (c.end === 'F' ? 1 : -1) * 0.030;
+        const lean = roll * c.side * 0.026;
+        const travel = road + dive + lean;
+        for (const n of c.nodes){
+          const home = c.home.get(n);
+          if (home != null) n.position.y = home + travel;
+        }
+      }
+      for (const s of anim.susp) s.node.position.y = -(state.suspTravel || 0);
+      for (const f of anim.fans) f.rotation.x = t * (moving ? 14 : 6);
     },
   };
 }
