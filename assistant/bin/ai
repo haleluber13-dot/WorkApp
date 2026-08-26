@@ -1,0 +1,5 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Launcher: keeps `ai` on the PATH pointing at the checked-out code.
+set -uo pipefail
+here="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+exec python3 "$here/assistant.py" "$@"

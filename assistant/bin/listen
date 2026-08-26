@@ -1,0 +1,16 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Print whatever the microphone hears. Gives up rather than hanging.
+set -uo pipefail
+
+if ! command -v termux-speech-to-text >/dev/null 2>&1; then
+    echo "termux-speech-to-text is missing. Run: pkg install termux-api" >&2
+    exit 3
+fi
+
+timeout "${LISTEN_TIMEOUT:-60}" termux-speech-to-text </dev/null
+status=$?
+
+if [ "$status" -eq 124 ]; then
+    echo "Nothing came back from the microphone. Check that the Termux:API app is installed and has microphone permission." >&2
+fi
+exit "$status"

@@ -1,0 +1,43 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Speak text out loud without ever hanging the terminal.
+#
+#   say "hello"          say something
+#   echo hi | say        or read it from a pipe
+#
+# SAY_LANG=he-IL and SAY_TIMEOUT=25 change the language and the patience.
+set -uo pipefail
+
+text="${*:-}"
+if [ -z "$text" ] && [ ! -t 0 ]; then
+    text="$(cat)"
+fi
+if [ -z "${text// }" ]; then
+    echo "usage: say TEXT" >&2
+    exit 2
+fi
+
+if ! command -v termux-tts-speak >/dev/null 2>&1; then
+    echo "termux-tts-speak is missing. Run: pkg install termux-api" >&2
+    exit 3
+fi
+
+args=(termux-tts-speak)
+[ -n "${SAY_LANG:-}" ] && args+=(-l "$SAY_LANG")
+[ -n "${SAY_STREAM:-}" ] && args+=(-s "$SAY_STREAM")
+
+# </dev/null so the command can never sit waiting for input, and timeout so a
+# missing Termux:API app costs a few seconds instead of the whole session.
+timeout "${SAY_TIMEOUT:-25}" "${args[@]}" "$text" </dev/null
+status=$?
+
+if [ "$status" -eq 124 ]; then
+    cat >&2 <<'MSG'
+The phone did not answer within the timeout.
+
+That means the Termux:API *app* is not reachable — the termux-api package
+on its own is not enough. Install the app from the same source as Termux
+(both from F-Droid, or both from GitHub), open it once, then set
+Settings > Apps > Termux:API > Battery > Unrestricted.
+MSG
+fi
+exit "$status"
