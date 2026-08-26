@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -96,8 +97,13 @@ fun AtlasScreen(
                     }
                 },
         ) {
-            Canvas(Modifier.fillMaxSize()) {
-                canvasSize = size
+            Canvas(
+                Modifier
+                    .fillMaxSize()
+                    // Size is captured at layout time: assigning state inside the
+                    // draw block would invalidate the draw that just wrote it.
+                    .onSizeChanged { canvasSize = Size(it.width.toFloat(), it.height.toFloat()) },
+            ) {
                 drawLand(land, scale, offset)
                 spots.forEach { spot ->
                     val point = project(spot.lon, spot.lat, size, scale, offset)

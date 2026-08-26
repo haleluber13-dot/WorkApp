@@ -1,18 +1,31 @@
 package com.olakai.app.ui.components
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.view.ViewGroup
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
@@ -43,36 +56,68 @@ fun YouTubeLive(
         buildEmbedHtml(cam.youTubeEmbedUrl, muted, showControls)
     }
 
-    val webView = remember {
-        WebView(context).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            )
-            setBackgroundColor(Color.Black.toArgb())
-            webChromeClient = WebChromeClient()
-            webViewClient = WebViewClient()
-            isVerticalScrollBarEnabled = false
-            isHorizontalScrollBarEnabled = false
-            settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                // Without this the embed will not start until the user taps it,
-                // which defeats a wall of always-on cams.
-                mediaPlaybackRequiresUserGesture = false
-                loadWithOverviewMode = true
-                useWideViewPort = true
-                cacheMode = WebSettings.LOAD_DEFAULT
+    // A device can be without a usable WebView (provider updating, or disabled),
+    // and constructing one then throws. A tile is not worth taking the app down.
+    var failed by remember(cam.source) { mutableStateOf(false) }
+
+    val webView = remember(cam.source) {
+        runCatching {
+            WebView(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+                setBackgroundColor(Color.Black.toArgb())
+                webChromeClient = WebChromeClient()
+                webViewClient = object : WebViewClient() {
+                    /**
+                     * Critical on a wall of streams: when Android kills a WebView
+                     * render process (usually memory pressure with several videos
+                     * decoding), returning false lets the platform kill the whole
+                     * app. Returning true keeps OlaKai alive and drops this tile.
+                     */
+                    override fun onRenderProcessGone(
+                        view: WebView?,
+                        detail: RenderProcessGoneDetail?,
+                    ): Boolean {
+                        Log.w(TAG, "render process gone for ${cam.id}; dropping the tile")
+                        view?.destroy()
+                        failed = true
+                        return true
+                    }
+                }
+                isVerticalScrollBarEnabled = false
+                isHorizontalScrollBarEnabled = false
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    // Without this the embed will not start until the user taps
+                    // it, which defeats a wall of always-on cams.
+                    mediaPlaybackRequiresUserGesture = false
+                    loadWithOverviewMode = true
+                    useWideViewPort = true
+                    cacheMode = WebSettings.LOAD_DEFAULT
+                }
             }
-        }
+        }.onFailure {
+            Log.w(TAG, "no usable WebView: ${it.message}")
+            failed = true
+        }.getOrNull()
+    }
+
+    if (webView == null || failed) {
+        CamUnavailable(modifier)
+        return
     }
 
     DisposableEffect(webView) {
         onDispose {
             // Release the decoder immediately -- a wall recycles these constantly.
-            webView.loadUrl("about:blank")
-            webView.stopLoading()
-            webView.destroy()
+            runCatching {
+                webView.loadUrl("about:blank")
+                webView.stopLoading()
+                webView.destroy()
+            }
         }
     }
 
@@ -80,15 +125,41 @@ fun YouTubeLive(
         modifier = modifier,
         factory = { webView },
         update = { view ->
-            view.loadDataWithBaseURL(
-                "https://www.youtube.com",
-                html,
-                "text/html",
-                "utf-8",
-                null,
-            )
+            // Load once per cam. Reloading on every recomposition would restart
+            // the stream and thrash the decoder.
+            if (view.getTag(R_LOADED) != html) {
+                view.setTag(R_LOADED, html)
+                view.loadDataWithBaseURL(
+                    "https://www.youtube.com",
+                    html,
+                    "text/html",
+                    "utf-8",
+                    null,
+                )
+            }
         },
     )
+}
+
+/** Tag key for the html a WebView already loaded; any unique id works. */
+private val R_LOADED = "olakai_loaded_html".hashCode()
+
+private const val TAG = "LiveVideo"
+
+@Composable
+private fun CamUnavailable(modifier: Modifier = Modifier) {
+    Box(
+        modifier.background(Color(0xFF07223A)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "Cam unavailable on this device",
+            color = Color(0xFF9FB6C6),
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(12.dp),
+        )
+    }
 }
 
 private fun buildEmbedHtml(embedUrl: String, muted: Boolean, controls: Boolean): String {
@@ -131,17 +202,24 @@ fun HlsLive(
 ) {
     val context = LocalContext.current
     val player = remember(cam.source) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(cam.source))
-            repeatMode = Player.REPEAT_MODE_OFF
-            volume = if (muted) 0f else 1f
-            playWhenReady = true
-            prepare()
-        }
+        runCatching {
+            ExoPlayer.Builder(context).build().apply {
+                setMediaItem(MediaItem.fromUri(cam.source))
+                repeatMode = Player.REPEAT_MODE_OFF
+                volume = if (muted) 0f else 1f
+                playWhenReady = true
+                prepare()
+            }
+        }.onFailure { Log.w(TAG, "player init failed: ${it.message}") }.getOrNull()
+    }
+
+    if (player == null) {
+        CamUnavailable(modifier)
+        return
     }
 
     DisposableEffect(player) {
-        onDispose { player.release() }
+        onDispose { runCatching { player.release() } }
     }
 
     AndroidView(
