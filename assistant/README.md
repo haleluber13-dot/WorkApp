@@ -22,12 +22,14 @@ pm list packages | grep termux      # מחפשים את com.termux.api ברשי�
 אם `com.termux.api` לא מופיע — זו הבעיה. מתקינים את האפליקציה, פותחים
 אותה פעם אחת, ואז:
 
+שורה אחת, מדביקים בטרמוקס:
+
 ```sh
-git clone https://github.com/haleluber13-dot/WorkApp.git ~/WorkApp
-bash ~/WorkApp/assistant/setup.sh
-ai --doctor
-ai --voice "מה שלומך"
+curl -fsSL https://raw.githubusercontent.com/haleluber13-dot/WorkApp/claude/personal-ai-history-fg11ay/assistant/install.sh | bash
 ```
+
+> להדביק **שורה אחת בכל פעם**. בלוק של כמה שורות עם הערות `#` נדבק בטרמוקס
+> לשורה אחת ארוכה ושובר את הפקודה הבאה.
 
 לתשובות בעברית: `ai --lang he-IL --voice "..."`
 
@@ -51,10 +53,15 @@ Android will not let them talk.
 Check it in one line:
 
 ```sh
-pm list packages | grep termux
+bash ~/WorkApp/assistant/doctor.sh
 ```
 
-You want to see `com.termux.api` there. If it is missing:
+Step 2 asks the phone something harmless and waits eight seconds for an
+answer. No answer means the app is not reachable. If it is missing:
+
+> Do not try to check this with `pm list packages` — on Android 11 and
+> newer, Android hides other apps from Termux and the list comes back
+> empty whether or not the app is installed.
 
 1. Install Termux:API from the **same place you installed Termux**
    (F-Droid: <https://f-droid.org/packages/com.termux.api/>).
@@ -106,14 +113,18 @@ model asks for it by name.
 
 ## Install
 
+One line, pasted into Termux:
+
 ```sh
-pkg install python termux-api git
-git clone https://github.com/haleluber13-dot/WorkApp.git ~/WorkApp
-bash ~/WorkApp/assistant/setup.sh
+curl -fsSL https://raw.githubusercontent.com/haleluber13-dot/WorkApp/claude/personal-ai-history-fg11ay/assistant/install.sh | bash
 ```
 
-`setup.sh` installs the packages, asks for your Gemini API key, links `ai`,
-`say` and `listen` onto your PATH, and runs the checks.
+It installs the packages, clones this repo to `~/WorkApp`, asks for your
+Gemini API key, links `ai`, `say` and `listen` onto your PATH, and runs the
+checks. Run it again any time to update.
+
+Paste **one line at a time**. A multi-line block with `#` comments arrives
+in Termux as a single glued-together line and eats the command after it.
 
 The key lives in `~/.personal-ai/key`, mode 600. `GEMINI_API_KEY` in the
 environment overrides it. Get one free at <https://aistudio.google.com/apikey>.
@@ -169,6 +180,7 @@ PROMPT
 | `bin/ai`, `bin/say`, `bin/listen` | what lands on your PATH |
 | `doctor.sh` | diagnoses the phone, end to end |
 | `setup.sh` | one-time install |
+| `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `tests/` | 37 tests, no phone or network needed |
 
 ## Tests
