@@ -84,11 +84,11 @@ main { display: flex; }
   background: #000; border-radius: 16px; cursor: pointer;
   border: 1px solid rgba(255,255,255,.10);
 }
-.tile iframe, .tile img { width: 100%; height: 100%; border: 0; display: block; object-fit: cover; }
+.tile iframe, .tile img, .tile video { width: 100%; height: 100%; border: 0; display: block; object-fit: cover; }
 /* A playing iframe would otherwise swallow the tap, so a live tile could not be
    opened. Tiles have no player controls anyway; the focused player does. */
-.tile iframe { pointer-events: none; }
-.tile .placeholder {
+.tile iframe, .tile video { pointer-events: none; }
+.tile .placeholder, #player .placeholder {
   width: 100%; height: 100%;
   background: linear-gradient(150deg, var(--deep), var(--mid), #10547f);
   display: grid; place-items: center; color: var(--slate); font-size: 13px;
@@ -163,7 +163,7 @@ main { display: flex; }
 
 .player-wrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
 #player { width: 100%; height: 100%; }
-#player iframe { width: 100%; height: 100%; border: 0; }
+#player iframe, #player video { width: 100%; height: 100%; border: 0; display: block; background: #000; }
 
 .cam-switch { display: flex; gap: 8px; padding: 9px 14px; overflow-x: auto; }
 .cam-switch button {
@@ -277,3 +277,15 @@ main { display: flex; }
   position: absolute; left: 16px; top: calc(var(--safe-top) + 12px);
   margin: 0; font-size: 11px; color: var(--slate);
 }
+
+/* The no-cam player: operators that do have a live view, offered in place of
+   the video rather than buried at the bottom of the page. */
+.nocam { flex-direction: column; gap: 10px; padding: 18px; text-align: center; }
+.nocam b { font-size: 14px; color: var(--foam); font-weight: 700; }
+.nocam span { font-size: 11px; color: var(--slate); }
+.nocam-links { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.nocam-links a {
+  background: rgba(255,255,255,.10); color: var(--aqua); text-decoration: none;
+  padding: 8px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 700;
+}
+.nocam-links a.primary { background: var(--aqua); color: var(--ink); }

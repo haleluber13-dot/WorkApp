@@ -48,14 +48,18 @@ async function boot() {
   S.cams = cams;
   S.airports = airports.airports;
   S.spots = catalog.spots.map((spot) => {
+    // Two shapes share cams.json: an entry with `url` is a direct HLS stream,
+    // anything else is a YouTube channel or video.
     const resolved = (cams[spot.id] || []).map((c, i) => ({
       id: `${spot.id}-${i}`,
       title: c.title || 'Live cam',
-      channelId: c.channelId,
-      videoId: c.videoId,
-      channel: c.channel,
-      pageUrl: c.channelUrl || `https://www.youtube.com/watch?v=${c.videoId}`,
-    }));
+      kind: c.url ? 'hls' : 'youtube',
+      url: c.url || '',
+      channelId: c.channelId || '',
+      videoId: c.videoId || '',
+      channel: c.channel || '',
+      pageUrl: c.channelUrl || (c.videoId ? `https://www.youtube.com/watch?v=${c.videoId}` : c.url || ''),
+    })).filter((c) => c.url || c.channelId || c.videoId);
     return { ...spot, liveCams: resolved };
   });
 
@@ -209,6 +213,8 @@ function tiles() {
 
 function renderWall() {
   const wall = $('#wall');
+  // Detached hls.js instances keep fetching segments; kill them explicitly.
+  wall.querySelectorAll('video').forEach((v) => { if (v._hls) v._hls.destroy(); });
   wall.innerHTML = '';
   const list = tiles();
   $('#subtitle').textContent =
@@ -226,8 +232,8 @@ function renderWall() {
     const tile = el('div', 'tile');
 
     if (live) {
-      tile.appendChild(playerFrame(cam, false));
-    } else if (cam.videoId) {
+      tile.appendChild(playerFor(cam, false));
+    } else if (cam.kind === 'youtube' && cam.videoId) {
       const img = el('img');
       img.loading = 'lazy';
       img.src = `https://i.ytimg.com/vi/${cam.videoId}/hqdefault.jpg`;
@@ -262,6 +268,41 @@ function renderWall() {
    refuses with "This video is unavailable".
    mute=1 is not a preference — browsers will not autoplay audible video at all.
    playsinline=1 keeps iOS from taking over the whole screen. */
+function playerFor(cam, controls) {
+  return cam.kind === 'hls' ? hlsPlayer(cam, controls) : playerFrame(cam, controls);
+}
+
+/* A direct HLS stream. Safari plays these natively; every other browser needs
+   hls.js, which is vendored rather than pulled from a CDN so the app keeps
+   working offline and needs no third-party origin. */
+function hlsPlayer(cam, controls) {
+  const video = el('video');
+  video.muted = true;              // required, or autoplay is refused outright
+  video.autoplay = true;
+  video.playsInline = true;
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.controls = !!controls;
+  video.preload = 'none';
+
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = cam.url;
+  } else if (window.Hls && window.Hls.isSupported()) {
+    const hls = new window.Hls({ liveDurationInfinity: true, lowLatencyMode: false });
+    hls.loadSource(cam.url);
+    hls.attachMedia(video);
+    // A live cam that has dropped should not sit black forever.
+    hls.on(window.Hls.Events.ERROR, (_, data) => {
+      if (data.fatal) { hls.destroy(); video.replaceWith(el('div', 'placeholder', 'Stream unavailable')); }
+    });
+    video._hls = hls;
+  } else {
+    return el('div', 'placeholder', 'HLS not supported here');
+  }
+  video.play().catch(() => {});
+  return video;
+}
+
 function playerFrame(cam, controls) {
   const id = S.resolved[cam.channelId] || cam.videoId;
   const frame = el('iframe');
@@ -338,10 +379,24 @@ function renderFocus() {
   const player = $('#player');
   player.innerHTML = '';
   if (cams.length) {
-    player.appendChild(playerFrame(cams[Math.min(S.camIndex, cams.length - 1)], true));
+    player.appendChild(playerFor(cams[Math.min(S.camIndex, cams.length - 1)], true));
   } else {
-    player.appendChild(el('div', 'placeholder',
-      'No embeddable live cam here yet — conditions below are still live.'));
+    // No embeddable stream here, but the operators below do have one. Put them
+    // in the player itself rather than at the bottom of the page.
+    const box = el('div', 'placeholder nocam');
+    box.appendChild(el('b', '', 'No embeddable cam here — but these operators have one'));
+    const row = el('div', 'nocam-links');
+    (spot.externalCams || []).forEach((cam) => {
+      const a = el('a', cam.provider === 'MEO Beachcam' ? 'primary' : '',
+        escapeHtml(cam.provider === 'MEO Beachcam' ? cam.title.replace('MEO Beachcam — ', '') : cam.provider));
+      a.href = cam.pageUrl || cam.source;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      row.appendChild(a);
+    });
+    box.appendChild(row);
+    box.appendChild(el('span', '', 'The readings below are live either way.'));
+    player.appendChild(box);
   }
 
   const sw = $('#cam-switch');

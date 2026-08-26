@@ -49,24 +49,44 @@ class SpotRepository(private val context: Context) {
         return Http.json.decodeFromString<SpotCatalog>(text).spots
     }
 
-    /** cams.json is the resolver's output: spot id -> verified live streams. */
+    /**
+     * cams.json is the resolver's output: spot id -> verified live streams.
+     *
+     * Two shapes share the file. An entry with `url` is a direct HLS stream,
+     * which is cheaper to play and does not depend on a channel still being
+     * live; anything else is a YouTube channel or video.
+     */
     private fun readCams(text: String): Map<String, List<Cam>> {
         val raw = Http.json.decodeFromString<Map<String, List<ResolvedCam>>>(text)
         return raw.mapValues { (spotId, list) ->
-            list.mapIndexed { index, r ->
-                Cam(
-                    id = "$spotId-yt-$index",
-                    title = r.title.ifBlank { "Live cam" },
-                    kind = CamKind.YOUTUBE,
-                    source = r.channelId.ifBlank { r.videoId },
-                    isChannel = r.channelId.isNotBlank(),
-                    videoId = r.videoId,
-                    provider = r.channel,
-                    attribution = r.channel,
-                    pageUrl = r.channelUrl.ifBlank {
-                        "https://www.youtube.com/watch?v=${r.videoId}"
-                    },
-                )
+            list.mapIndexedNotNull { index, r ->
+                when {
+                    r.url.isNotBlank() -> Cam(
+                        id = "$spotId-hls-$index",
+                        title = r.title.ifBlank { "Live cam" },
+                        kind = CamKind.HLS,
+                        source = r.url,
+                        provider = r.channel,
+                        attribution = r.channel,
+                        pageUrl = r.channelUrl,
+                    )
+
+                    r.channelId.isNotBlank() || r.videoId.isNotBlank() -> Cam(
+                        id = "$spotId-yt-$index",
+                        title = r.title.ifBlank { "Live cam" },
+                        kind = CamKind.YOUTUBE,
+                        source = r.channelId.ifBlank { r.videoId },
+                        isChannel = r.channelId.isNotBlank(),
+                        videoId = r.videoId,
+                        provider = r.channel,
+                        attribution = r.channel,
+                        pageUrl = r.channelUrl.ifBlank {
+                            "https://www.youtube.com/watch?v=${r.videoId}"
+                        },
+                    )
+
+                    else -> null
+                }
             }
         }
     }
@@ -91,6 +111,8 @@ class SpotRepository(private val context: Context) {
 
     @Serializable
     private data class ResolvedCam(
+        /** Set for a direct HLS stream; empty for a YouTube entry. */
+        val url: String = "",
         val videoId: String = "",
         val channelId: String = "",
         val title: String = "",

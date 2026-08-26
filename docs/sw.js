@@ -1,12 +1,13 @@
 // Cache the shell and the catalog so OlaKai opens instantly and still shows
 // spots, write-ups and travel info with no connection. Live cams and live
 // conditions obviously need the network; everything else does not.
-const CACHE = 'olakai-v1';
+const CACHE = 'olakai-v2';
 const SHELL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './vendor/hls.light.min.js',
   './manifest.webmanifest',
   './data/spots.json',
   './data/cams.json',

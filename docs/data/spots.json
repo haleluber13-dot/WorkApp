@@ -1357,6 +1357,33 @@
    },
    "externalCams": [
     {
+     "id": "nazare-meo-0",
+     "title": "MEO Beachcam — Praia do Norte, the canyon",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-do-norte-canhao-nazare/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-do-norte-canhao-nazare/"
+    },
+    {
+     "id": "nazare-meo-1",
+     "title": "MEO Beachcam — Forte de São Miguel Arcanjo",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/nazare-forte-sao-miguel-arcanjo/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/nazare-forte-sao-miguel-arcanjo/"
+    },
+    {
+     "id": "nazare-meo-2",
+     "title": "MEO Beachcam — Praia da Nazaré",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-da-nazare/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-da-nazare/"
+    },
+    {
      "id": "nazare-windy",
      "title": "Webcams near here (Windy)",
      "kind": "external",
@@ -1418,6 +1445,24 @@
     "visaNote": "Schengen area — check your entry requirements"
    },
    "externalCams": [
+    {
+     "id": "ericeira-meo-0",
+     "title": "MEO Beachcam — Ericeira",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/ericeira/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/ericeira/"
+    },
+    {
+     "id": "ericeira-meo-1",
+     "title": "MEO Beachcam — Praia do Sul",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/ericeira-praia-do-sul/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/ericeira-praia-do-sul/"
+    },
     {
      "id": "ericeira-windy",
      "title": "Webcams near here (Windy)",
@@ -1481,6 +1526,24 @@
    },
    "externalCams": [
     {
+     "id": "peniche-meo-0",
+     "title": "MEO Beachcam — Supertubos",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/peniche-supertubos/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/peniche-supertubos/"
+    },
+    {
+     "id": "peniche-meo-1",
+     "title": "MEO Beachcam — Baleal panorama",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/peniche-baleal-panoramica/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/peniche-baleal-panoramica/"
+    },
+    {
      "id": "peniche-windy",
      "title": "Webcams near here (Windy)",
      "kind": "external",
@@ -1542,6 +1605,24 @@
     "visaNote": "Schengen area — check your entry requirements"
    },
    "externalCams": [
+    {
+     "id": "caparica-meo-0",
+     "title": "MEO Beachcam — Costa da Caparica",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/costa-da-caparica/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/costa-da-caparica/"
+    },
+    {
+     "id": "caparica-meo-1",
+     "title": "MEO Beachcam — Praia Nova",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/costa-da-caparica-praia-nova/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/costa-da-caparica-praia-nova/"
+    },
     {
      "id": "caparica-windy",
      "title": "Webcams near here (Windy)",
@@ -3758,6 +3839,310 @@
      "provider": "Surfline",
      "attribution": "Surfline",
      "pageUrl": "https://www.surfline.com/search/Popoyo"
+    }
+   ]
+  },
+  {
+   "id": "carcavelos",
+   "name": "Carcavelos",
+   "region": "Lisboa",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.6797,
+   "lon": -9.3372,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "City",
+    "All levels"
+   ],
+   "info": {
+    "about": "Lisbon's home break and the most consistent beach break on the Estoril line, twenty minutes from the city centre by train. The sandbanks either side of the São Julião da Barra fort pick up almost any Atlantic swell, and the wave is forgiving enough to learn on and punchy enough to be worth the trip when it is bigger.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Peaky, medium-power A-frames",
+    "level": "All levels",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "N–NE offshore",
+    "bestTide": "Low to mid, incoming",
+    "bestSeason": "September–May",
+    "waterTemp": "15–19°C — 3/2 to 4/3",
+    "crowd": "Very busy, it is Lisbon's beach",
+    "hazards": [
+     "Rip currents beside the fort",
+     "Crowds at weekends",
+     "Water quality after heavy rain"
+    ],
+    "localTip": "The train from Cais do Sodré drops you a five-minute walk from the sand, which makes it the easiest surf in Europe to reach without a car."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 25 min west of Lisbon by train or car",
+    "transferMinutes": 25,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "carcavelos-meo-0",
+     "title": "MEO Beachcam — Carcavelos",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/carcavelos-calhau/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/carcavelos-calhau/"
+    },
+    {
+     "id": "carcavelos-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.6797,-9.3372,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.6797,-9.3372,10"
+    },
+    {
+     "id": "carcavelos-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Carcavelos",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Carcavelos"
+    }
+   ]
+  },
+  {
+   "id": "guincho",
+   "name": "Praia do Guincho",
+   "region": "Cascais",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.7325,
+   "lon": -9.4736,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "Windy",
+    "Advanced"
+   ],
+   "info": {
+    "about": "A wild, exposed beach at the edge of the Sintra-Cascais natural park, with dunes behind it and the Serra da Sintra rising to the north. Guincho takes more swell than anywhere else near Lisbon and is famous for the nortada, the summer north wind that made it a windsurfing and kitesurfing capital and that ruins the surf most afternoons.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Powerful, often heavy peaks",
+    "level": "Advanced",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E–SE offshore, early morning only",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May",
+    "waterTemp": "14–18°C — 4/3",
+    "crowd": "Moderate; the wind thins the crowd",
+    "hazards": [
+     "Strong rips",
+     "Fierce afternoon wind",
+     "Cold, powerful Atlantic water",
+     "Rocks at the north end"
+    ],
+    "localTip": "Surf it at dawn. By lunchtime the nortada is usually up and the sailors have it."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 40 min west of Lisbon via Cascais",
+    "transferMinutes": 40,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "guincho-meo-0",
+     "title": "MEO Beachcam — Praia do Guincho",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-do-guincho/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-do-guincho/"
+    },
+    {
+     "id": "guincho-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.7325,-9.4736,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.7325,-9.4736,10"
+    },
+    {
+     "id": "guincho-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Praia%20do%20Guincho",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Praia%20do%20Guincho"
+    }
+   ]
+  },
+  {
+   "id": "praia-grande",
+   "name": "Praia Grande",
+   "region": "Sintra",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 38.8117,
+   "lon": -9.4697,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Beach break",
+    "Cliffs",
+    "Intermediate"
+   ],
+   "info": {
+    "about": "A long beach below dramatic cliffs on the Sintra coast, with fossil dinosaur footprints in the rock at the north end. Praia Grande is consistent, holds size better than most beach breaks nearby and has hosted European bodyboarding events for years.",
+    "breakType": "Beach break",
+    "bottom": "Sand",
+    "wave": "Consistent, punchy peaks that hold size",
+    "level": "Intermediate to advanced",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "E offshore",
+    "bestTide": "Mid to low tide",
+    "bestSeason": "September–May",
+    "waterTemp": "14–18°C — 4/3",
+    "crowd": "Busy in summer, quiet in winter",
+    "hazards": [
+     "Powerful shorebreak",
+     "Rips on bigger days",
+     "Cliff-backed beach with limited exits"
+    ],
+    "localTip": "The north end takes the swell first; the south end is calmer when it is big."
+   },
+   "access": {
+    "airports": [
+     "LIS"
+    ],
+    "transfer": "About 45 min from Lisbon via Sintra",
+    "transferMinutes": 45,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "praia-grande-meo-0",
+     "title": "MEO Beachcam — Praia Grande",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/praia-grande/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/praia-grande/"
+    },
+    {
+     "id": "praia-grande-meo-1",
+     "title": "MEO Beachcam — São Julião",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/sao-juliao/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/sao-juliao/"
+    },
+    {
+     "id": "praia-grande-meo-2",
+     "title": "MEO Beachcam — Santa Cruz",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/santa-cruz/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/santa-cruz/"
+    },
+    {
+     "id": "praia-grande-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,38.8117,-9.4697,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,38.8117,-9.4697,10"
+    },
+    {
+     "id": "praia-grande-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Praia%20Grande",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Praia%20Grande"
+    }
+   ]
+  },
+  {
+   "id": "arrifana",
+   "name": "Arrifana",
+   "region": "Aljezur, Algarve",
+   "country": "Portugal",
+   "countryCode": "PT",
+   "lat": 37.2933,
+   "lon": -8.8656,
+   "timezone": "Europe/Lisbon",
+   "tags": [
+    "Point break",
+    "Bay",
+    "All levels"
+   ],
+   "info": {
+    "about": "A horseshoe bay on the Costa Vicentina, inside the south-west Alentejo natural park, with a fishing harbour under the cliff and a right-hand point at the north end. The headland shelters it from the north wind that blows out the rest of the west coast, which is why it works when nowhere else does.",
+    "breakType": "Point and beach break",
+    "bottom": "Sand and rock",
+    "wave": "Long right off the point; softer peaks in the bay",
+    "level": "Beginner in the bay, intermediate on the point",
+    "bestSwell": "W–NW Atlantic swell",
+    "bestWind": "N–NE offshore, and the cliff blocks the nortada",
+    "bestTide": "Mid tide",
+    "bestSeason": "September–May",
+    "waterTemp": "15–19°C — 3/2 to 4/3",
+    "crowd": "Busy in summer with surf schools",
+    "hazards": [
+     "Rocks at the point",
+     "Strong current when it is big",
+     "Steep cliff road down to the beach"
+    ],
+    "localTip": "When the nortada is howling everywhere else on the west coast, Arrifana is the sheltered option worth the drive."
+   },
+   "access": {
+    "airports": [
+     "FAO",
+     "LIS"
+    ],
+    "transfer": "About 90 min north-west of Faro",
+    "transferMinutes": 90,
+    "visaNote": "Schengen area — check your entry requirements"
+   },
+   "externalCams": [
+    {
+     "id": "arrifana-meo-0",
+     "title": "MEO Beachcam — Arrifana",
+     "kind": "external",
+     "source": "https://beachcam.meo.pt/livecams/arrifana/",
+     "provider": "MEO Beachcam",
+     "attribution": "MEO Beachcam",
+     "pageUrl": "https://beachcam.meo.pt/livecams/arrifana/"
+    },
+    {
+     "id": "arrifana-windy",
+     "title": "Webcams near here (Windy)",
+     "kind": "external",
+     "source": "https://www.windy.com/-Webcams/webcams?webcams,37.2933,-8.8656,10",
+     "provider": "Windy",
+     "attribution": "Windy.com",
+     "pageUrl": "https://www.windy.com/-Webcams/webcams?webcams,37.2933,-8.8656,10"
+    },
+    {
+     "id": "arrifana-surfline",
+     "title": "Surfline cam & report",
+     "kind": "external",
+     "source": "https://www.surfline.com/search/Arrifana",
+     "provider": "Surfline",
+     "attribution": "Surfline",
+     "pageUrl": "https://www.surfline.com/search/Arrifana"
     }
    ]
   }

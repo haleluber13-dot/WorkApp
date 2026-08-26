@@ -9,7 +9,15 @@ import json, datetime
 
 def s(id, name, region, country, cc, lat, lon, tz, tags, about, brk, bottom, wave,
       level, swell, wind, tide, season, water, crowd, hazards, tip,
-      airports, transfer, mins, visa=""):
+      airports, transfer, mins, visa="", meo=()):
+    """One spot in the catalog.
+
+    `meo` holds verified MEO Beachcam slugs. Their network is 150+ free 24/7
+    cams along the Portuguese coast and it covers breaks no YouTube channel
+    does. The streams themselves are token-gated -- 403 to anyone but their own
+    player, referer included -- so these are deep links to the operator's page
+    rather than embedded video, which is the honest way to use them.
+    """
     return {
         "id": id, "name": name, "region": region, "country": country,
         "countryCode": cc, "lat": lat, "lon": lon, "timezone": tz, "tags": tags,
@@ -25,6 +33,13 @@ def s(id, name, region, country, cc, lat, lon, tz, tags, about, brk, bottom, wav
         # spot gets these, so a place with no embeddable stream still has a
         # live-cam route instead of a dead end.
         "externalCams": [
+            *[
+                {"id": f"{id}-meo-{i}", "title": f"MEO Beachcam — {label}",
+                 "kind": "external", "source": f"https://beachcam.meo.pt/livecams/{slug}/",
+                 "provider": "MEO Beachcam", "attribution": "MEO Beachcam",
+                 "pageUrl": f"https://beachcam.meo.pt/livecams/{slug}/"}
+                for i, (slug, label) in enumerate(meo)
+            ],
             {"id": f"{id}-windy", "title": "Webcams near here (Windy)",
              "kind": "external", "source": f"https://www.windy.com/-Webcams/webcams?webcams,{lat},{lon},10",
              "provider": "Windy", "attribution": "Windy.com",
@@ -277,7 +292,10 @@ SPOTS = [
    ["Lethal for anyone but professionals with ski support","Violent shorebreak","Cliff-edge viewing areas"],
    "Watch from Forte de São Miguel Arcanjo. For actually surfing, Praia do Sul in town is the sane option.",
    ["LIS"],"About 90 min north of Lisbon by motorway",90,
-   "Schengen area — check your entry requirements"),
+   "Schengen area — check your entry requirements",
+   meo=[("praia-do-norte-canhao-nazare", "Praia do Norte, the canyon"),
+        ("nazare-forte-sao-miguel-arcanjo", "Forte de São Miguel Arcanjo"),
+        ("praia-da-nazare", "Praia da Nazaré")]),
 
  s("ericeira","Ericeira","Lisboa","Portugal","PT",38.9630,-9.4180,"Europe/Lisbon",
    ["Reef","World Surfing Reserve","Advanced"],
@@ -288,7 +306,8 @@ SPOTS = [
    ["Sharp reef and urchins","Rock entries","Localism at the heavier reefs"],
    "Start at Ribeira d'Ilhas. Earn Coxos later, and only when it is not crowded with locals.",
    ["LIS"],"About 50 min north-west of Lisbon",50,
-   "Schengen area — check your entry requirements"),
+   "Schengen area — check your entry requirements",
+   meo=[("ericeira", "Ericeira"), ("ericeira-praia-do-sul", "Praia do Sul")]),
 
  s("peniche","Supertubos, Peniche","Leiria","Portugal","PT",39.3480,-9.3660,"Europe/Lisbon",
    ["Beach break","Barrel","Advanced"],
@@ -299,7 +318,9 @@ SPOTS = [
    ["Heavy, sand-sucking barrels","Board-breaking closeouts","Strong rips"],
    "If Supertubos is closing out, drive ten minutes to Baleal — the peninsula almost always has a sheltered option.",
    ["LIS"],"About 75 min north of Lisbon",75,
-   "Schengen area — check your entry requirements"),
+   "Schengen area — check your entry requirements",
+   meo=[("peniche-supertubos", "Supertubos"),
+        ("peniche-baleal-panoramica", "Baleal panorama")]),
 
  s("caparica","Costa da Caparica","Setúbal","Portugal","PT",38.6470,-9.2340,"Europe/Lisbon",
    ["Beach break","City escape","All levels"],
@@ -310,7 +331,9 @@ SPOTS = [
    ["Rips between the groynes","Summer beach crowds","Occasional water quality issues after storms"],
    "Take the beach train south in summer — the further you go, the emptier and cleaner the banks.",
    ["LIS"],"About 30 min from Lisbon across the 25 de Abril bridge",30,
-   "Schengen area — check your entry requirements"),
+   "Schengen area — check your entry requirements",
+   meo=[("costa-da-caparica", "Costa da Caparica"),
+        ("costa-da-caparica-praia-nova", "Praia Nova")]),
 
  s("mundaka","Mundaka","Basque Country","Spain","ES",43.4070,-2.6980,"Europe/Madrid",
    ["Rivermouth","Left","Expert"],
@@ -696,6 +719,54 @@ SPOTS = [
    "The offshore wind that makes this coast is also relentless — a slightly bigger board helps with the paddle in.",
    ["MGA"],"About 3h south-west by road from Managua",180,
    "Most nationalities buy a tourist card on arrival in Nicaragua"),
+ s("carcavelos","Carcavelos","Lisboa","Portugal","PT",38.6797,-9.3372,"Europe/Lisbon",
+   ["Beach break","City","All levels"],
+   "Lisbon's home break and the most consistent beach break on the Estoril line, twenty minutes from the city centre by train. The sandbanks either side of the São Julião da Barra fort pick up almost any Atlantic swell, and the wave is forgiving enough to learn on and punchy enough to be worth the trip when it is bigger.",
+   "Beach break","Sand","Peaky, medium-power A-frames","All levels",
+   "W–NW Atlantic swell","N–NE offshore","Low to mid, incoming",
+   "September–May","15–19°C — 3/2 to 4/3","Very busy, it is Lisbon's beach",
+   ["Rip currents beside the fort","Crowds at weekends","Water quality after heavy rain"],
+   "The train from Cais do Sodré drops you a five-minute walk from the sand, which makes it the easiest surf in Europe to reach without a car.",
+   ["LIS"],"About 25 min west of Lisbon by train or car",25,
+   "Schengen area — check your entry requirements",
+   meo=[("carcavelos-calhau", "Carcavelos")]),
+
+ s("guincho","Praia do Guincho","Cascais","Portugal","PT",38.7325,-9.4736,"Europe/Lisbon",
+   ["Beach break","Windy","Advanced"],
+   "A wild, exposed beach at the edge of the Sintra-Cascais natural park, with dunes behind it and the Serra da Sintra rising to the north. Guincho takes more swell than anywhere else near Lisbon and is famous for the nortada, the summer north wind that made it a windsurfing and kitesurfing capital and that ruins the surf most afternoons.",
+   "Beach break","Sand","Powerful, often heavy peaks","Advanced",
+   "W–NW Atlantic swell","E–SE offshore, early morning only","Mid tide",
+   "September–May","14–18°C — 4/3","Moderate; the wind thins the crowd",
+   ["Strong rips","Fierce afternoon wind","Cold, powerful Atlantic water","Rocks at the north end"],
+   "Surf it at dawn. By lunchtime the nortada is usually up and the sailors have it.",
+   ["LIS"],"About 40 min west of Lisbon via Cascais",40,
+   "Schengen area — check your entry requirements",
+   meo=[("praia-do-guincho", "Praia do Guincho")]),
+
+ s("praia-grande","Praia Grande","Sintra","Portugal","PT",38.8117,-9.4697,"Europe/Lisbon",
+   ["Beach break","Cliffs","Intermediate"],
+   "A long beach below dramatic cliffs on the Sintra coast, with fossil dinosaur footprints in the rock at the north end. Praia Grande is consistent, holds size better than most beach breaks nearby and has hosted European bodyboarding events for years.",
+   "Beach break","Sand","Consistent, punchy peaks that hold size","Intermediate to advanced",
+   "W–NW Atlantic swell","E offshore","Mid to low tide",
+   "September–May","14–18°C — 4/3","Busy in summer, quiet in winter",
+   ["Powerful shorebreak","Rips on bigger days","Cliff-backed beach with limited exits"],
+   "The north end takes the swell first; the south end is calmer when it is big.",
+   ["LIS"],"About 45 min from Lisbon via Sintra",45,
+   "Schengen area — check your entry requirements",
+   meo=[("praia-grande", "Praia Grande"), ("sao-juliao", "São Julião"),
+        ("santa-cruz", "Santa Cruz")]),
+
+ s("arrifana","Arrifana","Aljezur, Algarve","Portugal","PT",37.2933,-8.8656,"Europe/Lisbon",
+   ["Point break","Bay","All levels"],
+   "A horseshoe bay on the Costa Vicentina, inside the south-west Alentejo natural park, with a fishing harbour under the cliff and a right-hand point at the north end. The headland shelters it from the north wind that blows out the rest of the west coast, which is why it works when nowhere else does.",
+   "Point and beach break","Sand and rock","Long right off the point; softer peaks in the bay","Beginner in the bay, intermediate on the point",
+   "W–NW Atlantic swell","N–NE offshore, and the cliff blocks the nortada","Mid tide",
+   "September–May","15–19°C — 3/2 to 4/3","Busy in summer with surf schools",
+   ["Rocks at the point","Strong current when it is big","Steep cliff road down to the beach"],
+   "When the nortada is howling everywhere else on the west coast, Arrifana is the sheltered option worth the drive.",
+   ["FAO","LIS"],"About 90 min north-west of Faro",90,
+   "Schengen area — check your entry requirements",
+   meo=[("arrifana", "Arrifana")]),
 ]
 
 def main():
