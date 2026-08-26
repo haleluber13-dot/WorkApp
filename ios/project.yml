@@ -1,0 +1,45 @@
+# XcodeGen spec. Generates OlaKai.xcodeproj without a hand-written pbxproj
+# (which cannot be reviewed or diffed sensibly).
+#
+#   brew install xcodegen
+#   cd ios && xcodegen generate && open OlaKai.xcodeproj
+name: OlaKai
+options:
+  bundleIdPrefix: app.olakai
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+targets:
+  OlaKai:
+    type: application
+    platform: iOS
+    sources:
+      - path: OlaKai
+      # The catalog is shared with the Android app rather than duplicated, so
+      # there is one place to fix a cam and one place to add a spot.
+      - path: ../app/src/main/assets
+        name: Catalog
+        type: folder
+        buildPhase: resources
+    info:
+      path: OlaKai/Info.plist
+      properties:
+        CFBundleDisplayName: OlaKai
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocationWhenInUseUsageDescription: >-
+          Used only to sort surf spots by distance and suggest the airport you
+          would fly from. The app works fully without it.
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.olakai.ios
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO

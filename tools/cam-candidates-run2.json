@@ -1,0 +1,400 @@
+{
+ "pipeline": [
+  {
+   "score": 6,
+   "videoId": "Fp7l8XASb9Y",
+   "channelId": "UCJRuk-FJ6dzX0MOpnd0UDCg",
+   "title": "LIVE Banzai Pipeline Surf Cam: North Shore, Oahu - Hawaii | explore.org",
+   "channel": "Explore Big Surf, Beaches and Sunsets",
+   "channelUrl": "https://www.youtube.com/@ExploreBigSurfandBeaches"
+  },
+  {
+   "score": 6,
+   "videoId": "mLYWolyZxuM",
+   "channelId": "UCwR5HjnjTbN6EElaxi223Ug",
+   "title": "🔴 LIVE: Ultimate Oahu Webcam Tour 🌺 Waikiki Beach, North Shore Surf & Diamond Head | NOW!",
+   "channel": "AlohaLiveCam",
+   "channelUrl": "https://www.youtube.com/@AlohaLiveCam"
+  },
+  {
+   "score": 6,
+   "videoId": "LJs1WUxrCmk",
+   "channelId": "UCaG0IHN1RMOZ4-U3wDXAkwA",
+   "title": "🔴 Live Now: 24/7 Napili Bay Beach in West Maui, Hawaii in 4K Ultra HD",
+   "channel": "afarTV",
+   "channelUrl": "https://www.youtube.com/@afartv"
+  }
+ ],
+ "waimea": [],
+ "sunset-beach": [
+  {
+   "score": 4,
+   "videoId": "Fp7l8XASb9Y",
+   "channelId": "UCJRuk-FJ6dzX0MOpnd0UDCg",
+   "title": "LIVE Banzai Pipeline Surf Cam: North Shore, Oahu - Hawaii | explore.org",
+   "channel": "Explore Big Surf, Beaches and Sunsets",
+   "channelUrl": "https://www.youtube.com/@ExploreBigSurfandBeaches"
+  }
+ ],
+ "waikiki": [
+  {
+   "score": 6,
+   "videoId": "4CK0CsimBHs",
+   "channelId": "UC5lNakfSdpqXCW214H5sBgQ",
+   "title": "Waikiki Beach LIVE Cam | Waikiki Beach Marriott Resort & Spa, Hawaii",
+   "channel": "Ozolio Live",
+   "channelUrl": "https://www.youtube.com/@ozolio_live"
+  },
+  {
+   "score": 6,
+   "videoId": "kCPppYpcY_s",
+   "channelId": "UCspnu6n44ydqafj6nFIw5hw",
+   "title": "Park Shore Waikiki Hotel Live Cam | Waikiki Beach, Honolulu",
+   "channel": "Ozolio Plus",
+   "channelUrl": "https://www.youtube.com/@ozolio_plus"
+  },
+  {
+   "score": 6,
+   "videoId": "mLYWolyZxuM",
+   "channelId": "UCwR5HjnjTbN6EElaxi223Ug",
+   "title": "🔴 LIVE: Ultimate Oahu Webcam Tour 🌺 Waikiki Beach, North Shore Surf & Diamond Head | NOW!",
+   "channel": "AlohaLiveCam",
+   "channelUrl": "https://www.youtube.com/@AlohaLiveCam"
+  }
+ ],
+ "hookipa": [
+  {
+   "score": 6,
+   "videoId": "WbNSQGqLvuI",
+   "channelId": "UCKoVK_pf8pBk3jgGZnMx0eQ",
+   "title": "Maui Surfer Girls -- Live Surf Cam",
+   "channel": "Maui Surfer Girls",
+   "channelUrl": "https://www.youtube.com/@mauisurfergirls"
+  },
+  {
+   "score": 6,
+   "videoId": "GL_2CrLwSDA",
+   "channelId": "UC5lNakfSdpqXCW214H5sBgQ",
+   "title": "LIVE Napili Sunset Beachfront Resort | 4K Maui Live Cam | Maui Beachfront View",
+   "channel": "Ozolio Live",
+   "channelUrl": "https://www.youtube.com/@ozolio_live"
+  },
+  {
+   "score": 6,
+   "videoId": "LJs1WUxrCmk",
+   "channelId": "UCaG0IHN1RMOZ4-U3wDXAkwA",
+   "title": "🔴 Live Now: 24/7 Napili Bay Beach in West Maui, Hawaii in 4K Ultra HD",
+   "channel": "afarTV",
+   "channelUrl": "https://www.youtube.com/@afartv"
+  }
+ ],
+ "huntington": [
+  {
+   "score": 6,
+   "videoId": "mhQjsLBfOoY",
+   "channelId": "UCqaosllyy3vU5eHadlDShpg",
+   "title": "View from Huntington Beach Pier",
+   "channel": "City of Huntington Beach",
+   "channelUrl": "https://www.youtube.com/@cityofhb"
+  }
+ ],
+ "malibu": [
+  {
+   "score": 4,
+   "videoId": "E0TZTmTK-Ws",
+   "channelId": "UC4Rrzu44rIpYtuVit90Kl5w",
+   "title": "LA Times Live Feeds: Malibu Beach 24/7",
+   "channel": "LA Times Studios",
+   "channelUrl": "https://www.youtube.com/@LATimesStudios"
+  }
+ ],
+ "steamer-lane": [],
+ "ocean-beach-sf": [
+  {
+   "score": 6,
+   "videoId": "CXYr04BWvmc",
+   "channelId": "UCYUbNjkuE4lsr2v1Id2O1oA",
+   "title": "San Francisco-Oakland Bay Bridge Live Camera | 24/7 Stream",
+   "channel": "ABC7 News Bay Area",
+   "channelUrl": "https://www.youtube.com/@abc7news"
+  }
+ ],
+ "san-diego": [
+  {
+   "score": 6,
+   "videoId": "cvP_F-c2Upw",
+   "channelId": "UC88QpAaX8sdqm1fWYSjzbSQ",
+   "title": "The Rooftop Bar | Oceanside, CA | San Diego Web Cam",
+   "channel": "San Diego Web Cam",
+   "channelUrl": "https://www.youtube.com/@SanDiegoWebCam"
+  }
+ ],
+ "cocoa-beach": [],
+ "sebastian-inlet": [],
+ "outer-banks": [
+  {
+   "score": 6,
+   "videoId": "ZS7u5ilSRi4",
+   "channelId": "UCrn0oLlqBp1z5sh_wdqMqIg",
+   "title": "LIVE 4k Nags Head Beach Cam 🌊 | Oceanfront View from the Outer Banks, NC",
+   "channel": "Sunnyside Up Weather",
+   "channelUrl": "https://www.youtube.com/@SunnysideUpWeather"
+  },
+  {
+   "score": 5,
+   "videoId": "WEhuDqlxHmM",
+   "channelId": "UCpbcJuD_QkFkS3lEPuEi6oA",
+   "title": "Live Outer Banks, NC Webcam from Twiddy & Company",
+   "channel": "Twiddy & Company Vacation Rentals",
+   "channelUrl": "https://www.youtube.com/@twiddyobx"
+  }
+ ],
+ "virginia-beach": [
+  {
+   "score": 6,
+   "videoId": "Zx_7xF2Sbxo",
+   "channelId": "UCFXlxbLuvqTKrLs1AknAfoQ",
+   "title": "Virginia Beach Fishing Pier Live Cam | Virginia Beach, VA",
+   "channel": "Surfchex",
+   "channelUrl": "https://www.youtube.com/@boomerangjoseph"
+  }
+ ],
+ "puerto-escondido": [],
+ "sayulita": [],
+ "tamarindo": [],
+ "santa-teresa": [
+  {
+   "score": 6,
+   "videoId": "ZZTCcWTTVmE",
+   "channelId": "UCjDgFtxT4FlTO1CeYweHj_A",
+   "title": "Santa Teresa Live Surf Cam | Costa Rica Surf Report",
+   "channel": "malpaisurfcam",
+   "channelUrl": "https://www.youtube.com/@malpaisurfcam1"
+  },
+  {
+   "score": 6,
+   "videoId": "j2_wqFsPhog",
+   "channelId": "UCa4397KS7YBwp7pkA8B5J6g",
+   "title": "Santa Teresa Live Surf Cam | Costa Rica Surf Report",
+   "channel": "joseph quesada",
+   "channelUrl": "https://www.youtube.com/@QuesadaJoseph"
+  }
+ ],
+ "punta-de-lobos": [],
+ "florianopolis": [],
+ "rio": [],
+ "nazare": [
+  {
+   "score": 6,
+   "videoId": "_Gi8UC_HPKM",
+   "channelId": "UCJRuk-FJ6dzX0MOpnd0UDCg",
+   "title": "LIVE Nazaré Big Waves Camera powered by Explore.org",
+   "channel": "Explore Big Surf, Beaches and Sunsets",
+   "channelUrl": "https://www.youtube.com/@ExploreBigSurfandBeaches"
+  }
+ ],
+ "ericeira": [],
+ "peniche": [],
+ "caparica": [
+  {
+   "score": 6,
+   "videoId": "oDbKeeojgyk",
+   "channelId": "UCHSNLuGE3aeMG1RaS4r6sFg",
+   "title": "LIVECAM - Costa da Caparica 1 Panorâmica (Almada, Portugal)",
+   "channel": "Playocean",
+   "channelUrl": "https://www.youtube.com/@PlayoceanLive"
+  }
+ ],
+ "mundaka": [],
+ "zarautz": [],
+ "san-sebastian": [],
+ "hossegor": [],
+ "biarritz": [],
+ "lacanau": [],
+ "fistral": [],
+ "bundoran": [],
+ "lahinch": [],
+ "fuerteventura": [
+  {
+   "score": 6,
+   "videoId": "uRO7HfpzqJk",
+   "channelId": "UCcFeFPtIKj8hUR3LzaPwCFw",
+   "title": "🔴 Live Cam Gran Canaria - Fuerteventura - Playa del Ingles  Las Palmas, Jandia, Corralejo",
+   "channel": "tuxrunner",
+   "channelUrl": "https://www.youtube.com/@tuxrunner"
+  }
+ ],
+ "lanzarote": [
+  {
+   "score": 6,
+   "videoId": "AfD16cDYBbE",
+   "channelId": "UCUaLy1_4rsLo4HyCLCPlD4g",
+   "title": "LIVE 🔴 WEBCAM from PUERTO del CARMEN BEACH - (Lanzarote, Canary Islands, Spain)",
+   "channel": "LanzaroteWebcam",
+   "channelUrl": "https://www.youtube.com/@LanzaroteWebcam"
+  },
+  {
+   "score": 5,
+   "videoId": "B80e-blh9t4",
+   "channelId": "UCcFeFPtIKj8hUR3LzaPwCFw",
+   "title": "🔴 Live Cam Lanzarote - Teneriffa – La Palma - Kanarische Inseln",
+   "channel": "tuxrunner",
+   "channelUrl": "https://www.youtube.com/@tuxrunner"
+  }
+ ],
+ "tenerife": [],
+ "taghazout": [],
+ "jeffreys-bay": [
+  {
+   "score": 6,
+   "videoId": "7rdk79WCsQs",
+   "channelId": "UCLmKcWr9EjhgrlivvJQovOQ",
+   "title": "JBay webcam South Africa | super tubes live stream | lower point",
+   "channel": "SA Webcams",
+   "channelUrl": "https://www.youtube.com/@SAWebcams"
+  }
+ ],
+ "muizenberg": [
+  {
+   "score": 6,
+   "videoId": "lht-x2Su0CA",
+   "channelId": "UCef_Yfk6baScsTCcDxzXE5Q",
+   "title": "Muizenberg Beach Live Webcam | REEF South Africa  @Reef-SA",
+   "channel": "REEF SOUTH AFRICA",
+   "channelUrl": "https://www.youtube.com/@Reef-SA"
+  },
+  {
+   "score": 6,
+   "videoId": "E0k8r-PgOGg",
+   "channelId": "UCLwTi-vM5zaadH1ytPo-rTg",
+   "title": "Strand Bodyboard Collective Live, False Bay, Cape Town - Strand beach cam",
+   "channel": "Cape Ocean Adventures ",
+   "channelUrl": "https://www.youtube.com/@CapeOceanAdventures"
+  }
+ ],
+ "uluwatu": [
+  {
+   "score": 6,
+   "videoId": "1avu7zP4dnU",
+   "channelId": "UCeDnpWZapyw4rwORykzLbFg",
+   "title": "Bali 🏝 Tropical Beach (LIVE 24/7). Ocean Sounds & Rolling Waves For Deep Sleeping",
+   "channel": "Luxury Island",
+   "channelUrl": "https://www.youtube.com/@luxislandss"
+  },
+  {
+   "score": 5,
+   "videoId": "L1duJDAqbJY",
+   "channelId": "UCjc3XanPPTV1Ar1ec6ElXTg",
+   "title": "Bali Weather Live Webcam | Wide 4K Panorama from Bukit Jimbaran",
+   "channel": "Bali Weather Live Stream",
+   "channelUrl": "https://www.youtube.com/@Bali_Weather"
+  }
+ ],
+ "canggu": [
+  {
+   "score": 5,
+   "videoId": "L1duJDAqbJY",
+   "channelId": "UCjc3XanPPTV1Ar1ec6ElXTg",
+   "title": "Bali Weather Live Webcam | Wide 4K Panorama from Bukit Jimbaran",
+   "channel": "Bali Weather Live Stream",
+   "channelUrl": "https://www.youtube.com/@Bali_Weather"
+  }
+ ],
+ "kuta": [
+  {
+   "score": 5,
+   "videoId": "L1duJDAqbJY",
+   "channelId": "UCjc3XanPPTV1Ar1ec6ElXTg",
+   "title": "Bali Weather Live Webcam | Wide 4K Panorama from Bukit Jimbaran",
+   "channel": "Bali Weather Live Stream",
+   "channelUrl": "https://www.youtube.com/@Bali_Weather"
+  }
+ ],
+ "bondi": [
+  {
+   "score": 5,
+   "videoId": "5uZa3-RMFos",
+   "channelId": "UCLav_kTu9PmAEChvGyrPbhQ",
+   "title": "WebcamSydney 1 Live Stream of Harbour 24/7 (~4K)",
+   "channel": "WebcamSydney",
+   "channelUrl": "https://www.youtube.com/@webcamsydney"
+  }
+ ],
+ "snapper-rocks": [
+  {
+   "score": 6,
+   "videoId": "VRyJri2iQVc",
+   "channelId": "UCVg9jNZIe4ajBcgzx7YmfHw",
+   "title": "SUPERBANK, SNAPPER ROCKS, GOLD COAST, AUSTRALIA",
+   "channel": "The Best Surfers of All Time",
+   "channelUrl": "https://www.youtube.com/@bestsurfersofalltime"
+  }
+ ],
+ "bells-beach": [],
+ "byron-bay": [],
+ "margaret-river": [],
+ "piha": [],
+ "raglan": [
+  {
+   "score": 6,
+   "videoId": "7N_KlxHzrkg",
+   "channelId": "UCqR6Fd9jS7RKKw9SWCR3HDw",
+   "title": "Manu Bay camera",
+   "channel": "Raglan Sportfishing",
+   "channelUrl": "https://www.youtube.com/@raglansportfishing8588"
+  }
+ ],
+ "shonan": [
+  {
+   "score": 6,
+   "videoId": "PFqSE8GNfnE",
+   "channelId": "UC_9dgNP8GvfhUURELouR3Dg",
+   "title": "富士山・江ノ島ライブカメラ 湘南 鎌倉 波情報 渋滞情報   Mt.Fuji Live Camera Japan H.View camera 【The Noon 七里ヶ浜 Studio カメラ1 】",
+   "channel": "湘南ライブカメラ",
+   "channelUrl": "https://www.youtube.com/@shonan-livecam"
+  },
+  {
+   "score": 6,
+   "videoId": "FMf4XEP2ZY4",
+   "channelId": "UC_UHINSFCpBr68YW56HYQ2Q",
+   "title": "湘南茅ヶ崎　Beach and Waves　（　江ノ島　）2026　ライブ",
+   "channel": "湘南茅ヶ崎 Beach and Waves",
+   "channelUrl": "https://www.youtube.com/@cozybeachlive"
+  },
+  {
+   "score": 5,
+   "videoId": "DZWA9Xicaxg",
+   "channelId": "UCV3arNLjYmBubfETmAAzS4w",
+   "title": "湘南 鵠沼〜新江ノ島水族館前　ライブ配信",
+   "channel": "NAMIARUMOVIE",
+   "channelUrl": "https://www.youtube.com/@NAMIARUMOVIE"
+  }
+ ],
+ "chiba": [
+  {
+   "score": 6,
+   "videoId": "Gf5NpwlF_yI",
+   "channelId": "UCOLGSHF7LfL-2svSfwsnOGQ",
+   "title": "【LIVE】館山・北条海岸ライブカメラ｜Tateyama Hojo Beach Live Camera｜Chiba, Japan",
+   "channel": "e-CAM(イーカム)チャンネル",
+   "channelUrl": "https://www.youtube.com/@e-CAM"
+  }
+ ],
+ "arugam-bay": [],
+ "weligama": [],
+ "cloud-nine": [],
+ "tel-aviv": [],
+ "unstad": [],
+ "teahupoo": [
+  {
+   "score": 6,
+   "videoId": "BwVnPEMpou8",
+   "channelId": "UCVo06dBGK9VBBhq15wJxZHQ",
+   "title": "🔴 (ASMR) 24/7 Waves of the World - Tahiti and Hawaii - With Relaxing Music☑️",
+   "channel": "Waves of the World",
+   "channelUrl": "https://www.youtube.com/@WavesoftheWorld"
+  }
+ ],
+ "tavarua": [],
+ "popoyo": []
+}

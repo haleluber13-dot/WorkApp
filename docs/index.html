@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OlaKai — live surf cams</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="description" content="Every live surf cam at once, with live conditions and how to get there.">
+<meta name="theme-color" content="#03101c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<!-- Lets iOS run it full screen from the home screen. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OlaKai">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <img src="icons/icon-192.png" alt="" width="30" height="30">
+    <div>
+      <h1>OlaKai</h1>
+      <p id="subtitle">Loading the catalog…</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button id="refresh" class="icon-btn" title="Refresh conditions" aria-label="Refresh conditions">⟳</button>
+    <button id="spots-toggle" class="icon-btn" title="Spots" aria-label="Show the spot list">☰</button>
+  </div>
+</header>
+
+<div class="controls">
+  <input id="search" type="search" placeholder="Search a spot, country or tag" autocomplete="off">
+  <div class="chips" id="chips">
+    <button class="chip on" data-sort="firing">Firing now</button>
+    <button class="chip" data-sort="name">A–Z</button>
+    <button class="chip" data-fav="1">★ Favourites</button>
+    <button class="chip" id="budget-chip">2 live</button>
+  </div>
+</div>
+
+<main>
+  <section id="wall" class="wall" aria-label="Live cams"></section>
+  <aside id="rail" class="rail" aria-label="Spots"></aside>
+</main>
+
+<!-- Focus: one cam, its readings, and everything about the place. -->
+<div id="focus" class="sheet" hidden>
+  <div class="sheet-head">
+    <button id="focus-back" class="icon-btn">←</button>
+    <div class="sheet-title">
+      <h2 id="focus-name"></h2>
+      <p id="focus-place"></p>
+    </div>
+    <span id="focus-score" class="score"></span>
+    <button id="focus-fav" class="icon-btn" title="Favourite">☆</button>
+  </div>
+  <div class="player-wrap"><div id="player"></div></div>
+  <div id="cam-switch" class="cam-switch"></div>
+  <div id="focus-metrics" class="metrics"></div>
+  <div id="focus-body" class="body"></div>
+</div>
+
+<!-- Trip: cheapest, fastest, and fast-for-less. -->
+<div id="trip" class="sheet" hidden>
+  <div class="sheet-head">
+    <button id="trip-back" class="icon-btn">←</button>
+    <div class="sheet-title">
+      <h2>Get me there</h2>
+      <p id="trip-dest"></p>
+    </div>
+  </div>
+  <div class="body">
+    <label class="field">
+      <span>Flying from</span>
+      <input id="origin" type="search" placeholder="City or airport code" autocomplete="off">
+    </label>
+    <div id="origin-hits" class="hits"></div>
+    <div class="dates">
+      <div class="date-box">
+        <span class="label">Depart</span>
+        <strong id="depart-label"></strong>
+        <div class="nudge" data-target="depart">
+          <button data-d="-7">−7</button><button data-d="-1">−1</button>
+          <button data-d="1">+1</button><button data-d="7">+7</button>
+        </div>
+      </div>
+      <div class="date-box">
+        <span class="label">Return <button id="oneway" class="linkish">make one-way</button></span>
+        <strong id="return-label"></strong>
+        <div class="nudge" data-target="return">
+          <button data-d="-7">−7</button><button data-d="-1">−1</button>
+          <button data-d="1">+1</button><button data-d="7">+7</button>
+        </div>
+      </div>
+    </div>
+    <div class="slider-row">
+      <span>Save time</span><span class="grow"></span><span>Save money</span>
+    </div>
+    <input id="weight" type="range" min="0" max="100" value="50">
+    <div id="picks" class="picks"></div>
+    <div id="trip-options"></div>
+    <div id="trip-links" class="links"></div>
+  </div>
+</div>
+
+<nav class="tabs">
+  <button class="tab on" data-tab="wall">Wall</button>
+  <button class="tab" data-tab="atlas">Atlas</button>
+  <button class="tab" data-tab="trip">Trip</button>
+</nav>
+
+<section id="atlas" class="atlas" hidden>
+  <canvas id="map"></canvas>
+  <p class="atlas-hint">Pinch to zoom · tap a pin to open the spot</p>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
