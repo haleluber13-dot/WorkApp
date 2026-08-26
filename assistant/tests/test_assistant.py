@@ -676,6 +676,69 @@ class ToolLoopTest(PhoneTestCase):
 
 
 
+# The list one real key offered in August 2026 — kept verbatim, because
+# every guess about what a key will offer has been wrong so far.
+REAL_LIST = [
+    "antigravity-preview-05-2026", "deep-research-max-preview-04-2026",
+    "gemini-2.5-computer-use-preview-10-2025", "gemini-2.5-flash",
+    "gemini-2.5-flash-image", "gemini-2.5-flash-lite",
+    "gemini-2.5-flash-preview-tts", "gemini-2.5-pro", "gemini-3-flash-preview",
+    "gemini-3-pro-image", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview",
+    "gemini-3.1-pro-preview-customtools", "gemini-3.5-flash",
+    "gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest",
+    "gemini-flash-lite-latest", "gemini-omni-flash-preview", "gemini-pro-latest",
+    "gemini-robotics-er-2-preview", "gemma-4-31b-it", "lyria-3-pro-preview",
+    "nano-banana-pro-preview",
+]
+
+
+class RealKeyTest(PhoneTestCase):
+    def test_it_picks_the_stable_alias_from_a_real_list(self):
+        self.assertEqual(gemini.choose_model(REAL_LIST), "gemini-flash-latest")
+
+    def test_it_walks_newest_first_when_models_are_refused(self):
+        picked, seen = [], set()
+        for _ in range(4):
+            choice = gemini.choose_model(REAL_LIST, exclude=seen)
+            picked.append(choice)
+            seen.add(choice)
+        self.assertEqual(
+            picked,
+            ["gemini-flash-latest", "gemini-3.7-flash", "gemini-3.6-flash",
+             "gemini-3.5-flash"],
+        )
+
+    def test_it_never_offers_an_image_speech_or_robot_model(self):
+        seen = set()
+        for _ in range(12):
+            choice = gemini.choose_model(REAL_LIST, exclude=seen)
+            if not choice:
+                break
+            seen.add(choice)
+        for name in seen:
+            self.assertNotIn("image", name)
+            self.assertNotIn("tts", name)
+            self.assertNotIn("robotics", name)
+            self.assertTrue(name.startswith("gemini-"), name)
+
+    def test_previews_come_after_everything_stable(self):
+        order, seen = [], set()
+        while True:
+            choice = gemini.choose_model(REAL_LIST, exclude=seen)
+            if choice is None:
+                break
+            order.append(choice)
+            seen.add(choice)
+
+        previews = [i for i, name in enumerate(order) if "preview" in name]
+        stable = [i for i, name in enumerate(order) if "preview" not in name]
+        self.assertTrue(previews and stable, "the fixture should hold both")
+        self.assertLess(
+            max(stable), min(previews),
+            "a preview was offered while a stable model was still untried",
+        )
+
+
 class ChooseModelTest(PhoneTestCase):
     def test_prefers_a_fast_current_model(self):
         self.assertEqual(

@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-flash-latest"  # an alias, so it never goes stale
 
 # Where the key is looked for, in order, when it is not passed explicitly.
 KEY_ENV_VARS = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
@@ -284,16 +284,38 @@ def list_models(key=None, timeout=30):
     return sorted(name for name in names if name)
 
 
-# Best first: a fast, current, generally-available chat model. Anything
-# built for another job entirely is skipped outright.
-PREFERRED = (
-    "gemini-2.5-flash",
-    "gemini-flash-latest",
-    "gemini-2.0-flash",
-    "gemini-2.5-pro",
-    "gemini-pro-latest",
+# Names that belong to another job entirely: pictures, speech synthesis,
+# embeddings, robots, driving a computer.
+NOT_FOR_CHAT = (
+    "embedding", "aqa", "image", "-tts", "live", "audio", "vision", "learnlm",
+    "robotics", "computer-use", "customtools",
 )
-NOT_FOR_CHAT = ("embedding", "aqa", "image", "-tts", "live", "audio", "vision", "learnlm")
+
+
+def _version_of(name):
+    """The generation in a model name: gemini-3.1-flash -> 3.1."""
+    for piece in name.split("-"):
+        try:
+            return float(piece)
+        except ValueError:
+            continue
+    return 0.0
+
+
+def _rank(name):
+    """Sort key: the best model for a phone assistant comes first.
+
+    Ranked rather than listed by hand, because the list of models changes
+    faster than this file does, and a hardcoded favourite becomes a
+    hardcoded mistake the day it is retired.
+    """
+    experimental = 1 if ("preview" in name or "exp" in name) else 0
+    not_flash = 0 if "flash" in name else 1   # flash: fast and cheap enough to talk to
+    cut_down = 1 if "lite" in name else 0
+    # A "-latest" alias tracks whatever Google currently considers stable,
+    # so it outlives any specific version we could name here.
+    not_alias = 0 if name.endswith("-latest") else 1
+    return (experimental, not_flash, cut_down, not_alias, -_version_of(name), name)
 
 
 def choose_model(models, exclude=()):
@@ -312,13 +334,7 @@ def choose_model(models, exclude=()):
     ]
     if not usable:
         return None  # this key has no chat model at all
-
-    for wanted in PREFERRED:
-        if wanted in usable:
-            return wanted
-    # Nothing known: prefer a plain name over a dated preview build.
-    plain = [name for name in usable if "preview" not in name and "exp" not in name]
-    return sorted(plain or usable, key=len)[0]
+    return sorted(usable, key=_rank)[0]
 
 
 def preferred_model():

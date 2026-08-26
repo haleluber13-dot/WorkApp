@@ -266,11 +266,20 @@ exist, the assistant lists what your key really has, picks the best chat
 model on it, remembers that in `~/.personal-ai/model`, and carries on with
 the question you asked. You do not have to do anything.
 
+The default is `gemini-flash-latest`, an alias rather than a version, so
+it does not go stale when a model is retired.
+
+Models are ranked, not listed by hand: stable before preview, flash before
+pro, full before lite, newer before older, with a `-latest` alias ahead of
+any specific version. A hardcoded favourite becomes a hardcoded mistake the
+day it is retired — which is exactly what happened to `gemini-2.5-flash`,
+a model this key still lists and no longer serves.
+
 The choice is shared: chatting, acting and listening all read the same
 remembered name, so a model repaired in one place is repaired everywhere.
-A model that is refused is never offered again, because a key can list a
-model and still decline to serve it — so it walks down the list rather
-than handing back the one that just failed.
+A model that is refused is never offered again — being listed and being
+callable are different things — so it walks down the ranking rather than
+handing back the one that just failed.
 
 To choose yourself: `ai --models` to see the list, then `ai --model NAME`
 for one question, or write the name into `~/.personal-ai/model` to keep it.
@@ -303,7 +312,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 84 tests, no phone or network needed |
+| `tests/` | 88 tests, no phone or network needed |
 
 ## Tests
 
