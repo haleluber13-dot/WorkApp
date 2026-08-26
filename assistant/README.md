@@ -275,7 +275,14 @@ it off for scripts.
 `ai --ping` times the two halves separately — one round trip to Gemini,
 then the torch on and off — which says whether a stall is the network or
 the phone. It prints a dot a second while it waits, gives up after fifteen
-seconds, and does not retry: the point is a quick verdict, not an answer.
+seconds, then makes one patient attempt at forty-five, because slow and
+stuck want different answers.
+
+If Gemini never answers, `bash netcheck.sh` asks the same server twice
+with curl — a listing and a generation — which settles whether the fault
+is the network or this code. A listing that works while a generation
+hangs is the network dropping the request, and switching between wifi and
+mobile data usually clears it.
 
 ## Which model it uses
 
@@ -328,6 +335,7 @@ PROMPT
 | `termux.py` | one place where termux-api commands are run, always with a timeout |
 | `bin/ai`, `bin/say`, `bin/listen` | what lands on your PATH |
 | `doctor.sh` | diagnoses the phone, end to end |
+| `netcheck.sh` | asks Google directly with curl, to rule this code in or out |
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |

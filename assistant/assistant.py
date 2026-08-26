@@ -231,29 +231,40 @@ def while_ticking(label, work):
 
 def ping(args):
     """The smallest possible round trip, timed. Isolates slow from stuck."""
-    # One attempt and a short patience: this is a test, not the real work,
-    # and an answer of "it is stuck" beats three minutes of retries.
-    try:
-        text = while_ticking(
-            f"asking {args.model} for one word ",
-            lambda: gemini.with_model_repair(
-                lambda model: gemini.generate(
-                    "Reply with the single word: ready",
-                    model=model,
-                    timeout=15,
-                    attempts=1,
+    # Short patience first, for a quick verdict; then one patient attempt,
+    # because "slow" and "stuck" want different answers and only the
+    # second attempt can tell them apart.
+    text = None
+    for patience in (15, 45):
+        try:
+            text = while_ticking(
+                f"asking {args.model} for one word ({patience}s) ",
+                lambda: gemini.with_model_repair(
+                    lambda model: gemini.generate(
+                        "Reply with the single word: ready",
+                        model=model,
+                        timeout=patience,
+                        attempts=1,
+                    ),
+                    args.model,
+                    announce=announce,
                 ),
-                args.model,
-                announce=announce,
-            ),
-        )
-        print(f"  Gemini said: {text}")
-    except gemini.GeminiError as error:
-        print(f"\nGemini failed:\n{error}\n", file=sys.stderr)
-        return 1
-    except KeyboardInterrupt:
-        print("\nstopped")
-        return 130
+            )
+            break
+        except gemini.GeminiError as error:
+            if "did not answer" not in str(error) or patience != 15:
+                print(f"\nGemini failed:\n{error}\n", file=sys.stderr)
+                print(
+                    "To find out whether this is the network or this code, run:\n"
+                    "  bash ~/WorkApp/assistant/netcheck.sh\n",
+                    file=sys.stderr,
+                )
+                return 1
+            print("  no answer yet — trying once more, patiently")
+        except KeyboardInterrupt:
+            print("\nstopped")
+            return 130
+    print(f"  Gemini said: {text}")
 
     result = while_ticking(
         "asking the phone to flash the torch ",
