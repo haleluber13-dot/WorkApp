@@ -76,13 +76,6 @@ data class Conditions(
             in 20..39 -> "Marginal"
             else -> "Flat / blown"
         }
-
-    companion object {
-        fun empty(spotId: String) = Conditions(
-            spotId, null, null, null, null, null, null,
-            null, null, null, null, null, null, null, 0L,
-        )
-    }
 }
 
 enum class Tide { RISING, FALLING, SLACK, UNKNOWN }

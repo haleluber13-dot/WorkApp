@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -64,13 +63,6 @@ private val SurfTypography = Typography().run {
         labelSmall = labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp),
     )
 }
-
-/** Numbers on the conditions strip: tabular so they stop jittering on refresh. */
-val MetricStyle = TextStyle(
-    fontFamily = FontFamily.Monospace,
-    fontWeight = FontWeight.Bold,
-    fontSize = 20.sp,
-)
 
 private fun Context.findActivity(): Activity? {
     var context: Context? = this

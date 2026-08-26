@@ -8,7 +8,6 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Month
 import java.time.format.DateTimeFormatter
-import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
@@ -142,7 +141,4 @@ class EstimateFlightProvider : FlightProvider {
             else -> 1.10
         }
     }
-
-    @Suppress("unused")
-    private fun jitter(seed: String): Double = 1.0 + (abs(seed.hashCode()) % 9 - 4) / 100.0
 }
