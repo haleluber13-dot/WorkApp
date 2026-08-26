@@ -184,9 +184,17 @@ class WallViewModel(context: Context) : ViewModel() {
                 } ?: matching.sortedByDescending { s.conditions[it.id]?.score ?: -1 }
             }
 
-            val tiles = ordered.flatMap { spot ->
-                spot.cams.filter { it.isLiveVideo }.map { cam ->
-                    CamTile(cam = cam, spot = spot, conditions = s.conditions[spot.id])
+            // Round-robin across spots rather than grouping each spot's cams
+            // together: three Waikiki angles in a row buries everything else at
+            // the top of the wall. Every spot shows its best cam first, then
+            // second cams follow, and so on.
+            val camsBySpot = ordered.map { spot -> spot to spot.cams.filter { it.isLiveVideo } }
+            val depth = camsBySpot.maxOfOrNull { it.second.size } ?: 0
+            val tiles = (0 until depth).flatMap { round ->
+                camsBySpot.mapNotNull { (spot, cams) ->
+                    cams.getOrNull(round)?.let { cam ->
+                        CamTile(cam = cam, spot = spot, conditions = s.conditions[spot.id])
+                    }
                 }
             }
             s.copy(tiles = tiles)

@@ -18,7 +18,7 @@ class Prefs(private val context: Context) {
     val homeAirport: Flow<String> = context.dataStore.data.map { it[HOME] ?: "" }
     val liveBudget: Flow<Int> = context.dataStore.data.map { it[BUDGET] ?: DEFAULT_BUDGET }
     val useFeet: Flow<Boolean> = context.dataStore.data.map { it[FEET] ?: false }
-    val priceWeight: Flow<Int> = context.dataStore.data.map { it[PRICE_WEIGHT] ?: 60 }
+    val priceWeight: Flow<Int> = context.dataStore.data.map { it[PRICE_WEIGHT] ?: 50 }
     val favourites: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[FAVOURITES]?.split('|')?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
     }

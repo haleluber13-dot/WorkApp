@@ -22,8 +22,11 @@ data class TravelUiState(
     val departDate: LocalDate = LocalDate.now().plusDays(30),
     val returnDate: LocalDate? = LocalDate.now().plusDays(44),
     val adults: Int = 1,
-    /** 0 = optimise purely for time, 100 = purely for price. */
-    val priceWeight: Int = 60,
+    /**
+     * 0 = optimise purely for time, 100 = purely for price. Balanced by default
+     * so "best value" picks the compromise rather than echoing "cheapest".
+     */
+    val priceWeight: Int = 50,
     val board: TripBoard? = null,
     val loading: Boolean = false,
     val error: String? = null,

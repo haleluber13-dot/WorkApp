@@ -4,8 +4,15 @@
 the conditions under each one, everything worth knowing about the place, and the
 cheapest and fastest ways to get there.
 
-Android, Kotlin, Jetpack Compose. Builds to an installable APK with no accounts
-and no API keys.
+Three builds from one catalog:
+
+| | Where | Install |
+|---|---|---|
+| **Android** | `app/` — Kotlin, Jetpack Compose | `./gradlew assembleDebug`, sideload the APK |
+| **Web / iPhone** | `docs/` — no build step | open the URL, Share → Add to Home Screen |
+| **iOS native** | `ios/` — SwiftUI | needs macOS + Xcode; see `ios/README.md` |
+
+No accounts and no API keys in any of them.
 
 <p align="center">
   <img src="tools/icon/store/play-icon-512.png" width="160" alt="OlaKai icon">
@@ -119,6 +126,25 @@ brick the spot list, and any failure falls back to the bundled copy silently.
 "Best value" normalises price and duration across the board and minimises a
 weighted blend of the two — the slider *is* that weight. All three picks link
 straight out to a booking site so the real price is one tap away.
+
+## On an iPhone
+
+There is no sideloading on iOS, so the web build is the way in — and it is a
+real app once installed, not a bookmark: its own icon, full screen, no browser
+chrome, and the catalog cached for offline.
+
+1. Open the site in **Safari** (not Chrome — only Safari can install to the home
+   screen).
+2. Share → **Add to Home Screen**.
+
+`docs/` is a static site with no build step. Serve it anywhere, or turn on
+GitHub Pages for this repo (Settings → Pages → deploy from a branch, folder
+`/docs`).
+
+The web build has one limitation the Android build does not: a browser cannot
+read youtube.com pages cross-origin, so it cannot re-resolve a channel's current
+broadcast and falls back to the catalogued video id. If a stream has rotated,
+"Open in YouTube" still works.
 
 ## Build
 
