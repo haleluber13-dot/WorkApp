@@ -132,6 +132,20 @@ python3 -m http.server 8099
 Three.js is bundled locally in `vendor/`, so it works on a restricted network and
 offline. It is installable as a PWA.
 
+### One file, no server
+
+To get a single HTML file you can double-click, email to yourself or carry on a
+USB stick — three.js, every module, the coastline data and the update feed all
+inlined:
+
+```bash
+npm install esbuild
+node motorlab/tools/build-single.mjs motorlab-offline.html
+```
+
+That file needs no server and no network. It keeps your progress in the
+browser's local storage like the hosted version does.
+
 ## It updates itself
 
 `data/updates.json` is an update feed. Publish a newer version of that file and

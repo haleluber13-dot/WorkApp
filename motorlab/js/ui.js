@@ -211,6 +211,8 @@ export function torqueDial(canvas, { value, target, tolerance = 0.08 }){
 let landCache = null;
 export async function loadLand(url = './data/world_land.json'){
   if (landCache) return landCache;
+  const inlined = globalThis.__MOTORLAB_LAND;
+  if (inlined){ landCache = inlined.polygons || inlined; return landCache; }
   try {
     const r = await fetch(url);
     landCache = (await r.json()).polygons || [];

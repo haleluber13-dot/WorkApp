@@ -111,10 +111,21 @@ export function allNews(){
 export async function checkForUpdates(url = DEFAULT_FEED, { force = false } = {}){
   const summary = { ok:false, added:{ news:0, engines:0, vehicles:0, races:0, upgrades:0 }, version:updateState.version, error:null };
   try {
-    const bust = (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
-    const res = await fetch(url + bust, { cache:'no-store' });
-    if (!res.ok) throw new Error(`Feed responded ${res.status}`);
-    const data = await res.json();
+    let data;
+    /* a single-file build carries its catalog inside it — no request to make */
+    if (globalThis.__MOTORLAB_FEED && url === DEFAULT_FEED){
+      data = globalThis.__MOTORLAB_FEED;
+    } else {
+      try {
+        const bust = (url.includes('?') ? '&' : '?') + 'v=' + Date.now();
+        const res = await fetch(url + bust, { cache:'no-store' });
+        if (!res.ok) throw new Error(`Feed responded ${res.status}`);
+        data = await res.json();
+      } catch (netErr){
+        if (!globalThis.__MOTORLAB_FEED) throw netErr;
+        data = globalThis.__MOTORLAB_FEED;
+      }
+    }
     if (!force && typeof data.version === 'number' && data.version <= updateState.version){
       summary.ok = true; summary.upToDate = true;
       updateState.lastChecked = new Date().toISOString(); persist();

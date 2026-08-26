@@ -6,3 +6,4 @@ app.png
 
 # playwright test scripts
 *.mjs
+!motorlab/tools/*.mjs
