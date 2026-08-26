@@ -169,6 +169,7 @@ ai --mic --voice                     hands free — talk to it, it talks back
 ai --lang he-IL --voice "שלום"       speak Hebrew
 ai --tools                           everything it can do to the phone
 ai --models                          what your key can actually run
+ai --ping                            time one round trip: Gemini, then the phone
 ai --doctor                          check the setup
 ai --reset                           forget the conversation
 ```
@@ -258,6 +259,23 @@ edit it, or write your own next to it and use `--persona yourname`.
 A wake lock is taken while he is listening, because Android otherwise
 freezes the loop after a few minutes.
 
+## When it seems stuck
+
+It says what it is doing, on stderr, as it goes:
+
+```
+  · asking gemini-flash-latest...
+  · answered in 1.4s
+  · torch(on=True)
+```
+
+So a slow answer and a stuck one no longer look the same. `--quiet` turns
+it off for scripts.
+
+`ai --ping` times the two halves separately — one round trip to Gemini,
+then the torch on and off — which says whether a stall is the network or
+the phone.
+
 ## Which model it uses
 
 Model availability differs by key and by region, so the default is a
@@ -312,7 +330,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 88 tests, no phone or network needed |
+| `tests/` | 90 tests, no phone or network needed |
 
 ## Tests
 

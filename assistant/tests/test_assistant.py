@@ -1007,6 +1007,58 @@ class JarvisPresetTest(PhoneTestCase):
         self.assertEqual(args.persona, "plain")
 
 
+class ProgressTest(PhoneTestCase):
+    """Silence and a hang look identical from the outside."""
+
+    def test_it_says_what_it_is_doing_while_it_works(self):
+        def call(name, args):
+            return {"functionCall": {"name": name, "args": args}}
+
+        script = [
+            {"candidates": [{"content": {"role": "model",
+                                         "parts": [call("torch", {"on": True})]}}]},
+            {"candidates": [{"content": {"role": "model",
+                                         "parts": [{"text": "Torch on."}]}}]},
+        ]
+        turn = []
+
+        def fake_request(url, payload, key, timeout):
+            turn.append(1)
+            return script[len(turn) - 1]
+
+        args = assistant.build_parser().parse_args([])
+        args.model = "gemini-flash-latest"
+        shown = io.StringIO()
+
+        with mock.patch.object(gemini, "_request", fake_request), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"), \
+             mock.patch.object(termux, "run", return_value=(True, "", "")), \
+             mock.patch.object(sys, "stderr", shown):
+            text, _ = assistant.run_once(
+                args, voice.Voice(enabled=False), "torch on", []
+            )
+
+        progress = shown.getvalue()
+        self.assertEqual(text, "Torch on.")
+        self.assertIn("asking gemini-flash-latest", progress)
+        self.assertIn("torch(on=True)", progress)
+        self.assertRegex(progress, r"answered in \d+\.\ds")
+
+    def test_quiet_says_nothing(self):
+        response = {"candidates": [{"content": {"parts": [{"text": "hi"}]}}]}
+        args = assistant.build_parser().parse_args(["--quiet"])
+        shown = io.StringIO()
+
+        with mock.patch.object(gemini, "_request", return_value=response), \
+             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "k"}), \
+             mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"), \
+             mock.patch.object(sys, "stderr", shown):
+            assistant.run_once(args, voice.Voice(enabled=False), "hello", [])
+
+        self.assertEqual(shown.getvalue(), "")
+
+
 class ConversationTest(PhoneTestCase):
     def test_the_words_that_end_it(self):
         for word in ("stop", "Stop.", "די", "להתראות", "that's all"):

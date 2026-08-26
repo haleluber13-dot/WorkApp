@@ -35,7 +35,7 @@ class Tool:
         return declared
 
 
-def _simple(command, success, timeout=20):
+def _simple(command, success, timeout=10):
     """A tool body that runs one command and reports plainly."""
     ok, output, problem = termux.run(command, timeout)
     if not ok:

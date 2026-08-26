@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -133,6 +134,9 @@ def answer(args, history, prompt, allowed, ask=None, report=None):
     actions = []
 
     for _ in range(MAX_TOOL_STEPS):
+        if report:
+            report(f"asking {args.model}...")
+        started = time.monotonic()
         response = gemini.raw_turn(
             contents,
             system=load_system(getattr(args, "persona", None)),
@@ -141,6 +145,8 @@ def answer(args, history, prompt, allowed, ask=None, report=None):
             timeout=args.timeout,
             max_tokens=args.max_tokens,
         )
+        if report:
+            report(f"answered in {time.monotonic() - started:.1f}s")
         text, calls = gemini.split_parts(response)
 
         if not calls:
@@ -193,6 +199,33 @@ def make_asker(args, speaker):
     return ask
 
 
+def ping(args):
+    """The smallest possible round trip, timed. Isolates slow from stuck."""
+    print(f"asking {args.model} to say one word...", flush=True)
+    started = time.monotonic()
+    try:
+        text = gemini.with_model_repair(
+            lambda model: gemini.generate(
+                "Reply with the single word: ready",
+                model=model,
+                timeout=args.timeout,
+            ),
+            args.model,
+            announce=announce,
+        )
+    except gemini.GeminiError as error:
+        print(f"\nfailed after {time.monotonic() - started:.1f}s\n{error}", file=sys.stderr)
+        return 1
+    print(f"{text}  ({time.monotonic() - started:.1f}s)")
+
+    print("\nnow the phone: turning the torch on and off...", flush=True)
+    started = time.monotonic()
+    for state in (True, False):
+        result = tools_module.execute("torch", {"on": state}, tools_module.available())
+    print(f"{result}  ({time.monotonic() - started:.1f}s)")
+    return 0
+
+
 def doctor(args):
     """Say plainly which of the moving parts work and which do not."""
     print("Checking the phone\n")
@@ -227,7 +260,9 @@ def doctor(args):
 def run_once(args, speaker, prompt, history):
     allowed = [] if args.no_tools else tools_module.available(args.allow_shell)
     ask = make_asker(args, speaker)
-    report = (lambda line: print(f"  · {line}")) if not args.quiet else None
+    report = None if args.quiet else (
+        lambda line: print(f"  · {line}", file=sys.stderr, flush=True)
+    )
     try:
         return answer(args, history, prompt, allowed, ask=ask, report=report)
     except gemini.GeminiError as error:
@@ -431,6 +466,7 @@ def build_parser():
     parser.add_argument("--models", action="store_true", help="list the models this key can use")
     parser.add_argument("--tools", action="store_true", help="list what it can do to the phone")
     parser.add_argument("--doctor", action="store_true", help="check the setup and say what is broken")
+    parser.add_argument("--ping", action="store_true", help="time one round trip to Gemini and one to the phone")
     parser.add_argument("--reset", action="store_true", help="forget the conversation and exit")
     return parser
 
@@ -455,6 +491,9 @@ def main(argv=None):
 
     if args.doctor:
         return doctor(args)
+
+    if args.ping:
+        return ping(args)
 
     try:
         if args.models:
