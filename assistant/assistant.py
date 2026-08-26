@@ -28,8 +28,19 @@ PERSONA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "personas
 
 # Said out loud, these end the conversation.
 STOP_WORDS = (
-    "stop", "goodbye", "good bye", "that is all", "that's all", "thank you that is all",
-    "די", "תפסיק", "מספיק", "להתראות", "זהו",
+    "stop", "stop it", "goodbye", "good bye", "bye", "exit", "quit", "enough",
+    "that is all", "that's all", "thank you that is all",
+    "די", "עצור", "תפסיק", "מספיק", "להתראות", "זהו", "תודה זהו",
+)
+
+MIC_HELP = (
+    "The microphone did not answer.\n"
+    "  1. Termux:API needs permission: Settings > Apps > Termux:API >\n"
+    "     Permissions > Microphone > Allow.\n"
+    "  2. termux-speech-to-text uses Google's speech service. On phones\n"
+    "     without the Google app it cannot work at all.\n"
+    "Test it on its own with:  listen\n"
+    "Typing works either way — carry on below."
 )
 
 DEFAULT_SYSTEM = (
@@ -263,6 +274,14 @@ def one_shot(args, speaker):
     return 0
 
 
+def can_type():
+    """True when there is a person at a keyboard to fall back to."""
+    try:
+        return sys.stdin.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
 def is_goodbye(said):
     """True when the words spoken mean 'we are done'."""
     cleaned = said.strip().lower().rstrip(".!?")
@@ -272,7 +291,7 @@ def is_goodbye(said):
 def converse(args, speaker):
     history = [] if args.no_memory else load_history()
     if args.mic:
-        print("Listening. Say 'stop' when you are done.\n")
+        print("Listening. Say 'stop' when you are done, or press ctrl-c.\n")
         # Android suspends background work aggressively; without this the
         # loop dies quietly a few minutes in.
         voice_module.termux.run(["termux-wake-lock"], 10)
@@ -285,20 +304,33 @@ def converse(args, speaker):
     silence = 0
     while True:
         if args.mic:
-            print("listening...", end=" ", flush=True)
-            prompt = speaker.listen(timeout=args.listen_timeout)
+            print("listening... (ctrl-c to stop)", end=" ", flush=True)
+            try:
+                prompt = speaker.listen(timeout=args.listen_timeout)
+            except KeyboardInterrupt:
+                print("\nStopped.")
+                break
             print(prompt or "(nothing heard)")
-            if not prompt:
-                speaker.warn_once(sys.stderr)
-                if not voice_module.termux.have(voice_module.LISTEN_CMD):
-                    return 1
-                silence += 1
-                # Three silences in a row means the microphone is not
-                # working, not that there is nothing to say.
-                if silence >= 3:
-                    print("Nothing heard three times over. Stopping.")
-                    speaker.speak("I will be here when you need me.")
+
+            if speaker.mic_working is False:
+                # A broken microphone is not something to retry twenty
+                # times. Say so once and hand back the keyboard.
+                print(f"\n{MIC_HELP}\n", file=sys.stderr)
+                if speaker.last_problem:
+                    print(f"({speaker.last_problem.splitlines()[0]})\n", file=sys.stderr)
+                if not can_type():
                     break
+                args.mic = False
+                continue
+
+            if not prompt:
+                silence += 1
+                if silence >= 3:
+                    if not can_type():
+                        print("Nothing heard three times over. Stopping.")
+                        break
+                    print("Nothing heard three times over. Switching to typing.")
+                    args.mic = False
                 continue
             silence = 0
             if is_goodbye(prompt):
@@ -325,6 +357,9 @@ def converse(args, speaker):
         except gemini.GeminiError as error:
             print(f"\n{error}\n", file=sys.stderr)
             continue
+        except KeyboardInterrupt:
+            print("\nStopped.")
+            break
 
         print(f"\n{text}\n")
         speaker.speak(text)
@@ -412,7 +447,7 @@ def build_parser():
     parser.add_argument("--no-memory", action="store_true", help="do not read or write history")
     parser.add_argument("--timeout", type=int, default=60, help="seconds to wait for Gemini")
     parser.add_argument("--speak-timeout", type=int, default=25, help="seconds to wait for the phone to speak")
-    parser.add_argument("--listen-timeout", type=int, default=60, help="seconds to wait for the microphone")
+    parser.add_argument("--listen-timeout", type=int, default=25, help="seconds to wait for the microphone")
     parser.add_argument("--max-tokens", type=int, default=None)
     parser.add_argument("--models", action="store_true", help="list the models this key can use")
     parser.add_argument("--tools", action="store_true", help="list what it can do to the phone")

@@ -180,8 +180,24 @@ ai --jarvis
 ```
 
 He greets you, listens, answers out loud, and listens again — no keyboard,
-no pressing anything between questions. Say **stop** (or *די*) to end it.
-Three silences in a row and he stops on his own rather than spinning.
+no pressing anything between questions. Say **stop** (or *די*), or press
+**ctrl-c**, to end it.
+
+If the microphone does not answer, he says so once and hands you the
+keyboard rather than retrying — a broken mic is broken, and waiting on it
+twenty times over is just a hang with extra steps. Type `/quit` to leave
+from there.
+
+Test the microphone on its own:
+
+```sh
+listen        # then say something
+```
+
+Silence usually means one of two things: Termux:API has no microphone
+permission (Settings → Apps → Termux:API → Permissions → Microphone), or
+the phone has no Google speech service, which is what
+`termux-speech-to-text` uses. Typing works either way.
 
 The voice is the phone's own text-to-speech, pitched down and slowed
 slightly, which is most of what makes it sound like him:
@@ -241,7 +257,7 @@ PROMPT
 | `setup.sh` | one-time install |
 | `install.sh` | the one-line bootstrap: packages, clone, setup |
 | `personas/` | how he speaks — plain text, edit freely |
-| `tests/` | 57 tests, no phone or network needed |
+| `tests/` | 59 tests, no phone or network needed |
 
 ## Tests
 

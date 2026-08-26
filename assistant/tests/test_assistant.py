@@ -558,6 +558,43 @@ class ConversationTest(unittest.TestCase):
              mock.patch.object(assistant, "SYSTEM_FILE", "/nonexistent"):
             self.assertEqual(assistant.load_system("nobody"), assistant.DEFAULT_SYSTEM)
 
+    def test_a_microphone_that_fails_hands_back_the_keyboard_at_once(self):
+        """A broken mic must not be retried; it must say so and step aside."""
+        args = assistant.build_parser().parse_args(["--mic", "--quiet", "--no-memory"])
+        attempts = []
+
+        def failing(command, timeout=20, stdin_text=None):
+            if command[0] == voice.LISTEN_CMD:
+                attempts.append(1)
+                return False, "", termux.API_MISSING_HELP
+            return True, "", ""
+
+        typed = iter(["/quit"])
+        with mock.patch.object(termux, "run", failing), \
+             mock.patch.object(termux, "have", return_value=True), \
+             mock.patch.object(sys, "stderr", io.StringIO()) as complaint, \
+             mock.patch.object(assistant, "can_type", return_value=True), \
+             mock.patch("builtins.input", lambda _="": next(typed)):
+            assistant.converse(args, voice.Voice(enabled=False))
+
+        self.assertEqual(len(attempts), 1, "it tried the broken microphone twice")
+        self.assertFalse(args.mic, "it should have switched to typing")
+        self.assertIn("Microphone", complaint.getvalue())
+
+    def test_with_no_keyboard_either_it_simply_stops(self):
+        args = assistant.build_parser().parse_args(["--mic", "--quiet", "--no-memory"])
+
+        def failing(command, timeout=20, stdin_text=None):
+            if command[0] == voice.LISTEN_CMD:
+                return False, "", "no"
+            return True, "", ""
+
+        with mock.patch.object(termux, "run", failing), \
+             mock.patch.object(termux, "have", return_value=True), \
+             mock.patch.object(sys, "stderr", io.StringIO()), \
+             mock.patch.object(assistant, "can_type", return_value=False):
+            self.assertEqual(assistant.converse(args, voice.Voice(enabled=False)), 0)
+
     def test_a_dead_microphone_stops_the_loop_instead_of_spinning(self):
         args = assistant.build_parser().parse_args(["--mic", "--quiet", "--no-memory"])
         attempts = []

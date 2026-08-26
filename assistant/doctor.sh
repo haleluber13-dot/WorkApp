@@ -111,6 +111,22 @@ else
 fi
 
 echo
+echo "7. The microphone"
+if command -v termux-speech-to-text >/dev/null 2>&1; then
+    ok "termux-speech-to-text is installed"
+    note "It cannot be tested without you speaking, so test it by hand:"
+    note "  listen        then say something"
+    note ""
+    note "If it hangs or comes back empty:"
+    note "  - Settings > Apps > Termux:API > Permissions > Microphone > Allow"
+    note "  - it uses Google's speech service; without the Google app"
+    note "    installed and enabled it cannot work at all"
+    note "  - typing still works: run 'ai' with no --mic"
+else
+    bad "termux-speech-to-text is missing — see step 1"
+fi
+
+echo
 echo "One more thing Android does quietly: it freezes background services to"
 echo "save battery, which makes these commands hang later even when they work"
 echo "now. Settings > Apps > Termux:API > Battery > Unrestricted, and the same"

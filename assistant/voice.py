@@ -17,6 +17,7 @@ class Voice:
         self.pitch = pitch  # below 1.0 is deeper
         self.rate = rate    # below 1.0 is slower
         self.last_problem = ""
+        self.mic_working = None  # None until tried; False when it failed
         self._warned = False
 
     def speak(self, text):
@@ -40,11 +41,19 @@ class Voice:
         return True
 
     def listen(self, timeout=60):
-        """Return what the microphone heard, or "" if that did not work."""
+        """Return what the microphone heard.
+
+        An empty string can mean two very different things, so `mic_working`
+        says which: False means the command failed or never came back, and
+        the caller should stop asking. True with an empty string just means
+        nobody said anything.
+        """
         ok, heard, problem = termux.run([LISTEN_CMD], timeout)
         if not ok:
             self.last_problem = problem
+            self.mic_working = False
             return ""
+        self.mic_working = True
         return heard
 
     def warn_once(self, stream):
