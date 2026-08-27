@@ -471,18 +471,21 @@ function buildPiston(e, tree){
     add('turbo', tg);
     add('wastegate', at(cyl(M(28), M(28), M(70), MAT.hot(), 14), L.len*0.3, L.deckH*0.7, (L.banks>=2? L.bore*0.6 : L.bore*1.3)));
     add('bov', at(cyl(M(24), M(24), M(60), MAT.blue(), 14), -L.len*0.35, L.deckH + L.bore*0.5, L.bore*1.1));
-    const ic = coreMesh(L.len * 1.30, L.bore * 1.05, M(78));
-    rot(ic, 0, Math.PI/2, 0);                       // core width runs along the engine
-    /* charge pipes from the compressor round to the throttle */
+    /* the intercooler lives ahead of the engine, in the airstream, in front of
+       the radiator — not beside the block */
+    const icX = frontX - L.bore * 2.05;
+    const ic = coreMesh(L.bore * 4.6, L.bore * 1.35, M(80));
     const icG = group('ic');
-    icG.add(at(ic, 0, L.deckH * 0.42, -L.bore * 2.25));
+    icG.add(at(ic, icX, L.deckH * 0.62, 0));
+    /* compressor outlet forward to the core, then back to the throttle */
     icG.add(pipe([[L.len*0.18, L.deckH*0.62, L.bore*1.25],
-                  [L.len*0.55, L.deckH*0.55, L.bore*0.2],
-                  [L.len*0.62, L.deckH*0.5, -L.bore*1.6],
-                  [L.len*0.35, L.deckH*0.42, -L.bore*2.2]], L.bore*0.16, MAT.alloy(), 10));
-    icG.add(pipe([[-L.len*0.35, L.deckH*0.42, -L.bore*2.2],
-                  [-L.len*0.6, L.deckH*0.75, -L.bore*1.4],
-                  [-L.len*0.5, inducY*0.95, -L.bore*0.4]], L.bore*0.16, MAT.alloy(), 10));
+                  [L.len*0.30, L.deckH*0.45, L.bore*1.9],
+                  [icX*0.55,   L.deckH*0.42, L.bore*1.9],
+                  [icX + M(30), L.deckH*0.62, L.bore*1.6]], L.bore*0.17, MAT.alloy(), 10));
+    icG.add(pipe([[icX + M(30), L.deckH*0.62, -L.bore*1.6],
+                  [icX*0.5,    L.deckH*0.9,  -L.bore*1.7],
+                  [-L.len*0.55, inducY*0.92, -L.bore*0.9],
+                  [-L.len*0.48, inducY,      L.banks >= 2 ? 0 : -L.bore*0.95]], L.bore*0.17, MAT.alloy(), 10));
     add('intercooler', icG);
   }
   if (has('blower')){
@@ -525,17 +528,17 @@ function buildPiston(e, tree){
   }
   if (has('radiator')){
     const rad = group('rad');
-    const core = coreMesh(L.len * 1.5, L.deckH * 1.25, M(46), {}, 34);
-    rot(core, 0, Math.PI/2, 0);
-    rad.add(core);
-    const fan = group('fan');
-    for (let i = 0; i < 7; i++){
-      const bl2 = box(M(16), L.deckH * 0.42, M(6), MAT.black());
-      bl2.rotation.z = (i/7) * TAU; bl2.position.y = 0;
-      fan.add(bl2);
-    }
-    fan.position.z = M(40); rad.add(fan); anim.fans.push(fan);
-    add('radiator', at(rad, 0, L.deckH * 0.55, -L.bore * 2.6));
+    rad.add(coreMesh(L.bore * 4.4, L.deckH * 1.30, M(48), {}, 34));
+    const fan = bladedWheel(L.deckH * 0.52, 7, M(52), MAT.black(), 0.7);
+    rot(fan, 0, Math.PI/2, 0);
+    fan.position.x = M(56);
+    rad.add(fan); anim.fans.push(fan);
+    /* top and bottom hoses back to the block */
+    rad.add(pipe([[M(20), L.deckH * 0.95, -L.bore*0.5], [frontX*0.6, L.deckH*0.9, -L.bore*0.55],
+                  [frontX - M(40), L.deckH*0.8, -L.bore*0.4]], L.bore*0.13, MAT.rubber(), 8));
+    rad.add(pipe([[M(20), L.deckH * 0.18, L.bore*0.5], [frontX*0.6, L.deckH*0.25, L.bore*0.5],
+                  [frontX - M(30), L.deckH*0.5, L.bore*0.3]], L.bore*0.13, MAT.rubber(), 8));
+    add('radiator', at(rad, frontX - L.bore * 1.15, L.deckH * 0.58, 0));
   }
   if (has('fins')) add('fins', at(box(L.len, M(20), L.bore*1.6, MAT.alloyDark()), 0, L.deckH*1.15, 0));
 
@@ -930,6 +933,7 @@ function animate(e, anim, state, L){
   /* belt drive and cooling fan */
   for (const p of anim.pulleys) p.node.rotation.x = th * (p.ratio ?? 1);
   for (const f of anim.fans) f.rotation.z = time * (running ? 6 + rpm / 900 : 0);
+  for (const f of anim.fans) if (f.parent) f.rotation.x = time * (running ? 6 + rpm / 900 : 0);
 
   /* the turbo shaft has real inertia — it does not stop when you lift */
   anim.turboAngle = (anim.turboAngle || 0) + (state.turboSpin || 0) * dt;

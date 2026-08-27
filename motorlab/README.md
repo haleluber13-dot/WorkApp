@@ -40,6 +40,19 @@ bike and a shifter kart.
 | **News & Updates** | New cars, bikes, engines and tech — and the channel the app updates itself from. |
 | **Settings** | Units, 3D quality, ambient conditions, difficulty, game mode, save import/export. |
 
+## Real models, taken apart panel by panel
+
+Where a proper vehicle model exists, MotorLab uses it instead of generating one —
+and maps the model's own object names onto part ids, so the teardown works on the
+real bodywork. The NASCAR stock car in the catalog comes apart the way the actual
+car does: front clip, rear clip, wheel arches, door skins, quarter panels, roof,
+hood, deck lid, glass and window net all come off separately, over a welded tube
+frame with the engine and cage underneath. Each wheel is re-centred on its own hub
+so it turns and steers correctly, and the livery can be switched from the Garage.
+
+See [`assets/nns/ABOUT.md`](assets/nns/ABOUT.md) for that model's provenance and
+how to register another one.
+
 ## Bring your own vehicle model
 
 No scanned or CAD-derived vehicles ship with MotorLab. The good ones are

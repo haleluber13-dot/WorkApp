@@ -83,6 +83,16 @@ export const VEHICLES = [
       brakeF:330, brakeR:330, cd:0.38, area:2.3, downforceKg:320, fuelL:70, seats:1,
       blurb:'Steel tube frame, live rear axle on trailing arms, and deliberate left-side weight bias for turning left at 300 km/h for four hours.' }),
 
+  V({ id:'nns', name:'NASCAR stock car (modelled)', body:'stockcar', model:'nns',
+      drivetrain:'RWD', bay:'front-longitudinal', suspF:'doublewishbone', suspR:'liveaxle',
+      chassis:'tube frame', engines:['race-58-stock','v8-50-ohv','v8-70-bb','v8-62-sc'],
+      massKg:1540, wheelbase:2780, trackF:1600, trackR:1600,
+      lengthMm:5120, widthMm:1930, heightMm:1310,
+      gears:[2.66,1.78,1.30,1.00], final:3.90, tyreF:305, tyreR:305, rimF:15, rimR:15,
+      brakeF:330, brakeR:330, cd:0.38, area:2.35, downforceKg:320, fuelL:70, seats:1,
+      colour:0xc0392b,
+      blurb:'Built from a real model rather than generated, so the bodywork comes apart the way the actual car does: front and rear clip, wheel arches, doors, roof, hood and boot each come off separately, over a welded tube frame with a live rear axle. Steel tube chassis, no driver aids, and a body shaped by a rulebook rather than a wind tunnel.' }),
+
   V({ id:'dragster', name:'Top-fuel dragster', body:'dragster', drivetrain:'RWD', bay:'mid',
       suspF:'none', suspR:'solid', chassis:'chromoly tube', engines:['race-82-nitro','v8-62-sc'],
       massKg:1050, wheelbase:7600, trackF:600, trackR:2200, lengthMm:9000, widthMm:2400, heightMm:1000,

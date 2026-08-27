@@ -6,6 +6,7 @@ import { state, load, save, engine, vehicle, tree, vTree, installedSet, vInstall
 import { loadStoredUpdates, checkForUpdates, updateState } from './updates.js';
 import { buildEngine } from './build/engineModel.js';
 import { buildVehicle } from './build/vehicleModel.js';
+import { buildScannedVehicle } from './build/scannedVehicle.js';
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
 import { restoreCustom } from './lib/importModel.js';
@@ -143,16 +144,35 @@ function reloadModel(){
   empty.hidden = true;
 
   if (currentModel?.key === wantKey){ syncVisibility(); return; }
-  try {
-    const built = kind === 'engine'
-      ? buildEngine(engine(), tree())
-      : buildVehicle(vehicle(), vTree());
+
+  const show = (built) => {
     currentModel = { key:wantKey, kind, built };
     viewport.installed = kind === 'engine' ? installedSet() : vInstalledSet();
     viewport.load(built, { fit:true });
-    viewport.setExplode(state.settings.explodeDefault / 100 * 1.0);
+    viewport.setExplode(state.settings.explodeDefault / 100);
     const ex = $('#explode');
     if (ex) ex.value = state.settings.explodeDefault;
+  };
+
+  /* a vehicle backed by a real model has to be fetched first */
+  if (kind === 'vehicle' && vehicle().model){
+    currentModel = { key:wantKey, kind, built:null, loading:true };
+    $('#hudSub').textContent = 'Loading the model…';
+    buildScannedVehicle(vehicle(), vTree()).then(built => {
+      if (currentModel?.key !== wantKey) return;      // the user moved on while it loaded
+      show(built);
+      refresh();
+    }).catch(err => {
+      console.error('Model load failed', err);
+      if (currentModel?.key !== wantKey) return;
+      toast('Could not load that model — falling back to the generated body.', 'bad');
+      try { show(buildVehicle(vehicle(), vTree())); refresh(); } catch {}
+    });
+    return;
+  }
+
+  try {
+    show(kind === 'engine' ? buildEngine(engine(), tree()) : buildVehicle(vehicle(), vTree()));
   } catch (err){
     console.error('Model build failed', err);
     toast('Could not build that 3D model — the rest of the app still works.', 'bad');

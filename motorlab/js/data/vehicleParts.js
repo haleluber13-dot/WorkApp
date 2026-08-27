@@ -21,7 +21,52 @@ export const V_GROUP_BY_ID = Object.fromEntries(V_GROUPS.map(g => [g.id, g]));
 const P = (o) => Object.assign({ group:'chassis', qty:1, deps:[], removable:true }, o);
 
 export function buildVehicleTree(v){
+  if (v.model) return modelTree(v);
   return v.class === 'bike' ? bikeTree(v) : v.class === 'kart' ? kartTree(v) : carTree(v);
+}
+
+/* ====================================================================== */
+/* A vehicle backed by a real model: the panels are the parts.             */
+function modelTree(v){
+  const parts = [], add = (o) => { parts.push(P(o)); return o.id; };
+  const t = (nm, seq, count, size='M10') => ({ nm, size, count, pattern:{ kind:seq, count }, stages:[`${nm} Nm`] });
+
+  add({ id:'chassis', name:'Tube frame & floor', group:'chassis', removable:false,
+    teach:'A stock car has no unibody at all. Everything hangs off a welded steel tube frame with a flat floor pan, and the bodywork is non-structural skin bolted to it. That is why these cars can be rebuilt overnight after contact.',
+    spec:{ 'Type':v.chassis, 'Wheelbase':`${v.wheelbase} mm`, 'Track':`${v.trackF} mm`, 'Mass':`${v.massKg} kg` } });
+  add({ id:'cage', name:'Roll cage', group:'chassis', deps:['chassis'], torque:t(60,'sequence',8,'M12'),
+    teach:'The cage is the car. Door bars on the driver\'s side are doubled and filled, the halo hoop carries the roof, and every tube is a load path calculated for a 200 mph impact into a concrete wall.' });
+  add({ id:'engine', name:'Engine & drivetrain', group:'drive', deps:['chassis'], torque:t(85,'sequence',6,'M12'),
+    teach:'Front-mounted, set well back and low, driving a live rear axle through a four-speed. Build and tune the engine itself in the Engine Bay and Tuning workspaces.' });
+  add({ id:'wheels', name:'Wheels & tyres', group:'wheels', qty:4, deps:['chassis'], torque:t(160,'star',5,'M14'),
+    teach:'Five lugs, steel wheels, and bias-ply slicks with no tread pattern at all. Stagger — running a slightly larger circumference on the right rear — is a real setup tool on an oval.',
+    spec:{ 'Tyre':`${v.tyreF} section`, 'Rim':`${v.rimF}"`, 'Torque':'160 Nm, star pattern' } });
+  add({ id:'seats', name:'Seat, belts & interior', group:'interior', deps:['cage'], torque:t(45,'sequence',6),
+    teach:'A full containment seat welded to the cage, a six-point harness and a head-and-neck restraint. The seat is part of the structure, not fitted to the floor.' });
+  add({ id:'panelFront', name:'Front clip & nose', group:'body', deps:['cage'], torque:t(22,'perimeter',12,'M6'),
+    teach:'The nose is a separate bolt-on clip. It carries the splitter, the radiator opening and the crush structure, and it is designed to be replaced in minutes.' });
+  add({ id:'panelRear', name:'Rear clip & tail', group:'body', deps:['cage'], torque:t(22,'perimeter',12,'M6'),
+    teach:'The tail panel and rear valance set the height and angle of the spoiler, which is where most of this car\'s rear downforce comes from.' });
+  add({ id:'panelArchF', name:'Front wheel arches', group:'body', qty:2, deps:['panelFront'], torque:t(18,'perimeter',10,'M6'),
+    teach:'Arch clearance is regulated and measured. Too low and the car is illegal; too high and you lose the seal that makes the underbody work.' });
+  add({ id:'panelArchR', name:'Rear wheel arches', group:'body', qty:2, deps:['panelRear'], torque:t(18,'perimeter',10,'M6'),
+    teach:'The right rear arch takes the most load on an oval, and its shape is checked against a template after every session.' });
+  add({ id:'panelDoorF', name:'Front door skins', group:'body', qty:2, deps:['panelArchF'], torque:t(18,'perimeter',10,'M6'),
+    teach:'Door skins are flat sheet over the door bars — there is no door, no hinge and no window winder. The driver climbs in through the window.' });
+  add({ id:'panelDoorR', name:'Rear quarter panels', group:'body', qty:2, deps:['panelArchR'], torque:t(18,'perimeter',10,'M6'),
+    teach:'The quarter panels shape the air going to the spoiler. Body templates are checked here more closely than anywhere else on the car.' });
+  add({ id:'panelRoof', name:'Roof & flaps', group:'body', deps:['panelDoorF'], torque:t(18,'perimeter',8,'M6'),
+    teach:'The roof carries the roof flaps: sprung panels that pop up if the car spins backwards and the pressure over the roof drops, killing the lift that would otherwise fly it.' });
+  add({ id:'panelHood', name:'Hood', group:'body', deps:['panelFront'], torque:t(14,'sequence',4,'M6'),
+    teach:'Pinned, not hinged. The hood also carries the engine bay extraction louvres that let hot air out at speed.' });
+  add({ id:'panelBoot', name:'Deck lid & spoiler', group:'body', deps:['panelRear'], torque:t(14,'sequence',4,'M6'),
+    teach:'Spoiler angle and height are the single biggest aerodynamic adjustment available, and both are tightly regulated.' });
+  add({ id:'glass', name:'Windscreen & rear window', group:'body', deps:['panelRoof'],
+    teach:'Polycarbonate, not glass, with a tear-off stack on the outside of the windscreen. Light, and it does not shatter into the cockpit.' });
+  add({ id:'netting', name:'Window net & hardware', group:'interior', deps:['glass'],
+    teach:'The window net keeps the driver\'s arms inside in a roll and must release with one latch from inside. Officials check it before every race.' });
+
+  return finish(parts, v);
 }
 
 /* ====================================================================== */

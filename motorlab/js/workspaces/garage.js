@@ -7,6 +7,7 @@ import { VEHICLES, VEHICLE_BY_ID, vehicleGroups, weightDistribution, wheelRadius
 import { simulate, emptyMods } from '../sim/engineSim.js';
 import { defaultTune } from '../sim/ecu.js';
 import { applyUpgrades } from '../data/upgrades.js';
+import { liveriesFor, setLivery } from '../build/scannedVehicle.js';
 
 export function render(ctx, tab){
   const wrap = h('div');
@@ -39,6 +40,15 @@ export function render(ctx, tab){
   const p = U.power(res.hp), tq = U.torque(res.tqNm);
 
   wrap.append(
+    v.model && liveriesFor(v.model).length ? field('Livery', select(
+      liveriesFor(v.model).map(l => ({ value:l.id, label:l.name })),
+      state.ui.livery || liveriesFor(v.model)[0].id,
+      async (id) => {
+        state.ui.livery = id; save();
+        const ok = await setLivery(v.model, id);
+        toast(ok ? 'Livery changed.' : 'That livery could not be loaded.', ok ? 'good' : 'bad');
+      })) : null,
+
     section('The machine',
       para(v.blurb),
       kv('Class', v.class === 'bike' ? 'Motorcycle' : v.class === 'kart' ? 'Kart' : 'Car / truck'),
