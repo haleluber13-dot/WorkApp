@@ -1,5 +1,5 @@
 /* Racing atlas — every discipline, on a world map and in a calendar. */
-import { h, section, kv, note, para, chip, btn, toast, select, field, loadLand, worldMap } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, select, field, loadLand, worldMap, add } from '../ui.js';
 import { state, save } from '../store.js';
 import { RACES, RACE_BY_ID, DISCIPLINES, DISCIPLINE_BY_ID, MONTHS, racesByMonth, countries } from '../data/races.js';
 import { addXp, unlock } from '../game.js';
@@ -50,7 +50,7 @@ function renderMap(ctx, wrap){
   };
   draw();
 
-  wrap.append(
+  add(wrap,
     para('Every discipline, plotted where it actually happens. Tap a dot to read what makes that event what it is.'),
     host,
     h('div', { style:{ display:'flex', flexWrap:'wrap', gap:'4px', margin:'10px 0' } },
@@ -75,7 +75,7 @@ function renderMap(ctx, wrap){
   if (sel && RACE_BY_ID[sel]){
     const r = RACE_BY_ID[sel];
     const d = DISCIPLINE_BY_ID[r.discipline];
-    wrap.append(h('div', { class:'sec' },
+    add(wrap, h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:d.name }), chip(MONTHS[(r.month||1)-1], 'acc')),
       h('h3', { style:{ fontSize:'15px', marginBottom:'4px' }, text:r.name }),
       h('div', { class:'tiny muted', style:{ marginBottom:'8px' }, text:`${r.series} · ${r.circuit}` }),
@@ -86,7 +86,7 @@ function renderMap(ctx, wrap){
       r.turns ? kv('Corners', String(r.turns)) : null,
       kv('Surface', r.surface || 'asphalt')));
   }
-  wrap.append(section(`Showing ${filtered().length} of ${RACES.length} events`,
+  add(wrap, section(`Showing ${filtered().length} of ${RACES.length} events`,
     ...filtered().slice(0, 40).map(r => h('div', { class:'pitem' + (sel === r.id ? ' on' : ''),
       onclick:() => { state.ui.raceSel = r.id; save(); ctx.refresh(); } },
       h('span', { class:'pitem__st', style:{ background:DISCIPLINE_BY_ID[r.discipline]?.colour } }),
@@ -97,10 +97,10 @@ function renderMap(ctx, wrap){
 
 function renderCalendar(ctx, wrap){
   const byMonth = racesByMonth();
-  wrap.append(para('The racing year, month by month. Motorsport never really stops — as one hemisphere\'s season ends the other\'s begins.'));
+  add(wrap, para('The racing year, month by month. Motorsport never really stops — as one hemisphere\'s season ends the other\'s begins.'));
   byMonth.forEach((list, i) => {
     if (!list.length) return;
-    wrap.append(h('div', { class:'grp' },
+    add(wrap, h('div', { class:'grp' },
       h('div', { class:'grp__h' }, h('span', { text:MONTHS[i] }),
         h('span', { class:'grp__bar' }), h('span', { class:'tiny', text:String(list.length) })),
       h('div', { class:'plist' }, ...list.map(r => h('div', { class:'pitem',
@@ -113,7 +113,7 @@ function renderCalendar(ctx, wrap){
 }
 
 function renderSeries(ctx, wrap){
-  wrap.append(para('What each discipline actually demands of the machine — which is the point of studying it here rather than just watching it.'));
+  add(wrap, para('What each discipline actually demands of the machine — which is the point of studying it here rather than just watching it.'));
   const engineering = {
     f1:'Aerodynamics above all: the car makes more downforce than it weighs. Power unit efficiency is regulated through a fuel-flow limit, so thermal efficiency, not displacement, is the competition.',
     endur:'Everything is a compromise with duration. Fuel economy sets stint length, brake and tyre wear set stop timing, and the fastest car rarely wins — the one that stops least does.',
@@ -129,7 +129,7 @@ function renderSeries(ctx, wrap){
   };
   for (const d of DISCIPLINES){
     const list = RACES.filter(r => r.discipline === d.id);
-    wrap.append(h('div', { class:'card' },
+    add(wrap, h('div', { class:'card' },
       h('div', { class:'card__h' },
         h('div', null, h('div', { class:'card__brand', style:{ color:d.colour }, text:`${d.icon} ${d.name}` }),
           h('div', { class:'card__t', text:`${list.length} events in the atlas` }))),

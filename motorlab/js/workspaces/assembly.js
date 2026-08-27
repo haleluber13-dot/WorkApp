@@ -4,7 +4,7 @@
  * next correct step if you are stuck. */
 
 import { h, section, sectionWith, kv, note, para, chip, bar, btn, toast, modal,
-         torqueDial, confirmDialog } from '../ui.js';
+         torqueDial, confirmDialog, add } from '../ui.js';
 import { state, engine, vehicle, tree, vTree, installedSet, setInstalled,
          vInstalledSet, setVInstalled, isTorqued, setTorqued, save, U } from '../store.js';
 import { canInstall, canRemove, blockers, GROUP_BY_ID } from '../data/parts.js';
@@ -381,7 +381,7 @@ export function renderPanel(ctx, kind, tab){
   /* --- parts list --- */
   const total = M.tree.parts.length, on = M.tree.parts.filter(p => inst.has(p.id)).length;
   const step = nextStep(kind);
-  wrap.append(
+  add(wrap,
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:'Build progress' }),
         chip(`${on}/${total}`, on === total ? 'ok' : '')),
@@ -464,11 +464,11 @@ function renderInspector(ctx, kind, wrap){
   const inst = M.get();
   const p = M.tree.byId[selected];
   if (!p){
-    wrap.append(note('Click any part in the 3D view, or pick one from the Parts tab, to inspect it. <b>Right-click</b> a part for the full list of things you can do to it.'));
+    add(wrap, note('Click any part in the 3D view, or pick one from the Parts tab, to inspect it. <b>Right-click</b> a part for the full list of things you can do to it.'));
     return wrap;
   }
   const on = inst.has(p.id);
-  wrap.append(
+  add(wrap,
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:M.groups[p.group]?.name || 'Part' }),
         on ? chip('fitted', 'ok') : chip('not fitted', 'warn')),
@@ -476,10 +476,10 @@ function renderInspector(ctx, kind, wrap){
       p.qty > 1 ? h('div', { class:'tiny muted', style:{ marginBottom:'8px' }, text:`Quantity: ${p.qty}` }) : null,
       para(p.teach)),
   );
-  if (p.spec) wrap.append(section('Specification', ...Object.entries(p.spec).map(([k,v]) => kv(k, String(v)))));
+  if (p.spec) add(wrap, section('Specification', ...Object.entries(p.spec).map(([k,v]) => kv(k, String(v)))));
   if (p.torque){
     const T = p.torque;
-    wrap.append(section('Torque sheet',
+    add(wrap, section('Torque sheet',
       kv('Fastener', `${T.count} × ${T.size}`),
       kv('Torque', `${T.nm} Nm` + (T.angle ? ` + ${T.angle}°` : '')),
       kv('Pattern', T.pattern?.kind || 'sequence'),
@@ -492,11 +492,11 @@ function renderInspector(ctx, kind, wrap){
   }
   const dep = p.deps.map(d => M.tree.byId[d]).filter(Boolean);
   const blk = p.blocks.map(b => M.tree.byId[b]).filter(Boolean);
-  if (dep.length) wrap.append(section('Goes on after', ...dep.map(d => kv(d.name, inst.has(d.id) ? '✓ fitted' : 'missing'))));
-  if (blk.length) wrap.append(section('Comes off before', ...blk.map(b => kv(b.name, inst.has(b.id) ? 'fitted — remove first' : '—'))));
+  if (dep.length) add(wrap, section('Goes on after', ...dep.map(d => kv(d.name, inst.has(d.id) ? '✓ fitted' : 'missing'))));
+  if (blk.length) add(wrap, section('Comes off before', ...blk.map(b => kv(b.name, inst.has(b.id) ? 'fitted — remove first' : '—'))));
 
   const ups = upgradesFor(kind, p.id);
-  if (ups.length) wrap.append(section(`Upgrades that fit here (${ups.length})`,
+  if (ups.length) add(wrap, section(`Upgrades that fit here (${ups.length})`,
     ...ups.slice(0, 4).map(u => h('div', { class:'card' },
       h('div', { class:'card__h' }, h('div', null,
         h('div', { class:'card__brand', text:u.brand }), h('div', { class:'card__t', text:u.name })),
@@ -504,7 +504,7 @@ function renderInspector(ctx, kind, wrap){
       h('div', { class:'card__b', text:u.teach.slice(0, 150) + (u.teach.length > 150 ? '…' : '') }))),
     btn('Open the Upgrade Shop', { class:'btn--wide', onClick:() => ctx.goto('upgrade') })));
 
-  wrap.append(h('div', { class:'btnrow', style:{ marginTop:'12px' } },
+  add(wrap, h('div', { class:'btnrow', style:{ marginTop:'12px' } },
     on ? btn('Remove', { onClick:() => doRemove(ctx, kind, p.id), disabled:!canRemove(M.tree, inst, p.id) })
        : btn('Install', { class:'btn--pri', onClick:() => doInstall(ctx, kind, p.id), disabled:!canInstall(M.tree, inst, p.id) }),
     btn('Zoom to it', { onClick:() => ctx.viewport.focusPart(p.id) })));
@@ -527,7 +527,7 @@ function renderGuide(ctx, kind, wrap){
       h('b', { text:p.name }),
       p.torque ? h('span', { class:'tiny muted', text:` — ${p.torque.count} × ${p.torque.size} @ ${p.torque.nm} Nm` }) : null));
   });
-  wrap.append(
+  add(wrap,
     para(`The correct build order for this ${M.noun}, derived from what each part bolts to. Work down the list; tap any step to jump to that part in 3D.`),
     h('div', { class:'sec' }, h('div', { class:'sec__h' }, h('span', { text:'Assembly order' }),
       chip(`${done.length}/${M.tree.order.length}`)), list));

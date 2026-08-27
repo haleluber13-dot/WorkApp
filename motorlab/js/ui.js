@@ -21,6 +21,15 @@ export function h(tag, attrs = {}, ...kids){
   }
   return el;
 }
+/** Append children, skipping the nulls a conditional row leaves behind — the
+ *  DOM's own append() would turn those into the text "null". */
+export function add(el, ...kids){
+  for (const kid of kids.flat(3)){
+    if (kid == null || kid === false) continue;
+    el.appendChild(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => (
   { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 
@@ -38,7 +47,7 @@ export function modal({ title, body, actions = [], wide = false, onClose }){
   const host = $('#modal');
   const card = h('div', { class:'modal__card', style: wide ? { width:'min(1000px,100%)' } : null });
   const close = () => { host.hidden = true; host.innerHTML = ''; onClose?.(); };
-  card.append(
+  add(card,
     h('div', { class:'modal__head' },
       h('h3', { text:title }),
       h('button', { class:'iconbtn', onclick:close, title:'Close' }, '✕')),
@@ -279,7 +288,7 @@ export function worldMap(host, { polygons, points, onPick, selected, width = 900
     dot.setAttribute('stroke-width', isSel ? '1.4' : '0.8');
     const t = document.createElementNS(NS, 'title');
     t.textContent = `${pt.name} — ${pt.city}, ${pt.country}`;
-    g.append(halo, dot, t);
+    add(g, halo, dot, t);
     g.addEventListener('click', () => onPick?.(pt.id));
     dots.appendChild(g);
   }

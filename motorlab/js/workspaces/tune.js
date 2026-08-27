@@ -1,5 +1,5 @@
 /* Tuning bay — the ECU calibration tables and everything that limits them. */
-import { h, section, kv, note, para, chip, btn, toast, select, field, slider, lineChart, modal, bar } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, select, field, slider, lineChart, modal, bar, add } from '../ui.js';
 import { state, engine, vehicle, tune, setTune, resetTune, fitted, save, U } from '../store.js';
 import { FUELS, isBoosted, displacementL } from '../data/engines.js';
 import { LOAD_BINS, autoTune, auditTune, cloneTune, mbtTiming, fuelProps } from '../sim/ecu.js';
@@ -30,7 +30,7 @@ export function render(ctx, tab){
     { name:'Torque', colour:'#22d3ee', axis:2, points:res.points.map(x => [x.rpm, x.tq]) },
   ]}));
 
-  wrap.append(
+  add(wrap,
     chart,
     h('div', { class:'sec', style:{ marginTop:'10px' } },
       kv('Peak power', `${p.v.toFixed(0)} ${p.u} @ ${res.hpRpm} rpm`),
@@ -82,7 +82,7 @@ export function render(ctx, tab){
                      : note('Duty cycle is within the linear region of the injector.')),
   );
 
-  if (res.health.risks.length) wrap.append(section('Warnings',
+  if (res.health.risks.length) add(wrap, section('Warnings',
     ...res.health.risks.slice(0, 5).map(r => note(r.msg, r.sev > 2 ? 'bad' : 'warn'))));
   return wrap;
 }
@@ -108,7 +108,7 @@ function renderTable(ctx, wrap, which){
   const e = engine(), t = tune();
   const isLambda = which === 'lambda';
   const table = t[which];
-  wrap.append(para(isLambda
+  add(wrap, para(isLambda
     ? 'Target <b>lambda</b> against rpm (rows) and engine load (columns). λ 1.00 is stoichiometric for whatever fuel is selected. Best power is around λ 0.85–0.90; cruise cells run λ 1.00 for efficiency and emissions. Drag a cell up or down to change it.'
     : 'Ignition advance in <b>degrees before top dead centre</b>, against rpm and load. Cells past MBT are shown in orange — they make heat, not power. Cells that will knock on the selected fuel are shown in red. Drag to change.'));
 
@@ -157,12 +157,12 @@ function renderTable(ctx, wrap, which){
     });
     tbl.appendChild(tr);
   });
-  wrap.append(h('div', { class:'tablewrap' }, tbl));
-  wrap.append(h('div', { class:'btnrow', style:{ marginTop:'10px' } },
+  add(wrap, h('div', { class:'tablewrap' }, tbl));
+  add(wrap, h('div', { class:'btnrow', style:{ marginTop:'10px' } },
     btn('−5%', { onClick:() => scale(ctx, which, isLambda ? 1.02 : 0.95) }),
     btn('+5%', { onClick:() => scale(ctx, which, isLambda ? 0.98 : 1.05) }),
     btn('Auto-fill', { class:'btn--pri', onClick:() => doAuto(ctx, state.settings.autoTuneAggression) })));
-  wrap.append(note(isLambda
+  add(wrap, note(isLambda
     ? 'Richer means a <i>lower</i> lambda number. Under boost, extra fuel is doing two jobs — making power and cooling the charge.'
     : 'Timing that knocks is worse than timing that is a degree soft. Detonation costs power immediately and pistons eventually.'));
   return wrap;
@@ -179,13 +179,13 @@ function renderAudit(ctx, wrap){
   const e = engine(), t = tune(), m = mods();
   const issues = auditTune(e, t, { iat: chargeTemp(t.boostTarget || 0, m, state.settings.ambientC) });
   const res = result();
-  wrap.append(para('A tuner reading your map cell by cell. Every entry below is a specific cell or limit that will cost power, or cost you the engine.'));
+  add(wrap, para('A tuner reading your map cell by cell. Every entry below is a specific cell or limit that will cost power, or cost you the engine.'));
   if (!issues.length && !res.health.risks.length)
-    wrap.append(note('Nothing flagged. Every cell is inside its knock margin, the mixture is sensible for the load, and no limit is being exceeded.'));
-  wrap.append(...issues.slice(0, 14).map(i => note(i.msg, i.sev > 6 ? 'bad' : i.sev > 2 ? 'warn' : '')));
+    add(wrap, note('Nothing flagged. Every cell is inside its knock margin, the mixture is sensible for the load, and no limit is being exceeded.'));
+  add(wrap, ...issues.slice(0, 14).map(i => note(i.msg, i.sev > 6 ? 'bad' : i.sev > 2 ? 'warn' : '')));
   if (res.health.risks.length)
-    wrap.append(section('Mechanical risk', ...res.health.risks.map(r => note(r.msg, r.sev > 2 ? 'bad' : 'warn'))));
-  wrap.append(h('div', { class:'btnrow', style:{ marginTop:'10px' } },
+    add(wrap, section('Mechanical risk', ...res.health.risks.map(r => note(r.msg, r.sev > 2 ? 'bad' : 'warn'))));
+  add(wrap, h('div', { class:'btnrow', style:{ marginTop:'10px' } },
     btn('Fix it for me (safe)', { class:'btn--pri', onClick:() => doAuto(ctx, 0.25) }),
     btn('Back to the map', { onClick:() => ctx.setTab('overview') })));
   return wrap;

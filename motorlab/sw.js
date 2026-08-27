@@ -1,18 +1,28 @@
 /* MotorLab service worker — offline app shell. Bump CACHE when files change. */
-const CACHE = 'motorlab-v1';
+const CACHE = 'motorlab-v2';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './icons/icon.svg',
   './vendor/three/build/three.module.min.js',
   './vendor/three/examples/jsm/controls/OrbitControls.js',
+  './vendor/three/examples/jsm/loaders/OBJLoader.js',
+  './vendor/three/examples/jsm/loaders/MTLLoader.js',
+  './vendor/three/examples/jsm/loaders/GLTFLoader.js',
   './data/world_land.json',
   './js/main.js', './js/ui.js', './js/store.js', './js/game.js', './js/viewport.js', './js/updates.js',
-  './js/lib/geo.js',
+  './js/lib/geo.js', './js/lib/textures.js', './js/lib/importModel.js',
   './js/data/engines.js', './js/data/parts.js', './js/data/vehicles.js', './js/data/vehicleParts.js',
   './js/data/upgrades.js', './js/data/curriculum.js', './js/data/electrical.js',
   './js/data/races.js', './js/data/news.js',
   './js/sim/ecu.js', './js/sim/engineSim.js', './js/sim/dyno.js',
-  './js/build/engineModel.js', './js/build/vehicleModel.js',
+  './js/build/engineModel.js', './js/build/vehicleModel.js', './js/build/scannedVehicle.js',
+  /* the scanned part maps: the app falls back to generated materials without
+     them, so they are cached but a failure here must not fail the install */
+  './assets/parts/brake_disc.png', './assets/parts/caliper.png',
+  './assets/parts/caliper_normal.png', './assets/parts/carbon.png',
+  './assets/parts/underbody.png', './assets/parts/tyre_side.png',
+  './assets/parts/tyre_side_bump.png', './assets/parts/tread.png',
+  './assets/parts/tread_bump.png', './assets/parts/engine_bay.png',
   './js/workspaces/assembly.js', './js/workspaces/garage.js', './js/workspaces/engine.js',
   './js/workspaces/tune.js', './js/workspaces/dyno.js', './js/workspaces/upgrade.js',
   './js/workspaces/wiring.js', './js/workspaces/audio.js', './js/workspaces/learn.js',
@@ -20,7 +30,10 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  /* cache each file on its own: one missing asset must not fail the install */
+  e.waitUntil(caches.open(CACHE)
+    .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {}))))
+    .then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then(keys =>

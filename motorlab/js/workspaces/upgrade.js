@@ -1,5 +1,5 @@
 /* Upgrade shop — fit real aftermarket parts and watch the model respond. */
-import { h, section, kv, note, para, chip, btn, toast, select, field, lineChart } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, select, field, lineChart, add } from '../ui.js';
 import { state, engine, vehicle, tune, fitted, setFitted, save, U } from '../store.js';
 import { UPGRADES, UPGRADE_BY_ID, CATS, applyUpgrades, availableFor, fitProblems } from '../data/upgrades.js';
 import { simulate, emptyMods, boostCapability, inducedType } from '../sim/engineSim.js';
@@ -36,7 +36,7 @@ export function render(ctx, tab){
     return hp;
   };
   const tunedNow = tunedHp(m);
-  wrap.append(
+  add(wrap,
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:'Budget' }),
         chip('$' + state.game.credits.toLocaleString(), 'acc')),
@@ -51,7 +51,7 @@ export function render(ctx, tab){
   );
 
   const items = avail.filter(u => u.cat === cat);
-  if (!items.length) wrap.append(note('Nothing in this category fits the current engine or vehicle. Swap to a different engine and check again — a supercharger kit will not fit a rotary, and anti-lag needs a turbo.'));
+  if (!items.length) add(wrap, note('Nothing in this category fits the current engine or vehicle. Swap to a different engine and check again — a supercharger kit will not fit a rotary, and anti-lag needs a turbo.'));
 
   for (const u of items){
     const on = list.includes(u.id);
@@ -62,7 +62,7 @@ export function render(ctx, tab){
     /* a bigger compressor does nothing until you actually command more boost,
      * so also show what it is worth once the tune uses the extra ceiling */
     const potential = (!on && capNew > capNow + 0.02) ? tunedHp(preview, capNew) - tunedNow : 0;
-    wrap.append(h('div', { class:'card' + (on ? ' on' : '') },
+    add(wrap, h('div', { class:'card' + (on ? ' on' : '') },
       h('div', { class:'card__h' },
         h('div', null,
           h('div', { class:'card__brand', text:`${u.brand} · tier ${u.tier}` }),
@@ -119,7 +119,7 @@ function renderFitted(ctx, wrap, list, before, after, m){
     { name:'Standard', colour:'#5a6b86', dash:[3,3], points:before.points.map(p => [p.rpm, U.power(p.hp).v]) },
     { name:'This build', colour:'#ff7a1a', points:after.points.map(p => [p.rpm, U.power(p.hp).v]) },
   ]}));
-  wrap.append(
+  add(wrap,
     para('Everything fitted to this engine, and what it did to the curve. Look at the <i>shape</i>, not just the peak — a big turbo that adds 150 hp at 7,000 rpm may have taken 60 Nm away at 2,500.'),
     chart,
     section('Totals',

@@ -1,5 +1,5 @@
 /* Dyno & track — measure what the build actually does. */
-import { h, section, kv, note, para, chip, btn, toast, select, field, lineChart, bar } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, select, field, lineChart, bar, add } from '../ui.js';
 import { state, engine, vehicle, tune, fitted, save, U } from '../store.js';
 import { displacementL } from '../data/engines.js';
 import { dynoRun, accelerationRun, lapTime, TRACKS, vehicleMass, gripCoef } from '../sim/dyno.js';
@@ -33,7 +33,7 @@ export function render(ctx, tab){
   });
 
   const p = U.power(run.hp), tq = U.torque(run.tqNm);
-  wrap.append(
+  add(wrap,
     chart,
     h('div', { class:'btnrow', style:{ margin:'10px 0' } },
       btn('Run a pull', { class:'btn--pri', onClick:() => doPull(ctx) }),
@@ -116,7 +116,7 @@ function renderAccel(ctx, wrap){
     { name:'g', colour:'#3ddc84', axis:2, points:run.trace.map(p => [p.t, p.a]) },
   ]}));
   const s = (x) => x ? x.toFixed(2) + ' s' : '—';
-  wrap.append(
+  add(wrap,
     para(`Standing-start run for the ${vehicle().name.toLowerCase()} with this engine, gearing, mass, tyres and aero. Shift time is modelled, and the launch is traction-limited.`),
     chart,
     section('Times',
@@ -156,7 +156,7 @@ function renderTrack(ctx, wrap){
   const trackId = state.ui.trackId ||= (v.class === 'kart' ? 'kart' : 'gp');
   const track = TRACKS.find(x => x.id === trackId) || TRACKS[1];
   const lap = lapTime(e, t, m, v, track);
-  wrap.append(
+  add(wrap,
     para('A lap-time estimate: corner speeds solved from grip, mass and downforce, then acceleration and braking integrated down each straight. It is a model, not a lap of a real circuit — but it responds correctly to every change you make.'),
     field('Circuit', select(TRACKS.map(x => ({ value:x.id, label:`${x.name} — ${(x.lengthM/1000).toFixed(1)} km` })), trackId,
       (id) => { state.ui.trackId = id; save(); ctx.refresh(); })),

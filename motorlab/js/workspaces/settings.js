@@ -1,6 +1,6 @@
 /* Settings — everything in the app is adjustable from here. */
 import { h, section, kv, note, para, chip, btn, toast, field, select, slider, toggle,
-         download, pickFile, pickBinaryFile, confirmDialog, modal } from '../ui.js';
+         download, pickFile, pickBinaryFile, confirmDialog, modal, add } from '../ui.js';
 import { loadGLB, clearCustom, custom } from '../lib/importModel.js';
 import { state, save, DEFAULT_SETTINGS, resetAll, resetProject, exportSave, importSave, invalidateTrees } from '../store.js';
 import { checkForUpdates, updateState, DEFAULT_FEED } from '../updates.js';
@@ -15,7 +15,7 @@ export function render(ctx, tab){
   if (tab === 'data') return renderData(ctx, wrap);
 
   if (tab === 'sim'){
-    wrap.append(
+    add(wrap,
       para('The conditions every simulation runs under, and how hard the app pushes back when a build is dangerous.'),
       section('Ambient conditions',
         slider({ label:'Air temperature', min:-10, max:45, step:1, value:s.ambientC, format:(v)=>v+' °C',
@@ -45,7 +45,7 @@ export function render(ctx, tab){
     return wrap;
   }
 
-  wrap.append(
+  add(wrap,
     section('Units',
       field('Measurement system', select([
         { value:'metric', label:'Metric — Nm, bar, km/h, °C, mm' },
@@ -127,7 +127,7 @@ export function render(ctx, tab){
 
 function renderData(ctx, wrap){
   const p = progressSummary();
-  wrap.append(
+  add(wrap,
     section('Your progress',
       kv('Level', `${p.level.lvl} — ${p.level.title}`),
       kv('XP', String(p.xp)),

@@ -1,5 +1,13 @@
 /* MotorLab — small geometry/material toolkit shared by every 3D builder. */
 import * as THREE from 'three';
+import { tex, repeated, whenTextures, CALIPER_UV, FILTER_UV } from './textures.js';
+
+/** Dress a material with scanned maps as soon as the library is in place.
+ *  Until then — and if the files are missing — the generated look stands in. */
+function scanned(m, dress){
+  whenTextures(() => { dress(m); m.needsUpdate = true; });
+  return m;
+}
 
 /* ----------------------------------------------------------------------
  * Procedural surface detail. A perfectly uniform surface is the giveaway that
@@ -58,6 +66,49 @@ function rubberTooth(){
       g.fillRect(Math.random()*n, Math.random()*n, 1.4, 1.4);
     }
   });
+}
+/** Tread pattern, drawn as a height field: circumferential grooves, shoulder
+ *  blocks and sipes. The scanned rubber supplies the colour and the grain; this
+ *  supplies the pattern, because the scan came off a slick. */
+function treadPattern(kind){
+  return makeTex('treadpat_' + kind, 256, (g, n) => {
+    g.fillStyle = '#c9c9c9'; g.fillRect(0, 0, n, n);
+    if (kind === 'knobby'){
+      g.fillStyle = '#141414'; g.fillRect(0, 0, n, n);
+      g.fillStyle = '#e8e8e8';
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 3; c++){
+          const off = (r % 2) * 0.16;
+          g.fillRect((c / 3 + off) * n, (r / 4 + 0.03) * n, 0.17 * n, 0.19 * n);
+        }
+      return;
+    }
+    for (const [y, hh] of [[0.20, 0.070], [0.50, 0.050], [0.80, 0.070]]){   // grooves
+      g.fillStyle = '#181818';
+      g.fillRect(0, (y - hh / 2) * n, n, hh * n);
+    }
+    g.fillStyle = '#242424';                                               // shoulder slots
+    for (let i = 0; i < 4; i++){
+      const x = (i / 4) * n;
+      g.save(); g.translate(x, 0); g.rotate(0.16);
+      g.fillRect(0, 0.01 * n, 0.075 * n, 0.15 * n);
+      g.fillRect(0, 0.84 * n, 0.075 * n, 0.15 * n);
+      g.restore();
+    }
+    g.fillStyle = 'rgba(30,30,30,0.85)';                                   // sipes
+    for (let i = 0; i < 7; i++){
+      const x = (i / 7) * n;
+      g.fillRect(x, 0.255 * n, 0.022 * n, 0.19 * n);
+      g.fillRect(x + n / 14, 0.555 * n, 0.022 * n, 0.19 * n);
+    }
+  });
+}
+function repeatXY(t, rx, ry){
+  if (!t) return null;
+  const c = t.clone(); c.needsUpdate = true;
+  c.wrapS = c.wrapT = THREE.RepeatWrapping;
+  c.repeat.set(rx, ry);
+  return c;
 }
 function withRepeat(t, r){
   if (!t) return null;
@@ -120,6 +171,50 @@ export const MAT = {
   wire: (c) => mat('wire' + c, () => new THREE.MeshStandardMaterial({
     color:c, metalness:0.0, roughness:0.48, envMapIntensity:0.6 })),
   emissive: (c, i=1.4) => new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:i, roughness:.4 }),
+  /* real carbon-fibre weave, off a scan; used for aero, tubs and trim */
+  carbon: () => mat('carbon', () => scanned(new THREE.MeshPhysicalMaterial({
+    color:0xffffff, metalness:0.28, roughness:0.30, clearcoat:1, clearcoatRoughness:0.07,
+    envMapIntensity:1.1 }), m => { m.map = repeated('carbon', 3); if (!m.map) m.color.set(0x1b1d20); })),
+  /* the underbody pan: seam sealer, spray-on deadener, road grime */
+  underbody: () => mat('underbody', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xffffff, metalness:0.35, roughness:0.85, envMapIntensity:0.45 }),
+    m => { m.map = repeated('underbody', 3, 2); if (!m.map) m.color.set(0x2a2c30); })),
+  /* tyre crown: scanned rubber for colour and grain, pattern on top. The scan
+     came off a slick, so a road or knobby tyre gets its blocks from here. */
+  tread: (kind = 'road') => mat('tread_' + kind, () => scanned(new THREE.MeshStandardMaterial({
+    color:0x9c9fa2, metalness:0.0, roughness:0.96, envMapIntensity:0.22 }), m => {
+      m.map = repeated('tread', 24, 1);
+      if (!m.map) m.color.set(0x16181c);
+      m.bumpMap = kind === 'slick' ? repeated('treadBump', 24, 1)
+                                   : repeatXY(treadPattern(kind), 24, 1);
+      m.bumpScale = kind === 'slick' ? 1.0 : 2.2;
+    })),
+  /* tyre sidewall, lettering and all — mapped flat onto an annulus */
+  sidewall: (outer = true) => mat('sidewall' + outer, () => scanned(new THREE.MeshStandardMaterial({
+    color:0xffffff, metalness:0.0, roughness:0.92, envMapIntensity:0.3,
+    transparent:true, alphaTest:0.35, side:THREE.DoubleSide }), m => {
+      m.map = tex(outer ? 'tyreSide' : 'tyreBack');
+      m.bumpMap = tex('tyreSideBump'); m.bumpScale = 0.8;
+      if (!m.map){ m.color.set(0x14161a); m.transparent = false; m.alphaTest = 0; }
+    })),
+  /* cross-drilled, gold-coated disc face, straight off the part */
+  discFace: () => mat('discFace', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xffffff, metalness:0.75, roughness:0.42, envMapIntensity:1.1,
+    transparent:true, alphaTest:0.5, side:THREE.DoubleSide }),
+    m => { m.map = tex('brakeDisc'); if (!m.map){ m.color.set(0x5a5f66); m.transparent = false; m.alphaTest = 0; } })),
+  /* six-pot caliper shell: photo albedo plus its own normal map */
+  caliperShell: () => mat('caliperShell', () => scanned(new THREE.MeshPhysicalMaterial({
+    color:0xffffff, metalness:0.15, roughness:0.36, clearcoat:0.9, clearcoatRoughness:0.10,
+    envMapIntensity:1.1 }), m => {
+      m.map = tex('caliper'); m.normalMap = tex('caliperNormal');
+      if (m.normalMap) m.normalScale = new THREE.Vector2(1.1, 1.1);
+      if (!m.map) m.color.set(0xb52a20);
+    })),
+  /* a pleated filter element, off a real one */
+  airFilter: () => mat('airFilter', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xffffff, metalness:0.15, roughness:0.72, envMapIntensity:0.6,
+    side:THREE.DoubleSide }),
+    m => { m.map = tex('engineBay'); if (!m.map) m.color.set(0xb04a4a); })),
   /* body paint: metallic base under a clearcoat, tinted so the structure shows */
   paint: (colour, opacity = 1) => new THREE.MeshPhysicalMaterial({
     color:colour, metalness:0.72, roughness:0.26, clearcoat:1, clearcoatRoughness:0.045,
@@ -156,6 +251,34 @@ export function tubeMesh(rOuter, rInner, h, mat, seg=24){
 }
 export function sphere(r, mat, seg=18){
   return new THREE.Mesh(cached(`s${r},${seg}`, () => new THREE.SphereGeometry(r,seg,seg)), mat);
+}
+/** A flat annulus with the map projected straight down the axle — the way a
+ *  tyre sidewall or a brake disc is photographed. `span` sets how much of the
+ *  sheet the part covers; `ring` instead pins the inner and outer edges to two
+ *  radii in the texture, so circular artwork lands exactly on the annulus. */
+export function faceDisc(rOuter, rInner, mat, { seg = 72, span = rOuter, ring = null } = {}){
+  const g = new THREE.RingGeometry(rInner, rOuter, seg, 1);
+  const pos = g.attributes.position, uv = g.attributes.uv;
+  for (let i = 0; i < pos.count; i++){
+    const x = pos.getX(i), y = pos.getY(i);
+    const d = Math.hypot(x, y) || 1e-6;
+    let rt = d / (2 * span);
+    if (ring){
+      const t = (d - rInner) / Math.max(1e-6, rOuter - rInner);
+      rt = ring[0] + t * (ring[1] - ring[0]);
+    }
+    uv.setXY(i, 0.5 + (x / d) * rt, 0.5 + (y / d) * rt);
+  }
+  uv.needsUpdate = true;
+  return new THREE.Mesh(g, mat);
+}
+/** Re-map a plane's UVs onto one rectangle of a texture sheet. */
+export function setUVRect(g, { u0, u1, v0, v1 }){
+  const uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++)
+    uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0));
+  uv.needsUpdate = true;
+  return g;
 }
 export function torus(r, t, mat, seg=20){
   return new THREE.Mesh(cached(`t${r},${t}`, () => new THREE.TorusGeometry(r,t,10,seg)), mat);
@@ -411,7 +534,7 @@ export function imbalance(e){
  * ==================================================================== */
 
 /** A road wheel: tyre, rim barrel, dish face, spokes, hub. Axle along Z. */
-export function wheelMesh({ radius, width, rimR, spokes = 5, style = 'alloy', tread = true }){
+export function wheelMesh({ radius, width, rimR, spokes = 5, style = 'alloy', tread = 'road' }){
   const g = group('wheel');
   const seat = rimR * 1.02;
   const half = width / 2;
@@ -433,22 +556,22 @@ export function wheelMesh({ radius, width, rimR, spokes = 5, style = 'alloy', tr
   rot(tyre, Math.PI/2, 0, 0);          // lathe revolves about Y; the axle is Z
   g.add(tyre);
   if (tread){
-    /* circumferential grooves plus shoulder blocks — enough to read as a tyre */
-    for (const zf of [-0.42, 0, 0.42]){
-      const groove = torus(radius * 0.995, width * 0.035, MAT.black(), 40);
-      groove.position.z = zf * width;
-      g.add(groove);
-    }
-    const blocks = 34;
-    for (let i = 0; i < blocks; i++){
-      const a = (i / blocks) * TAU;
-      for (const zf of [-0.26, 0.26]){
-        const b = box(radius * 0.06, radius * 0.10, width * 0.17, MAT.black());
-        b.position.set(Math.cos(a) * radius * 0.985, Math.sin(a) * radius * 0.985, zf * width);
-        b.rotation.z = a + Math.PI/2;
-        g.add(b);
-      }
-    }
+    /* the crown carries a scanned tread — pattern, grooves and siping in one
+       band, wrapped the same number of times a real tyre repeats it */
+    const crown = new THREE.Mesh(
+      new THREE.CylinderGeometry(radius * 1.002, radius * 1.002, width * 0.84, 72, 1, true),
+      MAT.tread(tread === true ? 'road' : tread));
+    rot(crown, Math.PI/2, 0, 0);
+    g.add(crown);
+  }
+  /* sidewalls: the scanned sidewall face, pinned rim-seat to shoulder so the
+     moulded lettering sits exactly where it does on the real tyre */
+  for (const s of [1, -1]){
+    const wall = faceDisc(radius * 0.80, seat, MAT.sidewall(true),
+                          { seg:72, ring:[0.309, 0.494] });
+    wall.position.z = s * half * 1.045;
+    if (s < 0) wall.rotation.y = Math.PI;
+    g.add(wall);
   }
   /* rim: inner barrel, outer lip, dish face */
   const barrel = lathe([
@@ -516,12 +639,32 @@ export function brakeDisc(diaM, mat){
                     MAT.alloyDark(), 26);
   rot(hat, Math.PI/2, 0, 0); hat.position.z = -0.012;
   g.add(hat);
-  for (let i = 0; i < 30; i++){          // cross-drilled holes shown as counterbores
-    const a = (i / 30) * TAU;
-    const h = cyl(r*0.035, r*0.035, 0.030, MAT.black(), 7);
-    rot(h, Math.PI/2, 0, 0);
-    h.position.set(Math.cos(a) * r * 0.78, Math.sin(a) * r * 0.78, 0);
-    g.add(h);
+  /* the visible face is a scan of a cross-drilled, coated disc: the drilling
+     pattern, the swept band, the hat and the hub bolts, all in register */
+  const scan = faceDisc(r * 1.023, 0.0, MAT.discFace(), { seg:72, span:r * 1.023 });
+  scan.position.z = 0.0145;
+  g.add(scan);
+  return g;
+}
+
+/** A pleated air-filter element on its end caps. Axis along X, so it sits the
+ *  way an inlet does. */
+export function filterElement(radius, length, capMat){
+  const g = group('filter');
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, length, 40, 1, true), MAT.airFilter());
+  const uv = body.geometry.attributes.uv;
+  for (let i = 0; i < uv.count; i++)                 // wrap the pleats around it
+    uv.setXY(i, FILTER_UV.u0 + ((uv.getX(i) * 3) % 1) * (FILTER_UV.u1 - FILTER_UV.u0),
+                FILTER_UV.v0 + uv.getY(i) * (FILTER_UV.v1 - FILTER_UV.v0));
+  uv.needsUpdate = true;
+  rot(body, 0, 0, Math.PI / 2);
+  g.add(body);
+  for (const s of [-1, 1]){
+    const cap = cyl(radius * 1.04, radius * 1.04, length * 0.06, capMat || MAT.alloyDark(), 30);
+    rot(cap, 0, 0, Math.PI / 2);
+    cap.position.x = s * length * 0.5;
+    g.add(cap);
   }
   return g;
 }
@@ -530,18 +673,28 @@ export function brakeDisc(diaM, mat){
 export function caliper(diaM, mat){
   const r = diaM / 2;
   const g = group('caliper');
-  for (const z of [-r*0.10, r*0.10]){
-    const half = roundBox(r*0.62, r*0.34, r*0.11, 0.006, mat || MAT.red());
+  const L = r * 0.74, H = L / 3.17;        // the scan's own proportions, kept
+  for (const z of [-r*0.105, r*0.105]){
+    const half = roundBox(L * 0.96, H * 0.96, r*0.10, 0.005, mat || MAT.red());
     half.position.z = z;
     g.add(half);
-    for (const off of [-0.26, 0, 0.26]){
-      const p = cyl(r*0.085, r*0.085, r*0.05, MAT.alloyDark(), 12);
+    for (const off of [-0.26, 0, 0.26]){   // the pistons behind each pad
+      const p = cyl(r*0.075, r*0.075, r*0.05, MAT.alloyDark(), 12);
       rot(p, Math.PI/2, 0, 0);
-      p.position.set(off * r, -r*0.06, z * 0.55);
+      p.position.set(off * r, -H*0.16, z * 0.55);
       g.add(p);
     }
   }
-  g.add(at(box(r*0.56, r*0.10, r*0.20, MAT.steel()), 0, r*0.13, 0));   // bridge
+  /* the outward faces are the scanned caliper itself, so the casting ribs,
+     the bleed nipple and the brand come from the real part */
+  for (const s of [1, -1]){
+    const f = new THREE.Mesh(setUVRect(new THREE.PlaneGeometry(L, H), CALIPER_UV),
+                             MAT.caliperShell());
+    f.position.z = s * r * 0.158;
+    if (s < 0) f.rotation.y = Math.PI;
+    g.add(f);
+  }
+  g.add(at(box(L*0.82, H*0.30, r*0.20, MAT.steel()), 0, H*0.62, 0));   // bridge
   return g;
 }
 

@@ -1,5 +1,5 @@
 /* Audio & 12 V — build a system and stay inside the alternator's budget. */
-import { h, section, kv, note, para, chip, btn, toast, select, field, slider, bar } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, select, field, slider, bar, add } from '../ui.js';
 import { state, vehicle, save, U } from '../store.js';
 import { AUDIO, ampCurrentDraw, parallelImpedance, seriesImpedance, powerBudget,
          BASE_LOADS, sizeWire, recommendFuse } from '../data/electrical.js';
@@ -28,7 +28,7 @@ export function render(ctx, tab){
   const wire = sizeWire(draw, b.runM, 0.4);
   const cost = hu.cost + amp.cost + sp.cost + sub.cost * b.subCount;
 
-  wrap.append(
+  add(wrap,
     section('The system',
       field('Head unit', select(AUDIO.headunits.map(x => ({ value:x.id, label:`${x.name} — $${x.cost}` })), b.hu,
         (v) => { b.hu = v; save(); ctx.refresh(); })),
@@ -81,7 +81,7 @@ export function render(ctx, tab){
 }
 
 function renderTheory(ctx, wrap){
-  wrap.append(
+  add(wrap,
     para('Car audio is an electrical engineering problem wearing a music hat. Four numbers decide almost everything.'),
     section('1 — Power and current',
       para('Amplifier current draw ≈ <b>RMS power ÷ (efficiency × 13.8 V)</b>. Class D amplifiers run around 78–85% efficient; class A/B around 60–68%. A 1,000 W RMS class D amp still pulls roughly 90 A at full output.')),

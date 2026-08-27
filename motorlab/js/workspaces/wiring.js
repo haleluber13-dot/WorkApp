@@ -1,5 +1,5 @@
 /* Electrical — trace circuits, size wire, and diagnose faults. */
-import { h, section, kv, note, para, chip, btn, toast, select, field, slider, modal } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, select, field, slider, modal, add } from '../ui.js';
 import { state, vehicle, save, U } from '../store.js';
 import { CIRCUITS, CIRCUIT_BY_ID, WIRE, sizeWire, recommendFuse, voltageDrop } from '../data/electrical.js';
 import { addXp, unlock, evaluateChallenges } from '../game.js';
@@ -13,14 +13,14 @@ export function render(ctx, tab){
   const c = CIRCUIT_BY_ID[id] || CIRCUITS[0];
   const fault = state.ui.activeFault ? c.faults.find(f => f.id === state.ui.activeFault) : null;
 
-  wrap.append(
+  add(wrap,
     field('Circuit', select(CIRCUITS.map(x => ({ value:x.id, label:x.name })), c.id,
       (v) => { state.ui.circuitId = v; state.ui.activeFault = null; save(); ctx.refresh(); })),
     board(ctx, c, fault),
     section('How it works', para(c.teach), kv('Typical current', c.current)),
   );
 
-  if (c.faults.length) wrap.append(section('Fault simulator',
+  if (c.faults.length) add(wrap, section('Fault simulator',
     para('Inject a fault and read the symptom. Work out which link is broken, then click it on the board.'),
     ...c.faults.map(f => {
       const solved = state.ui.solvedFaults?.[f.id];
@@ -110,7 +110,7 @@ function renderSizing(ctx, wrap){
   const recalc = () => {
     const w = sizeWire(s.amps, s.length, s.drop);
     out.innerHTML = '';
-    out.append(
+    add(out,
       h('div', { class:'sec__h' }, h('span', { text:'Recommendation' })),
       kv('Wire size', (w.label ? w.label + ' AWG' : `${w.awg} AWG`) + ` (${w.mm2} mm²)`),
       kv('Ampacity', `${w.amps} A continuous`),
@@ -119,7 +119,7 @@ function renderSizing(ctx, wrap){
       w.marginal ? note('Even the largest cable here exceeds your voltage-drop target. Shorten the run, or accept the drop.', 'warn')
                  : note('This satisfies both the current rating and the voltage-drop limit. Voltage drop, not ampacity, is usually what decides the answer on a vehicle.'));
   };
-  wrap.append(
+  add(wrap,
     para('Size a cable properly: pick the wire that can carry the current <i>and</i> keep the voltage drop acceptable over the run, then fuse just above the wire rating.'),
     slider({ label:'Load current', min:5, max:300, step:5, value:s.amps, format:(v)=>v+' A',
       onInput:(v) => { s.amps = v; recalc(); } }),
@@ -139,7 +139,7 @@ function renderSizing(ctx, wrap){
 function renderFaults(ctx, wrap){
   const solved = state.ui.solvedFaults || {};
   const all = CIRCUITS.flatMap(c => c.faults.map(f => ({ ...f, circuit:c })));
-  wrap.append(
+  add(wrap,
     para('Every fault in the simulator, and the reasoning that finds it. Diagnosis is always the same three questions: does it have a feed, does it have a ground, and is the switch actually closing?'),
     section(`Progress — ${Object.keys(solved).length} / ${all.length}`,
       ...all.map(f => h('div', { class:'card' },

@@ -6,10 +6,11 @@ import { state, load, save, engine, vehicle, tree, vTree, installedSet, vInstall
 import { loadStoredUpdates, checkForUpdates, updateState } from './updates.js';
 import { buildEngine } from './build/engineModel.js';
 import { buildVehicle } from './build/vehicleModel.js';
-import { buildScannedVehicle } from './build/scannedVehicle.js';
+import { buildScannedVehicle, setLivery, liveriesFor } from './build/scannedVehicle.js';
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
 import { restoreCustom } from './lib/importModel.js';
+import { loadTextures } from './lib/textures.js';
 
 import garage   from './workspaces/garage.js';
 import { engineWs, chassisWs } from './workspaces/engine.js';
@@ -42,7 +43,12 @@ function boot(){
   loadStoredUpdates();
   invalidateTrees();
 
+  /* the scanned part maps — real disc, caliper, tyre, carbon — load once, up
+     front, so every builder after this point can stay synchronous */
+  loadTextures().then(() => { if (currentModel) { currentModel = null; reloadModel(); } });
+
   viewport = new Viewport($('#gl'), $('#labels'));
+  globalThis.__motorlab = { viewport, ctx };        // a handle for tooling and tests
   viewport.onPick = (id, hit, ev) => {
     const ws = current();
     if (ws.onPick) ws.onPick(ctx, id, hit, ev);
@@ -161,6 +167,12 @@ function reloadModel(){
     buildScannedVehicle(vehicle(), vTree()).then(built => {
       if (currentModel?.key !== wantKey) return;      // the user moved on while it loaded
       show(built);
+      /* put back the colour or livery this model was last wearing */
+      const model = vehicle().model;
+      const list = liveriesFor(model);
+      const saved = state.ui.liveries?.[model];
+      const want = list.some(l => l.id === saved) ? saved : list[0]?.id;
+      if (want) setLivery(model, want);
       refresh();
     }).catch(err => {
       console.error('Model load failed', err);

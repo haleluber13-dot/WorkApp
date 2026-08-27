@@ -431,8 +431,14 @@ function buildPiston(e, tree){
     intakeG.add(runner);
   }
   add('intake', intakeG);
-  if (has('throttle'))
-    add('throttle', at(rot(cyl(M(38), M(38), M(60), MAT.alloyDark(), 18), 0, 0, Math.PI/2), -L.len*0.48, inducY, L.banks>=2 ? 0 : -L.bore*0.95));
+  if (has('throttle')){
+    const zInd = L.banks >= 2 ? 0 : -L.bore * 0.95;
+    const tG = group('throttle');
+    tG.add(at(rot(cyl(M(38), M(38), M(60), MAT.alloyDark(), 18), 0, 0, Math.PI/2), -L.len*0.48, inducY, zInd));
+    /* and the filter element feeding it — a real pleated one */
+    tG.add(at(filterElement(M(72), M(150), MAT.alloyDark()), -L.len*0.48 - M(115), inducY, zInd));
+    add('throttle', tG);
+  }
   if (has('injectors') && e.fuel !== 'diesel'){
     for (let i = 0; i < e.cyl; i++){
       const p = cylPosition(e, i, L);

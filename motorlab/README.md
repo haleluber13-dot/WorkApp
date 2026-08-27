@@ -43,20 +43,56 @@ bike and a shifter kart.
 ## Real models, taken apart panel by panel
 
 Where a proper vehicle model exists, MotorLab uses it instead of generating one —
-and maps the model's own object names onto part ids, so the teardown works on the
-real bodywork. The NASCAR stock car in the catalog comes apart the way the actual
-car does: front clip, rear clip, wheel arches, door skins, quarter panels, roof,
-hood, deck lid, glass and window net all come off separately, over a welded tube
-frame with the engine and cage underneath. Each wheel is re-centred on its own hub
-so it turns and steers correctly, and the livery can be switched from the Garage.
+and maps the model's own pieces onto part ids, so the teardown works on the real
+bodywork. Three of them ship in the catalog:
 
-See [`assets/nns/ABOUT.md`](assets/nns/ABOUT.md) for that model's provenance and
-how to register another one.
+- **NASCAR stock car** — front clip, rear clip, wheel arches, door skins, quarter
+  panels, roof, hood, deck lid, glass and window net all come off separately, over
+  a welded tube frame with the engine and cage underneath.
+- **Carbon hypercar** — a carbon tub with the painted panels, the exposed carbon
+  aero, the glazing, the lights and the cabin each lifting off on their own.
+- **Custom V-twin cruiser** — strip it to the backbone frame and the V-twin, then
+  put the chrome, the tank, the wheels and the trim back on.
+
+Each wheel is re-centred on its own hub so it turns and steers correctly, and the
+paint can be switched from the Garage. `SCANNED` in
+[`js/build/scannedVehicle.js`](js/build/scannedVehicle.js) is where a model is
+registered: either by naming its objects (`map`) or, when a file names its pieces
+after their material, by working the part out from the material and where the
+piece sits on the vehicle (`classify`).
+
+See each folder's `ABOUT.md` — [nns](assets/nns/ABOUT.md),
+[koenigsegg](assets/koenigsegg/ABOUT.md), [harley](assets/harley/ABOUT.md) — for
+provenance, trademarks and the exact conversion command used.
+
+### Scanned parts, on the generated vehicles too
+
+`assets/parts/` holds photographic maps taken off real hardware, and they dress
+the **generated** parts, so every car in the catalog benefits and not just the
+modelled ones: a cross-drilled, coated disc face; a six-pot caliper with its own
+normal map; a carbon weave on the aero, the tub and the undertray; a real tyre
+sidewall pinned rim-seat to shoulder so the moulded lettering lands where it does
+on the tyre; and a pleated filter element on the inlet. The tread pattern is drawn
+over the scanned rubber, because the scan came off a slick — road, slick and
+knobby patterns are generated to match what the vehicle actually runs.
+
+Delete `assets/parts/` and everything falls back to the generated materials it had
+before; see [`assets/parts/ABOUT.md`](assets/parts/ABOUT.md).
+
+### The conversion tools
+
+| Tool | What it does |
+|---|---|
+| `tools/tga2png.py` | TrueVision TGA (types 2, 3, 10, 11) to PNG — fixes BGR order and bottom-left origin |
+| `tools/tds2obj.py` | Autodesk `.3DS` to OBJ + MTL, Z-up to Y-up, one object per material |
+| `tools/obj2glb.py` | OBJ + MTL to binary glTF: scale, offset, clip stray faces, weld, drop unused UVs |
+
+All three are pure standard-library Python 3 — no build step, no dependencies.
 
 ## Bring your own vehicle model
 
-No scanned or CAD-derived vehicles ship with MotorLab. The good ones are
-licensed work — from the studios that built them and, for production cars, from
+The models above were supplied by the repository owner. MotorLab does not go and
+fetch scans of its own: the good ones are licensed work — from the studios that built them and, for production cars, from
 the manufacturers whose designs they are — and redistributing them is not ours
 to do. Owning a game that contains them is a licence to play that game, not a
 licence to reuse its assets.
@@ -243,7 +279,12 @@ styles.css            workshop theme
 sw.js                 service worker (offline)
 data/updates.json     the update feed
 data/world_land.json  coastlines for the racing map
-vendor/three/         bundled three.js + OrbitControls
+assets/parts/         scanned part maps: disc, caliper, carbon, tyre, filter
+assets/nns/           NASCAR stock car model
+assets/koenigsegg/    carbon hypercar model
+assets/harley/        custom V-twin cruiser model
+tools/                tga2png.py, tds2obj.py, obj2glb.py, build-single.mjs
+vendor/three/         bundled three.js + OrbitControls + OBJ/MTL/GLTF loaders
 js/
   main.js             shell: workspaces, 3D model loading, keyboard, HUD
   viewport.js         three.js scene, picking, ghosting, explode, cutaway, labels
@@ -252,11 +293,14 @@ js/
   game.js             XP, levels, credits, achievements, challenges
   updates.js          the self-update channel
   lib/geo.js          geometry + material toolkit
+  lib/textures.js     the scanned part maps, loaded once at boot
+  lib/importModel.js  bring-your-own .glb import and persistence
   data/               engines, part trees, vehicles, upgrades, curriculum,
                       electrical, races, news
   sim/                ecu.js (tables, knock, auto-tune), engineSim.js (physics),
                       dyno.js (dyno, acceleration, lap time)
   build/              engineModel.js, vehicleModel.js — procedural 3D
+                      scannedVehicle.js — the real models and their part maps
   workspaces/         one module per workspace
 ```
 

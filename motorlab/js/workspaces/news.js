@@ -1,5 +1,5 @@
 /* News & updates — what's new in the world, and what's new in the app. */
-import { h, section, kv, note, para, chip, btn, toast, field, select, modal } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, field, select, modal, add } from '../ui.js';
 import { state, save, invalidateTrees } from '../store.js';
 import { NEWS_CATEGORIES } from '../data/news.js';
 import { allNews, checkForUpdates, updateState, addCustom, clearUpdates, DEFAULT_FEED } from '../updates.js';
@@ -15,7 +15,7 @@ export function render(ctx, tab){
 
   const cat = state.ui.newsCat || '';
   const items = allNews().filter(n => !cat || n.cat === cat);
-  wrap.append(
+  add(wrap,
     para('What is changing in engines, cars, bikes and racing — and why it matters for what you are building.'),
     h('div', { style:{ display:'flex', flexWrap:'wrap', gap:'4px', marginBottom:'10px' } },
       h('button', { class:'chip' + (cat ? '' : ' chip--acc'), style:{ cursor:'pointer' },
@@ -36,7 +36,7 @@ export function render(ctx, tab){
 function renderUpdates(ctx, wrap){
   const s = updateState;
   const busy = h('div');
-  wrap.append(
+  add(wrap,
     para('MotorLab keeps its own catalog current. It checks an update feed and merges anything new — cars, bikes, engines, tuning parts, circuits and race series — into the app. Everything merged is stored on this device, so it still works offline.'),
     section('Channel',
       kv('Catalog version', String(s.version || 0)),
@@ -47,7 +47,7 @@ function renderUpdates(ctx, wrap){
         onchange:(e) => { state.settings.feedUrl = e.target.value.trim() || DEFAULT_FEED; save(); toast('Feed URL saved.'); } })),
       h('div', { class:'btnrow' },
         btn('Check for updates', { class:'btn--pri', onClick:async () => {
-          busy.innerHTML = ''; busy.append(note('Checking…'));
+          busy.innerHTML = ''; add(busy, note('Checking…'));
           const r = await checkForUpdates(state.settings.feedUrl);
           busy.innerHTML = '';
           if (!r.ok){ toast('Update check failed: ' + r.error, 'bad'); ctx.refresh(); return; }
@@ -119,7 +119,7 @@ function renderAdd(ctx, wrap){
     'cr','redline','boostTarget','spoolRpm','valvesPerCyl','idle']);
   const vals = form.vals ||= {};
 
-  wrap.append(
+  add(wrap,
     para('Add your own car, bike or engine. It joins the catalog exactly like a feed item: 3D model, part tree, torque specs and simulation are all generated from what you enter.'),
     field('What are you adding', select([{ value:'vehicles', label:'Vehicle' }, { value:'engines', label:'Engine' }],
       form.kind, (v) => { form.kind = v; save(); ctx.refresh(); })),

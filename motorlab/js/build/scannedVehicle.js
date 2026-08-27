@@ -7,7 +7,9 @@
 import * as THREE from 'three';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { group, boundsOf } from '../lib/geo.js';
+import { repeated } from '../lib/textures.js';
 
 export const SCANNED = {
   nns: {
@@ -49,7 +51,93 @@ export const SCANNED = {
               rl:['rl_tiretread','rl_tireface','rl_hub','rl_hub_tiretread'],
               rr:['rr_tiretread','rr_tireface','rr_hub','rr_hub_tiretread'] },
   },
+
+  /* ------------------------------------------------------------------ */
+  koenigsegg: {
+    name:'Mid-engine hypercar (scanned)',
+    dir:'./assets/koenigsegg/', glb:'koenigsegg.glb',
+    /* nose along +Z, left-hand side at +X, sitting on Y = 0 */
+    yaw: Math.PI / 2,
+    /* the file names each piece <part>_<model>.<n>__<material> */
+    clean:(n) => n.toLowerCase(),
+    map:{
+      'body__car_texture':'shell',
+      'body__carbon_003':'aero',
+      'body__carbon_001':'aero',
+      'body__carbon_002':'interior',
+      'body__carbon':'floor',
+      'body__window_glass':'glass',
+      'body__rear_lights':'lights',
+    },
+    corners:{ fl:['fl__carbon_001'], fr:['fr__carbon_001'],
+              rl:['rl__carbon_001'], rr:['rr__carbon_001'] },
+    /* no paint texture came with the model, so the liveries are real colours */
+    liveries:[
+      { id:'ghost',   name:'Ghost silver',   colour:0x6d7681 },
+      { id:'carbon',  name:'Exposed carbon', colour:0x15171a },
+      { id:'racing',  name:'Racing orange',  colour:0xd4541a },
+      { id:'sky',     name:'Sky blue',       colour:0x2f6fb0 },
+      { id:'crimson', name:'Crimson',        colour:0x9c1f1a },
+    ],
+    materialFor:(mat) => /window_glass/i.test(mat) ? 'glass'
+                       : /rear_lights/i.test(mat) ? 'lamp'
+                       : /carbon/i.test(mat) ? 'carbon'
+                       : 'paint',
+  },
+
+  /* ------------------------------------------------------------------ */
+  harley: {
+    name:'Custom V-twin cruiser (scanned)',
+    dir:'./assets/harley/', glb:'harley.glb',
+    yaw: Math.PI / 2,
+    clean:(n) => n.toLowerCase(),
+    /* the file names its pieces after their material, so the parts are worked
+       out from the material plus where the piece sits on the bike */
+    classify:(name, box) => {
+      const kind = name.split('__').pop();
+      const size = box.getSize(new THREE.Vector3());
+      const c = box.getCenter(new THREE.Vector3());
+      if (kind === 'wheel') return 'wheels';
+      if (kind === 'gum')
+        return (size.y > 0.25 && size.z > 0.25 && Math.abs(c.z) > 0.45) ? 'wheels' : 'trim';
+      if (kind === 'body') return 'tank';
+      if (kind === 'silver') return 'engine';
+      if (kind === 'black_m') return 'frame';
+      if (kind === 'chrome') return 'chrome';
+      if (kind === 'dash') return 'dash';
+      if (kind === 'glass' || kind === 'red_l' || kind === 'blinker') return 'lights';
+      return 'trim';
+    },
+    cornerOf:(name, box) => {
+      const kind = name.split('__').pop();
+      if (kind !== 'wheel' && kind !== 'gum') return null;
+      const size = box.getSize(new THREE.Vector3());
+      const c = box.getCenter(new THREE.Vector3());
+      if (kind === 'gum' && !(size.y > 0.25 && size.z > 0.25 && Math.abs(c.z) > 0.45)) return null;
+      return c.z > 0 ? 'f' : 'r';
+    },
+    liveries:[
+      { id:'candy',  name:'Candy apple',    colour:0x8f1410 },
+      { id:'black',  name:'Vivid black',    colour:0x0d0e11 },
+      { id:'flake',  name:'Gold flake',     colour:0xb98a24 },
+      { id:'teal',   name:'Sea-foam green', colour:0x2c7d74 },
+    ],
+    materialFor:(mat) => /glass/i.test(mat) ? 'glass'
+                       : /red_l|blinker/i.test(mat) ? 'lamp'
+                       : /chrome/i.test(mat) ? 'chrome'
+                       : /silver/i.test(mat) ? 'alloy'
+                       : /gum/i.test(mat) ? 'tyre'
+                       : /black_m/i.test(mat) ? 'satin'
+                       : /^body$/i.test(mat) ? 'paint'
+                       : 'trim',
+  },
 };
+
+/** The name a model's object is known by, once the file's own noise is off. */
+function cleanName(spec, raw){
+  const n = spec.clean ? spec.clean(raw) : raw;
+  return spec.prefix ? n.replace(spec.prefix, '') : n;
+}
 
 const cache = new Map();
 const liveryCache = new Map();
@@ -60,6 +148,14 @@ export async function setLivery(modelId, liveryId, base = ''){
   const livery = spec?.liveries?.find(l => l.id === liveryId);
   const raw = cache.get(modelId);
   if (!livery || !raw) return false;
+  if (livery.colour != null){          /* a model with no paint sheet of its own */
+    raw.traverse(o => {
+      if (!o.isMesh) return;
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material]))
+        if (m?.name === 'paint'){ m.color.setHex(livery.colour); m.needsUpdate = true; }
+    });
+    return true;
+  }
   const url = base + spec.dir + livery.file;
   let tex = liveryCache.get(url);
   if (!tex){
@@ -94,11 +190,21 @@ export async function buildScannedVehicle(v, tree, opts = {}){
   oriented.rotation.y = spec.yaw;
 
   const byName = new Map();
-  for (const child of raw.children) byName.set(child.name.replace(spec.prefix, ''), child);
+  for (const child of raw.children) byName.set(cleanName(spec, child.name), child);
+
+  /* a model whose pieces are named after their material has its corners worked
+     out from geometry instead of from a fixed list */
+  const cornerNames = { ...(spec.corners || {}) };
+  if (spec.cornerOf){
+    for (const [name, child] of byName){
+      const key = spec.cornerOf(name, new THREE.Box3().setFromObject(child));
+      if (key) (cornerNames[key] ||= []).push(name);
+    }
+  }
 
   /* wheels first: each corner is re-centred on its own hub so it can rotate */
   const cornerOf = new Map();
-  for (const [corner, names] of Object.entries(spec.corners || {})){
+  for (const [corner, names] of Object.entries(cornerNames)){
     const parts = names.map(n => byName.get(n)).filter(Boolean);
     if (!parts.length) continue;
     const b = new THREE.Box3();
@@ -109,18 +215,18 @@ export async function buildScannedVehicle(v, tree, opts = {}){
       p.position.sub(c);
       p.updateMatrix();
       wheel.add(p);
-      cornerOf.set(p.name.replace(spec.prefix, ''), corner);
+      cornerOf.set(cleanName(spec, p.name), corner);
     }
     const hub = group('hub_' + corner);
     hub.position.copy(c);
     hub.add(wheel);
     /* the model's own axis is X, which becomes Z once the car is turned */
     wheel.userData.spinAxis = 'x';
-    anim.wheels.push({ node:wheel, end: corner[0] === 'f' ? 'F' : 'R',
-                       side: corner[1] === 'l' ? -1 : 1, radius: b.getSize(new THREE.Vector3()).y / 2 });
-    if (corner[0] === 'f') anim.steer.push(hub);
-    anim.corners.push({ end: corner[0] === 'f' ? 'F' : 'R', side: corner[1] === 'l' ? -1 : 1,
-                        x:c.z, nodes:[hub], home:new Map([[hub, hub.position.y]]),
+    const end = corner[0] === 'f' ? 'F' : 'R';
+    const side = corner.length > 1 ? (corner[1] === 'l' ? -1 : 1) : 0;
+    anim.wheels.push({ node:wheel, end, side, radius: b.getSize(new THREE.Vector3()).y / 2 });
+    if (end === 'F') anim.steer.push(hub);
+    anim.corners.push({ end, side, x:c.z, nodes:[hub], home:new Map([[hub, hub.position.y]]),
                         phase:c.z * 9, sprung:true });
     oriented.add(hub);
     if (!nodes.has('wheels')) nodes.set('wheels', []);
@@ -132,7 +238,9 @@ export async function buildScannedVehicle(v, tree, opts = {}){
   const groups = new Map();
   for (const [name, child] of byName){
     if (cornerOf.has(name)) continue;
-    const partId = spec.map[name];
+    const partId = spec.map ? spec.map[name]
+                 : spec.classify ? spec.classify(name, new THREE.Box3().setFromObject(child))
+                 : null;
     if (!partId || partId === 'wheels') continue;
     if (!groups.has(partId)) groups.set(partId, group(partId));
     groups.get(partId).add(child);
@@ -155,11 +263,19 @@ export async function buildScannedVehicle(v, tree, opts = {}){
     panelArchF:V3(0.6,0.2,1.3), panelArchR:V3(-0.6,0.2,1.3),
     glass:V3(0,1.7,0), netting:V3(0,1.0,1.0), seats:V3(0,1.1,-0.6),
     cage:V3(0,0.9,0), engine:V3(1.0,1.1,0), wheels:V3(0,0,1.9), chassis:V3(0,0,0),
+    /* hypercar */
+    shell:V3(0,1.3,0), aero:V3(0.9,0.5,0.8), interior:V3(0,1.0,-0.9), lights:V3(-1.1,0.5,0),
+    floor:V3(0,-0.7,0),
+    /* cruiser */
+    tank:V3(0,1.2,0), frame:V3(0,0,0), chrome:V3(0,0.4,1.3), dash:V3(0.7,0.9,0),
+    trim:V3(0,0.7,0.8),
   };
   for (const [id, objs] of nodes) for (const o of objs){
     home.set(o, o.position.clone());
     o.userData.explodeDir = (dirs[id] || V3(0,0.9,0)).clone().multiplyScalar(0.42);
   }
+
+  if (!nodes.size) throw new Error(`Model ${v.model} loaded but no part matched its map`);
 
   const bounds = boundsOf(root);
   return {
@@ -205,6 +321,22 @@ function assetManager(){
 async function loadRaw(spec, base = ''){
   const dir = base + spec.dir;
   const mgr = assetManager();
+
+  if (spec.glb){
+    const gltf = await new Promise((res, rej) =>
+      new GLTFLoader(mgr).setPath(dir).load(spec.glb, res, undefined, rej));
+    const obj = gltf.scene;
+    obj.traverse(o => {
+      if (!o.isMesh) return;
+      /* the file carries positions and UVs only; normals are cheaper to
+         recompute here than to ship, and come out smoother for it */
+      if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+      const src = Array.isArray(o.material) ? o.material[0] : o.material;
+      o.material = dress(spec.materialFor ? spec.materialFor(src?.name || '', o.name) : 'trim', src);
+    });
+    return obj;
+  }
+
   const mtl = await new Promise((res, rej) =>
     new MTLLoader(mgr).setPath(dir).load(spec.mtl, res, undefined, rej));
   mtl.preload();
@@ -226,6 +358,54 @@ async function loadRaw(spec, base = ''){
     o.geometry.computeVertexNormals?.();
   });
   return obj;
+}
+
+/** Build the material for one kind of surface on a scanned model. The colour
+ *  the file carried is kept as the tint, so a red taillight stays red. */
+function dress(kind, src){
+  const tint = src?.color ? src.color.clone() : new THREE.Color(0xb4b8bd);
+  switch (kind){
+    case 'glass':
+      return new THREE.MeshPhysicalMaterial({ color:0x0d1116, metalness:0, roughness:0.03,
+        clearcoat:1, clearcoatRoughness:0.02, transparent:true, opacity:0.42,
+        envMapIntensity:2.4, side:THREE.DoubleSide, depthWrite:false, name:'glass' });
+    case 'lamp':
+      return new THREE.MeshPhysicalMaterial({ color:tint, emissive:tint, emissiveIntensity:0.55,
+        metalness:0.1, roughness:0.18, clearcoat:1, transmission:0.35, thickness:0.01,
+        envMapIntensity:1.6, name:'lamp' });
+    case 'carbon': {
+      /* the real weave, off a scan, under a clearcoat — this is what carbon
+         bodywork actually looks like: dark, directional, deeply glossy */
+      const m = new THREE.MeshPhysicalMaterial({ color:0x9aa0a6, metalness:0.10, roughness:0.34,
+        clearcoat:1, clearcoatRoughness:0.09, envMapIntensity:0.50, name:'carbon' });
+      const map = repeated('carbon', 6);
+      if (map) m.map = map; else m.color.copy(tint);
+      return m;
+    }
+    case 'chrome':
+      return new THREE.MeshStandardMaterial({ color:0xf2f5f8, metalness:1.0, roughness:0.045,
+        envMapIntensity:1.9, name:'chrome' });
+    case 'alloy':
+      return new THREE.MeshStandardMaterial({ color:0xc3c9d0, metalness:0.95, roughness:0.28,
+        envMapIntensity:1.4, name:'alloy' });
+    case 'satin':
+      return new THREE.MeshStandardMaterial({ color:0x1b1e22, metalness:0.55, roughness:0.44,
+        envMapIntensity:0.9, name:'satin' });
+    case 'tyre': {
+      const m = new THREE.MeshStandardMaterial({ color:0x8f9296, metalness:0.0, roughness:0.97,
+        envMapIntensity:0.16, name:'tyre' });
+      const map = repeated('tread', 8, 2);
+      if (map) m.map = map; else m.color.set(0x14161a);
+      return m;
+    }
+    case 'paint':
+      return new THREE.MeshPhysicalMaterial({ color:tint.getHex() === 0xffffff ? 0x9aa3ad : tint,
+        metalness:0.10, roughness:0.27, clearcoat:1, clearcoatRoughness:0.055,
+        envMapIntensity:0.8, name:'paint' });
+    default:
+      return new THREE.MeshStandardMaterial({ color:tint, metalness:0.35, roughness:0.55,
+        envMapIntensity:0.9, side:THREE.DoubleSide, name:'trim' });
+  }
 }
 
 function upgrade(m, objectName, normalMap){

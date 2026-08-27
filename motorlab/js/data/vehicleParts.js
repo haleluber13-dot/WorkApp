@@ -21,8 +21,67 @@ export const V_GROUP_BY_ID = Object.fromEntries(V_GROUPS.map(g => [g.id, g]));
 const P = (o) => Object.assign({ group:'chassis', qty:1, deps:[], removable:true }, o);
 
 export function buildVehicleTree(v){
+  if (v.model === 'koenigsegg') return hypercarModelTree(v);
+  if (v.model === 'harley') return cruiserModelTree(v);
   if (v.model) return modelTree(v);
   return v.class === 'bike' ? bikeTree(v) : v.class === 'kart' ? kartTree(v) : carTree(v);
+}
+
+/* ====================================================================== */
+/* A scanned hypercar: a carbon tub with everything else bolted to it.     */
+function hypercarModelTree(v){
+  const parts = [], add = (o) => { parts.push(P(o)); return o.id; };
+  const t = (nm, seq, count, size='M8') => ({ nm, size, count, pattern:{ kind:seq, count }, stages:[`${Math.round(nm*0.6)} Nm`, `${nm} Nm`] });
+
+  add({ id:'floor', name:'Carbon tub & floor', group:'chassis', removable:false,
+    teach:'The tub is the car. A single carbon-fibre monocoque carries the suspension loads, the engine, the fuel and the occupants, and it is the reason a car this fast can weigh what a hatchback weighs. Nothing about it is serviceable — you either bond a repair patch under a schedule or you replace the tub.',
+    spec:{ 'Type':v.chassis, 'Wheelbase':`${v.wheelbase} mm`, 'Track F/R':`${v.trackF}/${v.trackR} mm`, 'Kerb mass':`${v.massKg} kg` } });
+  add({ id:'shell', name:'Painted body panels', group:'body', deps:['floor'], torque:t(12,'perimeter',18,'M6'),
+    teach:'The outer skin is carbon too, but painted. It carries no structural load at all — clamshells lift off the tub in one piece so a whole corner of the car can be reached in minutes.',
+    spec:{ 'Length':`${v.lengthMm} mm`, 'Width':`${v.widthMm} mm`, 'Height':`${v.heightMm} mm`, 'Cd':v.cd } });
+  add({ id:'aero', name:'Exposed carbon aero', group:'body', deps:['shell'], torque:t(15,'perimeter',14,'M6'),
+    teach:'Splitter, sills, diffuser and wing. Left unpainted because paint is mass and because the weave is the point. The front splitter and rear diffuser work as a pair: move one and you move the aerodynamic balance, which changes how the car behaves at the exact moment you can least afford a surprise.',
+    spec:{ 'Downforce':`${v.downforceKg} kg`, 'Frontal area':`${v.area} m²` } });
+  add({ id:'glass', name:'Glazing', group:'body', deps:['shell'],
+    teach:'Laminated screen, tempered side and rear glass. On a mid-engine car the rear glass usually doubles as the engine cover, so it takes heat as well as load.' });
+  add({ id:'lights', name:'Lighting', group:'elec', deps:['shell'],
+    teach:'LED clusters bonded into the bodywork with their own drivers. They are part of the aerodynamic surface, so a damaged light means a damaged aero surface, not just a bulb.' });
+  add({ id:'interior', name:'Cabin, doors & seats', group:'interior', deps:['floor'], torque:t(24,'sequence',8,'M8'),
+    teach:'Seats bonded or bolted straight to the tub, no seat rails — the pedal box moves instead. The doors are the famous dihedral synchro-helix arrangement: they rotate out and forward in one motion, so the car can be opened in a normal parking space.' });
+  add({ id:'wheels', name:'Wheels & tyres', group:'wheels', qty:4, deps:['floor'], torque:t(150,'star',5,'M14'),
+    teach:'Hollow carbon wheels save unsprung mass where it matters most — a kilogram off a wheel is worth several off the body. Torque them in a star pattern, in two stages, every time.',
+    spec:{ 'Front':`${v.tyreF}/35 R${v.rimF}`, 'Rear':`${v.tyreR}/30 R${v.rimR}`, 'Torque':'150 Nm, star pattern' } });
+
+  return finish(parts, v);
+}
+
+/* ====================================================================== */
+/* A scanned custom cruiser: backbone frame, V-twin, and a lot of chrome.  */
+function cruiserModelTree(v){
+  const parts = [], add = (o) => { parts.push(P(o)); return o.id; };
+  const t = (nm, seq, count, size='M10') => ({ nm, size, count, pattern:{ kind:seq, count }, stages:[`${nm} Nm`] });
+
+  add({ id:'frame', name:'Backbone frame & forks', group:'chassis', removable:false,
+    teach:'A steel backbone frame with the engine hung rigidly beneath it. Rake and trail are set by the steering-head angle and the fork offset, and a custom build usually pushes both a long way past standard — more rake means more stability in a straight line and heavier, slower steering everywhere else.',
+    spec:{ 'Type':v.chassis, 'Wheelbase':`${v.wheelbase} mm`, 'Rake':`${v.rakeDeg}°`, 'Trail':`${v.trailMm} mm`, 'Mass':`${v.massKg} kg` } });
+  add({ id:'engine', name:'V-twin & primary drive', group:'drive', deps:['frame'], torque:t(60,'sequence',6,'M12'),
+    teach:'A 45° air-cooled V-twin, both cylinders on one crankpin — which is exactly why it sounds the way it does: two power strokes 315° and 405° apart instead of evenly spaced. Build and tune the engine itself in the Engine Bay and Tuning workspaces.' });
+  add({ id:'chrome', name:'Exhaust, bars & chrome', group:'body', deps:['engine'], torque:t(25,'sequence',8,'M8'),
+    teach:'Pipes, risers, bars, mirrors, levers and covers. On a custom build the chrome is half the labour and most of the cost, and every bracket is one-off.' });
+  add({ id:'tank', name:'Fuel tank & fenders', group:'fuel', deps:['frame'], torque:t(20,'sequence',4,'M8'),
+    teach:'The tank is a stressed-looking part that carries nothing. It sits on rubber isolators on the backbone, because a rigidly-mounted tank on a rigidly-mounted V-twin cracks at the seams.',
+    spec:{ 'Capacity':`${v.fuelL} L` } });
+  add({ id:'wheels', name:'Wheels & tyres', group:'wheels', qty:2, deps:['frame'], torque:t(95,'star',5,'M12'),
+    teach:'A narrow 21-inch front and a fat rear is the classic custom stance. The front wheel does most of the braking and all of the steering, so a bigger diameter with less section makes the bike fall into corners more slowly — deliberate, on this kind of build.',
+    spec:{ 'Front':`${v.tyreF}/90 R${v.rimF}`, 'Rear':`${v.tyreR}/55 R${v.rimR}`, 'Torque':'95 Nm' } });
+  add({ id:'trim', name:'Seat, cables & trim', group:'interior', deps:['tank'],
+    teach:'Seat, grips, cables, lines and badging. Route the throttle and clutch cables before the bars go on, and check them lock to lock — a cable that pulls at full lock will open the throttle for you mid-turn.' });
+  add({ id:'lights', name:'Lighting & indicators', group:'elec', deps:['chrome'],
+    teach:'Headlamp, tail lamp and indicators. The wiring runs inside the bars and down the frame spine on a build like this, which looks superb and makes every fault a strip-down.' });
+  add({ id:'dash', name:'Instruments', group:'elec', deps:['chrome'],
+    teach:'Speedometer and warning cluster in the tank console or on the risers. It takes its signal from a wheel or gearbox sensor, so a wheel or sprocket change means recalibrating it.' });
+
+  return finish(parts, v);
 }
 
 /* ====================================================================== */

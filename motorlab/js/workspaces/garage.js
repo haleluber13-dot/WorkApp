@@ -1,5 +1,5 @@
 /* Garage — pick the machine and the engine that goes in it. */
-import { h, section, kv, note, para, chip, btn, toast, select, field, lineChart } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, select, field, lineChart, add } from '../ui.js';
 import { state, engine, vehicle, save, invalidateTrees, U } from '../store.js';
 import { ENGINES, ENGINE_BY_ID, summaryLine, layoutName, aspirationLabel, displacementL,
          firingOrder, firingInterval, pistonSpeed, boreStrokeRatio } from '../data/engines.js';
@@ -16,7 +16,7 @@ export function render(ctx, tab){
   if (tab === 'compare') return renderCompare(ctx, wrap);
 
   const groups = vehicleGroups();
-  wrap.append(
+  add(wrap,
     para('Choose what you are working on. The 3D model, the part list, the wiring, the tuning tables and the dyno all follow this choice.'),
     field('Vehicle', select([
       { group:'Cars & trucks', items:groups.car.map(x => ({ value:x.id, label:x.name })) },
@@ -39,12 +39,12 @@ export function render(ctx, tab){
   const res = simulate(e, state.tunes[e.id] || t, applyUpgrades(emptyMods(), state.fitted[e.id] || []));
   const p = U.power(res.hp), tq = U.torque(res.tqNm);
 
-  wrap.append(
+  add(wrap,
     v.model && liveriesFor(v.model).length ? field('Livery', select(
       liveriesFor(v.model).map(l => ({ value:l.id, label:l.name })),
-      state.ui.livery || liveriesFor(v.model)[0].id,
+      (state.ui.liveries ||= {})[v.model] || liveriesFor(v.model)[0].id,
       async (id) => {
-        state.ui.livery = id; save();
+        (state.ui.liveries ||= {})[v.model] = id; save();
         const ok = await setLivery(v.model, id);
         toast(ok ? 'Livery changed.' : 'That livery could not be loaded.', ok ? 'good' : 'bad');
       })) : null,
@@ -109,11 +109,11 @@ function engineOptions(v){
 
 function renderEngines(ctx, wrap){
   const groups = { car:'Cars & trucks', race:'Race engines', bike:'Motorcycle engines' };
-  wrap.append(para('Every engine in the catalog. Selecting one rebuilds its 3D model, its part tree, its torque specs and its tuning tables from the specification.'));
+  add(wrap, para('Every engine in the catalog. Selecting one rebuilds its 3D model, its part tree, its torque specs and its tuning tables from the specification.'));
   for (const [cls, title] of Object.entries(groups)){
     const list = ENGINES.filter(e => e.class === cls);
     if (!list.length) continue;
-    wrap.append(h('div', { class:'sec' },
+    add(wrap, h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:title }), chip(String(list.length))),
       ...list.map(e => h('div', { class:'card' + (e.id === state.engineId ? ' on' : ''),
         style:{ cursor:'pointer' },
@@ -131,13 +131,13 @@ function renderCompare(ctx, wrap){
   const picks = state.ui.compare ||= [state.engineId, 'v8-50-ohv'];
   const colours = ['#ff7a1a', '#22d3ee', '#3ddc84'];
   const canvas = h('canvas', { class:'chart', style:{ height:'230px' } });
-  wrap.append(para('Put any engines side by side on the same axes. This is the fastest way to see what layout, capacity and boost actually do to the shape of a curve.'));
+  add(wrap, para('Put any engines side by side on the same axes. This is the fastest way to see what layout, capacity and boost actually do to the shape of a curve.'));
   for (let i = 0; i < 3; i++){
-    wrap.append(field(`Curve ${i+1}`, select(
+    add(wrap, field(`Curve ${i+1}`, select(
       [{ value:'', label:'— none —' }, ...ENGINES.map(e => ({ value:e.id, label:e.name }))],
       picks[i] || '', (id) => { picks[i] = id; state.ui.compare = picks; save(); ctx.refresh(); })));
   }
-  wrap.append(canvas);
+  add(wrap, canvas);
   const rows = h('div', { class:'sec' });
   requestAnimationFrame(() => {
     const series = [];
@@ -145,11 +145,11 @@ function renderCompare(ctx, wrap){
       const e = ENGINE_BY_ID[id]; if (!e) return;
       const r = simulate(e, defaultTune(e), emptyMods());
       series.push({ name:e.name.slice(0, 22), colour:colours[i], points:r.points.map(p => [p.rpm, p.hp]) });
-      rows.append(kv(e.name, `${Math.round(r.hp)} hp @ ${r.hpRpm} · ${Math.round(r.tqNm)} Nm @ ${r.tqRpm}`));
+      add(rows, kv(e.name, `${Math.round(r.hp)} hp @ ${r.hpRpm} · ${Math.round(r.tqNm)} Nm @ ${r.tqRpm}`));
     });
     if (series.length) lineChart(canvas, { series, xLabel:'rpm' });
   });
-  wrap.append(rows);
+  add(wrap, rows);
   return wrap;
 }
 

@@ -40,13 +40,15 @@ function buildCar(v, tree){
     for (const s of [-1,1]) ch.add(pipe(nodesXY.map(p=>[p[0],p[1],p[2]*s]), M(22), MAT.steel(), 6));
     for (let i=0;i<nodesXY.length;i++) ch.add(at(rot(cyl(M(20),M(20),wid*0.6,MAT.steel(),8),Math.PI/2,0,0), nodesXY[i][0], nodesXY[i][1], 0));
   } else if (v.chassis === 'carbon monocoque'){
-    const tub = roundBox(len*0.42, hgt*0.42, wid*0.6, 0.06, MAT.black());
+    const tub = roundBox(len*0.42, hgt*0.42, wid*0.6, 0.06, MAT.carbon());
     ch.add(at(tub, len*0.02, floorY + hgt*0.16, 0));
   } else {
-    ch.add(at(box(len*0.72, M(70), wid*0.78, MAT.alloyDark()), 0, floorY, 0));
+    ch.add(at(box(len*0.72, M(70), wid*0.78, MAT.underbody()), 0, floorY, 0));
     for (const s of [-1,1]) ch.add(at(box(len*0.72, M(150), M(110), MAT.alloyDark()), 0, floorY+M(60), s*wid*0.34));
     ch.add(at(box(M(90), hgt*0.34, wid*0.8, MAT.alloyDark()), len*0.12, floorY+hgt*0.2, 0)); // firewall
   }
+  /* the flat undertray, which is what you actually see from below */
+  if (!open) ch.add(at(box(len*0.80, M(14), wid*0.80, MAT.underbody()), 0, floorY - M(46), 0));
   add('chassis', ch);
 
   if (has('cage')){
@@ -191,7 +193,9 @@ function buildCar(v, tree){
       const w = wheelMesh({ radius:r, width, rimR,
         spokes: v.class === 'kart' ? 6 : ['formula','stockcar','dragster'].includes(v.id) ? 10 : 5,
         style: v.body === 'mx' ? 'wire' : v.class === 'kart' ? 'dark' : 'alloy',
-        tread: v.class !== 'kart' });
+        /* slicks on the cars that run them, blocks on the ones that do not */
+        tread: v.class === 'kart' || ['formula','dragster','stockcar','nns','drift'].includes(v.id)
+               ? 'slick' : 'road' });
       w.scale.z = side;                           // the dish faces outward on both sides
       /* steering happens about the kingpin, so the wheel hangs inside a steer group */
       const steerG = group('steer');
@@ -241,11 +245,13 @@ function buildCar(v, tree){
     add('rad', rd);
   }
   if (has('aero')){
+    /* aero is carbon on a real car, and the weave is why it is left unpainted */
+    const cf = MAT.carbon();
     const ae = group('aero');
-    ae.add(at(box(M(120), M(24), wid*0.92, MAT.black()), len*0.47, floorY*0.55, 0));           // splitter
-    ae.add(at(rot(box(M(320), M(26), wid*0.86, MAT.black()), 0, 0, deg(-12)), axR*1.25, floorY + hgt*0.62, 0)); // wing
-    for (const s of [-1,1]) ae.add(at(box(M(40), hgt*0.2, M(24), MAT.black()), axR*1.25, floorY + hgt*0.5, s*wid*0.4));
-    ae.add(at(box(M(420), M(30), wid*0.7, MAT.black()), axR*1.05, floorY*0.5, 0));             // diffuser
+    ae.add(at(box(M(120), M(24), wid*0.92, cf), len*0.47, floorY*0.55, 0));           // splitter
+    ae.add(at(rot(box(M(320), M(26), wid*0.86, cf), 0, 0, deg(-12)), axR*1.25, floorY + hgt*0.62, 0)); // wing
+    for (const s of [-1,1]) ae.add(at(box(M(40), hgt*0.2, M(24), cf), axR*1.25, floorY + hgt*0.5, s*wid*0.4));
+    ae.add(at(box(M(420), M(30), wid*0.7, cf), axR*1.05, floorY*0.5, 0));             // diffuser
     add('aero', ae);
   }
   if (has('battery')) add('battery', at(roundBox(M(280), M(200), M(190), .01, MAT.black()), axF*0.25, floorY + M(400), wid*0.3));
@@ -580,7 +586,8 @@ function buildBike(v, tree){
   if (has('wheels')) for (const [end, x, r, w, rim] of [['F', axF, rF, v.tyreF, v.rimF], ['R', axR, rR, v.tyreR, v.rimR]]){
     const wl = wheelMesh({ radius:r, width:M(w), rimR:M(rim*25.4/2),
       spokes: v.body === 'mx' ? 32 : 5,
-      style: v.body === 'mx' ? 'wire' : v.body === 'cruiser' ? 'chrome' : 'dark' });
+      style: v.body === 'mx' ? 'wire' : v.body === 'cruiser' ? 'chrome' : 'dark',
+      tread: v.body === 'mx' ? 'knobby' : 'road' });
     const steerG = group('steer');
     steerG.position.set(x, r, 0);
     steerG.add(wl);

@@ -27,7 +27,8 @@ const res = await esbuild.build({
 const js = res.outputFiles[0].text;
 
 /* inline every runtime asset so the single file needs no server at all */
-const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain' };
+const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
+               '.glb':'model/gltf-binary' };
 function collect(dir, out = {}, base = dir){
   for (const name of readdirSync(dir)){
     const full = join(dir, name);
@@ -41,6 +42,8 @@ function collect(dir, out = {}, base = dir){
 }
 let assets = {};
 try { assets = collect(`${ROOT}/assets`); } catch { assets = {}; }
+for (const [k, v] of Object.entries(assets))
+  console.log(`  asset ${k.padEnd(44)} ${(v.length / 1024 / 1024).toFixed(2)} MB inlined`);
 
 const css  = readFileSync(`${ROOT}/styles.css`, 'utf8');
 const land = readFileSync(`${ROOT}/data/world_land.json`, 'utf8');

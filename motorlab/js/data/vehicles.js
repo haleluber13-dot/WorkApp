@@ -93,6 +93,16 @@ export const VEHICLES = [
       colour:0xc0392b,
       blurb:'Built from a real model rather than generated, so the bodywork comes apart the way the actual car does: front and rear clip, wheel arches, doors, roof, hood and boot each come off separately, over a welded tube frame with a live rear axle. Steel tube chassis, no driver aids, and a body shaped by a rulebook rather than a wind tunnel.' }),
 
+  V({ id:'koenigsegg', name:'Carbon hypercar (modelled)', body:'super', model:'koenigsegg',
+      drivetrain:'RWD', bay:'mid', suspF:'doublewishbone', suspR:'doublewishbone',
+      chassis:'carbon monocoque', engines:['v8-40-tt','v8-52-flat','v12-65-na','v10-52-na','w16-80-qt'],
+      massKg:1360, wheelbase:2660, trackF:1700, trackR:1735,
+      lengthMm:4500, widthMm:2060, heightMm:1185,
+      gears:[2.92,1.94,1.44,1.13,0.92,0.76,0.63], final:3.36, tyreF:265, tyreR:345, rimF:19, rimR:20,
+      brakeF:397, brakeR:380, cd:0.33, area:1.88, downforceKg:300, fuelL:70, seats:2,
+      driveLoss:0.11, tyreMu:1.42, colour:0x9aa3ad,
+      blurb:'Built from a real model, not generated. A carbon tub with the bodywork, exposed carbon aero, cabin, glass and lights each coming off separately. Mid-mounted engine, double wishbones at both ends, and enough carbon in the structure that the whole car weighs less than a family hatchback.' }),
+
   V({ id:'dragster', name:'Top-fuel dragster', body:'dragster', drivetrain:'RWD', bay:'mid',
       suspF:'none', suspR:'solid', chassis:'chromoly tube', engines:['race-82-nitro','v8-62-sc'],
       massKg:1050, wheelbase:7600, trackF:600, trackR:2200, lengthMm:9000, widthMm:2400, heightMm:1000,
@@ -118,6 +128,16 @@ export const VEHICLES = [
       tyreF:100, tyreR:180, rimF:19, rimR:16, brakeF:300, brakeR:290,
       cd:0.7, area:0.8, fuelL:18, seats:2, driveLoss:0.11, rakeDeg:30, trailMm:145,
       blurb:'Long wheelbase, 30° of rake, low seat. Belt final drive and an air-cooled 45° V-twin bolted rigidly into a steel backbone frame.' }),
+
+  V({ id:'harley', name:'Custom V-twin cruiser (modelled)', class:'bike', body:'cruiser', model:'harley',
+      drivetrain:'belt', bay:'longitudinal-v', suspF:'tele-fork', suspR:'twin-shock',
+      chassis:'steel backbone', engines:['m-vtwin-1200','m-ptwin-900'],
+      massKg:310, wheelbase:1690, lengthMm:2500, widthMm:900, heightMm:1040,
+      gears:[3.34,2.30,1.71,1.40,1.19,1.00], final:2.36, primary:1.60,
+      tyreF:90, tyreR:200, rimF:21, rimR:16, brakeF:300, brakeR:290,
+      cd:0.72, area:0.82, fuelL:19, seats:2, driveLoss:0.11, rakeDeg:34, trailMm:160,
+      colour:0x8f1410,
+      blurb:'A scanned custom build rather than a generated one: raked front end, narrow 21-inch front wheel, fat rear, and every chromed piece exactly where the builder put it. Strip it down to the backbone frame and the V-twin, then put the tank, the chrome and the wheels back on.' }),
 
   V({ id:'adv', name:'Adventure tourer', class:'bike', body:'adv', drivetrain:'shaft',
       bay:'boxer', suspF:'usd-fork', suspR:'single-sided', chassis:'steel trellis',

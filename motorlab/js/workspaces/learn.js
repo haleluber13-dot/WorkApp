@@ -1,5 +1,5 @@
 /* Learn — lessons, quizzes, achievements and challenges. */
-import { h, section, kv, note, para, chip, btn, toast, modal, bar } from '../ui.js';
+import { h, section, kv, note, para, chip, btn, toast, modal, bar, add } from '../ui.js';
 import { state, save } from '../store.js';
 import { MODULES, ALL_LESSONS, LESSON_BY_ID, TOTAL_XP } from '../data/curriculum.js';
 import { addXp, unlock, progressSummary, ACHIEVEMENTS, CHALLENGES, levelFor, evaluateChallenges } from '../game.js';
@@ -10,7 +10,7 @@ export function render(ctx, tab){
   if (tab === 'challenges') return renderChallenges(ctx, wrap);
 
   const done = ALL_LESSONS.filter(l => state.lessons[l.id]?.done).length;
-  wrap.append(
+  add(wrap,
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:'Course progress' }), chip(`${done}/${ALL_LESSONS.length}`, done === ALL_LESSONS.length ? 'ok' : '')),
       bar(done/ALL_LESSONS.length, done === ALL_LESSONS.length ? 'ok' : ''),
@@ -20,7 +20,7 @@ export function render(ctx, tab){
 
   for (const mod of MODULES){
     const mDone = mod.lessons.filter(l => state.lessons[l.id]?.done).length;
-    wrap.append(h('div', { class:'grp' },
+    add(wrap, h('div', { class:'grp' },
       h('div', { class:'grp__h' }, h('span', { text:`${mod.icon}  ${mod.name}` }),
         h('span', { class:'grp__bar' }, h('i', { style:{ width:(mDone/mod.lessons.length*100)+'%' } })),
         h('span', { class:'tiny', text:`${mDone}/${mod.lessons.length}` })),
@@ -38,16 +38,16 @@ export function render(ctx, tab){
 export function openLesson(ctx, id){
   const l = LESSON_BY_ID[id]; if (!l) return;
   const body = h('div');
-  body.append(
+  add(body,
     h('div', { class:'tiny muted', style:{ marginBottom:'8px' }, text:`${l.moduleName} · ${l.minutes} min · ${l.xp} XP` }),
     ...l.body.map(t => para(mdBold(t))),
   );
-  if (l.steps?.length) body.append(section('Try it yourself',
+  if (l.steps?.length) add(body, section('Try it yourself',
     h('ol', { class:'steps' }, ...l.steps.map(s => h('li', { text:s })))));
 
   let answers = {};
   if (l.quiz.length){
-    body.append(h('div', { class:'sec__h', style:{ marginTop:'14px' } }, h('span', { text:'Check yourself' })));
+    add(body, h('div', { class:'sec__h', style:{ marginTop:'14px' } }, h('span', { text:'Check yourself' })));
     l.quiz.forEach((q, qi) => {
       const opts = h('div', { class:'plist' });
       q.options.forEach((o, oi) => {
@@ -66,7 +66,7 @@ export function openLesson(ctx, id){
         opts.appendChild(row);
       });
       const why = h('div', { class:'note', hidden:true });
-      body.append(h('div', { class:'card' }, h('div', { class:'card__t', text:q.q }), opts, why));
+      add(body, h('div', { class:'card' }, h('div', { class:'card__t', text:q.q }), opts, why));
     });
   }
 
@@ -92,7 +92,7 @@ function mdBold(t){ return t.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(
 function renderProgress(ctx, wrap){
   const s = progressSummary();
   const lv = s.level;
-  wrap.append(
+  add(wrap,
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:'Rank' }), chip(lv.title, 'acc')),
       h('h3', { style:{ fontSize:'22px', marginBottom:'4px' }, text:`Level ${lv.lvl}` }),
@@ -115,10 +115,10 @@ function renderProgress(ctx, wrap){
 }
 
 function renderChallenges(ctx, wrap){
-  wrap.append(para('Build objectives with real conditions. They are checked automatically whenever you run the dyno, complete a lap or finish a build.'));
+  add(wrap, para('Build objectives with real conditions. They are checked automatically whenever you run the dyno, complete a lap or finish a build.'));
   for (const c of CHALLENGES){
     const done = state.game.challenges[c.id]?.done;
-    wrap.append(h('div', { class:'card' + (done ? ' on' : '') },
+    add(wrap, h('div', { class:'card' + (done ? ' on' : '') },
       h('div', { class:'card__h' },
         h('div', null, h('div', { class:'card__t', text:c.name })),
         done ? chip('complete','ok') : chip('$' + c.reward, 'acc')),
