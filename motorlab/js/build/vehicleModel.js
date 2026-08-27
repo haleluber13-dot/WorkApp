@@ -3,7 +3,7 @@
  * and tagged by part id so the same teardown UI works on a whole car. */
 import * as THREE from 'three';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, group, tag, at, rot,
-         boundsOf, deg, TAU, lathe } from '../lib/geo.js';
+         boundsOf, deg, TAU, lathe, wheelMesh, brakeDisc, caliper, coreMesh } from '../lib/geo.js';
 import { wheelRadius, weightDistribution } from '../data/vehicles.js';
 import { custom, fitToVehicle } from '../lib/importModel.js';
 
@@ -168,39 +168,38 @@ function buildCar(v, tree){
       add(has('spindles') ? 'spindles' : has('wheels') ? 'wheels' : 'chassis', u);
       unsprung.push(u);
     }
+    /* The hub centreline: the axle runs across the car, along Z. */
+    const hubZ = outer + side * M(40);
     const dia = end === 'F' ? v.brakeF : v.brakeR;
     if (dia && has('disc'+sfx)){
-      const disc = rot(tubeMesh(M(dia/2), M(dia/6), M(28), MAT.iron(), 30), 0, 0, Math.PI/2);
-      add('disc'+sfx, at(disc, x, r, outer + side*M(14))); unsprung.push(disc);
+      const disc = brakeDisc(M(dia), MAT.iron());
+      disc.scale.z = side;                        // the hat faces inboard on both sides
+      add('disc'+sfx, at(disc, x, r, hubZ - side * M(26))); unsprung.push(disc);
+      if (end === 'F') anim.steer.push(disc);
     }
     if (dia && has('cal'+sfx)){
-      const c = roundBox(M(90), M(150), M(120), .01, MAT.red());
-      add('cal'+sfx, at(c, x - M(dia/2)*0.75, r + M(dia/2)*0.6, outer + side*M(14)));
-      unsprung.push(c);
+      const c = caliper(M(dia), MAT.red());
+      /* calipers sit behind the axle at the front, ahead of it at the rear */
+      const ang = end === 'F' ? deg(150) : deg(30);
+      at(c, x + Math.cos(ang) * M(dia) * 0.36, r + Math.sin(ang) * M(dia) * 0.36, hubZ - side * M(26));
+      c.rotation.z = ang - Math.PI/2;
+      add('cal'+sfx, c); unsprung.push(c);
     }
     if (has('wheels')){
-      const w = group('wheel');
       const width = M(end === 'F' ? v.tyreF : v.tyreR);
       const rimR = M((end === 'F' ? v.rimF : v.rimR) * 25.4 / 2);
-      /* tyre with a shoulder radius, then the rim barrel, then the spokes */
-      w.add(rot(lathe([
-        [rimR*1.00, -width/2], [r*0.93, -width/2], [r*1.00, -width*0.30],
-        [r*1.00,  width*0.30], [r*0.93,  width/2], [rimR*1.00, width/2],
-      ], MAT.rubber(), 34), 0, 0, Math.PI/2));
-      w.add(rot(tubeMesh(rimR, rimR*0.34, width*0.88, MAT.chrome(), 28), 0, 0, Math.PI/2));
-      const nSpokes = v.class === 'kart' ? 5 : 8;
-      for (let s2 = 0; s2 < nSpokes; s2++){
-        const sp = box(width*0.42, rimR*0.92, M(24), MAT.alloy());
-        const a = (s2/nSpokes)*TAU;
-        sp.rotation.x = a;
-        sp.position.set(0, Math.cos(a)*rimR*0.5, Math.sin(a)*rimR*0.5);
-        w.add(sp);
-      }
-      w.add(rot(cyl(rimR*0.30, rimR*0.30, width*0.5, MAT.alloyDark(), 16), 0, 0, Math.PI/2));
-      at(w, x, r, outer + side*M(40));
+      const w = wheelMesh({ radius:r, width, rimR,
+        spokes: v.class === 'kart' ? 6 : ['formula','stockcar','dragster'].includes(v.id) ? 10 : 5,
+        style: v.body === 'mx' ? 'wire' : v.class === 'kart' ? 'dark' : 'alloy',
+        tread: v.class !== 'kart' });
+      w.scale.z = side;                           // the dish faces outward on both sides
+      /* steering happens about the kingpin, so the wheel hangs inside a steer group */
+      const steerG = group('steer');
+      steerG.position.set(x, r, hubZ);
+      steerG.add(w);
       anim.wheels.push({ node:w, end, side, radius:r });
-      if (end === 'F') anim.steer.push(w);
-      add('wheels', w); unsprung.push(w);
+      if (end === 'F') anim.steer.push(steerG);
+      add('wheels', steerG); unsprung.push(steerG);
     }
     anim.corners.push({ end, side, x, nodes:unsprung,
                         home:new Map(unsprung.map(n => [n, n.position.y])),
@@ -234,7 +233,7 @@ function buildCar(v, tree){
   }
   if (has('rad')){
     const rd = group('rad');
-    rd.add(at(box(M(60), hgt*0.3, wid*0.62, MAT.alloyDark()), len*0.44, floorY + hgt*0.16, 0));
+    rd.add(at(coreMesh(wid*0.62, hgt*0.30, M(56)), len*0.44, floorY + hgt*0.16, 0));
     const fan = group('fan');
     for (let i = 0; i < 7; i++){ const b = box(M(18), hgt*0.11, M(8), MAT.black()); b.rotation.x = (i/7)*TAU; fan.add(b); }
     at(rot(fan, 0, 0, Math.PI/2), len*0.41, floorY + hgt*0.16, 0);
@@ -579,28 +578,29 @@ function buildBike(v, tree){
     anim.susp.push({ node:sh, end:'R', side:0 });
   }
   if (has('wheels')) for (const [end, x, r, w, rim] of [['F', axF, rF, v.tyreF, v.rimF], ['R', axR, rR, v.tyreR, v.rimR]]){
-    const wl = group('w');
-    const rimR = M(rim*25.4/2);
-    wl.add(rot(tubeMesh(r, rimR, M(w), MAT.rubber(), 30), 0, 0, Math.PI/2));
-    wl.add(rot(tubeMesh(rimR, rimR*0.3, M(w)*0.8, MAT.alloyDark(), 24), 0, 0, Math.PI/2));
-    for (let i = 0; i < (v.body === 'mx' ? 16 : 5); i++){
-      const sp = box(M(w)*0.4, rimR*0.92, M(v.body === 'mx' ? 8 : 26), MAT.alloy());
-      sp.rotation.x = (i/(v.body==='mx'?16:5))*TAU;
-      sp.position.set(0, Math.cos((i/(v.body==='mx'?16:5))*TAU)*rimR*0.5, Math.sin((i/(v.body==='mx'?16:5))*TAU)*rimR*0.5);
-      wl.add(sp);
-    }
-    at(wl, x, r, 0);
+    const wl = wheelMesh({ radius:r, width:M(w), rimR:M(rim*25.4/2),
+      spokes: v.body === 'mx' ? 32 : 5,
+      style: v.body === 'mx' ? 'wire' : v.body === 'cruiser' ? 'chrome' : 'dark' });
+    const steerG = group('steer');
+    steerG.position.set(x, r, 0);
+    steerG.add(wl);
     anim.wheels.push({ node:wl, end, side:0, radius:r });
-    if (end === 'F') anim.steer.push(wl);
-    add('wheels', wl);
+    if (end === 'F') anim.steer.push(steerG);
+    add('wheels', steerG);
   }
-  if (has('discf')) for (const s of [-1,1]){
-    add('discf', at(rot(tubeMesh(M(v.brakeF/2), M(v.brakeF/6), M(6), MAT.steel(), 28), 0, 0, Math.PI/2), axF, rF, s*M(85)));
-    add('discf', at(roundBox(M(70), M(120), M(60), .01, MAT.red()), axF - M(v.brakeF/2)*0.7, rF + M(v.brakeF/2)*0.6, s*M(85)));
+  if (has('discf')) for (const sd of [-1,1]){
+    add('discf', at(brakeDisc(M(v.brakeF), MAT.steel()), axF, rF, sd*M(85)));
+    const c = caliper(M(v.brakeF), MAT.red());
+    at(c, axF + Math.cos(deg(150))*M(v.brakeF)*0.36, rF + Math.sin(deg(150))*M(v.brakeF)*0.36, sd*M(85));
+    c.rotation.z = deg(150) - Math.PI/2;
+    add('discf', c);
   }
   if (has('discr')){
-    add('discr', at(rot(tubeMesh(M(v.brakeR/2), M(v.brakeR/6), M(6), MAT.steel(), 24), 0, 0, Math.PI/2), axR, rR, M(95)));
-    add('discr', at(roundBox(M(60), M(100), M(50), .01, MAT.red()), axR + M(v.brakeR/2)*0.6, rR + M(v.brakeR/2)*0.5, M(95)));
+    add('discr', at(brakeDisc(M(v.brakeR), MAT.steel()), axR, rR, M(95)));
+    const c = caliper(M(v.brakeR), MAT.red());
+    at(c, axR + Math.cos(deg(30))*M(v.brakeR)*0.36, rR + Math.sin(deg(30))*M(v.brakeR)*0.36, M(95));
+    c.rotation.z = deg(30) - Math.PI/2;
+    add('discr', c);
   }
   if (has('final')){
     const fd = group('fd');

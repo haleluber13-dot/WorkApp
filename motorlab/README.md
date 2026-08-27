@@ -81,6 +81,22 @@ profile the real one has, because the shape is usually the explanation:
   poppets with 45° seat faces and springs that visibly compress.
 - **Turbochargers** have spiral volutes and bladed compressor and turbine wheels
   on a shared shaft.
+- **Wheels** are built the way a wheel is: a tyre lathed from a real section
+  with a bulging sidewall, shoulder and tread blocks; a rim barrel with bead
+  seats and lips; a spoke face set at the outer edge where you actually see it;
+  a hub and five studs. Axle across the car, dish facing out.
+- **Brakes** are vented discs with a top hat and drilled faces, and multi-piston
+  calipers straddling them — behind the axle at the front, ahead of it at the rear.
+- **Turbochargers** have a turbine housing, a bearing housing with oil feed and
+  drain, a compressor cover, both outlets, and a shaft carrying both wheels.
+  Sized from displacement and boost, so a big single on a 2-litre is visibly
+  enormous next to twins on a V8.
+- **Intercoolers and radiators** are cores: end tanks, a tube-and-fin matrix and
+  rails, with charge pipes routed from the compressor round to the throttle.
+- **Alternators** have a stator case with cooling slots, a drive pulley, an
+  internal fan and a B+ post. **Starters** have a solenoid, nose cone and pinion.
+- **Cylinder heads** are 1.3 bores tall with intake and exhaust port bosses on
+  their respective faces and spark plug wells sunk into the casting.
 - **Cars** are lofted surfaces, not extrusions: 56 cross-sections along the
   length, each a superellipse with its own width, roof height, sill height and
   tumblehome, flared into hips over the wheels and scalloped into wheel arches.

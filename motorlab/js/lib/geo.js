@@ -403,3 +403,255 @@ export function imbalance(e){
   };
   return table[key] || [0.15, 0.15];
 }
+
+/* ======================================================================
+ * Real assemblies. These are the components people recognise on sight, so
+ * they are built the way the real ones are put together rather than as
+ * stand-in boxes. All of them are oriented for their real axis.
+ * ==================================================================== */
+
+/** A road wheel: tyre, rim barrel, dish face, spokes, hub. Axle along Z. */
+export function wheelMesh({ radius, width, rimR, spokes = 5, style = 'alloy', tread = true }){
+  const g = group('wheel');
+  const seat = rimR * 1.02;
+  const half = width / 2;
+  /* tyre: bead, sidewall with real bulge, shoulder, crown */
+  const tyre = lathe([
+    [seat,        -half*0.96],
+    [seat*1.06,   -half*1.00],
+    [radius*0.74, -half*1.04],          // sidewall bulges past the rim
+    [radius*0.93, -half*0.96],
+    [radius*0.995,-half*0.72],          // shoulder
+    [radius,      -half*0.40],
+    [radius,       half*0.40],
+    [radius*0.995, half*0.72],
+    [radius*0.93,  half*0.96],
+    [radius*0.74,  half*1.04],
+    [seat*1.06,    half*1.00],
+    [seat,         half*0.96],
+  ], MAT.rubber(), 44);
+  rot(tyre, Math.PI/2, 0, 0);          // lathe revolves about Y; the axle is Z
+  g.add(tyre);
+  if (tread){
+    /* circumferential grooves plus shoulder blocks — enough to read as a tyre */
+    for (const zf of [-0.42, 0, 0.42]){
+      const groove = torus(radius * 0.995, width * 0.035, MAT.black(), 40);
+      groove.position.z = zf * width;
+      g.add(groove);
+    }
+    const blocks = 34;
+    for (let i = 0; i < blocks; i++){
+      const a = (i / blocks) * TAU;
+      for (const zf of [-0.26, 0.26]){
+        const b = box(radius * 0.06, radius * 0.10, width * 0.17, MAT.black());
+        b.position.set(Math.cos(a) * radius * 0.985, Math.sin(a) * radius * 0.985, zf * width);
+        b.rotation.z = a + Math.PI/2;
+        g.add(b);
+      }
+    }
+  }
+  /* rim: inner barrel, outer lip, dish face */
+  const barrel = lathe([
+    [rimR*0.98, -half*0.94], [rimR*1.05, -half*0.98], [rimR*1.05, -half*0.86],
+    [rimR*0.92, -half*0.70], [rimR*0.92,  half*0.34], [rimR*1.05,  half*0.86],
+    [rimR*1.05,  half*0.98], [rimR*0.98,  half*0.94],
+  ], style === 'chrome' ? MAT.chrome() : MAT.alloy(), 40);
+  rot(barrel, Math.PI/2, 0, 0);
+  g.add(barrel);
+  /* the face sits at the outer edge, which is what you actually see */
+  const faceZ = half * 0.52;
+  const hub = cyl(rimR * 0.30, rimR * 0.30, width * 0.30, MAT.alloyDark(), 22);
+  rot(hub, Math.PI/2, 0, 0); hub.position.z = faceZ * 0.7;
+  g.add(hub);
+  for (let i = 0; i < 5; i++){                       // wheel studs
+    const a = (i / 5) * TAU;
+    const n = cyl(rimR * 0.055, rimR * 0.055, width * 0.10, MAT.steel(), 8);
+    rot(n, Math.PI/2, 0, 0);
+    n.position.set(Math.cos(a) * rimR * 0.19, Math.sin(a) * rimR * 0.19, faceZ * 0.95);
+    g.add(n);
+  }
+  const mat = style === 'chrome' ? MAT.chrome() : style === 'dark' ? MAT.alloyDark() : MAT.alloy();
+  for (let i = 0; i < spokes; i++){
+    const a = (i / spokes) * TAU;
+    const s = new THREE.Shape();
+    const rIn = rimR * 0.30, rOut = rimR * 0.97, hw = (Math.PI / spokes) * 0.42;
+    s.moveTo(Math.cos(-hw*0.6) * rIn, Math.sin(-hw*0.6) * rIn);
+    s.lineTo(Math.cos(-hw) * rOut, Math.sin(-hw) * rOut);
+    s.lineTo(Math.cos(hw) * rOut, Math.sin(hw) * rOut);
+    s.lineTo(Math.cos(hw*0.6) * rIn, Math.sin(hw*0.6) * rIn);
+    s.closePath();
+    const geo = new THREE.ExtrudeGeometry(s, { depth: width * 0.13, bevelEnabled:true,
+      bevelSize: width*0.02, bevelThickness: width*0.02, bevelSegments:1 });
+    const spoke = new THREE.Mesh(geo, mat);
+    spoke.rotation.z = a;
+    spoke.position.z = faceZ - width * 0.065;
+    g.add(spoke);
+  }
+  /* spoked wire wheel for dirt bikes */
+  if (style === 'wire'){
+    g.children.filter(c => c.geometry?.type === 'ExtrudeGeometry').forEach(c => g.remove(c));
+    for (let i = 0; i < 32; i++){
+      const a = (i / 32) * TAU;
+      const sp = cyl(width * 0.012, width * 0.012, rimR * 0.72, MAT.steel(), 5);
+      sp.position.set(Math.cos(a) * rimR * 0.62, Math.sin(a) * rimR * 0.62, (i % 2 ? 1 : -1) * width * 0.22);
+      sp.rotation.z = a + Math.PI/2;
+      g.add(sp);
+    }
+  }
+  return g;
+}
+
+/** A vented brake disc with a top hat and drilled face. Axis along Z. */
+export function brakeDisc(diaM, mat){
+  const r = diaM / 2;
+  const g = group('disc');
+  const face = lathe([
+    [r*0.42, -0.014], [r*0.46, -0.014], [r*0.46, -0.006],
+    [r*0.99, -0.013], [r*0.99, 0.013], [r*0.46, 0.006],
+    [r*0.46, 0.014], [r*0.42, 0.014],
+  ], mat || MAT.iron(), 40);
+  rot(face, Math.PI/2, 0, 0);
+  g.add(face);
+  const hat = lathe([[r*0.20, -0.020], [r*0.44, -0.020], [r*0.44, 0.010], [r*0.20, 0.010]],
+                    MAT.alloyDark(), 26);
+  rot(hat, Math.PI/2, 0, 0); hat.position.z = -0.012;
+  g.add(hat);
+  for (let i = 0; i < 30; i++){          // cross-drilled holes shown as counterbores
+    const a = (i / 30) * TAU;
+    const h = cyl(r*0.035, r*0.035, 0.030, MAT.black(), 7);
+    rot(h, Math.PI/2, 0, 0);
+    h.position.set(Math.cos(a) * r * 0.78, Math.sin(a) * r * 0.78, 0);
+    g.add(h);
+  }
+  return g;
+}
+
+/** A multi-piston caliper straddling the disc. */
+export function caliper(diaM, mat){
+  const r = diaM / 2;
+  const g = group('caliper');
+  for (const z of [-r*0.10, r*0.10]){
+    const half = roundBox(r*0.62, r*0.34, r*0.11, 0.006, mat || MAT.red());
+    half.position.z = z;
+    g.add(half);
+    for (const off of [-0.26, 0, 0.26]){
+      const p = cyl(r*0.085, r*0.085, r*0.05, MAT.alloyDark(), 12);
+      rot(p, Math.PI/2, 0, 0);
+      p.position.set(off * r, -r*0.06, z * 0.55);
+      g.add(p);
+    }
+  }
+  g.add(at(box(r*0.56, r*0.10, r*0.20, MAT.steel()), 0, r*0.13, 0));   // bridge
+  return g;
+}
+
+/** A turbocharger: turbine housing, bearing housing, compressor cover, wheels.
+ *  Shaft along Z, turbine at −Z, compressor at +Z. */
+export function turboUnit(size, mats = {}){
+  const g = group('turbo');
+  const hot = mats.hot || MAT.hot(), cold = mats.cold || MAT.alloy();
+  const tHousing = volute(size * 0.34, size * 0.98, size * 0.52, hot, 72);
+  rot(tHousing, 0, -Math.PI/2, 0);                 // volute() extrudes along X; bring it to Z
+  tHousing.position.z = -size * 0.42;
+  const cHousing = volute(size * 0.30, size * 0.88, size * 0.46, cold, 72);
+  rot(cHousing, 0, -Math.PI/2, 0);
+  cHousing.position.z = size * 0.42;
+  /* the bearing housing between them, with its oil feed and drain */
+  const chra = lathe([
+    [size*0.34, -size*0.16], [size*0.34, -size*0.05], [size*0.24, -size*0.05],
+    [size*0.24,  size*0.05], [size*0.34,  size*0.05], [size*0.34,  size*0.16],
+  ], MAT.alloyDark(), 22);
+  rot(chra, Math.PI/2, 0, 0);
+  const feed = cyl(size*0.09, size*0.09, size*0.30, MAT.steel(), 12);
+  feed.position.y = size * 0.34;
+  const drain = cyl(size*0.13, size*0.13, size*0.26, MAT.alloyDark(), 12);
+  drain.position.y = -size * 0.32;
+  /* the outlets that make a turbo recognisable */
+  const cOut = cyl(size*0.30, size*0.30, size*0.44, cold, 20);
+  rot(cOut, 0, 0, Math.PI/2);
+  cOut.position.set(size*0.92, size*0.30, size*0.42);
+  const tIn = cyl(size*0.34, size*0.34, size*0.40, hot, 20);
+  rot(tIn, 0, 0, Math.PI/2);
+  tIn.position.set(-size*0.92, size*0.30, -size*0.42);
+  const shaft = group('shaft');
+  const cw = bladedWheel(size * 0.44, 10, size * 0.30, MAT.chrome(), 0.6);
+  const tw = bladedWheel(size * 0.46, 12, size * 0.30, MAT.steel(), -0.5);
+  cw.position.z = size * 0.42;
+  tw.position.z = -size * 0.42;
+  shaft.add(cw, tw);
+  g.add(tHousing, cHousing, chra, feed, drain, cOut, tIn, shaft);
+  g.userData.shaft = shaft;
+  return g;
+}
+
+/** An intercooler or radiator core: end tanks, tube-and-fin matrix. */
+export function coreMesh(widthZ, heightY, depthX, mats = {}, fins = 26){
+  const g = group('core');
+  const body = mats.body || MAT.alloyDark();
+  const matrix = mats.matrix || MAT.alloy();
+  for (const z of [-widthZ/2 + widthZ*0.045, widthZ/2 - widthZ*0.045]){
+    const tank = roundBox(depthX * 1.12, heightY * 1.02, widthZ * 0.09, depthX*0.16, body);
+    tank.position.z = z;
+    g.add(tank);
+  }
+  const inner = widthZ * 0.82;
+  for (let i = 0; i < fins; i++){
+    const z = -inner/2 + (i + 0.5) * (inner / fins);
+    const tube = box(depthX * 0.94, heightY * 0.94, inner / fins * 0.42, matrix);
+    tube.position.z = z;
+    g.add(tube);
+  }
+  /* top and bottom rails */
+  for (const y of [-heightY/2, heightY/2])
+    g.add(at(box(depthX * 1.0, heightY * 0.06, widthZ * 0.98, body), 0, y, 0));
+  return g;
+}
+
+/** An alternator: stator case with cooling slots, drive pulley, fan, rear cover. */
+export function alternatorMesh(size){
+  const g = group('alt');
+  const caseM = MAT.alloyDark();
+  const front = lathe([[size*0.10,-size*0.34],[size*0.52,-size*0.34],[size*0.56,-size*0.16],[size*0.10,-size*0.16]], caseM, 24);
+  const stator = cyl(size*0.56, size*0.56, size*0.34, MAT.alloy(), 26);
+  const rear = lathe([[size*0.10,size*0.16],[size*0.54,size*0.16],[size*0.50,size*0.36],[size*0.10,size*0.36]], caseM, 24);
+  for (const m of [front, stator, rear]) rot(m, 0, 0, Math.PI/2);
+  stator.position.x = 0; front.position.x = 0; rear.position.x = 0;
+  g.add(front, stator, rear);
+  for (let i = 0; i < 14; i++){                       // cooling slots around the case
+    const a = (i/14) * TAU;
+    const slot = box(size*0.26, size*0.10, size*0.05, MAT.black());
+    slot.position.set(0, Math.cos(a)*size*0.54, Math.sin(a)*size*0.54);
+    slot.rotation.x = -a;
+    g.add(slot);
+  }
+  const pulley = lathe([[size*0.08,-size*0.10],[size*0.34,-size*0.10],[size*0.30,0],[size*0.34,size*0.10],[size*0.08,size*0.10]],
+                       MAT.steel(), 22);
+  rot(pulley, 0, 0, Math.PI/2);
+  pulley.position.x = -size * 0.52;
+  const fan = bladedWheel(size*0.34, 9, size*0.12, MAT.steel(), 0.5);
+  rot(fan, 0, Math.PI/2, 0);
+  fan.position.x = -size * 0.38;
+  const post = cyl(size*0.07, size*0.07, size*0.14, MAT.copper(), 10);
+  post.position.set(size*0.30, size*0.44, 0);
+  g.add(pulley, fan, post);
+  g.userData.pulley = pulley;
+  return g;
+}
+
+/** A starter motor: body, solenoid on top, nose cone and drive. */
+export function starterMesh(size){
+  const g = group('starter');
+  const body = cyl(size*0.34, size*0.34, size*0.9, MAT.alloyDark(), 22);
+  rot(body, 0, 0, Math.PI/2);
+  const sol = cyl(size*0.20, size*0.20, size*0.62, MAT.alloy(), 18);
+  rot(sol, 0, 0, Math.PI/2);
+  sol.position.set(size*0.05, size*0.44, 0);
+  const nose = lathe([[size*0.10,0],[size*0.30,0],[size*0.22,size*0.30],[size*0.10,size*0.30]], MAT.alloy(), 20);
+  rot(nose, 0, 0, -Math.PI/2);
+  nose.position.x = size*0.45;
+  const pinion = cyl(size*0.12, size*0.12, size*0.22, MAT.steel(), 14);
+  rot(pinion, 0, 0, Math.PI/2);
+  pinion.position.x = size*0.80;
+  g.add(body, sol, nose, pinion);
+  return g;
+}
