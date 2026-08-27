@@ -147,21 +147,24 @@
     '</article>';
   }
 
-  function renderWall(cams){
+  function renderWall(cams, opts){
+    opts = opts || {};
     const wall = $("#wall");
-    const total = cams.length, WALL_LIMIT = wallLimit();
+    const total = cams.length, WALL_LIMIT = wallLimit() * Math.max(1, opts.page || 1);
     $("#wallCount").textContent = total > WALL_LIMIT ? (WALL_LIMIT.toLocaleString() + " / " + total.toLocaleString()) : (total.toLocaleString() + " live");
     if (!total){ teardownLive(); wall.innerHTML = '<p class="empty">No live cameras yet. Try clearing filters, or open ⚙ Settings to load a provider.</p>'; return; }
-    // Show self-refreshing live feeds first, then favorites, so working cameras lead
-    const ordered = cams.slice().sort((a, b) => {
+    // Show self-refreshing live feeds first, then favorites, so working cameras
+    // lead. When the caller already sorted (e.g. nearest-first), keep that order.
+    const ordered = opts.nearFirst ? cams : cams.slice().sort((a, b) => {
       const la = isLiveTile(a) ? 1 : 0, lb = isLiveTile(b) ? 1 : 0;
       if (la !== lb) return lb - la;
       return (Store.favorites.has(b.id) ? 1 : 0) - (Store.favorites.has(a.id) ? 1 : 0);
     });
     const shown = ordered.slice(0, WALL_LIMIT);
     wall.innerHTML = shown.map(tile).join("") +
-      (total > WALL_LIMIT ? '<p class="wallmore">Showing '+WALL_LIMIT.toLocaleString()+' of '+total.toLocaleString()+
-        ' live feeds — search, pick a country, or tap the globe to reach the rest.</p>' : '');
+      (total > WALL_LIMIT ? '<div class="wallmore"><button class="btn btn--primary" id="btnMore">'+
+        'Load more cameras</button><p>Showing '+WALL_LIMIT.toLocaleString()+' of '+total.toLocaleString()+
+        ' live feeds</p></div>' : '');
     setupLive(wall);
   }
 
