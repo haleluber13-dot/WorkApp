@@ -244,3 +244,8 @@ body[data-view="grid"] .wallhead{padding:8px 12px 6px}
 .wallmore{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:8px;
   padding:18px 8px 26px}
 .wallmore p{margin:0;color:var(--muted);font-size:12.5px}
+
+/* Stream-only cameras (HLS) have no still frame — show a play affordance */
+.tile:not(.is-live) .tile__media::before{content:"▶";position:absolute;inset:0;
+  display:grid;place-content:center;color:var(--muted);font-size:20px;opacity:.55}
+.tile:not(.is-live).is-loaded .tile__media::before{content:none}
