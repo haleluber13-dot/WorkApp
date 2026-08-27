@@ -11,6 +11,7 @@ import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
 import { restoreCustom } from './lib/importModel.js';
 import { loadTextures } from './lib/textures.js';
+import { loadPartModels, partCredits } from './lib/partModels.js';
 
 import garage   from './workspaces/garage.js';
 import { engineWs, chassisWs } from './workspaces/engine.js';
@@ -45,7 +46,8 @@ function boot(){
 
   /* the scanned part maps — real disc, caliper, tyre, carbon — load once, up
      front, so every builder after this point can stay synchronous */
-  loadTextures().then(() => { if (currentModel) { currentModel = null; reloadModel(); } });
+  Promise.all([loadTextures(), loadPartModels()])
+    .then(() => { if (currentModel){ currentModel = null; reloadModel(); } });
 
   viewport = new Viewport($('#gl'), $('#labels'));
   globalThis.__motorlab = { viewport, ctx };        // a handle for tooling and tests
@@ -413,7 +415,17 @@ function showHelp(){
         h('li', null, h('b', null, 'Dyno & Track'), ' — measure what you built: power, 0–100, the quarter, a lap time.'),
         h('li', null, h('b', null, 'Learn'), ' — 23 lessons and a set of build challenges tied to all of the above.'))),
     note('Stuck? Every assembly panel has a <b>next step</b> box that tells you exactly which part goes on next and shows you where it lives.'),
+    section('Credits',
+      para('Almost everything you see is generated. Where a part is genuinely impossible to fake — a turbine wheel, a scanned vehicle body — MotorLab uses a real model, and those are credited here:'),
+      ...credits().map(c => h('div', { class:'tiny muted', text:c })),
+      h('div', { class:'tiny muted', text:'Vehicle models and part textures were supplied by the repository owner; see the ABOUT.md beside each one in assets/ for provenance and trademarks.' })),
   ), actions:[{ label:'Start', primary:true }] });
+}
+
+/** Attribution the licences actually require, shown in the app itself. */
+function credits(){
+  const list = partCredits();
+  return list.length ? list : ['(no scanned components loaded)'];
 }
 
 /* ---------------------------------------------------------------------- */

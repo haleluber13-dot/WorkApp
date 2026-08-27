@@ -79,6 +79,40 @@ knobby patterns are generated to match what the vehicle actually runs.
 Delete `assets/parts/` and everything falls back to the generated materials it had
 before; see [`assets/parts/ABOUT.md`](assets/parts/ABOUT.md).
 
+### Scanned components
+
+Some parts cannot be faked. A turbocharger turbine wheel is eleven blades, each
+one a twisted surface with a different curvature at every radius, and no amount
+of lofting produces the real thing — so MotorLab loads a real scan of one and
+drops the generated stand-in. It lives in `assets/scans/`, is registered in
+[`js/lib/partModels.js`](js/lib/partModels.js), and every caller keeps its
+fallback so the app still runs with the folder deleted.
+
+The turbine wheel is a scan by **Artec 3D**, used under CC BY 3.0. That licence
+requires credit and a statement of changes: the credit is shown in the app under
+**Help → Credits**, and the changes are recorded in
+[`assets/scans/ABOUT.md`](assets/scans/ABOUT.md).
+
+### Real parts, not primitives
+
+Everything else is still generated — but generated as the part, not as a box
+standing in for it:
+
+| Part | What it is built from |
+|---|---|
+| Spark plug | Terminal nut and stem, a five-rib alumina insulator, the hex, a real rolled thread wound as a helix, the centre electrode and the ground strap bent over the gap |
+| Ignition coil | Pencil coil: connector with its pins, the body, and the rubber boot that reaches down the plug well onto the terminal |
+| Turbocharger | Two volute scrolls — a cross-section swept round a spiral whose tube grows as it wraps, so the inner wall stays on the wheel and the outer wall opens out — with the tangential throats, the axial mouths, the bearing housing, its oil feed and drain, and the scanned turbine |
+| Cam cover | A swept cross-section with a raised centre, a bolt rail with a boss and a bolt at every fixing, and the oil filler |
+| Oil pan | Drafted sides, a bolt flange, a sump kick-out at the pickup end and the drain plug in the bottom of it |
+| Crank damper | Six V-rib pulley grooves, the bonded rubber ring, the hub bolt circle and the crank bolt |
+| Flywheel | Friction face, bolt circle, and a starter ring gear with real teeth |
+| Clutch | Pressed cover, and eighteen diaphragm spring fingers |
+| Water pump | Volute housing, hose snout, and the drive pulley that turns with the belt |
+| Port flange | The plate the manifold bolts to, ports opened through it, studs between them |
+| Velocity stack | A radiused bellmouth, on every individual throttle of a high-revving atmospheric engine |
+| Air filter | A pleated element, off a real one |
+
 ### The conversion tools
 
 | Tool | What it does |
@@ -86,6 +120,7 @@ before; see [`assets/parts/ABOUT.md`](assets/parts/ABOUT.md).
 | `tools/tga2png.py` | TrueVision TGA (types 2, 3, 10, 11) to PNG — fixes BGR order and bottom-left origin |
 | `tools/tds2obj.py` | Autodesk `.3DS` to OBJ + MTL, Z-up to Y-up, one object per material |
 | `tools/obj2glb.py` | OBJ + MTL to binary glTF: scale, offset, clip stray faces, weld, drop unused UVs |
+| `tools/wrl2obj.py` | VRML 2.0 `IndexedFaceSet` (what a 3D scanner exports) to OBJ |
 
 All three are pure standard-library Python 3 — no build step, no dependencies.
 
@@ -280,10 +315,11 @@ sw.js                 service worker (offline)
 data/updates.json     the update feed
 data/world_land.json  coastlines for the racing map
 assets/parts/         scanned part maps: disc, caliper, carbon, tyre, filter
+assets/scans/         scanned components: the turbocharger turbine wheel
 assets/nns/           NASCAR stock car model
 assets/koenigsegg/    carbon hypercar model
 assets/harley/        custom V-twin cruiser model
-tools/                tga2png.py, tds2obj.py, obj2glb.py, build-single.mjs
+tools/                tga2png.py, tds2obj.py, wrl2obj.py, obj2glb.py, build-single.mjs
 vendor/three/         bundled three.js + OrbitControls + OBJ/MTL/GLTF loaders
 js/
   main.js             shell: workspaces, 3D model loading, keyboard, HUD
@@ -294,6 +330,7 @@ js/
   updates.js          the self-update channel
   lib/geo.js          geometry + material toolkit
   lib/textures.js     the scanned part maps, loaded once at boot
+  lib/partModels.js   the scanned components, loaded once at boot
   lib/importModel.js  bring-your-own .glb import and persistence
   data/               engines, part trees, vehicles, upgrades, curriculum,
                       electrical, races, news

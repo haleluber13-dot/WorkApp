@@ -1,5 +1,5 @@
 /* MotorLab service worker — offline app shell. Bump CACHE when files change. */
-const CACHE = 'motorlab-v2';
+const CACHE = 'motorlab-v3';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './icons/icon.svg',
@@ -11,6 +11,7 @@ const SHELL = [
   './data/world_land.json',
   './js/main.js', './js/ui.js', './js/store.js', './js/game.js', './js/viewport.js', './js/updates.js',
   './js/lib/geo.js', './js/lib/textures.js', './js/lib/importModel.js',
+  './js/lib/partModels.js', './assets/scans/turbine_wheel.glb',
   './js/data/engines.js', './js/data/parts.js', './js/data/vehicles.js', './js/data/vehicleParts.js',
   './js/data/upgrades.js', './js/data/curriculum.js', './js/data/electrical.js',
   './js/data/races.js', './js/data/news.js',

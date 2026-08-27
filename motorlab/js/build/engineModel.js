@@ -9,7 +9,9 @@ import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, ta
          boundsOf, slider, epitrochoid, deg, TAU,
          lathe, pistonMesh, rodMesh, counterweight, camLobe, lobeLift, valveMesh, springMesh,
          volute, bladedWheel, flameMesh, puffMesh, imbalance,
-         turboUnit, coreMesh, alternatorMesh, starterMesh } from '../lib/geo.js';
+         turboUnit, coreMesh, alternatorMesh, starterMesh, filterElement,
+         sparkPlug, coilPack, camCoverMesh, oilPanMesh, crankDamper, flywheelMesh,
+         clutchMesh, waterPumpMesh, velocityStack, portFlange, hexPrism } from '../lib/geo.js';
 import { firingOrder } from '../data/engines.js';
 
 const M = (mm) => mm / 1000;   // spec is in millimetres, scene is in metres
@@ -311,18 +313,22 @@ function buildPiston(e, tree){
       }
       /* spark plug / injector / coil */
       if (e.fuel !== 'diesel'){
-        const pl = cyl(M(7), M(7), L.bore * 0.34, MAT.steel(), 10);
-        plugG.add(mk(at(pl, p.x, 0, 0), L.deckH + L.bore * 0.84));
-        const co = roundBox(M(26), L.bore*0.34, M(30), .006, MAT.plastic());
-        coilG.add(mk(at(co, p.x, 0, 0), L.deckH + L.bore * 1.66));
+        /* a real plug: terminal, ribbed insulator, hex, thread, ground strap */
+        const pl = sparkPlug(L.bore * 0.98);
+        plugG.add(mk(at(pl, p.x, 0, 0), L.deckH + L.bore * 0.92));
+        /* the boot reaches down the plug well onto the terminal, and the
+           body stands proud of the cam cover — which is where it lives */
+        const co = coilPack(L.bore * 1.20);
+        coilG.add(mk(at(co, p.x, 0, 0), L.deckH + L.bore * 1.38));
       } else {
         const inj = cyl(M(9), M(9), L.bore*0.4, MAT.steel(), 10);
         injG.add(mk(at(inj, p.x, 0, 0), L.deckH + L.bore*0.90));
       }
     }
-    /* valve cover */
-    const vc = roundBox(L.len * 0.98, L.bore * 0.34, L.bore * 1.36, 0.02, MAT.alloyDark());
-    vcG.add(mk(vc, L.deckH + L.bore * 1.48));
+    /* valve cover: a real casting with its bolt rail, ribs and filler cap */
+    const vc = camCoverMesh(L.len * 0.98, L.bore * 1.36, L.bore * 0.34, MAT.alloyDark(),
+                            Math.max(4, e.cyl + 2));
+    vcG.add(mk(vc, L.deckH + L.bore * 1.34));
   }
   add('headgasket', hgG); add('head', headG);
   if (has('camcaps')) add('camcaps', capG);
@@ -409,26 +415,39 @@ function buildPiston(e, tree){
   /* ---- lubrication ---- */
   add('oilpump', at(roundBox(M(70), M(70), M(50), .01, MAT.alloyDark()), frontX + M(40), -L.crankR * 0.6, L.bore * 0.5));
   add('pickup', pipe([[0,-L.crankR*0.9,0],[0,-L.crankR*1.6,L.bore*0.25],[L.len*0.15,-L.crankR*1.9,L.bore*0.3]], M(9), MAT.steel()));
-  const pan = roundBox(L.len * 0.94, L.crankR * 1.5, L.bore * 1.35, 0.02, MAT.alloyDark());
+  const pan = oilPanMesh(L.len * 0.94, L.bore * 1.35, L.crankR * 1.5, MAT.alloyDark());
   add('oilpan', at(pan, 0, -L.crankR * 1.9, 0));
   add('oilfilter', at(rot(cyl(M(45), M(45), M(110), MAT.blue(), 18), 0, 0, Math.PI/2), L.len*0.2, -L.crankR*0.9, L.bore*0.85));
 
   /* ---- induction ---- */
   const inducY = L.deckH + L.bore * 1.95;
   const intakeG = group('intake');
-  const plenum = roundBox(L.len * 0.8, L.bore * 0.5, L.bore * 0.7, 0.03, MAT.alloy());
-  at(plenum, 0, inducY, L.banks >= 2 ? 0 : -L.bore * 0.95);
-  intakeG.add(plenum);
+  /* a high-revving atmospheric engine runs individual throttles with a trumpet
+     on each one; everything else runs a plenum and a single throttle body */
+  const itb = e.aspiration === 'na' && e.redline >= 7600;
+  if (!itb){
+    const plenum = roundBox(L.len * 0.8, L.bore * 0.5, L.bore * 0.7, 0.03, MAT.alloy());
+    at(plenum, 0, inducY, L.banks >= 2 ? 0 : -L.bore * 0.95);
+    intakeG.add(plenum);
+  }
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
-    const zEnd = L.banks >= 2 ? 0 : -L.bore * 0.95;
-    const zHead = L.banks >= 2 ? (cylSlot(e,i,L).bank ? 1 : -1) * L.bore * 0.5 : -L.bore * 0.42;
-    const runner = pipe([
-      [p.x, inducY, zEnd],
-      [p.x, inducY - L.bore * 0.2, zHead * 0.8],
+    const bank = L.banks >= 2 ? (cylSlot(e,i,L).bank ? 1 : -1) : 1;
+    const zHead = L.banks >= 2 ? bank * L.bore * 0.5 : -L.bore * 0.42;
+    const zEnd = itb ? zHead * 0.55 : (L.banks >= 2 ? 0 : -L.bore * 0.95);
+    const topY = itb ? L.deckH + L.bore * 1.62 : inducY;
+    intakeG.add(pipe([
+      [p.x, topY, zEnd],
+      [p.x, topY - L.bore * 0.24, zHead * 0.85],
       [p.x, L.deckH + L.bore * 0.50, zHead],
-    ], M(17), MAT.alloy(), 8);
-    intakeG.add(runner);
+    ], M(17), MAT.alloy(), 8));
+    if (itb){
+      /* the throttle body, and the bellmouth above it */
+      intakeG.add(at(cyl(M(23), M(23), L.bore * 0.20, MAT.alloyDark(), 20),
+                     p.x, topY + L.bore * 0.10, zEnd));
+      intakeG.add(at(velocityStack(M(46), L.bore * 0.34, MAT.alloy()),
+                     p.x, topY + L.bore * 0.38, zEnd));
+    }
   }
   add('intake', intakeG);
   if (has('throttle')){
@@ -521,15 +540,25 @@ function buildPiston(e, tree){
       [collectorX, L.deckH * 0.42, side * L.bore * 1.0],
     ], M(16), MAT.hot(), 8));
   }
+  /* the manifold bolts to a real port flange, not to thin air */
+  for (const bk of (L.banks >= 2 ? [-1, 1] : [1])){
+    const fl = portFlange(Math.max(1, Math.round(e.cyl / L.banks)), L.bore * 0.26,
+                          L.len / Math.max(1, e.cyl / L.banks), M(11), MAT.iron());
+    rot(fl, 0, 0, 0);
+    fl.rotation.y = Math.PI / 2;
+    at(fl, 0, L.deckH + L.bore * 0.46, bk * L.bore * 0.76);
+    exG.add(fl);
+  }
   add('exmanifold', exG);
-  const dp = pipe([[0, L.deckH*0.42, L.bore*1.0],[L.len*0.6, L.crankR, L.bore*1.4],[L.len*1.3, L.crankR*0.4, L.bore*1.4]], M(24), MAT.iron(), 10);
+  const dp = pipe([[0, L.deckH*0.42, L.bore*1.0],[L.len*0.42, L.crankR, L.bore*1.35],
+                   [L.len*0.70, L.crankR*0.5, L.bore*1.35]], M(24), MAT.iron(), 10);
   add('exhaust', dp);
-  addPuffs(root, anim, new THREE.Vector3(L.len*1.32, L.crankR*0.4, L.bore*1.4), L.bore);
+  addPuffs(root, anim, new THREE.Vector3(L.len*0.72, L.crankR*0.5, L.bore*1.35), L.bore);
 
   /* ---- cooling / accessories ---- */
   if (has('waterpump')){
-    const wp = group('wp');
-    wp.add(rot(cyl(M(50), M(50), M(46), MAT.alloyDark(), 18), 0, 0, Math.PI/2));
+    const wp = waterPumpMesh(L.bore * 1.15);
+    anim.pulleys.push({ node:wp.userData.pulley, ratio:1.5 });
     add('waterpump', at(wp, frontX - M(30), L.deckH * 0.55, -L.bore * 0.4));
   }
   if (has('radiator')){
@@ -548,8 +577,8 @@ function buildPiston(e, tree){
   }
   if (has('fins')) add('fins', at(box(L.len, M(20), L.bore*1.6, MAT.alloyDark()), 0, L.deckH*1.15, 0));
 
-  const pulley = group('pulley');
-  pulley.add(rot(tubeMesh(L.crankR * 1.15, L.crankR * 0.35, M(34), MAT.iron(), 24), 0, 0, Math.PI/2));
+  /* a harmonic damper, not a disc: V-ribs, bonded rubber ring, bolt circle */
+  const pulley = crankDamper(L.crankR * 1.15, M(46), MAT.iron());
   at(pulley, frontX - M(46), 0, 0);
   anim.pulleys.push({ node:pulley, ratio:1 });
   add('crankpulley', pulley);
@@ -560,14 +589,14 @@ function buildPiston(e, tree){
 
   add('starter', at(starterMesh(L.bore * 1.6), L.len * 0.42, -L.crankR * 0.1, L.bore * 0.85));
 
-  const fw = group('fw');
-  fw.add(rot(tubeMesh(L.bore * 1.05, L.crankR * 0.3, M(30), MAT.iron(), 32), 0, 0, Math.PI/2));
-  at(fw, L.len/2 + M(26), 0, 0);
+  /* the flywheel carries a real starter ring gear — that is what the starter
+     pinion engages, and its tooth count sets the cranking ratio */
+  const fw = flywheelMesh(L.bore * 1.05, M(34), MAT.iron(), Math.round(L.bore * 1.05 * 720));
+  at(fw, L.len/2 + M(28), 0, 0);
   anim.pulleys.push({ node:fw, ratio:1 });
   add('flywheel', fw);
-  const cl = group('cl');
-  cl.add(rot(tubeMesh(L.bore * 0.95, L.crankR * 0.35, M(46), MAT.steel(), 28), 0, 0, Math.PI/2));
-  add('clutch', at(cl, L.len/2 + M(64), 0, 0));
+  const cl = clutchMesh(L.bore * 0.95, M(52), MAT.steel());
+  add('clutch', at(cl, L.len/2 + M(70), 0, 0));
 
   /* ---- sensors / ECU ---- */
   const sens = [
