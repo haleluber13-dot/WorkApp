@@ -227,16 +227,27 @@
       const res = await fetch("./data/cameras.json");
       if (!res.ok) throw new Error("camera dataset " + res.status);
       const data = await res.json();
+      // v2 is a compact format: short keys and a shared page-URL table, which
+      // keeps ~57k records small enough to ship and quick to parse on a phone.
+      const pages = data.pages || [];
+      const v2 = data.v === 2;
       const cams = (data.cameras || []).map((c) => {
+        const id = v2 ? c.i : c.id;
+        const url = v2 ? c.u : c.image;
         // most feeds are refreshing stills; some (Thailand, Indonesia) are HLS streams
-        const isStream = c.kind === "hls";
+        const isStream = (v2 ? c.k : c.kind) === "hls";
         return {
-          id: c.id, name: c.name, category: c.category || "road",
-          city: c.city || "", country: c.country || "",
-          lat: c.lat, lng: c.lng, tags: c.tags || [],
-          source: { type: isStream ? "hls" : "image", url: c.image },
-          clip: c.clip || null, thumb: isStream ? null : c.image,
-          page: c.page || null, _origin: "bundle"
+          id: id, name: v2 ? c.n : c.name,
+          category: (v2 ? c.g : c.category) || "road",
+          city: (v2 ? c.t : c.city) || "",
+          country: (v2 ? c.c : c.country) || "",
+          lat: v2 ? c.a : c.lat, lng: v2 ? c.o : c.lng,
+          tags: v2 ? [] : (c.tags || []),
+          source: { type: isStream ? "hls" : "image", url: url },
+          clip: (v2 ? c.l : c.clip) || null,
+          thumb: isStream ? null : url,
+          page: v2 ? (c.p != null ? pages[c.p] : null) : (c.page || null),
+          _origin: "bundle"
         };
       });
       this.countries = data.countries || {};

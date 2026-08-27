@@ -964,11 +964,27 @@ def main(only=None, do_verify=False):
         by_country.setdefault(c["country"], 0)
         by_country[c["country"]] += 1
 
+    # compact v2 layout: short keys + shared page-url table (~30% smaller raw,
+    # and much faster to parse in the browser at this record count)
+    pages, pidx, packed = [], {}, []
+    for c in all_cams:
+        rec = {"i": c["id"], "n": c["name"], "a": c["lat"], "o": c["lng"],
+               "u": c["image"], "c": c["country"], "g": c.get("category", "road")}
+        if c.get("city"): rec["t"] = c["city"]
+        if c.get("clip"): rec["l"] = c["clip"]
+        if c.get("kind"): rec["k"] = c["kind"]
+        p = c.get("page")
+        if p:
+            if p not in pidx:
+                pidx[p] = len(pages); pages.append(p)
+            rec["p"] = pidx[p]
+        packed.append(rec)
+
     path = os.path.join(OUT_DIR, "cameras.json")
     with open(path, "w") as f:
-        json.dump({"generated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                   "count": len(all_cams), "countries": by_country,
-                   "cameras": all_cams}, f, separators=(",", ":"))
+        json.dump({"v": 2, "generated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                   "count": len(packed), "countries": by_country,
+                   "pages": pages, "cameras": packed}, f, separators=(",", ":"))
 
     print("%-14s %8s  %s" % ("SOURCE", "CAMERAS", "TIME"))
     for n, c, t in report: print("%-14s %8d  %s" % (n, c, t))
