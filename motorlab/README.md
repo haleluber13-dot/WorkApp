@@ -112,6 +112,12 @@ standing in for it:
 | Port flange | The plate the manifold bolts to, ports opened through it, studs between them |
 | Velocity stack | A radiused bellmouth, on every individual throttle of a high-revving atmospheric engine |
 | Air filter | A pleated element, off a real one |
+| Compressor wheel | Seven full blades and seven splitters, each a swept surface that starts axial at the inducer and finishes backswept at the exducer — the shape that makes one |
+| Alternator | Front and rear housings cast as a ring of webs with the cooling slots between them, the stator laminations showing, four through-bolts, the mounting eye and pivot lug, the regulator pack, the B+ post and a black six-groove pulley |
+| Supercharger | The twin-rotor case with its fin comb, the manifold plate and its bolt line, the front bearing plate, snout and drive pulley, and the throttle elbow |
+| Intercooler / radiator | A bar-and-plate matrix — a charge bar, then a folded fin block, repeated — with cast end tanks and the hose necks on them |
+| Oil filter | A rolled can with its ribs, the base plate and the seal |
+| Serpentine belt | The outer tangent path around the crank, water pump, alternator, idler and tensioner, solved as a convex hull so it runs the way a real one does |
 
 ### The conversion tools
 

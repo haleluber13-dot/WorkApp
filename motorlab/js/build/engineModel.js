@@ -11,7 +11,8 @@ import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, ta
          volute, bladedWheel, flameMesh, puffMesh, imbalance,
          turboUnit, coreMesh, alternatorMesh, starterMesh, filterElement,
          sparkPlug, coilPack, camCoverMesh, oilPanMesh, crankDamper, flywheelMesh,
-         clutchMesh, waterPumpMesh, velocityStack, portFlange, hexPrism } from '../lib/geo.js';
+         clutchMesh, waterPumpMesh, velocityStack, portFlange, hexPrism,
+         superchargerMesh, oilFilterMesh, serpentineBelt } from '../lib/geo.js';
 import { firingOrder } from '../data/engines.js';
 
 const M = (mm) => mm / 1000;   // spec is in millimetres, scene is in metres
@@ -417,7 +418,7 @@ function buildPiston(e, tree){
   add('pickup', pipe([[0,-L.crankR*0.9,0],[0,-L.crankR*1.6,L.bore*0.25],[L.len*0.15,-L.crankR*1.9,L.bore*0.3]], M(9), MAT.steel()));
   const pan = oilPanMesh(L.len * 0.94, L.bore * 1.35, L.crankR * 1.5, MAT.alloyDark());
   add('oilpan', at(pan, 0, -L.crankR * 1.9, 0));
-  add('oilfilter', at(rot(cyl(M(45), M(45), M(110), MAT.blue(), 18), 0, 0, Math.PI/2), L.len*0.2, -L.crankR*0.9, L.bore*0.85));
+  add('oilfilter', at(oilFilterMesh(M(92), M(115), MAT.blue()), L.len*0.2, -L.crankR*0.9, L.bore*0.85));
 
   /* ---- induction ---- */
   const inducY = L.deckH + L.bore * 1.95;
@@ -514,16 +515,15 @@ function buildPiston(e, tree){
     add('intercooler', icG);
   }
   if (has('blower')){
-    const bg = group('blower');
-    const body = roundBox(L.len * 0.72, L.bore * 0.62, L.bore * 0.95, 0.03, MAT.alloyDark());
-    body.position.y = inducY + L.bore * 0.1;
-    const snoutB = cyl(M(45), M(45), M(80), MAT.alloy(), 16);
-    rot(snoutB, 0, 0, Math.PI/2); snoutB.position.set(-L.len*0.42, inducY + L.bore*0.1, 0);
-    const hat = roundBox(L.len*0.4, L.bore*0.3, L.bore*0.7, .02, MAT.alloy());
-    hat.position.y = inducY + L.bore * 0.52;
-    bg.add(body, snoutB, hat);
+    /* a Roots blower sits on the vee and is driven off the crank nose */
+    const bg = superchargerMesh(L.len * 0.78, L.bore * 0.98, L.bore * 0.60, MAT.alloyDark());
+    at(bg, -L.len * 0.02, inducY - L.bore * 0.10, 0);
+    anim.pulleys.push({ node:bg.userData.pulley, ratio:2.2 });
     add('blower', bg);
-    add('intercooler', at(box(L.len*0.7, M(60), L.bore*0.8, MAT.alloy()), 0, inducY - L.bore*0.24, 0));
+    /* the charge cooler in the lid, between the rotors and the ports */
+    add('intercooler', at(coreMesh(L.bore * 0.86, M(56), L.len * 0.66,
+                                   { body:MAT.alloy() }, 20),
+                          0, inducY - L.bore * 0.26, 0));
   }
 
   /* ---- exhaust ---- */
@@ -556,14 +556,20 @@ function buildPiston(e, tree){
   addPuffs(root, anim, new THREE.Vector3(L.len*0.72, L.crankR*0.5, L.bore*1.35), L.bore);
 
   /* ---- cooling / accessories ---- */
+  /* the accessories all drive off one belt, so their pulleys have to land on
+     one plane — that plane is the crank damper's */
+  const beltX = frontX - M(46);
+  const beltRun = [{ y:0, z:0, r:L.crankR * 1.15 }];
   if (has('waterpump')){
-    const wp = waterPumpMesh(L.bore * 1.15);
+    const wpSize = L.bore * 1.15;
+    const wp = waterPumpMesh(wpSize);
     anim.pulleys.push({ node:wp.userData.pulley, ratio:1.5 });
-    add('waterpump', at(wp, frontX - M(30), L.deckH * 0.55, -L.bore * 0.4));
+    add('waterpump', at(wp, beltX + wpSize * 0.34, L.deckH * 0.55, -L.bore * 0.4));
+    beltRun.push({ y:L.deckH * 0.55, z:-L.bore * 0.4, r:wpSize * 0.42 });
   }
   if (has('radiator')){
     const rad = group('rad');
-    rad.add(coreMesh(L.bore * 4.4, L.deckH * 1.30, M(48), {}, 34));
+    rad.add(coreMesh(L.bore * 3.9, L.deckH * 1.15, M(44), {}, 30));
     const fan = bladedWheel(L.deckH * 0.52, 7, M(52), MAT.black(), 0.7);
     rot(fan, 0, Math.PI/2, 0);
     fan.position.x = M(56);
@@ -583,9 +589,30 @@ function buildPiston(e, tree){
   anim.pulleys.push({ node:pulley, ratio:1 });
   add('crankpulley', pulley);
 
-  const alt = alternatorMesh(L.bore * 1.35);
+  const altSize = L.bore * 1.35;
+  const alt = alternatorMesh(altSize);
   anim.pulleys.push({ node:alt.userData.pulley, ratio:2.6 });
-  add('alternator', at(alt, frontX - M(30), L.deckH * 0.72, -L.bore * 0.85));
+  add('alternator', at(alt, beltX + altSize * 0.56, L.deckH * 0.78, -L.bore * 0.92));
+  beltRun.push({ y:L.deckH * 0.78, z:-L.bore * 0.92, r:altSize * 0.34 });
+
+  /* an idler and a spring-loaded tensioner, which is what makes the run work */
+  for (const [y, z, r, id] of [[L.deckH * 0.24, -L.bore * 1.00, L.bore * 0.24, 'idler'],
+                               [L.deckH * 0.96, -L.bore * 0.20, L.bore * 0.21, 'tensioner']]){
+    const idl = lathe([[r * 0.30, -M(13)], [r, -M(13)], [r, M(13)], [r * 0.30, M(13)]],
+                      MAT.black(), 26);
+    rot(idl, 0, 0, Math.PI / 2);
+    const arm = box(r * 1.5, r * 0.42, M(14), MAT.steel());
+    at(arm, M(16), 0, 0);
+    const grp = group(id, idl, arm);
+    at(grp, beltX, y, z);
+    anim.pulleys.push({ node:idl, ratio:2.0 });
+    add('crankpulley', grp);
+    beltRun.push({ y, z, r });
+  }
+
+  /* and the belt itself, run round the outside of the whole set */
+  const belt = serpentineBelt(beltRun, beltX, M(26), MAT.rubber());
+  if (belt) add('crankpulley', belt);
 
   add('starter', at(starterMesh(L.bore * 1.6), L.len * 0.42, -L.crankR * 0.1, L.bore * 0.85));
 

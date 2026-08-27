@@ -847,6 +847,73 @@ export function bladedWheel(radius, blades, width, mat, twist = 0.5){
   return g;
 }
 
+/** A centrifugal compressor wheel. Each blade is a real swept surface: it
+ *  starts axial at the inducer, turns through the wrap angle as the radius
+ *  grows, and finishes backswept at the exducer — which is the shape that
+ *  makes one, and the reason a flat vane never looks right. Splitter blades
+ *  sit between the full ones from mid-span out, as they do on the real thing.
+ *  Axis along Z, air enters at −Z. */
+export function compressorWheel(radius, blades, width, mat, opts = {}){
+  const g = group('compwheel');
+  const rExit = radius;
+  const rInd  = radius * (opts.inducer ?? 0.60);      // inducer tip
+  const rHubIn = radius * (opts.hubIn ?? 0.20);
+  const b2 = width * (opts.exducerHeight ?? 0.30);    // blade height at exit
+  const L = width;
+  const wrap = opts.wrap ?? 0.95;                     // radians the blade turns
+  const N = 14;
+
+  const hubR = (t) => rHubIn + (rExit * 0.86 - rHubIn) * Math.pow(t, 2.1);
+  const shrR = (t) => rInd + (rExit - rInd) * Math.pow(t, 1.5);
+  const hubZ = (t) => -L * Math.pow(1 - t, 1.5);
+  const shrZ = (t) => hubZ(t) - b2 * t;
+  const theta = (t) => wrap * Math.pow(t, 1.25);
+
+  /* the hub, a body of revolution under the blades */
+  const prof = [];
+  for (let i = 0; i <= N; i++){ const t = i / N; prof.push([hubR(t), hubZ(t)]); }
+  prof.push([rExit * 0.99, 0.001], [rExit * 0.99, -L * 0.05], [rHubIn * 0.55, -L * 0.05], [rHubIn * 0.55, -L]);
+  const hub = lathe(prof, mat, 40);
+  rot(hub, Math.PI / 2, 0, 0);                        // lathe is about Y; this runs on Z
+  g.add(hub);
+  g.add(at(rot(cyl(rHubIn * 0.5, rHubIn * 0.5, L * 0.5, mat, 14), Math.PI / 2, 0, 0), 0, 0, L * 0.2));
+
+  /* one blade, built as a thin ribbon between the hub and shroud contours */
+  const blade = (phi, t0) => {
+    const pos = [], idx = [];
+    const th = radius * 0.028;                        // half the blade thickness
+    const steps = 16;
+    for (let i = 0; i <= steps; i++){
+      const t = t0 + (1 - t0) * (i / steps);
+      const a = phi + theta(t);
+      const ca = Math.cos(a), sa = Math.sin(a);
+      const tx = -sa, ty = ca;                        // tangential, for the thickness
+      for (const side of [-1, 1])
+        for (const [r, z] of [[hubR(t), hubZ(t)], [shrR(t), shrZ(t)]])
+          pos.push(r * ca + tx * th * side, r * sa + ty * th * side, z);
+    }
+    /* four vertices per station: (-hub, -shroud, +hub, +shroud) */
+    for (let i = 0; i < steps; i++){
+      const a0 = i * 4, b0 = a0 + 4;
+      idx.push(a0+0, b0+0, a0+1,  b0+0, b0+1, a0+1);      // one face
+      idx.push(a0+2, a0+3, b0+2,  b0+2, a0+3, b0+3);      // the other
+      idx.push(a0+1, b0+1, a0+3,  b0+1, b0+3, a0+3);      // the tip edge
+      idx.push(a0+0, a0+2, b0+0,  b0+0, a0+2, b0+2);      // the root edge
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return new THREE.Mesh(geo, mat);
+  };
+  for (let i = 0; i < blades; i++){
+    const phi = (i / blades) * TAU;
+    g.add(blade(phi, 0));                                   // full blade
+    g.add(blade(phi + Math.PI / blades, 0.38));             // splitter
+  }
+  return g;
+}
+
 /** A flash of combustion — a soft emissive blob that lives inside a cylinder. */
 export function flameMesh(radius){
   const m = new THREE.MeshBasicMaterial({ color:0xffb04a, transparent:true, opacity:0, depthWrite:false,
@@ -1206,7 +1273,7 @@ export function turboUnit(size, mats = {}){
 
   /* --- the rotating assembly ------------------------------------------- */
   const shaft = group('shaft');
-  const cw = bladedWheel(size * 0.42, 10, size * 0.28, MAT.chrome(), 0.6);
+  const cw = compressorWheel(size * 0.42, 7, size * 0.30, MAT.chrome());
   /* the turbine is a scan of a real wheel — eleven blades, each one a twisted
      surface, which is not something a loft can be talked into producing */
   const tw = partMesh('turbine', { dia: size * 0.84, mat: MAT.steel(), axis:'z' })
@@ -1226,22 +1293,38 @@ export function turboUnit(size, mats = {}){
 export function coreMesh(widthZ, heightY, depthX, mats = {}, fins = 26){
   const g = group('core');
   const body = mats.body || MAT.alloyDark();
-  const matrix = mats.matrix || MAT.alloy();
-  for (const z of [-widthZ/2 + widthZ*0.045, widthZ/2 - widthZ*0.045]){
-    const tank = roundBox(depthX * 1.12, heightY * 1.02, widthZ * 0.09, depthX*0.16, body);
+  const matrix = mats.matrix || MAT.alloyDark();
+  /* cast end tanks with the hose necks on them, the way a real core is made */
+  for (const sd of [-1, 1]){
+    const z = sd * (widthZ / 2 - widthZ * 0.05);
+    const tank = roundBox(depthX * 1.18, heightY * 1.02, widthZ * 0.10, depthX * 0.22, body);
     tank.position.z = z;
     g.add(tank);
+    const neck = cyl(heightY * 0.16, heightY * 0.17, depthX * 1.0, body, 18);
+    rot(neck, Math.PI / 2, 0, 0);
+    neck.position.set(0, sd * heightY * 0.26, z + sd * widthZ * 0.10);
+    g.add(neck);
+    g.add(at(lathe([[heightY*0.175, 0], [heightY*0.20, depthX*0.10], [heightY*0.175, depthX*0.18]],
+                   body, 18).rotateX(Math.PI/2), 0, sd*heightY*0.26, z + sd*widthZ*0.15));
   }
-  const inner = widthZ * 0.82;
-  for (let i = 0; i < fins; i++){
-    const z = -inner/2 + (i + 0.5) * (inner / fins);
-    const tube = box(depthX * 0.94, heightY * 0.94, inner / fins * 0.42, matrix);
-    tube.position.z = z;
-    g.add(tube);
+  /* bar-and-plate matrix: a charge tube, then a folded fin block, repeated */
+  const inner = widthZ * 0.80;
+  const rows = Math.max(6, Math.round(fins * 0.45));
+  const pitch = heightY * 0.92 / rows;
+  for (let i = 0; i < rows; i++){
+    const y = -heightY * 0.46 + (i + 0.5) * pitch;
+    g.add(at(box(depthX * 0.98, pitch * 0.34, inner, body), 0, y, 0));       // the bar
+    const fin = box(depthX * 0.92, pitch * 0.52, inner, matrix);             // the fin block
+    g.add(at(fin, 0, y + pitch * 0.42, 0));
   }
-  /* top and bottom rails */
-  for (const y of [-heightY/2, heightY/2])
-    g.add(at(box(depthX * 1.0, heightY * 0.06, widthZ * 0.98, body), 0, y, 0));
+  /* the fin corrugation, which is what you actually see edge-on */
+  const n = Math.max(10, Math.round(inner / (heightY * 0.06)));
+  for (let i = 0; i < n; i++){
+    const z = -inner / 2 + (i + 0.5) * (inner / n);
+    g.add(at(box(depthX * 1.0, heightY * 0.92, inner / n * 0.30, matrix), 0, 0, z));
+  }
+  for (const y of [-heightY / 2, heightY / 2])                                // top and bottom rails
+    g.add(at(box(depthX * 1.06, heightY * 0.05, widthZ * 0.99, body), 0, y, 0));
   return g;
 }
 
@@ -1249,31 +1332,167 @@ export function coreMesh(widthZ, heightY, depthX, mats = {}, fins = 26){
 export function alternatorMesh(size){
   const g = group('alt');
   const caseM = MAT.alloyDark();
-  const front = lathe([[size*0.10,-size*0.34],[size*0.52,-size*0.34],[size*0.56,-size*0.16],[size*0.10,-size*0.16]], caseM, 24);
-  const stator = cyl(size*0.56, size*0.56, size*0.34, MAT.alloy(), 26);
-  const rear = lathe([[size*0.10,size*0.16],[size*0.54,size*0.16],[size*0.50,size*0.36],[size*0.10,size*0.36]], caseM, 24);
-  for (const m of [front, stator, rear]) rot(m, 0, 0, Math.PI/2);
-  stator.position.x = 0; front.position.x = 0; rear.position.x = 0;
-  g.add(front, stator, rear);
-  for (let i = 0; i < 14; i++){                       // cooling slots around the case
-    const a = (i/14) * TAU;
-    const slot = box(size*0.26, size*0.10, size*0.05, MAT.black());
-    slot.position.set(0, Math.cos(a)*size*0.54, Math.sin(a)*size*0.54);
-    slot.rotation.x = -a;
-    g.add(slot);
+  const R = size * 0.56;
+
+  /* the housings are the recognisable part: a ring of cast webs with cooling
+     slots cut between them, front and rear, clamped by four through-bolts */
+  const slotted = (depth, slots) => {
+    const sh = new THREE.Shape();
+    sh.absarc(0, 0, R, 0, TAU, false);
+    const bore = new THREE.Path();
+    bore.absarc(0, 0, R * 0.30, 0, TAU, true);
+    sh.holes.push(bore);
+    for (let i = 0; i < slots; i++){
+      const a0 = (i / slots) * TAU, w = (TAU / slots) * 0.46;
+      const r0 = R * 0.52, r1 = R * 0.90;
+      const h = new THREE.Path();
+      h.moveTo(Math.cos(a0 - w) * r0, Math.sin(a0 - w) * r0);
+      h.lineTo(Math.cos(a0 - w) * r1, Math.sin(a0 - w) * r1);
+      h.lineTo(Math.cos(a0 + w) * r1, Math.sin(a0 + w) * r1);
+      h.lineTo(Math.cos(a0 + w) * r0, Math.sin(a0 + w) * r0);
+      h.closePath();
+      sh.holes.push(h);
+    }
+    const geo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled:false, curveSegments:26 });
+    geo.rotateY(Math.PI / 2);
+    return new THREE.Mesh(geo, caseM);
+  };
+  const front = slotted(size * 0.13, 16); front.position.x = -size * 0.34;
+  const rear  = slotted(size * 0.13, 16); rear.position.x  =  size * 0.21;
+  g.add(front, rear);
+  /* the stator laminations showing between the two housings */
+  g.add(at(rot(cyl(R * 0.88, R * 0.88, size * 0.55, MAT.steel(), 34), 0, 0, Math.PI/2), -size*0.06, 0, 0));
+  for (const x of [-size * 0.21, size * 0.21])      // the housing rims either side of it
+    g.add(at(rot(lathe([[R*0.88, 0], [R, 0], [R, size*0.05], [R*0.88, size*0.05]], caseM, 34),
+                 0, 0, Math.PI/2), x, 0, 0));
+  /* through-bolts */
+  for (let i = 0; i < 4; i++){
+    const a0 = (i / 4) * TAU + Math.PI / 4;
+    g.add(at(rot(cyl(size*0.035, size*0.035, size*0.62, MAT.plated(), 8), 0, 0, Math.PI/2),
+             -size*0.06, Math.cos(a0) * R * 0.94, Math.sin(a0) * R * 0.94));
   }
-  const pulley = lathe([[size*0.08,-size*0.10],[size*0.34,-size*0.10],[size*0.30,0],[size*0.34,size*0.10],[size*0.08,size*0.10]],
-                       MAT.steel(), 22);
-  rot(pulley, 0, 0, Math.PI/2);
-  pulley.position.x = -size * 0.52;
-  const fan = bladedWheel(size*0.34, 9, size*0.12, MAT.steel(), 0.5);
-  rot(fan, 0, Math.PI/2, 0);
-  fan.position.x = -size * 0.38;
-  const post = cyl(size*0.07, size*0.07, size*0.14, MAT.copper(), 10);
-  post.position.set(size*0.30, size*0.44, 0);
-  g.add(pulley, fan, post);
+  /* the mounting ears: a long arm with a bushed eye, and the pivot lug */
+  g.add(at(box(size * 0.70, size * 0.11, size * 0.09, caseM), -size * 0.02, R * 0.92, 0));
+  g.add(at(rot(tubeMesh(size*0.11, size*0.055, size*0.12, caseM, 18), 0, 0, Math.PI/2),
+           size * 0.34, R * 0.94, 0));
+  g.add(at(rot(tubeMesh(size*0.12, size*0.06, size*0.20, caseM, 18), 0, 0, Math.PI/2),
+           -size * 0.30, -R * 0.92, 0));
+  /* the regulator pack and the B+ post on the back */
+  g.add(at(roundBox(size*0.14, size*0.24, size*0.28, size*0.03, MAT.plastic()), size*0.34, -R*0.55, 0));
+  g.add(at(rot(cyl(size*0.055, size*0.055, size*0.13, MAT.copper(), 10), 0, 0, Math.PI/2),
+           size * 0.36, R * 0.50, size * 0.16));
+
+  /* a black six-groove serpentine pulley and its nut */
+  const pulley = group('altpulley');
+  const p = [[size*0.10, -size*0.10]];
+  for (let i = 0; i < 6; i++){
+    const z0 = -size*0.09 + (i/6) * size*0.18, zw = size*0.18/6;
+    p.push([size*0.34, z0], [size*0.29, z0 + zw*0.5], [size*0.34, z0 + zw]);
+  }
+  p.push([size*0.10, size*0.10]);
+  const rim = lathe(p, MAT.black(), 30);
+  rot(rim, 0, 0, Math.PI/2);
+  pulley.add(rim);
+  pulley.add(at(rot(hexPrism(size*0.16, size*0.07, MAT.plated()), 0, 0, Math.PI/2), -size*0.14, 0, 0));
+  at(pulley, -size * 0.56, 0, 0);
+  g.add(pulley);
   g.userData.pulley = pulley;
   return g;
+}
+
+/** A Roots blower: the case with its cooling fins, the front snout and drive
+ *  pulley, the inlet elbow and the manifold plate it bolts down to. */
+export function superchargerMesh(len, width, height, mat){
+  const g = group('blower');
+  const m = mat || MAT.alloyDark();
+  /* the case: two overlapping rotor bores, which is why a blower is that shape */
+  const sh = new THREE.Shape();
+  const r = height * 0.34, sep = width * 0.22;
+  sh.absarc(-sep, 0, r, Math.PI * 0.5, Math.PI * 1.5, false);
+  sh.lineTo(sep, -r);
+  sh.absarc(sep, 0, r, Math.PI * 1.5, Math.PI * 0.5, false);
+  sh.closePath();
+  const geo = new THREE.ExtrudeGeometry(sh, { depth:len, bevelEnabled:false, curveSegments:22 });
+  geo.rotateY(Math.PI / 2);
+  geo.translate(-len / 2, 0, 0);
+  g.add(at(new THREE.Mesh(geo, m), 0, height * 0.30, 0));
+  /* the fin comb along the top */
+  const fins = Math.max(8, Math.round(len / (height * 0.10)));
+  for (let i = 0; i < fins; i++)
+    g.add(at(box(len / fins * 0.42, height * 0.16, width * 0.86, m),
+             -len / 2 + (i + 0.5) * (len / fins), height * 0.68, 0));
+  /* the base plate that seals to the manifold, and its bolt line */
+  g.add(at(box(len * 1.04, height * 0.07, width * 1.08, m), 0, 0, 0));
+  for (let i = 0; i < 6; i++)
+    for (const sd of [-1, 1])
+      g.add(at(hexPrism(width * 0.07, height * 0.06, MAT.plated()),
+               (i / 5 - 0.5) * len * 0.92, height * 0.07, sd * width * 0.48));
+  /* the front bearing plate, snout and drive pulley */
+  g.add(at(box(len * 0.10, height * 0.62, width * 0.94, m), -len * 0.54, height * 0.30, 0));
+  g.add(at(box(len * 0.22, height * 0.30, width * 0.42, m), -len * 0.68, height * 0.34, 0));
+  const pulley = lathe([[height*0.08, -width*0.09], [height*0.30, -width*0.09],
+                        [height*0.26, 0], [height*0.30, width*0.09], [height*0.08, width*0.09]],
+                       MAT.black(), 28);
+  rot(pulley, 0, 0, Math.PI / 2);
+  at(pulley, -len * 0.82, height * 0.34, 0);
+  g.add(pulley);
+  g.userData.pulley = pulley;
+  /* the throttle elbow feeding it at the back */
+  g.add(at(rot(cyl(height * 0.24, height * 0.24, len * 0.20, m, 22), 0, 0, Math.PI/2),
+           len * 0.58, height * 0.44, 0));
+  g.add(at(rot(cyl(height * 0.26, height * 0.26, len * 0.05, MAT.alloy(), 22), 0, 0, Math.PI/2),
+           len * 0.68, height * 0.44, 0));
+  return g;
+}
+
+/** An oil filter: the rolled can with its ribs, the base plate and the seal. */
+export function oilFilterMesh(dia, len, mat){
+  const r = dia / 2;
+  const g = group('oilfilter');
+  const m = mat || MAT.blue();
+  const p = [[0, -len * 0.5], [r * 0.94, -len * 0.5], [r, -len * 0.44]];
+  for (let i = 0; i < 5; i++){                       // the rolled ribs up the can
+    const y = -len * 0.36 + (i / 5) * len * 0.72;
+    p.push([r, y], [r * 0.95, y + len * 0.03], [r, y + len * 0.06]);
+  }
+  p.push([r, len * 0.40], [r * 0.90, len * 0.48], [r * 0.72, len * 0.50]);
+  const can = lathe(p, m, 30);
+  rot(can, 0, 0, Math.PI / 2);
+  g.add(can);
+  g.add(at(rot(lathe([[r*0.72, 0], [r*0.98, 0], [r*0.98, len*0.06], [r*0.72, len*0.06]],
+                     MAT.steel(), 30), 0, 0, Math.PI/2), len * 0.52, 0, 0));
+  g.add(at(rot(lathe([[r*0.55, 0], [r*0.86, 0], [r*0.86, len*0.03], [r*0.55, len*0.03]],
+                     MAT.gasket(), 30), 0, 0, Math.PI/2), len * 0.58, 0, 0));
+  return g;
+}
+
+/** A serpentine belt: the outer tangent path around a set of pulleys, wrapped
+ *  the way a real one runs. Pulleys are given in the front plane as
+ *  {y, z, r}; the belt is built in that plane at `x`. */
+export function serpentineBelt(pulleys, x, width, mat, thickness = width * 0.12){
+  const pts = pulleys.filter(p => p.r > 0);
+  if (pts.length < 2) return null;
+  /* the belt runs round the outside, so the path is the convex hull of the
+     pulley centres, walked anticlockwise */
+  const cx = pts.reduce((s, p) => s + p.y, 0) / pts.length;
+  const cy = pts.reduce((s, p) => s + p.z, 0) / pts.length;
+  const hull = [...pts].sort((a, b) => Math.atan2(a.z - cy, a.y - cx) - Math.atan2(b.z - cy, b.y - cx));
+  const path = [];
+  for (let i = 0; i < hull.length; i++){
+    const A = hull[i], B = hull[(i + 1) % hull.length];
+    const dy = B.y - A.y, dz = B.z - A.z;
+    const d = Math.hypot(dy, dz) || 1;
+    /* the outer common tangent between two circles */
+    const phi = Math.atan2(dz, dy) + Math.acos(Math.max(-1, Math.min(1, (A.r - B.r) / d)));
+    const nz = Math.sin(phi), ny = Math.cos(phi);
+    path.push(new THREE.Vector3(x, A.y + ny * A.r, A.z + nz * A.r));
+    path.push(new THREE.Vector3(x, B.y + ny * B.r, B.z + nz * B.r));
+  }
+  const curve = new THREE.CatmullRomCurve3(path, true, 'catmullrom', 0.02);
+  const geo = new THREE.TubeGeometry(curve, path.length * 10, thickness * 0.5, 4, true);
+  const belt = new THREE.Mesh(geo, mat || MAT.rubber());
+  belt.scale.x = width / thickness;       // wide across the pulley, thin radially
+  return belt;
 }
 
 /** A starter motor: body, solenoid on top, nose cone and drive. */
