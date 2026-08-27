@@ -97,6 +97,34 @@ def s_newyork():
                        tags=["nyc", "traffic"], page="https://webcams.nyctmc.org/"))
     return out
 
+@source("newzealand")
+def s_newzealand():
+    d = get_json("https://trafficnz.info/service/traffic/rest/4/cameras/all")
+    out = []
+    for c in (d.get("response", {}).get("camera") or []):
+        if c.get("offline") or c.get("underMaintenance"): continue
+        img = c.get("imageUrl") or ""
+        if img.startswith("/"): img = "https://trafficnz.info" + img
+        reg = (c.get("region") or {}).get("name") or ""
+        out.append(cam("nz-" + str(c.get("id")), c.get("name") or c.get("description"),
+                       c.get("latitude"), c.get("longitude"), img, "New Zealand", reg,
+                       tags=["nz", "traffic"], page="https://www.journeys.nzta.govt.nz/"))
+    return out
+
+@source("singapore")
+def s_singapore():
+    d = get_json("https://api.data.gov.sg/v1/transport/traffic-images")
+    items = d.get("items") or []
+    cams = items[0].get("cameras", []) if items else []
+    out = []
+    for c in cams:
+        loc = c.get("location") or {}
+        out.append(cam("sg-" + str(c.get("camera_id")), "Camera " + str(c.get("camera_id")),
+                       loc.get("latitude"), loc.get("longitude"), c.get("image"),
+                       "Singapore", "Singapore", tags=["singapore", "traffic"],
+                       page="https://data.gov.sg/"))
+    return out
+
 # ---------------------------------------------------------------- runner
 def main(only=None):
     os.makedirs(OUT_DIR, exist_ok=True)
