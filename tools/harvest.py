@@ -53,9 +53,11 @@ def cam(cid, name, lat, lng, image, country, city="", category="road", tags=None
 
 # ---------------------------------------------------------------- sources
 SOURCES = {}
-def source(name):
+def source(name, bundle=True):
+    """bundle=False marks sources whose image URLs expire; those are fetched
+    live in the browser instead (they all send CORS headers)."""
     def deco(fn):
-        SOURCES[name] = fn
+        if bundle: SOURCES[name] = fn
         return fn
     return deco
 
@@ -119,7 +121,7 @@ def s_newzealand():
                        tags=["nz", "traffic"], page="https://www.journeys.nzta.govt.nz/"))
     return out
 
-@source("singapore")
+@source("singapore", bundle=False)
 def s_singapore():
     d = get_json("https://api.data.gov.sg/v1/transport/traffic-images")
     items = d.get("items") or []
@@ -233,6 +235,103 @@ def s_nsw():
                        p.get("href"), "Australia", "New South Wales",
                        tags=["nsw", "australia", "traffic"],
                        page="https://www.livetraffic.com/"))
+    return out
+
+def _reproject(epsg):
+    """Return an (x,y)->(lat,lng) function, or None if pyproj is unavailable."""
+    try:
+        from pyproj import Transformer
+        t = Transformer.from_crs(epsg, "EPSG:4326", always_xy=True)
+        return lambda x, y: (lambda lon, lat: (lat, lon))(*t.transform(x, y))
+    except Exception:
+        return None
+
+@source("norway")
+def s_norway():
+    """Statens vegvesen — keyless but requires two custom headers."""
+    d = get_json("https://road-weather-and-view.atlas.vegvesen.no/weather-information/measurement-sites",
+                 {"Accept": "application/vnd.svv.v1+json; charset=utf-8", "X-System-ID": "vvtraf"})
+    out = []
+    for site in (d.get("measurementSites") or []):
+        coords = (((site.get("location") or {}).get("geometry") or {}).get("coordinates")) or []
+        if len(coords) < 2: continue
+        county = (((site.get("location") or {}).get("county")) or {}).get("name") or ""
+        for c in (site.get("cameras") or []):
+            img = c.get("stillImageUrl")
+            if not img or str(c.get("status", "OK")).upper() not in ("OK", ""): continue
+            nm = site.get("name") or "Norway camera"
+            if c.get("orientationDescription"): nm += " — " + c["orientationDescription"]
+            out.append(cam("no-" + str(c.get("id")), nm, coords[1], coords[0], img,
+                           "Norway", county, tags=["norway", "traffic"],
+                           page="https://www.vegvesen.no/trafikk/", clip=c.get("videoUrl") or None))
+    return out
+
+@source("iceland")
+def s_iceland():
+    arr = get_json("https://gagnaveita.vegagerdin.is/api/vefmyndavelar2014_1")
+    out = []
+    for i, r in enumerate(arr):
+        img = r.get("Slod")
+        if not img: continue
+        nm = r.get("Myndavel") or "Iceland camera"
+        if r.get("Skyring"): nm += " — " + r["Skyring"]
+        out.append(cam("is-%s-%d" % (r.get("Maelist_nr"), i), nm, r.get("Breidd"), r.get("Lengd"),
+                       img, "Iceland", r.get("Vegheiti") or "", tags=["iceland", "traffic"],
+                       page="https://www.vegagerdin.is/"))
+    return out
+
+@source("ireland")
+def s_ireland():
+    arr = get_json("https://iretg.carsprogram.org/cameras_v1/api/cameras")
+    out = []
+    for c in arr:
+        if c.get("active") is False or c.get("public") is False: continue
+        loc = c.get("location") or {}
+        for i, v in enumerate(c.get("views") or []):
+            if v.get("type") != "STILL_IMAGE" or not v.get("url"): continue
+            out.append(cam("ie-%s-%d" % (c.get("id"), i), v.get("name") or c.get("name"),
+                           loc.get("latitude"), loc.get("longitude"), v["url"], "Ireland",
+                           loc.get("cityReference") or loc.get("routeId") or "",
+                           tags=["ireland", "traffic"], page="https://www.tii.ie/"))
+    return out
+
+@source("lithuania")
+def s_lithuania():
+    """eismoinfo.lt — coordinates are EPSG:3346 (LKS-94), must be reprojected."""
+    proj = _reproject("EPSG:3346")
+    if not proj:
+        raise RuntimeError("pyproj required for Lithuania (pip install pyproj)")
+    arr = get_json("https://eismoinfo.lt/eismoinfo-backend/camera-info-table")
+    out = []
+    for c in arr:
+        if c.get("x") is None or c.get("y") is None: continue
+        lat, lng = proj(c["x"], c["y"])
+        img = c.get("image") or ("https://eismoinfo.lt/eismoinfo-backend/image-provider/camera/last?id=%s" % c.get("id"))
+        out.append(cam("lt-" + str(c.get("id")), c.get("name"), lat, lng, img, "Lithuania",
+                       c.get("roadName") or "", tags=["lithuania", "traffic"],
+                       page="https://eismoinfo.lt/"))
+    return out
+
+@source("switzerland")
+def s_switzerland():
+    """MeteoSwiss webcams — EPSG:2056 coords, image URL embedded in an HTML blob."""
+    import re
+    proj = _reproject("EPSG:2056")
+    if not proj:
+        raise RuntimeError("pyproj required for Switzerland")
+    d = get_json("https://data.geo.admin.ch/ch.meteoschweiz.messnetz-webcams/ch.meteoschweiz.messnetz-webcams_en.json")
+    out = []
+    for f in (d.get("features") or []):
+        coords = (f.get("geometry") or {}).get("coordinates") or []
+        p = f.get("properties") or {}
+        if len(coords) < 2: continue
+        m = re.search(r'src="(https://backend\.roundshot\.com/cams/[^"]+?)/thumbnail"', p.get("description") or "")
+        if not m: continue
+        lat, lng = proj(coords[0], coords[1])
+        out.append(cam("ch-" + str(f.get("id")), p.get("station_name"), lat, lng,
+                       m.group(1) + "/thumbnail", "Switzerland", p.get("station_name") or "",
+                       category="nature", tags=["switzerland", "weather", "alps"],
+                       page="https://www.meteoswiss.admin.ch/"))
     return out
 
 # ---------------------------------------------------------------- runner

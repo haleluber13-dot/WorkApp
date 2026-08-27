@@ -239,15 +239,61 @@
       return this._mergeProvider(cams);
     },
 
+    /** Singapore LTA — image URLs carry a per-refresh UUID, so they must be
+     *  fetched live rather than bundled. Sends CORS headers. */
+    async loadSingapore() {
+      const res = await fetch("https://api.data.gov.sg/v1/transport/traffic-images");
+      if (!res.ok) throw new Error("Singapore API " + res.status);
+      const d = await res.json();
+      const list = ((d.items || [])[0] || {}).cameras || [];
+      return this._mergeProvider(list.map((c) => {
+        const loc = c.location || {};
+        return {
+          id: "sg-" + c.camera_id, name: "Singapore camera " + c.camera_id,
+          category: "road", city: "Singapore", country: "Singapore",
+          lat: loc.latitude, lng: loc.longitude, tags: ["singapore", "traffic"],
+          source: { type: "image", url: c.image }, thumb: c.image,
+          page: "https://data.gov.sg/", _origin: "live"
+        };
+      }).filter((c) => c.lat != null && c.source.url));
+    },
+
+    /** Estonia Transpordiamet — image paths embed a timestamp that changes on
+     *  every update, so these are fetched live too. Sends CORS headers. */
+    async loadEstonia() {
+      const url = "https://tarktee.transpordiamet.ee/tarktee/rest/services/tram/road_cameras/" +
+                  "MapServer/0/query?where=1%3D1&outFields=*&outSR=4326&f=json";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Estonia API " + res.status);
+      const d = await res.json();
+      return this._mergeProvider((d.features || []).map((f) => {
+        const a = f.attributes || {}, g = f.geometry || {};
+        if (!a.image_path || g.y == null) return null;
+        return {
+          id: "ee-" + a.objectid, name: a.site_name || "Estonia camera",
+          category: "road", city: a.site_name || "", country: "Estonia",
+          lat: g.y, lng: g.x, tags: ["estonia", "traffic"],
+          source: { type: "image", url: "https://tarktee.transpordiamet.ee/images/" + a.image_path },
+          thumb: "https://tarktee.transpordiamet.ee/images/" + a.image_path,
+          page: "https://tarktee.transpordiamet.ee/", _origin: "live"
+        };
+      }).filter(Boolean));
+    },
+
     /** Load everything available on startup. Errors per-provider are non-fatal. */
     async autoBootstrap(onProgress) {
       let total = 0;
       // 1) the bundled worldwide dataset — the main source
       try { const n = await this.loadBundle(); total += n; if (onProgress) onProgress("worldwide", n, null); }
       catch (e) { if (onProgress) onProgress("worldwide", 0, e); }
-      // 2) live-refreshing APIs that do send CORS headers, for freshest coverage
-      try { const n = await this.loadTfL(); if (onProgress) onProgress("London live", n, null); }
-      catch (_) { /* bundled London still present */ }
+      // 2) CORS-enabled sources fetched live: either for freshness, or because
+      //    their image URLs expire and cannot be bundled at all.
+      const live = [["London", () => this.loadTfL()], ["Singapore", () => this.loadSingapore()],
+                    ["Estonia", () => this.loadEstonia()]];
+      await Promise.all(live.map(async ([name, fn]) => {
+        try { const n = await fn(); total += n; if (onProgress) onProgress(name, n, null); }
+        catch (_) { /* non-fatal: bundled data still shows */ }
+      }));
       return total;
     },
 
