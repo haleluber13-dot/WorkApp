@@ -1,0 +1,20 @@
+{
+  "name": "תלוש כיס — שעות, שכר והוצאות",
+  "short_name": "תלוש כיס",
+  "description": "מעקב משמרות, חישוב שכר לפי חוק ומעקב הוצאות — נשמר במכשיר, עובד גם בלי אינטרנט.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F7F0",
+  "theme_color": "#F5F7F0",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
