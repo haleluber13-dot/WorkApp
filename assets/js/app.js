@@ -89,10 +89,23 @@
     if (window.GlobeView) GlobeView.init($("#globe"), { onSelect: (id) => UI.openFocus(id) });
     Store.onChange(refresh);
     refresh();
+    loadLiveCameras();
     // PWA
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
+  }
+
+  // Auto-load real, working public cameras (keyless providers) as soon as the app opens.
+  async function loadLiveCameras() {
+    UI.toast("Loading live cameras…");
+    try {
+      const n = await Store.autoBootstrap((name, count, err) => {
+        if (!err && count) UI.toast("Loaded " + count + " " + name + " cameras");
+      });
+      UI.toast(n > 0 ? ("Live: " + Store.all().length + " cameras online") :
+        "Couldn't reach camera providers — check your connection or add feeds in ⚙", n === 0);
+    } catch (_) { /* offline / blocked — seed cameras still show */ }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
