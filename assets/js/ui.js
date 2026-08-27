@@ -122,7 +122,8 @@
   }
 
   /* -------- Live wall (self-refreshing mosaic) -------- */
-  const WALL_LIMIT = 140;                    // tiles rendered at once (globe shows all)
+  // tiles rendered at once; the dense grid view fits many more on screen.
+  function wallLimit(){ return document.body.dataset.view === "grid" ? 320 : 140; }
   let liveTimer = null, liveObserver = null;
   const liveVisible = new Set();
   function isLiveTile(cam){ return cam.source && cam.source.type === "image" && cam.source.url; }
@@ -132,10 +133,11 @@
     const c = catOf(cam.category); const fav = Store.favorites.has(cam.id);
     const live = isLiveTile(cam); const p = poster(cam);
     const media = live
-      ? '<img class="tile__img live" data-live="'+attr(cam.source.url)+'" loading="lazy" alt="'+attr(cam.name)+'" onerror="this.classList.add(\'broken\')">'
-      : (p ? '<img class="tile__img" loading="lazy" src="'+attr(p)+'" alt="'+attr(cam.name)+'" onerror="this.classList.add(\'broken\')">' : '');
+      ? '<img class="tile__img live" data-live="'+attr(cam.source.url)+'" loading="lazy" alt="'+attr(cam.name)+'">'
+      : (p ? '<img class="tile__img" loading="lazy" src="'+attr(p)+'" alt="'+attr(cam.name)+'">' : '');
     return '<article class="tile'+(live?" is-live":"")+'" data-id="'+attr(cam.id)+'" tabindex="0" style="--cat:'+c.color+'">'+
       '<div class="tile__media">'+ media +
+        '<span class="tile__spin" aria-hidden="true"></span>'+
         '<span class="tile__live">LIVE</span>'+
         '<button class="tile__fav'+(fav?" on":"")+'" data-fav="'+attr(cam.id)+'" title="Favorite" aria-label="Favorite">'+(fav?"★":"☆")+'</button>'+
         '<span class="tile__cat">'+c.icon+'</span>'+
@@ -145,32 +147,47 @@
     '</article>';
   }
 
-  function renderWall(cams){
+  function renderWall(cams, opts){
+    opts = opts || {};
     const wall = $("#wall");
-    const total = cams.length;
-    $("#wallCount").textContent = total > WALL_LIMIT ? (WALL_LIMIT + " / " + total) : (total + " live");
+    const total = cams.length, WALL_LIMIT = wallLimit() * Math.max(1, opts.page || 1);
+    $("#wallCount").textContent = total > WALL_LIMIT ? (WALL_LIMIT.toLocaleString() + " / " + total.toLocaleString()) : (total.toLocaleString() + " live");
     if (!total){ teardownLive(); wall.innerHTML = '<p class="empty">No live cameras yet. Try clearing filters, or open ⚙ Settings to load a provider.</p>'; return; }
-    // Show self-refreshing live feeds first, then favorites, so working cameras lead
-    const ordered = cams.slice().sort((a, b) => {
+    // Show self-refreshing live feeds first, then favorites, so working cameras
+    // lead. When the caller already sorted (e.g. nearest-first), keep that order.
+    const ordered = opts.nearFirst ? cams : cams.slice().sort((a, b) => {
       const la = isLiveTile(a) ? 1 : 0, lb = isLiveTile(b) ? 1 : 0;
       if (la !== lb) return lb - la;
       return (Store.favorites.has(b.id) ? 1 : 0) - (Store.favorites.has(a.id) ? 1 : 0);
     });
     const shown = ordered.slice(0, WALL_LIMIT);
     wall.innerHTML = shown.map(tile).join("") +
-      (total > WALL_LIMIT ? '<p class="wallmore">Showing '+WALL_LIMIT+' of '+total+' live feeds — search, filter, or use the globe to see the rest.</p>' : '');
+      (total > WALL_LIMIT ? '<div class="wallmore"><button class="btn btn--primary" id="btnMore">'+
+        'Load more cameras</button><p>Showing '+WALL_LIMIT.toLocaleString()+' of '+total.toLocaleString()+
+        ' live feeds</p></div>' : '');
     setupLive(wall);
   }
 
   function setupLive(wall){
     teardownLive();
-    const imgs = $$(".tile__img.live", wall);
-    imgs.forEach((im) => { im.src = bust(im.dataset.live); });      // first frame now
+    const imgs = $$(".tile__img", wall);
+    imgs.forEach((im) => {
+      const t = im.closest(".tile");
+      im.addEventListener("load", () => {
+        t.classList.remove("is-offline"); t.classList.add("is-loaded");
+      });
+      im.addEventListener("error", () => {
+        t.classList.add("is-offline"); t.classList.remove("is-loaded");
+      });
+      if (im.classList.contains("live")) im.src = bust(im.dataset.live);   // first frame now
+    });
+    const live = imgs.filter((im) => im.classList.contains("live"));
     liveObserver = new IntersectionObserver((entries) => {
       entries.forEach((e) => { if (e.isIntersecting) liveVisible.add(e.target); else liveVisible.delete(e.target); });
     }, { root: wall, rootMargin: "150px" });
-    imgs.forEach((im) => liveObserver.observe(im));
+    live.forEach((im) => liveObserver.observe(im));
     liveTimer = setInterval(() => {
+      if (document.hidden) return;                                   // don't burn data in the background
       liveVisible.forEach((im) => { if (im.isConnected) im.src = bust(im.dataset.live); });
     }, 5000);                                                        // refresh only what's on screen
   }

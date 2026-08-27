@@ -4,7 +4,17 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
 
-  const state = { query: "", cats: new Set(), favOnly: false, view: "split", country: "" };
+  const state = { query: "", cats: new Set(), favOnly: false, view: "split",
+                  country: "", near: null, page: 1 };
+
+  /** Great-circle distance in km (haversine). */
+  function distKm(aLat, aLng, bLat, bLng) {
+    const R = 6371, r = Math.PI / 180;
+    const dLat = (bLat - aLat) * r, dLng = (bLng - aLng) * r;
+    const s = Math.sin(dLat / 2) ** 2 +
+              Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+  }
 
   function currentList() {
     return Store.filter({ query: state.query, cats: state.cats, favOnly: state.favOnly })
@@ -12,9 +22,14 @@
   }
 
   function refresh() {
-    const list = Store.filter({ query: state.query, cats: state.cats,
-                               favOnly: state.favOnly, country: state.country });
-    UI.renderWall(list);
+    let list = Store.filter({ query: state.query, cats: state.cats,
+                              favOnly: state.favOnly, country: state.country });
+    if (state.near) {                                  // nearest-first ordering
+      const n = state.near;
+      list = list.slice().sort((a, b) =>
+        distKm(n.lat, n.lng, a.lat, a.lng) - distKm(n.lat, n.lng, b.lat, b.lng));
+    }
+    UI.renderWall(list, { page: state.page, nearFirst: !!state.near });
     if (window.GlobeView) GlobeView.setData(list.filter((c) => c.lat != null));
     $("#statTotal").textContent = Store.all().length.toLocaleString();
     $("#statFav").textContent = Store.favorites.size;
@@ -45,15 +60,16 @@
       const id = b.dataset.cat;
       if (state.cats.has(id)) state.cats.delete(id); else state.cats.add(id);
       b.classList.toggle("on");
+      state.page = 1;
       refresh();
     });
   }
 
   function setView(v) {
     state.view = v;
-    document.body.dataset.view = v;
+    document.body.dataset.view = v;                 // must be set before refresh: wall size depends on it
     $$(".viewbtn").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
-    if (window.GlobeView) setTimeout(() => GlobeView.resize(), 60);
+    if (window.GlobeView && v !== "wall" && v !== "grid") setTimeout(() => GlobeView.resize(), 60);
     refresh();
   }
 
@@ -62,7 +78,7 @@
     let t;
     $("#search").addEventListener("input", (e) => {
       clearTimeout(t); const v = e.target.value;
-      t = setTimeout(() => { state.query = v; refresh(); }, 140);
+      t = setTimeout(() => { state.query = v; state.page = 1; refresh(); }, 140);
     });
     $("#search").addEventListener("keydown", (e) => {
       if (e.key === "Enter") { const first = currentList()[0]; if (first) UI.openFocus(first.id); }
@@ -91,8 +107,41 @@
         if (el && el.classList && el.classList.contains("tile")) UI.openFocus(el.dataset.id); }
     });
 
+    // Load more / near me / shuffle
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("#btnMore")) { state.page++; refresh(); }
+    });
+
+    $("#btnNear").addEventListener("click", (e) => {
+      const btn = e.currentTarget;
+      if (state.near) {                                  // toggle off
+        state.near = null; btn.classList.remove("on"); state.page = 1; refresh();
+        UI.toast("Showing all cameras"); return;
+      }
+      if (!navigator.geolocation) { UI.toast("Location isn't available on this device", true); return; }
+      UI.toast("Finding cameras near you…");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          state.near = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          state.page = 1; btn.classList.add("on"); refresh();
+          UI.toast("Sorted by distance from you");
+          if (window.GlobeView) GlobeView.focus(state.near);
+        },
+        () => UI.toast("Couldn't get your location — check location permission", true),
+        { timeout: 10000, maximumAge: 300000 }
+      );
+    });
+
+    $("#btnShuffle").addEventListener("click", () => {
+      const list = Store.filter({ query: state.query, cats: state.cats,
+                                  favOnly: state.favOnly, country: state.country });
+      if (!list.length) { UI.toast("No cameras to pick from", true); return; }
+      UI.openFocus(list[Math.floor(Math.random() * list.length)].id);
+    });
+
     $("#countrySel").addEventListener("change", (e) => {
       state.country = e.target.value;
+      state.page = 1;
       refresh();
       // fly the globe to that country's cameras
       if (state.country && window.GlobeView) {
