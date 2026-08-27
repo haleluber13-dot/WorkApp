@@ -4,7 +4,7 @@
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.prototype.slice.call((r || document).querySelectorAll(s));
 
-  const state = { query: "", cats: new Set(), favOnly: false, view: "split" };
+  const state = { query: "", cats: new Set(), favOnly: false, view: "split", country: "" };
 
   function currentList() {
     return Store.filter({ query: state.query, cats: state.cats, favOnly: state.favOnly })
@@ -12,12 +12,28 @@
   }
 
   function refresh() {
-    const list = Store.filter({ query: state.query, cats: state.cats, favOnly: state.favOnly });
+    const list = Store.filter({ query: state.query, cats: state.cats,
+                               favOnly: state.favOnly, country: state.country });
     UI.renderWall(list);
     if (window.GlobeView) GlobeView.setData(list.filter((c) => c.lat != null));
-    $("#statTotal").textContent = Store.all().length;
+    $("#statTotal").textContent = Store.all().length.toLocaleString();
     $("#statFav").textContent = Store.favorites.size;
+    syncCountries();
   }
+
+  let countrySig = "";
+  function syncCountries() {
+    const list = Store.countryList();
+    const sig = list.map((c) => c.country + c.count).join("|");
+    if (sig === countrySig) return;                       // rebuild only when the set changes
+    countrySig = sig;
+    const sel = $("#countrySel");
+    const cur = state.country;
+    sel.innerHTML = '<option value="">🌍 All countries (' + Store.all().length.toLocaleString() + ')</option>' +
+      list.map((c) => '<option value="' + esc(c.country) + '"' + (c.country === cur ? " selected" : "") +
+        '>' + esc(c.country) + " (" + c.count.toLocaleString() + ")</option>").join("");
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
 
   function buildCategoryBar() {
     const bar = $("#catbar");
@@ -75,6 +91,19 @@
         if (el && el.classList && el.classList.contains("tile")) UI.openFocus(el.dataset.id); }
     });
 
+    $("#countrySel").addEventListener("change", (e) => {
+      state.country = e.target.value;
+      refresh();
+      // fly the globe to that country's cameras
+      if (state.country && window.GlobeView) {
+        const cams = Store.filter({ country: state.country }).filter((c) => c.lat != null);
+        if (cams.length) {
+          const lat = cams.reduce((s, c) => s + c.lat, 0) / cams.length;
+          const lng = cams.reduce((s, c) => s + c.lng, 0) / cams.length;
+          GlobeView.focus({ lat: lat, lng: lng });
+        }
+      }
+    });
     $("#btnAdd").addEventListener("click", () => UI.openEditor());
     $("#btnSettings").addEventListener("click", () => UI.openSettings());
     $("#btnFav").addEventListener("click", (e) => {

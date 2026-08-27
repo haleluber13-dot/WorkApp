@@ -30,13 +30,13 @@ window.CATEGORIES = [
 
 window.SEED_CAMERAS = [
   // --- Iconic city / street ---
-  { id:"s-times-square", name:"Times Square", category:"street", city:"New York", country:"USA",
+  { id:"s-times-square", name:"Times Square", category:"street", city:"New York", country:"United States",
     lat:40.7580, lng:-73.9855, tags:["nyc","street","24/7"],
     source:{type:"youtube", id:"eJ7ZkQ5TC08"}, page:"https://www.earthcam.com/usa/newyork/timessquare/" },
   { id:"s-shibuya", name:"Shibuya Crossing", category:"street", city:"Tokyo", country:"Japan",
     lat:35.6595, lng:139.7004, tags:["tokyo","crossing"],
     source:{type:"youtube", id:"Bp-x8gFAQR8"}, page:"https://www.youtube.com/results?search_query=shibuya+crossing+live" },
-  { id:"s-abbeyroad", name:"Abbey Road Crossing", category:"street", city:"London", country:"UK",
+  { id:"s-abbeyroad", name:"Abbey Road Crossing", category:"street", city:"London", country:"United Kingdom",
     lat:51.5320, lng:-0.1779, tags:["london","beatles"],
     source:{type:"iframe", url:"https://www.abbeyroad.com/crossing"}, page:"https://www.abbeyroad.com/crossing" },
   { id:"s-venice", name:"Rialto / Grand Canal", category:"street", city:"Venice", country:"Italy",
@@ -44,10 +44,10 @@ window.SEED_CAMERAS = [
     source:{type:"youtube", id:"7_2fnyPmk-o"}, page:"https://www.skylinewebcams.com/en/webcam/italia/veneto/venezia.html" },
 
   // --- Roads & traffic ---
-  { id:"r-tower-bridge", name:"Tower Bridge Traffic", category:"road", city:"London", country:"UK",
+  { id:"r-tower-bridge", name:"Tower Bridge Traffic", category:"road", city:"London", country:"United Kingdom",
     lat:51.5055, lng:-0.0754, tags:["bridge","traffic"],
     source:{type:"youtube", id:"Nyw3wThZ2Kk"}, page:"https://www.youtube.com/results?search_query=london+traffic+live" },
-  { id:"r-la-101", name:"US-101 Los Angeles", category:"road", city:"Los Angeles", country:"USA",
+  { id:"r-la-101", name:"US-101 Los Angeles", category:"road", city:"Los Angeles", country:"United States",
     lat:34.0928, lng:-118.3287, tags:["freeway","caltrans"],
     source:{type:"iframe", url:"https://cwwp2.dot.ca.gov/vm/loc/d7/vids.htm"}, page:"https://cwwp2.dot.ca.gov/vm/streamlist.htm" },
   { id:"r-gothard", name:"Gotthard Tunnel Approach", category:"road", city:"Göschenen", country:"Switzerland",
@@ -55,7 +55,7 @@ window.SEED_CAMERAS = [
     source:{type:"iframe", url:"https://www.tcs.ch/en/testing-rating/traffic-info/webcams.php"}, page:"https://www.tcs.ch/" },
 
   // --- Airports ---
-  { id:"a-lax", name:"LAX Approach", category:"airport", city:"Los Angeles", country:"USA",
+  { id:"a-lax", name:"LAX Approach", category:"airport", city:"Los Angeles", country:"United States",
     lat:33.9416, lng:-118.4085, tags:["aviation","spotting"],
     source:{type:"youtube", id:"j9U8bkL1D1o"}, page:"https://www.airport-webcams.net/" },
   { id:"a-sxm", name:"Princess Juliana (SXM)", category:"airport", city:"Maho Beach", country:"Sint Maarten",
@@ -72,7 +72,7 @@ window.SEED_CAMERAS = [
   { id:"h-rotterdam", name:"Port of Rotterdam", category:"sea", city:"Rotterdam", country:"Netherlands",
     lat:51.9490, lng:4.1400, tags:["cargo","shipping"],
     source:{type:"iframe", url:"https://www.portofrotterdam.com/en/experience-online"}, page:"https://www.portofrotterdam.com/" },
-  { id:"h-monterey", name:"Monterey Bay (open ocean)", category:"sea", city:"Monterey", country:"USA",
+  { id:"h-monterey", name:"Monterey Bay (open ocean)", category:"sea", city:"Monterey", country:"United States",
     lat:36.6020, lng:-121.9010, tags:["ocean","mbari"],
     source:{type:"youtube", id:"5rL2klZukfw"}, page:"https://www.mbari.org/" },
 
@@ -80,7 +80,7 @@ window.SEED_CAMERAS = [
   { id:"sk-eiffel", name:"Eiffel Tower Skyline", category:"air", city:"Paris", country:"France",
     lat:48.8584, lng:2.2945, tags:["skyline","paris"],
     source:{type:"iframe", url:"https://www.skylinewebcams.com/en/webcam/france/ile-de-france/paris/tour-eiffel.html"}, page:"https://www.skylinewebcams.com/" },
-  { id:"sk-vegas", name:"Las Vegas Strip Skyline", category:"air", city:"Las Vegas", country:"USA",
+  { id:"sk-vegas", name:"Las Vegas Strip Skyline", category:"air", city:"Las Vegas", country:"United States",
     lat:36.1147, lng:-115.1728, tags:["strip","skyline"],
     source:{type:"youtube", id:"Ck6Mg518HgQ"}, page:"https://www.earthcam.com/usa/nevada/lasvegas/" },
 
@@ -93,7 +93,7 @@ window.SEED_CAMERAS = [
     source:{type:"youtube", id:"1MFXjNViuP8"}, page:"https://www.skylinewebcams.com/" },
 
   // --- Nature & wild ---
-  { id:"n-katmai", name:"Brooks Falls Bears", category:"nature", city:"Katmai NP", country:"USA",
+  { id:"n-katmai", name:"Brooks Falls Bears", category:"nature", city:"Katmai NP", country:"United States",
     lat:58.5570, lng:-155.7790, tags:["bears","explore.org"],
     source:{type:"youtube", id:"5infjWzo6iw"}, page:"https://explore.org/livecams" },
   { id:"n-aurora", name:"Churchill Aurora", category:"nature", city:"Churchill", country:"Canada",

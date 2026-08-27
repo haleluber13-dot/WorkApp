@@ -55,12 +55,21 @@
 
     get(id) { return this.all().find((c) => c.id === id); },
 
-    filter({ query = "", cats = null, favOnly = false } = {}) {
+    /** Countries present in the loaded set, with counts, most cameras first. */
+    countryList() {
+      const counts = {};
+      this.all().forEach((c) => { if (c.country) counts[c.country] = (counts[c.country] || 0) + 1; });
+      return Object.keys(counts).map((k) => ({ country: k, count: counts[k] }))
+        .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country));
+    },
+
+    filter({ query = "", cats = null, favOnly = false, country = null } = {}) {
       const q = query.trim().toLowerCase();
       const catSet = cats && cats.size ? cats : null;
       return this.all().filter((c) => {
         if (favOnly && !this.favorites.has(c.id)) return false;
         if (catSet && !catSet.has(c.category)) return false;
+        if (country && c.country !== country) return false;
         if (!q) return true;
         const hay = [c.name, c.city, c.country, c.category, (c.tags || []).join(" ")]
           .join(" ").toLowerCase();
@@ -181,12 +190,21 @@
       return this._mergeProvider(cams);
     },
 
-    /** Load New York City DOT traffic cameras — no key needed. */
+    /** Load New York City DOT traffic cameras — no key needed.
+     *  NYC's API sends no CORS header, so the camera list ships as a static file
+     *  in this repo; the image URLs still point at NYC's live endpoint. */
     async loadNYC() {
-      const res = await fetch("https://webcams.nyctmc.org/api/cameras/");
-      if (!res.ok) throw new Error("NYC DOT API error " + res.status);
-      const arr = await res.json();
-      const list = Array.isArray(arr) ? arr : (arr.cameras || arr.data || []);
+      let list;
+      try {
+        const res = await fetch("./data/nyc-cameras.json");
+        if (!res.ok) throw new Error("local list " + res.status);
+        list = await res.json();
+      } catch (_) {
+        const res = await fetch("https://webcams.nyctmc.org/api/cameras/");
+        if (!res.ok) throw new Error("NYC DOT API error " + res.status);
+        const arr = await res.json();
+        list = Array.isArray(arr) ? arr : (arr.cameras || arr.data || []);
+      }
       const cams = list.map((c) => {
         if (String(c.isOnline) === "false") return null;
         const img = c.imageUrl || (c.id ? ("https://webcams.nyctmc.org/api/cameras/" + c.id + "/image") : null);
@@ -202,14 +220,34 @@
       return this._mergeProvider(cams);
     },
 
-    /** Load all keyless providers on startup. Errors per-provider are non-fatal. */
-    async autoBootstrap(onProgress) {
-      const providers = [["London traffic", () => this.loadTfL()], ["New York traffic", () => this.loadNYC()]];
-      let total = 0;
-      await Promise.all(providers.map(async ([name, fn]) => {
-        try { const n = await fn(); total += n; if (onProgress) onProgress(name, n, null); }
-        catch (e) { if (onProgress) onProgress(name, 0, e); }
+    /** Load the bundled worldwide camera dataset (built by tools/harvest.py).
+     *  Shipping it as a static file avoids the CORS wall on most government APIs —
+     *  only the image URLs are hit from the browser, and images never need CORS. */
+    async loadBundle() {
+      const res = await fetch("./data/cameras.json");
+      if (!res.ok) throw new Error("camera dataset " + res.status);
+      const data = await res.json();
+      const cams = (data.cameras || []).map((c) => ({
+        id: c.id, name: c.name, category: c.category || "road",
+        city: c.city || "", country: c.country || "",
+        lat: c.lat, lng: c.lng, tags: c.tags || [],
+        source: { type: "image", url: c.image },
+        clip: c.clip || null, thumb: c.image, page: c.page || null,
+        _origin: "bundle"
       }));
+      this.countries = data.countries || {};
+      return this._mergeProvider(cams);
+    },
+
+    /** Load everything available on startup. Errors per-provider are non-fatal. */
+    async autoBootstrap(onProgress) {
+      let total = 0;
+      // 1) the bundled worldwide dataset — the main source
+      try { const n = await this.loadBundle(); total += n; if (onProgress) onProgress("worldwide", n, null); }
+      catch (e) { if (onProgress) onProgress("worldwide", 0, e); }
+      // 2) live-refreshing APIs that do send CORS headers, for freshest coverage
+      try { const n = await this.loadTfL(); if (onProgress) onProgress("London live", n, null); }
+      catch (_) { /* bundled London still present */ }
       return total;
     },
 

@@ -45,10 +45,14 @@
       this.world.width(this.el.clientWidth).height(this.el.clientHeight);
     },
 
+    // Rendering tens of thousands of points stalls WebGL; thin them spatially so
+    // the globe stays smooth while keeping worldwide spread.
+    MAX_POINTS: 4000,
+
     setData(cams) {
       this._data = cams;
       if (!this.world) { this._fallback(); return; }
-      this.world.pointsData(cams);
+      this.world.pointsData(thin(cams, this.MAX_POINTS));
     },
 
     setAutoRotate(on) { if (this.world) this.world.controls().autoRotate = !!on; },
@@ -72,6 +76,33 @@
         'search, and all controls still work below.</div>';
     }
   };
+
+  /** Keep at most `max` points, spread evenly over the world via a lat/lng grid. */
+  function thin(cams, max) {
+    if (cams.length <= max) return cams;
+    const cells = new Map();
+    // grid fine enough that `max` cells can plausibly be filled
+    const step = Math.max(0.25, 180 / Math.sqrt(max * 2));
+    // no early break: scan every camera so the grid covers the whole world,
+    // otherwise the result is biased to whichever region comes first in the list
+    for (const c of cams) {
+      const key = Math.round(c.lat / step) + ":" + Math.round(c.lng / step);
+      if (!cells.has(key)) cells.set(key, c);
+    }
+    let out = Array.from(cells.values());
+    if (out.length > max) {                       // still dense: take an even stride
+      const stride = out.length / max, picked = [];
+      for (let i = 0; picked.length < max && Math.floor(i) < out.length; i += stride) picked.push(out[Math.floor(i)]);
+      out = picked;
+    } else if (out.length < max) {                // grid under-filled: top up
+      const chosen = new Set(out.map((c) => c.id));
+      for (const c of cams) {
+        if (out.length >= max) break;
+        if (!chosen.has(c.id)) { out.push(c); chosen.add(c.id); }
+      }
+    }
+    return out;
+  }
 
   function labelHTML(d) {
     const cat = (window.CATEGORIES || []).find((c) => c.id === d.category);
