@@ -1,4 +1,4 @@
-const CACHE = "globewatch-v5";
+const CACHE = "globewatch-v6";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest",
   "./assets/css/style.css",
@@ -6,7 +6,7 @@ const SHELL = [
   "./assets/js/ui.js", "./assets/js/app.js",
   "./assets/vendor/globe.gl.min.js", "./assets/vendor/hls.min.js", "./assets/vendor/dash.all.min.js",
   "./assets/vendor/img/earth-night.jpg", "./assets/vendor/img/earth-topology.png",
-  "./assets/icons/icon.svg"
+  "./assets/icons/icon.svg", "./data/cameras.json"
 ];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

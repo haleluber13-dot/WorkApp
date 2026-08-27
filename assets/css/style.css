@@ -45,8 +45,13 @@ button{font:inherit;cursor:pointer}
 .iconbtn--primary:hover{color:#032033;filter:brightness(1.08)}
 
 /* Category bar */
-.catbar{height:var(--catbar);display:flex;gap:8px;align-items:center;padding:0 14px;overflow-x:auto;
-  background:rgba(8,12,22,.7);border-bottom:1px solid var(--line);scrollbar-width:thin;position:relative;z-index:15}
+.filterbar{height:var(--catbar);display:flex;gap:10px;align-items:center;padding:0 14px;
+  background:rgba(8,12,22,.7);border-bottom:1px solid var(--line);position:relative;z-index:15}
+.catbar{display:flex;gap:8px;align-items:center;overflow-x:auto;flex:1;scrollbar-width:thin;height:100%}
+.countrysel{flex:0 0 auto;max-width:210px;background:var(--panel);border:1px solid var(--line2);
+  color:var(--text);padding:7px 10px;border-radius:999px;font-size:13px;outline:none}
+.countrysel:focus{border-color:var(--accent)}
+.countrysel option{background:var(--panel);color:var(--text)}
 .cat{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;padding:6px 13px;border-radius:999px;
   border:1px solid var(--line2);background:var(--panel);color:var(--muted);font-size:13px;transition:.15s}
 .cat span{font-size:14px}
