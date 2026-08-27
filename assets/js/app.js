@@ -51,9 +51,9 @@
 
   function setView(v) {
     state.view = v;
-    document.body.dataset.view = v;
+    document.body.dataset.view = v;                 // must be set before refresh: wall size depends on it
     $$(".viewbtn").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
-    if (window.GlobeView) setTimeout(() => GlobeView.resize(), 60);
+    if (window.GlobeView && v !== "wall" && v !== "grid") setTimeout(() => GlobeView.resize(), 60);
     refresh();
   }
 
