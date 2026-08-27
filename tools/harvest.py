@@ -14,15 +14,23 @@ UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.3
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "data")
 
-def get(url, headers=None, timeout=45):
+def get(url, headers=None, timeout=45, tries=3):
     h = {"User-Agent": UA, "Accept": "application/json,*/*", "Accept-Encoding": "gzip"}
     if headers: h.update(headers)
-    req = urllib.request.Request(url, headers=h)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        raw = r.read()
-        if r.headers.get("Content-Encoding") == "gzip":
-            raw = gzip.decompress(raw)
-        return raw
+    last = None
+    for attempt in range(tries):
+        try:
+            req = urllib.request.Request(url, headers=h)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                raw = r.read()
+                if r.headers.get("Content-Encoding") == "gzip":
+                    raw = gzip.decompress(raw)
+                return raw
+        except Exception as e:          # transient resets are common on these hosts
+            last = e
+            if attempt < tries - 1:
+                time.sleep(2 * (attempt + 1))
+    raise last
 
 def get_json(url, headers=None, timeout=45):
     return json.loads(get(url, headers, timeout).decode("utf-8", "replace"))
@@ -123,6 +131,108 @@ def s_singapore():
                        loc.get("latitude"), loc.get("longitude"), c.get("image"),
                        "Singapore", "Singapore", tags=["singapore", "traffic"],
                        page="https://data.gov.sg/"))
+    return out
+
+@source("california")
+def s_california():
+    """Caltrans CWWP2 — 12 districts, ~3500 cameras."""
+    out = []
+    for n in range(1, 13):
+        url = "https://cwwp2.dot.ca.gov/data/d%d/cctv/cctvStatusD%02d.json" % (n, n)
+        try: d = get_json(url)
+        except Exception: continue
+        for row in (d.get("data") or []):
+            c = row.get("cctv") or {}
+            if str(c.get("inService")).lower() != "true": continue
+            loc = c.get("location") or {}
+            img = (((c.get("imageData") or {}).get("static") or {}).get("currentImageURL"))
+            if not img: continue
+            nm = loc.get("locationName") or loc.get("nearbyPlace") or "Caltrans camera"
+            out.append(cam("ca-d%d-%s" % (n, c.get("index")), nm,
+                           loc.get("latitude"), loc.get("longitude"), img,
+                           "United States", loc.get("county") or loc.get("nearbyPlace") or "California",
+                           tags=["california", "caltrans", "traffic"],
+                           page="https://cwwp2.dot.ca.gov/vm/streamlist.htm"))
+    return out
+
+@source("hongkong")
+def s_hongkong():
+    """Hong Kong Transport Department — XML feed, ~1000 cameras."""
+    import xml.etree.ElementTree as ET
+    raw = get("https://static.data.gov.hk/td/traffic-snapshot-images/code/Traffic_Camera_Locations_En.xml")
+    root = ET.fromstring(raw)
+    out = []
+    for im in root.iter("image"):
+        g = lambda t: (im.findtext(t) or "").strip()
+        img = g("url") or ("https://tdcctv.data.one.gov.hk/%s.JPG" % g("key"))
+        out.append(cam("hk-" + g("key"), g("description") or g("key"),
+                       g("latitude"), g("longitude"), img, "Hong Kong",
+                       g("district") or g("region"), tags=["hongkong", "traffic"],
+                       page="https://data.gov.hk/"))
+    return out
+
+@source("ontario")
+def s_ontario():
+    """Ontario 511 — each camera site exposes several views."""
+    arr = get_json("https://511on.ca/api/v2/get/cameras")
+    out = []
+    for c in arr:
+        for v in (c.get("Views") or []):
+            if str(v.get("Status")).lower() != "enabled": continue
+            u = v.get("Url")
+            if not u: continue
+            nm = c.get("Location") or "Ontario camera"
+            if v.get("Description"): nm += " — " + v["Description"]
+            out.append(cam("on-%s-%s" % (c.get("Id"), v.get("Id")), nm,
+                           c.get("Latitude"), c.get("Longitude"), u, "Canada", "Ontario",
+                           tags=["ontario", "canada", "traffic"], page="https://511on.ca/"))
+    return out
+
+@source("britishcolumbia")
+def s_bc():
+    arr = get_json("https://www.drivebc.ca/api/webcams/")
+    out = []
+    for c in arr:
+        if not c.get("is_on") or not c.get("should_appear"): continue
+        coords = ((c.get("location") or {}).get("coordinates")) or []
+        if len(coords) < 2: continue
+        out.append(cam("bc-" + str(c.get("id")), c.get("name") or c.get("caption"),
+                       coords[1], coords[0],
+                       "https://www.drivebc.ca/images/%s.jpg" % c.get("id"),
+                       "Canada", c.get("region_name") or "British Columbia",
+                       tags=["bc", "canada", "traffic"], page="https://www.drivebc.ca/"))
+    return out
+
+@source("oregon")
+def s_oregon():
+    """ODOT TripCheck — .js extension but pure JSON; needs Accept: */*."""
+    import urllib.parse
+    d = json.loads(get("https://tripcheck.com/Scripts/map/data/cctvinventory.js",
+                       {"Accept": "*/*"}).decode("utf-8", "replace"))
+    out = []
+    for f in (d.get("features") or []):
+        a = f.get("attributes") or {}
+        fn = a.get("filename")
+        if not fn: continue
+        img = "https://tripcheck.com/RoadCams/cams/" + urllib.parse.quote(fn)
+        out.append(cam("or-" + str(a.get("publishedImageId") or a.get("cameraId")),
+                       a.get("title"), a.get("latitude"), a.get("longitude"), img,
+                       "United States", "Oregon", tags=["oregon", "odot", "traffic"],
+                       page="https://tripcheck.com/"))
+    return out
+
+@source("nsw")
+def s_nsw():
+    d = get_json("https://data.livetraffic.com/cameras/traffic-cam.json")
+    out = []
+    for f in (d.get("features") or []):
+        coords = (f.get("geometry") or {}).get("coordinates") or []
+        p = f.get("properties") or {}
+        if len(coords) < 2 or not p.get("href"): continue
+        out.append(cam("nsw-" + str(f.get("id")), p.get("title"), coords[1], coords[0],
+                       p.get("href"), "Australia", "New South Wales",
+                       tags=["nsw", "australia", "traffic"],
+                       page="https://www.livetraffic.com/"))
     return out
 
 # ---------------------------------------------------------------- runner
