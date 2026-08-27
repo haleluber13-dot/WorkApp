@@ -174,11 +174,12 @@
     imgs.forEach((im) => {
       const t = im.closest(".tile");
       im.addEventListener("load", () => {
+        // a camera that went dark since the dataset was built often returns a
+        // tiny "no signal" graphic; treat those as offline too
+        if (im.naturalWidth <= 32 || im.naturalHeight <= 32) { markDead(t); return; }
         t.classList.remove("is-offline"); t.classList.add("is-loaded");
       });
-      im.addEventListener("error", () => {
-        t.classList.add("is-offline"); t.classList.remove("is-loaded");
-      });
+      im.addEventListener("error", () => markDead(t));
       if (im.classList.contains("live")) im.src = bust(im.dataset.live);   // first frame now
     });
     const live = imgs.filter((im) => im.classList.contains("live"));
@@ -191,6 +192,16 @@
       liveVisible.forEach((im) => { if (im.isConnected) im.src = bust(im.dataset.live); });
     }, 5000);                                                        // refresh only what's on screen
   }
+  /** A camera that fails twice in a row is hidden from the wall for this session,
+   *  so dead feeds don't sit in the grid taking up space. */
+  const deadStrikes = Object.create(null);
+  function markDead(t){
+    t.classList.add("is-offline"); t.classList.remove("is-loaded");
+    const id = t.dataset.id;
+    deadStrikes[id] = (deadStrikes[id] || 0) + 1;
+    if (deadStrikes[id] >= 2) t.classList.add("is-hidden");
+  }
+
   function teardownLive(){
     if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
     if (liveObserver) { liveObserver.disconnect(); liveObserver = null; }

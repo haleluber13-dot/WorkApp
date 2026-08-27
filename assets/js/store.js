@@ -47,10 +47,20 @@
         const patch = this.edits[cam.id];
         merged.push(patch ? Object.assign({}, cam, patch) : cam);
       }
-      // de-dup by id (user copy wins)
+      // de-dup by id (user copy wins), then by stream url so the same feed can
+      // never render as two tiles
       const byId = new Map();
       for (const c of merged) byId.set(c.id, c);
-      return Array.from(byId.values());
+      const seenUrl = new Set(), out = [];
+      for (const c of byId.values()) {
+        const u = c.source && c.source.url;
+        if (u) {
+          if (seenUrl.has(u)) continue;
+          seenUrl.add(u);
+        }
+        out.push(c);
+      }
+      return out;
     },
 
     get(id) { return this.all().find((c) => c.id === id); },

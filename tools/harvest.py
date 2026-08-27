@@ -959,6 +959,18 @@ def main(only=None, do_verify=False):
         except Exception as e:
             report.append((name, 0, "ERROR %s" % e))
 
+    # never emit the same image twice: identical urls render as duplicate tiles
+    seen_urls, unique = set(), []
+    dropped_dupes = 0
+    for c in all_cams:
+        if c["image"] in seen_urls:
+            dropped_dupes += 1
+            continue
+        seen_urls.add(c["image"]); unique.append(c)
+    if dropped_dupes:
+        print("dropped %d duplicate image urls" % dropped_dupes)
+    all_cams = unique
+
     by_country = {}
     for c in all_cams:
         by_country.setdefault(c["country"], 0)
