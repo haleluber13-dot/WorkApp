@@ -227,14 +227,18 @@
       const res = await fetch("./data/cameras.json");
       if (!res.ok) throw new Error("camera dataset " + res.status);
       const data = await res.json();
-      const cams = (data.cameras || []).map((c) => ({
-        id: c.id, name: c.name, category: c.category || "road",
-        city: c.city || "", country: c.country || "",
-        lat: c.lat, lng: c.lng, tags: c.tags || [],
-        source: { type: "image", url: c.image },
-        clip: c.clip || null, thumb: c.image, page: c.page || null,
-        _origin: "bundle"
-      }));
+      const cams = (data.cameras || []).map((c) => {
+        // most feeds are refreshing stills; some (Thailand, Indonesia) are HLS streams
+        const isStream = c.kind === "hls";
+        return {
+          id: c.id, name: c.name, category: c.category || "road",
+          city: c.city || "", country: c.country || "",
+          lat: c.lat, lng: c.lng, tags: c.tags || [],
+          source: { type: isStream ? "hls" : "image", url: c.image },
+          clip: c.clip || null, thumb: isStream ? null : c.image,
+          page: c.page || null, _origin: "bundle"
+        };
+      });
       this.countries = data.countries || {};
       return this._mergeProvider(cams);
     },
