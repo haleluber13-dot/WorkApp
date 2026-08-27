@@ -167,20 +167,50 @@
         (p.additionalProperties || []).forEach((a) => { props[a.key] = a.value; });
         const img = props.imageUrl || props.imageURL || props.image;
         const vid = props.videoUrl || props.video;
-        let source = null;
-        if (vid && /\.m3u8/i.test(vid)) source = { type: "hls", url: vid };
-        else if (vid && /\.mp4/i.test(vid)) source = { type: "video", url: vid };
-        else if (img) source = { type: "image", url: img };
-        if (!source) return null;
+        if (!img && !vid) return null;
         return {
           id: "tfl-" + p.id, name: p.commonName || ("JamCam " + p.id),
           category: "road", city: "London", country: "UK",
           lat: p.lat, lng: p.lon, tags: ["tfl", "traffic", "london"],
-          source: source, thumb: img, page: "https://tfl.gov.uk/traffic/status/",
-          _origin: "tfl"
+          // live-refreshing snapshot for the wall; the mp4 clip plays in focus view
+          source: img ? { type: "image", url: img } : { type: "video", url: vid },
+          clip: vid || null, thumb: img,
+          page: "https://tfl.gov.uk/traffic/status/", _origin: "tfl"
         };
       }).filter((c) => c && c.lat != null && c.lng != null);
       return this._mergeProvider(cams);
+    },
+
+    /** Load New York City DOT traffic cameras — no key needed. */
+    async loadNYC() {
+      const res = await fetch("https://webcams.nyctmc.org/api/cameras/");
+      if (!res.ok) throw new Error("NYC DOT API error " + res.status);
+      const arr = await res.json();
+      const list = Array.isArray(arr) ? arr : (arr.cameras || arr.data || []);
+      const cams = list.map((c) => {
+        if (String(c.isOnline) === "false") return null;
+        const img = c.imageUrl || (c.id ? ("https://webcams.nyctmc.org/api/cameras/" + c.id + "/image") : null);
+        if (!img || c.latitude == null) return null;
+        return {
+          id: "nyc-" + c.id, name: c.name || "NYC Camera",
+          category: "road", city: c.area || "New York", country: "USA",
+          lat: +c.latitude, lng: +c.longitude, tags: ["nyc", "traffic", (c.area || "").toLowerCase()].filter(Boolean),
+          source: { type: "image", url: img }, thumb: img,
+          page: "https://webcams.nyctmc.org/", _origin: "nyc"
+        };
+      }).filter(Boolean);
+      return this._mergeProvider(cams);
+    },
+
+    /** Load all keyless providers on startup. Errors per-provider are non-fatal. */
+    async autoBootstrap(onProgress) {
+      const providers = [["London traffic", () => this.loadTfL()], ["New York traffic", () => this.loadNYC()]];
+      let total = 0;
+      await Promise.all(providers.map(async ([name, fn]) => {
+        try { const n = await fn(); total += n; if (onProgress) onProgress(name, n, null); }
+        catch (e) { if (onProgress) onProgress(name, 0, e); }
+      }));
+      return total;
     },
 
     _mergeProvider(cams) {

@@ -121,18 +121,23 @@
       (url?'<a class="btn" target="_blank" rel="noopener" href="'+attr(url)+'">Open source ↗</a>':'')+'</div>';
   }
 
-  /* -------- Live wall -------- */
+  /* -------- Live wall (self-refreshing mosaic) -------- */
+  const WALL_LIMIT = 140;                    // tiles rendered at once (globe shows all)
+  let liveTimer = null, liveObserver = null;
+  const liveVisible = new Set();
+  function isLiveTile(cam){ return cam.source && cam.source.type === "image" && cam.source.url; }
+  function bust(url){ return url + (url.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now(); }
+
   function tile(cam){
-    const c = catOf(cam.category); const p = poster(cam);
-    const fav = Store.favorites.has(cam.id);
-    return '<article class="tile" data-id="'+attr(cam.id)+'" tabindex="0" '+
-        'style="--cat:'+c.color+'">'+
-      '<div class="tile__media">'+
-        (p ? '<img loading="lazy" src="'+attr(p)+'" alt="'+attr(cam.name)+'" '+
-             'onerror="this.style.display=\'none\'">' : '') +
-        '<span class="tile__live">● LIVE</span>'+
-        '<button class="tile__fav'+(fav?" on":"")+'" data-fav="'+attr(cam.id)+'" '+
-          'title="Favorite" aria-label="Favorite">'+(fav?"★":"☆")+'</button>'+
+    const c = catOf(cam.category); const fav = Store.favorites.has(cam.id);
+    const live = isLiveTile(cam); const p = poster(cam);
+    const media = live
+      ? '<img class="tile__img live" data-live="'+attr(cam.source.url)+'" loading="lazy" alt="'+attr(cam.name)+'" onerror="this.classList.add(\'broken\')">'
+      : (p ? '<img class="tile__img" loading="lazy" src="'+attr(p)+'" alt="'+attr(cam.name)+'" onerror="this.classList.add(\'broken\')">' : '');
+    return '<article class="tile'+(live?" is-live":"")+'" data-id="'+attr(cam.id)+'" tabindex="0" style="--cat:'+c.color+'">'+
+      '<div class="tile__media">'+ media +
+        '<span class="tile__live">LIVE</span>'+
+        '<button class="tile__fav'+(fav?" on":"")+'" data-fav="'+attr(cam.id)+'" title="Favorite" aria-label="Favorite">'+(fav?"★":"☆")+'</button>'+
         '<span class="tile__cat">'+c.icon+'</span>'+
       '</div>'+
       '<div class="tile__meta"><b>'+esc(cam.name)+'</b>'+
@@ -142,9 +147,37 @@
 
   function renderWall(cams){
     const wall = $("#wall");
-    $("#wallCount").textContent = cams.length + " live";
-    if (!cams.length){ wall.innerHTML = '<p class="empty">No cameras match. Try clearing filters or add a location.</p>'; return; }
-    wall.innerHTML = cams.map(tile).join("");
+    const total = cams.length;
+    $("#wallCount").textContent = total > WALL_LIMIT ? (WALL_LIMIT + " / " + total) : (total + " live");
+    if (!total){ teardownLive(); wall.innerHTML = '<p class="empty">No live cameras yet. Try clearing filters, or open ⚙ Settings to load a provider.</p>'; return; }
+    // Show self-refreshing live feeds first, then favorites, so working cameras lead
+    const ordered = cams.slice().sort((a, b) => {
+      const la = isLiveTile(a) ? 1 : 0, lb = isLiveTile(b) ? 1 : 0;
+      if (la !== lb) return lb - la;
+      return (Store.favorites.has(b.id) ? 1 : 0) - (Store.favorites.has(a.id) ? 1 : 0);
+    });
+    const shown = ordered.slice(0, WALL_LIMIT);
+    wall.innerHTML = shown.map(tile).join("") +
+      (total > WALL_LIMIT ? '<p class="wallmore">Showing '+WALL_LIMIT+' of '+total+' live feeds — search, filter, or use the globe to see the rest.</p>' : '');
+    setupLive(wall);
+  }
+
+  function setupLive(wall){
+    teardownLive();
+    const imgs = $$(".tile__img.live", wall);
+    imgs.forEach((im) => { im.src = bust(im.dataset.live); });      // first frame now
+    liveObserver = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) liveVisible.add(e.target); else liveVisible.delete(e.target); });
+    }, { root: wall, rootMargin: "150px" });
+    imgs.forEach((im) => liveObserver.observe(im));
+    liveTimer = setInterval(() => {
+      liveVisible.forEach((im) => { if (im.isConnected) im.src = bust(im.dataset.live); });
+    }, 5000);                                                        // refresh only what's on screen
+  }
+  function teardownLive(){
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    if (liveObserver) { liveObserver.disconnect(); liveObserver = null; }
+    liveVisible.clear();
   }
 
   /* -------- Focus overlay -------- */
@@ -177,7 +210,9 @@
             '<span>'+esc(n.name)+'</span></button>').join("")+'</div></div>':'')+
       '</div>';
     ov.classList.add("open");
-    focusCleanup = mountPlayer($("#focusPlayer"), cam, { muted:true });
+    // If the camera also has a short video clip (e.g. TfL JamCams), play it looping for motion
+    const fcam = cam.clip ? Object.assign({}, cam, { source: { type: "video", url: cam.clip } }) : cam;
+    focusCleanup = mountPlayer($("#focusPlayer"), fcam, { muted:true });
     if (window.GlobeView) GlobeView.focus(cam);
   }
   function closeFocus(){
@@ -266,8 +301,9 @@
         '<label class="check"><input type="checkbox" id="setRotate"'+(s.autoRotate?" checked":"")+'> Auto-rotate globe</label>'+
         '<hr>'+
         '<h3>Load live cameras from providers</h3>'+
-        '<p class="muted">London traffic cameras (Transport for London) load instantly — no key needed.</p>'+
-        '<button class="btn btn--primary" id="btnTfl">🚦 Load London traffic cams (no key)</button>'+
+        '<p class="muted">These load automatically when the app opens — tap to reload. No key needed.</p>'+
+        '<div class="row2"><button class="btn btn--primary" id="btnTfl">🚦 London traffic (890)</button>'+
+        '<button class="btn btn--primary" id="btnNyc">🗽 New York traffic (970)</button></div>'+
         '<p class="muted" style="margin-top:10px">A free key from <a href="https://api.windy.com/keys" target="_blank" rel="noopener">api.windy.com/keys</a> pulls thousands of public webcams worldwide onto the globe.</p>'+
         '<label>Windy Webcams API key<input id="setWindy" value="'+attr(s.windyKey)+'" placeholder="paste key"></label>'+
         '<div class="row2"><button class="btn btn--primary" id="btnWindy">🌍 Load Windy webcams</button>'+
@@ -304,6 +340,12 @@
     $("#btnTfl").addEventListener("click", async (e)=>{
       const btn=e.currentTarget; btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";
       try{ const n=await Store.loadTfL(); toast("Loaded "+n+" London traffic cams"); }
+      catch(err){ toast(err.message, true); }
+      finally{ btn.disabled=false; btn.textContent=old; }
+    });
+    $("#btnNyc").addEventListener("click", async (e)=>{
+      const btn=e.currentTarget; btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";
+      try{ const n=await Store.loadNYC(); toast("Loaded "+n+" New York traffic cams"); }
       catch(err){ toast(err.message, true); }
       finally{ btn.disabled=false; btn.textContent=old; }
     });
