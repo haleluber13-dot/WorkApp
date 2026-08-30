@@ -26,6 +26,20 @@ const res = await esbuild.build({
 });
 const js = res.outputFiles[0].text;
 
+/* Assets and vehicles the caller asked to leave out. The single file has a hard
+ * size limit wherever it gets hosted, and the two heaviest vehicle models cost
+ * more than the rest of the app put together — so they can be dropped, and the
+ * vehicles that need them dropped with them, rather than shipping a catalogue
+ * entry that cannot be drawn.
+ *
+ *     node tools/build-single.mjs out.html --skip=nns,harley --omit=nns,harley
+ */
+const arg = (name) => {
+  const hit = process.argv.find(a => a.startsWith(`--${name}=`));
+  return hit ? hit.slice(name.length + 3).split(',').filter(Boolean) : [];
+};
+const skip = arg('skip'), omit = arg('omit');
+
 /* inline every runtime asset so the single file needs no server at all */
 const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
                '.glb':'model/gltf-binary', '.hdr':'image/vnd.radiance' };
@@ -35,8 +49,9 @@ function collect(dir, out = {}, base = dir){
     if (statSync(full).isDirectory()){ collect(full, out, base); continue; }
     const ext = name.slice(name.lastIndexOf('.'));
     if (!MIME[ext]) continue;
-    const key = './assets/' + relative(`${ROOT}/assets`, full).split(/[\\/]/).join('/');
-    out[key] = `data:${MIME[ext]};base64,` + readFileSync(full).toString('base64');
+    const rel = relative(`${ROOT}/assets`, full).split(/[\\/]/).join('/');
+    if (skip.some(s => rel === s || rel.startsWith(s + '/'))) continue;
+    out['./assets/' + rel] = `data:${MIME[ext]};base64,` + readFileSync(full).toString('base64');
   }
   return out;
 }
@@ -61,13 +76,15 @@ const out = `<title>MotorLab</title>
 ${css}
 </style>
 ${body}
-<script>window.__MOTORLAB_LAND=${land};window.__MOTORLAB_FEED=${feed};window.__MOTORLAB_ASSETS=${JSON.stringify(assets)};</script>
+<script>window.__MOTORLAB_OMIT=${JSON.stringify(omit)};window.__MOTORLAB_LAND=${land};window.__MOTORLAB_FEED=${feed};window.__MOTORLAB_ASSETS=${JSON.stringify(assets)};</script>
 <script>
 ${js}
 </script>
 `;
-const OUT = process.argv[2] || 'motorlab-offline.html';
+const OUT = process.argv.slice(2).find(a => !a.startsWith('--')) || 'motorlab-offline.html';
 writeFileSync(OUT, out);
-console.log('assets inlined:', Object.keys(assets).length);
+console.log('assets inlined:', Object.keys(assets).length,
+            skip.length ? `(skipped ${skip.join(', ')})` : '',
+            omit.length ? `(catalogue without ${omit.join(', ')})` : '');
 console.log('wrote', OUT, '— JS', (js.length/1024).toFixed(0)+'kB', '| land', (land.length/1024).toFixed(0)+'kB',
             '| total', (out.length/1024/1024).toFixed(2)+'MB');

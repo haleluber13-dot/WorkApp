@@ -24,8 +24,6 @@ const PARTS = {
                 what:'Turbocharger turbine wheel' },
   carRim:     { file:'car_rim.glb',         axis:'z', size:0.500,  depth:0.472,
                 what:'Alloy road wheel' },
-  motoWheel:  { file:'moto_wheel.glb',      axis:'y', size:0.620,  depth:0.100,
-                what:'Motorcycle wheel' },
   camGear:    { file:'cam_gear.glb',        axis:'z', size:0.200,  depth:0.051,
                 what:'Camshaft timing gear' },
   waterPump:  { file:'water_pump.glb',      axis:'z', size:0.200,  depth:0.091,

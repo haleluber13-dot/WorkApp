@@ -23,6 +23,7 @@ const P = (o) => Object.assign({ group:'chassis', qty:1, deps:[], removable:true
 export function buildVehicleTree(v){
   if (v.model === 'koenigsegg') return hypercarModelTree(v);
   if (v.model === 'harley') return cruiserModelTree(v);
+  if (v.model === 'carconcept') return conceptModelTree(v);
   if (v.model) return modelTree(v);
   return v.class === 'bike' ? bikeTree(v) : v.class === 'kart' ? kartTree(v) : carTree(v);
 }
@@ -80,6 +81,50 @@ function cruiserModelTree(v){
     teach:'Headlamp, tail lamp and indicators. The wiring runs inside the bars and down the frame spine on a build like this, which looks superb and makes every fault a strip-down.' });
   add({ id:'dash', name:'Instruments', group:'elec', deps:['chrome'],
     teach:'Speedometer and warning cluster in the tank console or on the risers. It takes its signal from a wheel or gearbox sensor, so a wheel or sprocket change means recalibrating it.' });
+
+  return finish(parts, v);
+}
+
+/* ====================================================================== */
+/* A modelled concept car: a full road car, panel by panel, with the        */
+/* brakes left behind when the wheels come off.                            */
+function conceptModelTree(v){
+  const parts = [], add = (o) => { parts.push(P(o)); return o.id; };
+  const t = (nm, seq, count, size='M8') => ({ nm, size, count, pattern:{ kind:seq, count }, stages:[`${Math.round(nm*0.6)} Nm`, `${nm} Nm`] });
+
+  add({ id:'chassis', name:'Platform & underbody', group:'chassis', removable:false,
+    teach:'A concept car is built the way a low-volume car is built: extruded aluminium sections bonded and riveted into a floor and a pair of sills, with the suspension picking up on cast nodes at each corner. It is stiff, it is light, and it is far too slow to make in the quantities a mass-market steel unibody is made in — which is exactly why cars like this stay concepts.',
+    spec:{ 'Type':v.chassis, 'Wheelbase':`${v.wheelbase} mm`, 'Track F/R':`${v.trackF}/${v.trackR} mm`, 'Kerb mass':`${v.massKg} kg` } });
+  add({ id:'engine', name:'Engine, gearbox & axles', group:'drive', deps:['chassis'], torque:t(90,'sequence',6,'M12'),
+    teach:'Engine set behind the front axle line, gearbox behind that, and driveshafts out to all four corners through a centre differential. Mounting it behind the axle is the whole reason the bonnet is that long and the cabin is that far back: it buys weight distribution, and it costs cabin space. Build and tune the engine itself in the Engine Bay and Tuning workspaces.' });
+  add({ id:'brakes', name:'Discs & calipers', group:'brakes', qty:4, deps:['chassis'], torque:t(110,'sequence',2,'M12'),
+    teach:'Take a wheel off and this is what is behind it: a vented disc and a fixed caliper, bolted to the upright rather than to the wheel. A fixed caliper has pistons on both sides and no slide pins, so it flexes less and bites more evenly — and it has to be built around the disc, which is why it never comes off without the disc coming with it.',
+    spec:{ 'Front disc':`${v.brakeF} mm`, 'Rear disc':`${v.brakeR} mm` } });
+  add({ id:'wheels', name:'Wheels & tyres', group:'wheels', qty:4, deps:['brakes'], torque:t(140,'star',5,'M14'),
+    teach:'Big rims, short sidewalls. A low-profile tyre gives sharper turn-in and almost no compliance, so every bump goes into the suspension and the structure instead. Torque in a star pattern, in two stages, every time.',
+    spec:{ 'Front':`${v.tyreF}/30 R${v.rimF}`, 'Rear':`${v.tyreR}/30 R${v.rimR}`, 'Torque':'140 Nm, star pattern' } });
+  add({ id:'shell', name:'Body sides & pillars', group:'body', deps:['chassis'], torque:t(20,'perimeter',16,'M6'),
+    teach:'Sills, quarters and the pillars between them. This is the part of the body that actually carries load in a side impact, and on a car with the battery in the floor the sill is doing double duty: it protects the pack as well as the occupants.',
+    spec:{ 'Length':`${v.lengthMm} mm`, 'Width':`${v.widthMm} mm`, 'Height':`${v.heightMm} mm`, 'Cd':v.cd } });
+  add({ id:'panelHood', name:'Bonnet & front clip', group:'body', deps:['shell'], torque:t(14,'sequence',6,'M6'),
+    teach:'A long bonnet over a short engine bay is mostly empty air, and that air is doing a job: it is the pedestrian-impact clearance and the front crush structure. The clamshell lifts with the wings attached, so a whole corner of the car can be reached at once.' });
+  add({ id:'panelRear', name:'Rear clip & hatch', group:'body', deps:['shell'], torque:t(14,'sequence',6,'M6'),
+    teach:'The tail carries the diffuser and the rear crash structure. On a fastback the hatch is a structural ring — cut it and the body loses torsional stiffness in a hurry.' });
+  add({ id:'panelRoof', name:'Roof panel', group:'body', deps:['shell'], torque:t(12,'perimeter',10,'M6'),
+    teach:'A roof is one of the highest pieces of mass on the car, so it is where weight hurts handling most. That is the whole argument for a carbon or aluminium roof on an otherwise steel body.' });
+  add({ id:'panelDoorF', name:'Doors, mirrors & handles', group:'body', qty:2, deps:['shell'], torque:t(28,'sequence',6,'M8'),
+    teach:'Each door is a frame, an outer skin, an intrusion beam, the glass and its regulator, and the mirror. Set the hinges before the striker: a door that is adjusted at the latch to hide a hinge problem will drop again the first time it is slammed.' });
+  add({ id:'glass', name:'Glazing', group:'body', deps:['panelRoof'],
+    teach:'Laminated windscreen, tempered elsewhere. The screen is bonded in and is a structural part of the body — the urethane bead is what stops the roof folding in a rollover, and it needs its full cure time before the car is driven.' });
+  add({ id:'lights', name:'Lighting & signals', group:'elec', deps:['panelHood'],
+    teach:'LED clusters with their own drivers, on the bus rather than on a switched feed. A failed unit usually means a failed driver, not a failed diode — and the cluster is bonded, so it replaces as an assembly.' });
+  add({ id:'seats', name:'Seats & floor', group:'interior', deps:['chassis'], torque:t(45,'sequence',4,'M10'),
+    teach:'Seats bolt through the floor into captive nuts bonded into the platform, with the belt pretensioners wired into the restraint bus. Disconnect the battery and wait before undoing anything with a squib in it.',
+    spec:{ 'Seats':v.seats } });
+  add({ id:'dash', name:'Dash, wheel & pedals', group:'interior', deps:['seats'], torque:t(22,'sequence',6,'M8'),
+    teach:'The whole cockpit comes out as a crossbeam assembly: dash, column, pedal box and the wiring behind them. The accelerator is a sensor, not a cable — nothing between your foot and the throttle body is mechanical any more — but the brake pedal still pushes fluid, and always will.' });
+  add({ id:'trim', name:'Wipers & plates', group:'body', deps:['glass'],
+    teach:'Wiper arms are splined and handed, and they park to a mark on the screen rather than to a stop. Fit them to the mark, not to where they look right.' });
 
   return finish(parts, v);
 }

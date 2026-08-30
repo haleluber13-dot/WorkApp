@@ -18,7 +18,7 @@ four-cylinder and six-cylinder diesels, carburetted big blocks, an F1-style 1.6
 turbo hybrid V6, a rally engine with anti-lag, a nitro-burning supercharged hemi,
 and motorcycle singles, twins, triples, fours and V4s.
 
-**16+ vehicles** — hot hatch, sports sedan, rear-drive coupe, mid-engine
+**17+ vehicles** — a hand-modelled concept coupé, hot hatch, sports sedan, rear-drive coupe, mid-engine
 supercar, rally car, heavy-duty pickup, Class-8 truck, drift car, formula car,
 stock car, top-fuel dragster, superbike, cruiser, adventure tourer, motocross
 bike and a shifter kart.
@@ -44,8 +44,15 @@ bike and a shifter kart.
 
 Where a proper vehicle model exists, MotorLab uses it instead of generating one —
 and maps the model's own pieces onto part ids, so the teardown works on the real
-bodywork. Three of them ship in the catalog:
+bodywork. Four of them ship in the catalog:
 
+- **Concept coupé** — the most detailed vehicle in MotorLab, and the
+  only one drawn by hand as a complete car. Body sides and pillars, bonnet and
+  front clip, rear clip and hatch, roof, both doors with their mirrors, handles
+  and glass, the glazing, the wipers, the lighting, the whole cabin — seats,
+  dash, steering wheel, pedals — and all four wheels, each with a disc and a
+  fixed caliper *behind* it rather than part of it, so taking a wheel off
+  reveals the brake. It brings three complete factory paint jobs with it.
 - **NASCAR stock car** — front clip, rear clip, wheel arches, door skins, quarter
   panels, roof, hood, deck lid, glass and window net all come off separately, over
   a welded tube frame with the engine and cage underneath.
@@ -61,9 +68,17 @@ registered: either by naming its objects (`map`) or, when a file names its piece
 after their material, by working the part out from the material and where the
 piece sits on the vehicle (`classify`).
 
-See each folder's `ABOUT.md` — [nns](assets/nns/ABOUT.md),
-[koenigsegg](assets/koenigsegg/ABOUT.md), [harley](assets/harley/ABOUT.md) — for
-provenance, trademarks and the exact conversion command used.
+A model that hangs everything off one root — doors parented to the underbody,
+glass parented to the doors — is flattened first (`flatten`), keeping every
+piece exactly where it was, because only a flat model comes apart a part at a
+time. A model whose own materials are better than anything MotorLab would fit
+keeps them (`keepMaterials`), and a model that ships its paint jobs as
+`KHR_materials_variants` has them read out and offered as liveries (`variants`).
+
+See each folder's `ABOUT.md` — [carconcept](assets/carconcept/ABOUT.md),
+[nns](assets/nns/ABOUT.md), [koenigsegg](assets/koenigsegg/ABOUT.md),
+[harley](assets/harley/ABOUT.md) — for provenance, trademarks, licence terms and
+the exact commands used to prepare each one.
 
 ### Real light
 
@@ -116,7 +131,7 @@ Some parts cannot be faked. A cast engine block is a landscape of webs, bosses
 and draft angles; an alloy wheel is a shape somebody spent months styling; a
 turbine wheel is eleven twisted blades. You do not get those from maths.
 
-So ten real 3D scans ship in `assets/scans/`, and each one replaces a generated
+So nine real 3D scans ship in `assets/scans/`, and each one replaces a generated
 stand-in where the generated version could never be honest:
 
 | Scan | Replaces |
@@ -130,7 +145,6 @@ stand-in where the generated version could never be honest:
 | Turbocharger turbine wheel | The hot side of every turbo |
 | Radiator grille | The nose of every generated car |
 | Manual transmission | The gearbox on longitudinal cars (the DCT goes on transverse ones — two different parts) |
-| Motorcycle wheel | Available to any builder that wants it |
 
 The tyre around a scanned rim stays generated, because it has to size itself to
 the vehicle's spec; the water pump's pulley stays generated, because it has to
@@ -142,7 +156,7 @@ They are registered in [`js/lib/partModels.js`](js/lib/partModels.js), load once
 at boot, and every caller keeps its fallback so the app still runs with the
 folder deleted.
 
-All ten are scans by **Artec 3D**, used under CC BY 3.0. That licence requires
+All nine are scans by **Artec 3D**, used under CC BY 3.0. That licence requires
 credit and a statement of changes: the credit is shown in the app under
 **Help → Credits**, the licence text ships beside the models, and the exact
 reduction applied to each is recorded in
@@ -198,8 +212,13 @@ standing in for it:
 | `tools/scan2glb.py` | Any raw scan (PLY, STL, OBJ, VRML) to a web-sized binary glTF: decimate to a triangle budget by vertex clustering, scale to real size, trim strays |
 | `tools/resize-maps.mjs` | Downscale and re-encode PBR maps by driving a headless browser's canvas — there is no image library here |
 | `tools/hdr2small.py` | Downscale a Radiance HDR environment map: decode RGBE to linear, box-filter, re-encode run-length |
+| `tools/glb-optimise.mjs` | Shrink a finished glTF binary: drop unused attributes, re-encode textures, quantise normals to bytes and UVs to shorts, repack the buffer |
+| `tools/glb-rename.mjs` | Name a glTF's anonymous nodes, and push node names down onto multi-material meshes so a loader cannot lose them |
+| `tools/glb-pose.mjs` | Take a display pose back out of a model — a showroom car delivered with lock wound onto its front wheels, for instance |
 
-All three are pure standard-library Python 3 — no build step, no dependencies.
+The Python tools are pure standard library — no build step, no dependencies. The
+`.mjs` ones drive a headless browser, because this repository has no image
+library and a browser is the one decoder that is always here.
 
 ## Bring your own vehicle model
 
@@ -358,6 +377,20 @@ node motorlab/tools/build-single.mjs motorlab-offline.html
 
 That file needs no server and no network. It keeps your progress in the
 browser's local storage like the hosted version does.
+
+Everything inlined is base64, which costs a third again on top of the raw bytes,
+so the whole app comes to around 21 MB. Where that is too big for wherever it has
+to be hosted, the heaviest vehicle models can be left out — and the vehicles that
+need them left out of the catalogue with them, rather than offering a car the
+build cannot draw:
+
+```bash
+node motorlab/tools/build-single.mjs motorlab-offline.html --skip=nns,harley --omit=nns,harley
+```
+
+`--skip` names asset folders to leave uninlined; `--omit` names vehicle ids to
+drop from the catalogue. Everything else — the concept car, the hypercar, all
+nine part scans, both HDR environments and every PBR surface — still ships.
 
 ## It updates itself
 

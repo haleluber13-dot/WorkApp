@@ -426,6 +426,7 @@ function showHelp(){
       ...credits().map(c => h('div', { class:'tiny muted', text:c })),
       h('div', { class:'tiny muted', text:'Scanned PBR surfaces — the grain on every casting, the orange peel on the paint, the tooth of the rubber — from ambientCG (ambientcg.com), CC0.' }),
       h('div', { class:'tiny muted', text:'Environment lighting photographed at a real auto service bay and a studio, from Poly Haven (polyhaven.com), CC0.' }),
+      h('div', { class:'tiny muted', text:'The Concept coup\u00e9 is “Car Concept” from the Khronos glTF Sample Assets, \u00a9 2017 The Khronos Group Inc., CC BY 4.0. Changed for MotorLab: textures re-encoded and reduced, normals quantised, unused vertex attributes removed, the front wheels returned from their 30\u00b0 display lock to straight ahead, and unnamed pieces named after the node that carries them. Khronos trademarks and logos are excluded from the licence.' }),
       h('div', { class:'tiny muted', text:'Vehicle models and part textures were supplied by the repository owner; see the ABOUT.md beside each one in assets/ for provenance and trademarks.' })),
   ), actions:[{ label:'Start', primary:true }] });
 }

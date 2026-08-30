@@ -11,7 +11,7 @@ const V = (o) => Object.assign({
   cd:0.32, area:2.2, downforceKg:0, driveLoss:0.14, fuelL:50, seats:5, colour:0x2f6fb0,
 }, o);
 
-export const VEHICLES = [
+const CATALOG = [
   V({ id:'hatch', name:'Hot hatchback', body:'hatch', engines:['i4-16-na','i4-20-t','i4-20-vtec','d-i4-20'],
       massKg:1320, wheelbase:2620, trackF:1540, trackR:1520, lengthMm:4250, widthMm:1800, heightMm:1450,
       gears:[3.62,2.08,1.36,1.03,0.84,0.69], final:4.06, tyreF:225, tyreR:225, rimF:18, rimR:18,
@@ -103,6 +103,16 @@ export const VEHICLES = [
       driveLoss:0.11, tyreMu:1.42, colour:0x9aa3ad,
       blurb:'Built from a real model, not generated. A carbon tub with the bodywork, exposed carbon aero, cabin, glass and lights each coming off separately. Mid-mounted engine, double wishbones at both ends, and enough carbon in the structure that the whole car weighs less than a family hatchback.' }),
 
+  V({ id:'concept', name:'Concept coupé (modelled)', body:'coupe', model:'carconcept',
+      drivetrain:'AWD', bay:'front-longitudinal', suspF:'doublewishbone', suspR:'multilink',
+      chassis:'bonded aluminium', engines:['v8-40-tt','v6-29-tt','i6-30-tt','v10-52-na','i4-20-t'],
+      massKg:1780, wheelbase:2800, trackF:1950, trackR:1965,
+      lengthMm:4360, widthMm:2220, heightMm:1150,
+      gears:[4.70,3.13,2.10,1.67,1.29,1.00,0.84], final:3.44, tyreF:285, tyreR:285, rimF:24, rimR:24,
+      brakeF:390, brakeR:370, cd:0.26, area:2.15, downforceKg:60, fuelL:68, seats:2,
+      driveLoss:0.11, tyreMu:1.30, colour:0xa8100c,
+      blurb:'A complete road car built as a model rather than generated, and the most detailed vehicle in MotorLab: every panel, both doors with their mirrors and glass, the roof, the bonnet, the tail, the glazing, the wipers, the full cabin with seats, wheel and pedals, and all four wheels with the discs and calipers behind them. Take the wheels off and the brakes stay where they are. Three complete factory paint jobs come with it.' }),
+
   V({ id:'dragster', name:'Top-fuel dragster', body:'dragster', drivetrain:'RWD', bay:'mid',
       suspF:'none', suspR:'solid', chassis:'chromoly tube', engines:['race-82-nitro','v8-62-sc'],
       massKg:1050, wheelbase:7600, trackF:600, trackR:2200, lengthMm:9000, widthMm:2400, heightMm:1000,
@@ -165,6 +175,11 @@ export const VEHICLES = [
       cd:0.8, area:0.55, fuelL:8, seats:1, driveLoss:0.08,
       blurb:'No suspension and no differential at all. The chassis itself flexes and the inside rear wheel lifts to let it turn — every setup change is about how much the frame twists.' }),
 ];
+
+/* A build that ships without a vehicle's model file — the single-file offline
+ * build drops the heaviest ones to stay under its size limit — leaves that
+ * vehicle out of the catalogue rather than offering a car it cannot draw. */
+export const VEHICLES = CATALOG.filter(v => !(globalThis.__MOTORLAB_OMIT || []).includes(v.id));
 
 export const VEHICLE_BY_ID = Object.fromEntries(VEHICLES.map(v => [v.id, v]));
 

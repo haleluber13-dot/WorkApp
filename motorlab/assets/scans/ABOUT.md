@@ -11,7 +11,6 @@ maths, you get them from a scanner.
 |---|---|---|
 | `turbine_wheel.glb` | Turbocharger turbine wheel, 50 mm | The hot side of every `turboUnit()` |
 | `car_rim.glb` | Alloy road wheel | The rim inside every car and bike wheel — the tyre around it stays generated, because it has to size itself to the spec |
-| `moto_wheel.glb` | Motorcycle wheel | Loaded, available to `partMesh('motoWheel')` |
 | `cam_gear.glb` | Camshaft timing gear | The cam sprocket on every belt- or chain-driven engine |
 | `water_pump.glb` | Water pump | The pump housing; the pulley stays generated so it can turn with the belt |
 | `gearbox.glb` | Dual-clutch gearbox | The gearbox in the Chassis workspace |
@@ -57,3 +56,12 @@ part's own long or rotational axis, its largest dimension in metres and its
 extent along that axis, then call `partMesh('<id>', { dia, depth, fit, axis,
 mat })` from the builder that needs it. Every caller must keep its generated
 fallback for the `null` case, so the app still works with this folder deleted.
+
+## Removed
+
+`moto_wheel.glb` — a scan of a complete motorcycle wheel, rim and tyre in one
+piece. Nothing could use it: `wheelMesh()` builds a wheel from a rim scan plus a
+tyre sized from the vehicle's own spec, and a fused wheel cannot be resized that
+way. It was being downloaded at every boot and drawn nowhere, so it was taken
+out. If a bike ever gets its wheels from a scan rather than from its spec, this
+is the file to bring back.

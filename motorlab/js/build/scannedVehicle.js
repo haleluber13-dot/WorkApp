@@ -86,6 +86,35 @@ export const SCANNED = {
   },
 
   /* ------------------------------------------------------------------ */
+  /* An authored concept car rather than a scan: every panel, the glazing, the
+     cabin, the wheels and the brakes are separate objects with real names, and
+     it ships three complete paint jobs of its own as glTF material variants. */
+  carconcept: {
+    name:'Concept coupé (modelled)',
+    dir:'./assets/carconcept/', glb:'carconcept.glb',
+    /* nose along +Z, left-hand side at +X, wheels touching Y = 0 */
+    yaw: Math.PI / 2,
+    flatten: true,        /* the file hangs everything off the underbody */
+    keepMaterials: true,  /* its own PBR set is better than anything we'd fit */
+    variants: true,       /* three authored paint jobs, as material variants */
+    clean:(n) => n.toLowerCase(),
+    classify:(name) => {
+      for (const [re, id] of CONCEPT_PARTS) if (re.test(name)) return id;
+      return null;
+    },
+    cornerOf:(name) => {
+      const m = /^wheel(front|rear)([lr])(rim|tyre)/.exec(name);
+      return m ? (m[1] === 'front' ? 'f' : 'r') + m[2] : null;
+    },
+    liveries:[
+      /* the file's own names for its own paint jobs */
+      { id:'carmine',  name:'Carmine candy',    variant:'Carmine Candy' },
+      { id:'pearl',    name:'Pearly swirly',    variant:'Pearly Swirly' },
+      { id:'graphite', name:'Torched graphite', variant:'Torched Graphite' },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
   harley: {
     name:'Custom V-twin cruiser (scanned)',
     dir:'./assets/harley/', glb:'harley.glb',
@@ -133,6 +162,27 @@ export const SCANNED = {
   },
 };
 
+/* Which teardown part each of the concept car's objects belongs to. The file
+ * names every piece after what it is, so this reads down the car: brakes come
+ * before wheels because a brake disc is inside the wheel, wipers before glass
+ * because they sit on the screen, and the floormats before the floor. */
+const CONCEPT_PARTS = [
+  [/^wheel(front|rear)[lr]brake/,            'brakes'],
+  [/^wheel(front|rear)[lr]/,                 'wheels'],
+  [/^bodyheadlights|^bodytaillights|^bodyturnsignals/, 'lights'],
+  [/^bodyhood/,                              'panelHood'],
+  [/^bodyroofpanel/,                         'panelRoof'],
+  [/^bodyrearpanels|^interiorrearhatch|^interiorrearpanels/, 'panelRear'],
+  [/^bodydoor[lr]|^interiordoor[lr]/,        'panelDoorF'],
+  [/^bodywindshieldwipers|^license/,         'trim'],
+  [/^bodywindshield|^bodyrearwindow|^bodywindowsrearsides/, 'glass'],
+  [/^bodypillars|^bodypanelscolor/,          'shell'],
+  [/^interiorseats|^interiorfloormats/,      'seats'],
+  [/^interiorsteering|^interiorpedal|^interiordash|^interiormid|^interiorcage|^interiorpillar/, 'dash'],
+  [/^bodyunderside|^interiorfloor|^axles/,   'chassis'],
+  [/^engine/,                                'engine'],
+];
+
 /** The name a model's object is known by, once the file's own noise is off. */
 function cleanName(spec, raw){
   const n = spec.clean ? spec.clean(raw) : raw;
@@ -148,6 +198,12 @@ export async function setLivery(modelId, liveryId, base = ''){
   const livery = spec?.liveries?.find(l => l.id === liveryId);
   const raw = cache.get(modelId);
   if (!livery || !raw) return false;
+  if (livery.variant != null){         /* one of the file's own paint jobs */
+    const pairs = raw.userData?.variantSets?.get(livery.variant);
+    if (!pairs?.length) return false;
+    for (const [target, src] of pairs) wear(target, src);
+    return true;
+  }
   if (livery.colour != null){          /* a model with no paint sheet of its own */
     raw.traverse(o => {
       if (!o.isMesh) return;
@@ -171,6 +227,32 @@ export async function setLivery(modelId, liveryId, base = ''){
   });
   return true;
 }
+/* Make one material look like another, without assuming they are the same kind.
+ * A variant can swap a clearcoated paint for a plain one, and Material.copy()
+ * between two different classes reaches for properties the source has never
+ * heard of. Only the properties that describe the surface are carried over, and
+ * the ones that exist on the richer class alone fall back to "off". */
+const WEAR_SHARED = ['map','normalMap','roughnessMap','metalnessMap','aoMap','emissiveMap',
+  'alphaMap','roughness','metalness','opacity','transparent','emissiveIntensity','aoMapIntensity'];
+const WEAR_EXTRA  = ['clearcoat','clearcoatRoughness','clearcoatMap','clearcoatRoughnessMap',
+  'clearcoatNormalMap','iridescence','iridescenceIOR','iridescenceThicknessMap',
+  'transmission','thickness','sheen'];
+function wear(target, src){
+  if (target.color && src.color) target.color.copy(src.color);
+  if (target.emissive && src.emissive) target.emissive.copy(src.emissive);
+  if (target.normalScale && src.normalScale) target.normalScale.copy(src.normalScale);
+  if ('iridescenceThicknessRange' in target)
+    target.iridescenceThicknessRange = [...(src.iridescenceThicknessRange || [100, 400])];
+  for (const k of WEAR_SHARED) if (k in target && src[k] !== undefined) target[k] = src[k];
+  for (const k of WEAR_EXTRA){
+    if (!(k in target)) continue;
+    const v = src[k];
+    target[k] = v !== undefined ? v : (typeof target[k] === 'number' ? 0 : null);
+  }
+  tune(target);
+  target.needsUpdate = true;
+}
+
 export function liveriesFor(modelId){ return SCANNED[modelId]?.liveries || []; }
 
 export async function buildScannedVehicle(v, tree, opts = {}){
@@ -190,7 +272,12 @@ export async function buildScannedVehicle(v, tree, opts = {}){
   oriented.rotation.y = spec.yaw;
 
   const byName = new Map();
-  for (const child of raw.children) byName.set(cleanName(spec, child.name), child);
+  for (const child of raw.children){
+    const base = cleanName(spec, child.name);
+    let name = base;
+    for (let n = 2; byName.has(name); n++) name = base + '#' + n;
+    byName.set(name, child);
+  }
 
   /* a model whose pieces are named after their material has its corners worked
      out from geometry instead of from a fixed list */
@@ -207,8 +294,10 @@ export async function buildScannedVehicle(v, tree, opts = {}){
   for (const [corner, names] of Object.entries(cornerNames)){
     const parts = names.map(n => byName.get(n)).filter(Boolean);
     if (!parts.length) continue;
+    /* precise: a wheel's own bounding box, turned, gives a box far bigger than
+       the wheel — and the radius taken from it would spin the tyre too slowly */
     const b = new THREE.Box3();
-    parts.forEach(p => b.expandByObject(p));
+    parts.forEach(p => b.expandByObject(p, true));
     const c = b.getCenter(new THREE.Vector3());
     const wheel = group('wheel_' + corner);
     for (const p of parts){
@@ -234,18 +323,39 @@ export async function buildScannedVehicle(v, tree, opts = {}){
     hub.traverse(o => { o.userData.partId = 'wheels'; if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
   }
 
-  /* everything else, grouped by the part it belongs to */
+  /* everything else, grouped by the part it belongs to — and, for a part that
+     comes in a left and a right, split by side. A pair of doors that explodes
+     as one group sends the far door straight through the car; split, each one
+     swings out of its own side. */
+  /* which way is sideways depends on how the model is turned into MotorLab's
+     frame, so measure across the car in the frame the explode is described in */
+  const yawS = Math.sin(spec.yaw || 0), yawC = Math.cos(spec.yaw || 0);
+  const across = (v) => v.z * yawC - v.x * yawS;
+  const size = new THREE.Box3().setFromObject(raw).getSize(new THREE.Vector3());
+  const offCentre = (size.x * Math.abs(yawS) + size.z * Math.abs(yawC)) * 0.06;
   const groups = new Map();
+  const centre = new THREE.Vector3();
   for (const [name, child] of byName){
     if (cornerOf.has(name)) continue;
+    const box = new THREE.Box3().setFromObject(child);
     const partId = spec.map ? spec.map[name]
-                 : spec.classify ? spec.classify(name, new THREE.Box3().setFromObject(child))
+                 : spec.classify ? spec.classify(name, box)
                  : null;
     if (!partId || partId === 'wheels') continue;
-    if (!groups.has(partId)) groups.set(partId, group(partId));
-    groups.get(partId).add(child);
+    box.getCenter(centre);
+    const off = across(centre);
+    const side = off > offCentre ? 1 : off < -offCentre ? -1 : 0;
+    const key = partId + '|' + side;
+    if (!groups.has(key)){
+      const g = group(partId);
+      g.userData.side = side;
+      g.userData.partId = partId;
+      groups.set(key, g);
+    }
+    groups.get(key).add(child);
   }
-  for (const [partId, g] of groups){
+  for (const g of groups.values()){
+    const partId = g.userData.partId;
     oriented.add(g);
     if (!nodes.has(partId)) nodes.set(partId, []);
     nodes.get(partId).push(g);
@@ -263,6 +373,7 @@ export async function buildScannedVehicle(v, tree, opts = {}){
     panelArchF:V3(0.6,0.2,1.3), panelArchR:V3(-0.6,0.2,1.3),
     glass:V3(0,1.7,0), netting:V3(0,1.0,1.0), seats:V3(0,1.1,-0.6),
     cage:V3(0,0.9,0), engine:V3(1.0,1.1,0), wheels:V3(0,0,1.9), chassis:V3(0,0,0),
+    brakes:V3(0,0,1.1),
     /* hypercar */
     shell:V3(0,1.3,0), aero:V3(0.9,0.5,0.8), interior:V3(0,1.0,-0.9), lights:V3(-1.1,0.5,0),
     floor:V3(0,-0.7,0),
@@ -272,7 +383,10 @@ export async function buildScannedVehicle(v, tree, opts = {}){
   };
   for (const [id, objs] of nodes) for (const o of objs){
     home.set(o, o.position.clone());
-    o.userData.explodeDir = (dirs[id] || V3(0,0.9,0)).clone().multiplyScalar(0.42);
+    const dir = (dirs[id] || V3(0,0.9,0)).clone().multiplyScalar(0.42);
+    /* a left-hand part goes out to the left, a right-hand part to the right */
+    if (o.userData.side) dir.z = Math.abs(dir.z) * o.userData.side;
+    o.userData.explodeDir = dir;
   }
 
   if (!nodes.size) throw new Error(`Model ${v.model} loaded but no part matched its map`);
@@ -325,15 +439,19 @@ async function loadRaw(spec, base = ''){
   if (spec.glb){
     const gltf = await new Promise((res, rej) =>
       new GLTFLoader(mgr).setPath(dir).load(spec.glb, res, undefined, rej));
-    const obj = gltf.scene;
+    let obj = gltf.scene;
     obj.traverse(o => {
       if (!o.isMesh) return;
-      /* the file carries positions and UVs only; normals are cheaper to
-         recompute here than to ship, and come out smoother for it */
+      /* a file that carries positions and UVs only gets its normals computed
+         here — cheaper than shipping them, and smoother for it */
       if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+      if (spec.keepMaterials){ tune(o.material); return; }
       const src = Array.isArray(o.material) ? o.material[0] : o.material;
       o.material = dress(spec.materialFor ? spec.materialFor(src?.name || '', o.name) : 'trim', src);
     });
+    const variantSets = spec.variants ? await readVariants(gltf) : null;
+    if (spec.flatten) obj = flatten(obj);
+    if (variantSets) obj.userData.variantSets = variantSets;
     return obj;
   }
 
@@ -358,6 +476,71 @@ async function loadRaw(spec, base = ''){
     o.geometry.computeVertexNormals?.();
   });
   return obj;
+}
+
+/* A model whose own materials are worth keeping still needs its lighting
+ * response matched to the rest of MotorLab, and its shadows switched on. */
+function tune(material){
+  for (const m of (Array.isArray(material) ? material : [material])){
+    if (!m) continue;
+    m.envMapIntensity = m.transmission > 0 ? 1.6 : 1.0;
+    m.side = m.transmission > 0 ? THREE.DoubleSide : m.side;
+  }
+}
+
+/* Pull the file's own paint jobs out of KHR_materials_variants.
+ *
+ * The extension lists, per piece, which material each variant swaps in. Rather
+ * than swapping material objects at runtime — which would not reach the clones
+ * MotorLab hands out — each variant is resolved once into a list of
+ * (live material, the material it should look like) pairs, and changing livery
+ * copies one onto the other. Variant zero usually *is* the default material,
+ * so it is snapshotted first or switching back to it would do nothing. */
+async function readVariants(gltf){
+  const names = (gltf.userData?.gltfExtensions?.KHR_materials_variants?.variants || []).map(v => v.name);
+  if (!names.length) return null;
+  const sets = new Map(names.map(n => [n, []]));
+  const seen = new Set(), jobs = [];
+  gltf.scene.traverse(o => {
+    const mv = o.userData?.gltfExtensions?.KHR_materials_variants;
+    if (!o.isMesh || !mv || Array.isArray(o.material)) return;
+    const target = o.material;
+    for (const m of (mv.mappings || [])) for (const vi of (m.variants || [])){
+      const key = target.uuid + '|' + vi;
+      if (seen.has(key) || !names[vi]) continue;
+      seen.add(key);
+      jobs.push(gltf.parser.getDependency('material', m.material)
+        .then(src => sets.get(names[vi]).push([target, src === target ? target.clone() : src]))
+        .catch(() => {}));
+    }
+  });
+  await Promise.all(jobs);
+  return sets;
+}
+
+/* Flatten a nested model into one list of meshes, keeping every piece exactly
+ * where it was. A file that parents the doors to the underbody and the glass to
+ * the doors renders identically either way, but only a flat model can be taken
+ * apart a part at a time. Pieces the file left unnamed inherit the name of the
+ * nearest thing above them that has one, so a multi-material part stays
+ * identifiable. */
+function flatten(root){
+  root.updateMatrixWorld(true);
+  const found = [];
+  const walk = (o, inherited) => {
+    const name = o.name || inherited;
+    if (o.isMesh) found.push([o, name]);
+    for (const c of [...o.children]) walk(c, name);
+  };
+  walk(root, 'piece');
+  const out = group('model');
+  found.forEach(([mesh, name], i) => {
+    mesh.matrix.copy(mesh.matrixWorld);
+    mesh.matrix.decompose(mesh.position, mesh.quaternion, mesh.scale);
+    mesh.name = name || ('piece_' + i);
+    out.add(mesh);            /* add() detaches it from its old parent */
+  });
+  return out;
 }
 
 /** Build the material for one kind of surface on a scanned model. The colour
