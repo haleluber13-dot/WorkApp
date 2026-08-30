@@ -252,10 +252,10 @@ function buildCar(v, tree){
   }
   if (has('rad')){
     const rd = group('rad');
-    rd.add(at(coreMesh(wid*0.62, hgt*0.30, M(56)), len*0.44, floorY + hgt*0.16, 0));
+    rd.add(at(coreMesh(wid*0.50, hgt*0.28, M(56)), len*0.36, floorY + hgt*0.17, 0));
     const fan = group('fan');
     for (let i = 0; i < 7; i++){ const b = box(M(18), hgt*0.11, M(8), MAT.black()); b.rotation.x = (i/7)*TAU; fan.add(b); }
-    at(rot(fan, 0, 0, Math.PI/2), len*0.41, floorY + hgt*0.16, 0);
+    at(rot(fan, 0, 0, Math.PI/2), len*0.32, floorY + hgt*0.17, 0);
     rd.add(fan); anim.fans.push(fan);
     add('rad', rd);
   }
@@ -263,7 +263,7 @@ function buildCar(v, tree){
     /* aero is carbon on a real car, and the weave is why it is left unpainted */
     const cf = MAT.carbon();
     const ae = group('aero');
-    ae.add(at(box(M(120), M(24), wid*0.92, cf), len*0.47, floorY*0.55, 0));           // splitter
+    ae.add(at(box(M(150), M(24), wid*0.78, cf), len*0.435, floorY*0.55, 0));          // splitter
     ae.add(at(rot(box(M(320), M(26), wid*0.86, cf), 0, 0, deg(-12)), axR*1.25, floorY + hgt*0.62, 0)); // wing
     for (const s of [-1,1]) ae.add(at(box(M(40), hgt*0.2, M(24), cf), axR*1.25, floorY + hgt*0.5, s*wid*0.4));
     ae.add(at(box(M(420), M(30), wid*0.7, cf), axR*1.05, floorY*0.5, 0));             // diffuser
@@ -282,8 +282,9 @@ function buildCar(v, tree){
     add('harness', hn);
   }
   if (has('lights')) for (const s of [-1,1]){
-    add('lights', at(roundBox(M(70), M(120), M(260), .02, MAT.glass()), len*0.46, floorY + hgt*0.32, s*wid*0.3));
-    add('lights', at(roundBox(M(60), M(110), M(230), .02, MAT.red()), -len*0.46, floorY + hgt*0.34, s*wid*0.3));
+    /* set into the bodywork, not stuck on the end of it */
+    add('lights', at(roundBox(M(55), M(105), M(230), .02, MAT.glass()), len*0.425, floorY + hgt*0.33, s*wid*0.27));
+    add('lights', at(roundBox(M(50), M(95), M(210), .02, MAT.red()), -len*0.425, floorY + hgt*0.35, s*wid*0.27));
   }
   if (has('headunit')) add('headunit', at(roundBox(M(180), M(110), M(180), .01, MAT.black()), axF*0.02, floorY + M(560), 0));
   if (has('amp')) add('amp', at(roundBox(M(320), M(70), M(240), .01, MAT.alloyDark()), axR*0.9, floorY + M(240), -wid*0.2));
@@ -314,17 +315,24 @@ function buildCar(v, tree){
   } else if (has('body') && !open){
     const bd = group('body');
     const opacity = globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8;
-    const shell = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, false).filter(Boolean);
-    bd.add(new THREE.Mesh(loft(shell, 30), MAT.paint(v.colour, opacity)));
-    const glass = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, true).filter(Boolean);
+    const paint = MAT.paint(v.colour, opacity);
+    const shell = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, 'shell').filter(Boolean);
+    bd.add(new THREE.Mesh(loft(shell, 30), paint));
+    const glass = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, 'glass').filter(Boolean);
     if (glass.length > 3)
       bd.add(new THREE.Mesh(loft(glass, 26), new THREE.MeshPhysicalMaterial({
-        color:0x2b3a4c, metalness:0.0, roughness:0.04, clearcoat:1, clearcoatRoughness:0.02,
-        transparent:true, opacity:0.62, envMapIntensity:2.4, side:THREE.DoubleSide })));
+        color:0x141c26, metalness:0.0, roughness:0.05, clearcoat:1, clearcoatRoughness:0.03,
+        transparent:true, opacity:0.80, envMapIntensity:2.2, side:THREE.DoubleSide })));
+
     /* a scan of a real radiator grille in the nose, where the air goes in */
-    const grille = partMesh('grille', { fit: wid * 0.66, depth: M(70), axis:'y',
+    /* the scan's long side is its own X, so it has to be turned across the car
+       before it is set into the nose */
+    const grille = partMesh('grille', { fit: wid * 0.50, depth: M(60), axis:'y',
                                         mat: MAT.plastic() });
-    if (grille) bd.add(at(grille, len * 0.455, floorY + hgt * 0.30, 0));
+    if (grille){
+      grille.rotation.y = Math.PI / 2;
+      bd.add(at(grille, len * 0.412, floorY + hgt * 0.30, 0));
+    }
     add('body', bd);
   }
   if (open && has('body')){
@@ -467,7 +475,12 @@ function loft(sections, N){
 }
 
 /** Cross-sections for a car body, with the wheel arches scalloped out. */
-function bodySections(v, len, hgt, floorY, axF, axR, rF, rR, glassOnly){
+/* A car is three surfaces stacked, not one lozenge: the lower body up to the
+ * beltline, the greenhouse of glass above it over the cabin, and the roof
+ * panel capping that. Building it as one closed tube with a second tube of
+ * glass shrink-wrapped over the top is what made it read as a blob under
+ * cling film. `mode` picks which of the three this pass is building. */
+function bodySections(v, len, hgt, floorY, axF, axR, rF, rR, mode){
   const L = BODY_LINES[v.body] || BODY_LINES.sedan;
   const halfW = M(v.widthMm) / 2;
   /* the bodywork has to cover the wheels — this is what gives a car its hips */
@@ -484,26 +497,47 @@ function bodySections(v, len, hgt, floorY, axF, axR, rF, rR, glassOnly){
     /* scallop the sill up over each axle — that is the wheel arch — and flare
        the section out over it so the tyre sits inside the bodywork */
     for (const [ax, r, over] of [[axF, rF, overF], [axR, rR, overR]]){
-      const d = Math.abs(x - ax) / (r * 1.45);
+      const d = Math.abs(x - ax) / (r * 1.55);
       if (d < 1){
         const k = 1 - d * d;
-        sillY = Math.max(sillY, r * 1.22 * (1 - d * d * 0.42));
-        wide = Math.max(wide, (over + M(28)) * (0.94 + 0.06 * k));
+        /* the arch has to clear the tyre, or the wheel ends up buried in the
+           bodywork instead of sitting in a wheel well */
+        sillY = Math.max(sillY, r * 1.34 * (1 - d * d * 0.38));
+        wide = Math.max(wide, (over + M(34)) * (0.94 + 0.06 * k));
       }
     }
-    if (glassOnly){
-      const gTop = floorY + hgt * curveAt(L.glass, t);
-      const belt = floorY + hgt * L.beltline;
-      if (gTop <= belt + 0.01){ out.push(null); continue; }
-      out.push({ x, yBot:belt, yTop:gTop, wBot:wide * 0.90, wTop:wide * 0.70, squ:L.squ * 1.15 });
+    const belt = floorY + hgt * L.beltline;
+    const glassT = floorY + hgt * curveAt(L.glass, t);
+    const shellTop = Math.max(roofY, sillY + 0.02);
+    const shellWTop = wide * (0.70 + 0.22 * (1 - curveAt(L.glass, t)));
+
+    if (mode === 'glass'){
+      /* The glass is not a second body over the first — it is a band lying on
+         the body's own surface. So it takes the shell's width at the same two
+         heights and sits a few millimetres proud of it: windows where the
+         cabin is, painted metal above and below, and no gap anywhere. */
+      const gTop = Math.min(glassT, shellTop - hgt * 0.02);
+      if (roofY - belt < hgt * 0.07 || gTop <= belt + hgt * 0.02){ out.push(null); continue; }
+      const yMid = (shellTop + sillY) / 2, hH = Math.max(1e-4, (shellTop - sillY) / 2);
+      const shellW = (y) => wide + (shellWTop - wide) * Math.max(0, Math.min(1, (y - yMid) / hH));
+      out.push({ x, yBot:belt, yTop:gTop,
+                 wBot:shellW(belt) * 1.004, wTop:shellW(gTop) * 1.004, squ:L.squ });
     } else {
-      out.push({ x, yBot:sillY, yTop:Math.max(roofY, sillY + 0.02),
-                 wBot:wide, wTop:wide * (0.70 + 0.22 * (1 - curveAt(L.glass, t))), squ:L.squ });
+      out.push({ x, yBot:sillY, yTop:shellTop, wBot:wide, wTop:shellWTop, squ:L.squ });
     }
   }
-  /* close the ends without pinching them to a point — cars have flat faces */
-  const taper = (s, k) => s && Object.assign(s, { wBot:s.wBot*k, wTop:s.wTop*k, squ:(s.squ||2.6)*1.5 });
-  taper(out[0], 0.66); taper(out[out.length-1], 0.70);
+  /* Close the ends without pinching them to a point — cars have flat faces.
+     This has to find the first and last section that actually exists: the
+     greenhouse and roof are null everywhere outside the cabin, and tapering
+     the nulls left their end caps standing out as flat wings. */
+  const taper = (i, k) => { const sec = out[i]; if (!sec) return;
+    Object.assign(sec, { wBot:sec.wBot*k, wTop:sec.wTop*k, squ:(sec.squ||2.6)*1.5 }); };
+  const first = out.findIndex(Boolean);
+  let last = out.length - 1; while (last > 0 && !out[last]) last--;
+  if (first >= 0){
+    const ends = mode === 'shell' ? [0.66, 0.70] : [0.30, 0.34];
+    taper(first, ends[0]); taper(last, ends[1]);
+  }
   return out;
 }
 /* ====================================================================== */

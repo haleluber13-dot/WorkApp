@@ -175,10 +175,12 @@ export const MAT = {
     color:0x23282f, metalness:0.0, roughness:0.58, envMapIntensity:0.7 }),
     m => dressSurface(m, 'plastic', 3, 0.7))),
   /* exhaust side: heat-discoloured, oxidised, barely reflective */
+  /* exhaust side: heat-scaled steel. Not copper — headers go straw, then blue,
+     then a dull grey scale, and they were reading like plumbing. */
   hot: () => mat('hot', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xa8836c, metalness:0.72, roughness:0.66, envMapIntensity:0.8,
+    color:0x6d6a68, metalness:0.86, roughness:0.52, envMapIntensity:1.0,
     roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.6 }),
-    m => dressSurface(m, 'hot', 4, 1.1, true))),
+    m => dressSurface(m, 'hot', 4, 0.8))),
   /* painted components get a clearcoat, which is what makes paint read as paint */
   red: () => mat('red', () => new THREE.MeshPhysicalMaterial({
     color:0xb52a20, metalness:0.15, roughness:0.34, clearcoat:1, clearcoatRoughness:0.10, envMapIntensity:1.1 })),
@@ -1541,13 +1543,16 @@ export function serpentineBelt(pulleys, x, width, mat, thickness = width * 0.12)
     /* the outer common tangent between two circles */
     const phi = Math.atan2(dz, dy) + Math.acos(Math.max(-1, Math.min(1, (A.r - B.r) / d)));
     const nz = Math.sin(phi), ny = Math.cos(phi);
-    path.push(new THREE.Vector3(x, A.y + ny * A.r, A.z + nz * A.r));
-    path.push(new THREE.Vector3(x, B.y + ny * B.r, B.z + nz * B.r));
+    /* built at x = 0: scaling the mesh across the belt would otherwise scale
+       its offset from the origin too, and throw it across the scene */
+    path.push(new THREE.Vector3(0, A.y + ny * A.r, A.z + nz * A.r));
+    path.push(new THREE.Vector3(0, B.y + ny * B.r, B.z + nz * B.r));
   }
   const curve = new THREE.CatmullRomCurve3(path, true, 'catmullrom', 0.02);
   const geo = new THREE.TubeGeometry(curve, path.length * 10, thickness * 0.5, 4, true);
   const belt = new THREE.Mesh(geo, mat || MAT.rubber());
   belt.scale.x = width / thickness;       // wide across the pulley, thin radially
+  belt.position.x = x;                    // and only then moved onto the plane
   return belt;
 }
 

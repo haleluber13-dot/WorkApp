@@ -218,13 +218,15 @@ export class Viewport {
   _ground(){
     const g = new THREE.Group();
     /* a real workshop floor, off a scan, so the shadows land on something */
-    const floorMat = new THREE.MeshStandardMaterial({ color:0x11141b, roughness:.95, metalness:.05 });
+    /* a workshop floor is matte. It has to stay matte, or the environment
+       mirrors in it and the whole scene reads as ice. */
+    const floorMat = new THREE.MeshStandardMaterial({
+      color:0x11141b, roughness:1.0, metalness:0.0, envMapIntensity:0.22 });
     whenTextures(() => {
-      const maps = surface('floor', 26, true);
+      const maps = surface('floor', 40, true);
       if (maps.normalMap){ floorMat.normalMap = maps.normalMap;
-                           floorMat.normalScale = new THREE.Vector2(0.6, 0.6); }
-      if (maps.roughnessMap) floorMat.roughnessMap = maps.roughnessMap;
-      if (maps.map){ floorMat.map = maps.map; floorMat.color.setHex(0x3a4048); }
+                           floorMat.normalScale = new THREE.Vector2(0.30, 0.30); }
+      if (maps.map){ floorMat.map = maps.map; floorMat.color.setHex(0x272c34); }
       floorMat.needsUpdate = true;
       this.needsRender = true;
     });
