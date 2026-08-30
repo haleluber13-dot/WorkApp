@@ -107,7 +107,7 @@ function buildPiston(e, tree){
    */
   const blockG = group('block');
   const yCase = -L.crankR * 1.30;                       // pan rail
-  const wCase = L.bore * 0.86;
+  const wCase = L.bore * 0.92;
   const prof = [];
   if (L.banks >= 2){
     const half = L.bore * 0.775;
@@ -124,10 +124,15 @@ function buildPiston(e, tree){
               [dR.inner[0], dR.inner[1]], [dR.outer[0], dR.outer[1]],
               [wCase, L.crankR * 0.55], [wCase, yCase]);
   } else {
-    const half = L.bore * 0.80;
-    prof.push([-wCase, yCase], [-wCase, L.crankR * 0.55], [-half, L.crankR * 1.15],
-              [-half, L.deckH], [half, L.deckH], [half, L.crankR * 1.15],
-              [wCase, L.crankR * 0.55], [wCase, yCase]);
+    /* An inline block is not a monolith: the pan rail is wider than the
+       cylinder case above it, and the step between them is most of what you
+       recognise. A single full-width slab swallowed the head. */
+    const half = L.bore * 0.66;
+    prof.push([-wCase, yCase], [-wCase, L.crankR * 0.72],
+              [-half * 1.10, L.crankR * 0.86], [-half, L.crankR * 1.20],
+              [-half, L.deckH], [half, L.deckH],
+              [half, L.crankR * 1.20], [half * 1.10, L.crankR * 0.86],
+              [wCase, L.crankR * 0.72], [wCase, yCase]);
   }
   const shape = new THREE.Shape();
   shape.moveTo(prof[0][0], prof[0][1]);
@@ -489,7 +494,7 @@ function buildPiston(e, tree){
     const p = cylPosition(e, i, L);
     const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
     /* the inlet port is on the inner face of the head — the valley side */
-    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, -bankSign(b) * L.bore * 0.50);
+    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, -bankSign(b) * L.bore * 0.70);
     const zEnd = itb ? pz * 0.55 : (L.banks >= 2 ? 0 : -L.bore * 0.95);
     const topY = itb ? L.deckH + L.bore * 1.62 : inducY;
     intakeG.add(pipe([
@@ -589,7 +594,7 @@ function buildPiston(e, tree){
     const side = L.banks >= 2 ? bankSign(b) : 1;
     /* the exhaust port is on the outer face of the head; from there the
        primary sweeps down the side of the block to a collector */
-    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, side * L.bore * 0.52);
+    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, side * L.bore * 0.70);
     const collectorX = L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
     exG.add(pipe([
       [p.x, py, pz],
@@ -606,7 +611,7 @@ function buildPiston(e, tree){
     rot(fl, 0, 0, 0);
     fl.rotation.y = Math.PI / 2;
     const bIdx = L.banks >= 2 ? (bk > 0 ? (bankSign(0) > 0 ? 0 : 1) : (bankSign(0) > 0 ? 1 : 0)) : 0;
-    const [fy, fz] = portAt(bIdx, L.deckH + L.bore * 0.34, bk * L.bore * 0.62);
+    const [fy, fz] = portAt(bIdx, L.deckH + L.bore * 0.34, bk * L.bore * 0.76);
     fl.rotation.x = L.bankAngles[bIdx] || 0;
     at(fl, 0, fy, fz);
     exG.add(fl);
