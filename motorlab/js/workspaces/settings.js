@@ -168,7 +168,8 @@ function renderData(ctx, wrap){
 
     section('About',
       para('<b>MotorLab</b> — a virtual build and tuning bay for engines, cars, motorcycles and karts. Everything you see in 3D is generated from a specification, not a downloaded model, and every number on screen comes from a physical model rather than a lookup table.'),
-      note('The performance figures are a teaching simulation. They are calibrated to land close to real published figures for the archetypes they represent, but they are not a replacement for a real dyno, a real workshop manual or a real torque spec.')),
+      note('The performance figures are a teaching simulation. They are calibrated to land close to real published figures for the archetypes they represent, but they are not a replacement for a real dyno, a real workshop manual or a real torque spec.'),
+      note('Engines and vehicles are named after the real machines whose published bore, stroke, compression ratio, dimensions and gearing they are built from — the names identify the engineering being taught. MotorLab is an independent educational tool. It is not affiliated with, authorised by or endorsed by any manufacturer, it carries no manufacturer\'s badge, emblem or livery, and all trade marks belong to their respective owners.')),
   );
   return wrap;
 }

@@ -120,7 +120,9 @@ export function loadTextures(base = ''){
   const loader = new THREE.TextureLoader(mgr);
   const one = (key, url, space, wrap) => new Promise((res) => loader.load(url, (t) => {
     t.colorSpace = space === 'srgb' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-    t.anisotropy = 8;
+    /* 16x is the usual hardware maximum, and it is what keeps a floor or a
+       tyre wall from smearing into mush at a grazing angle */
+    t.anisotropy = 16;
     t.wrapS = t.wrapT = wrap;
     loaded.set(key, t);
     res(t);

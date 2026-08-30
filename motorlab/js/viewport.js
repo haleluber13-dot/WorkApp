@@ -21,7 +21,7 @@ export class Viewport {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.localClippingEnabled = true;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.95;
+    this.renderer.toneMappingExposure = 1.02;
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0b0e14);
@@ -201,7 +201,7 @@ export class Viewport {
     const key = new THREE.DirectionalLight(0xfff4e6, 2.9);
     key.position.set(3.4, 5.2, 2.6);
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.mapSize.set(4096, 4096);
     const d = 5;
     key.shadow.camera.left = -d; key.shadow.camera.right = d;
     key.shadow.camera.top = d;  key.shadow.camera.bottom = -d;
