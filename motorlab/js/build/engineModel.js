@@ -546,6 +546,10 @@ function buildPiston(e, tree){
                                   L.banks >= 2 ? 0 : -L.bore * 0.86);
     const dg = group('dist');
     dg.add(at(cyl(dR * 0.72, dR * 0.72, L.bore * 0.72, MAT.alloyDark(), 20), dAt.x, dAt.y, dAt.z));
+    /* the O-ring on the distributor shank, which every exploded view draws as a
+       separate orange circle because it is the one part people leave out */
+    dg.add(at(rot(torus(dR * 0.76, L.bore * 0.022, MAT.rubber(), 22), Math.PI / 2, 0, 0),
+              dAt.x, dAt.y - L.bore * 0.34, dAt.z));
     dg.add(at(lathe([[0, 0], [dR, M(4)], [dR, L.bore * 0.24], [dR * 0.62, L.bore * 0.34],
                      [dR * 0.34, L.bore * 0.36], [0, L.bore * 0.36]], MAT.plastic(), 22),
               dAt.x, dAt.y + L.bore * 0.36, dAt.z));
@@ -721,7 +725,18 @@ function buildPiston(e, tree){
   add('frontcover', at(rot(fc, 0, Math.PI/2, 0), frontX - M(14), L.deckH * 0.5, 0));
 
   /* ---- lubrication ---- */
-  add('oilpump', at(roundBox(M(70), M(70), M(50), .01, MAT.alloyDark()), frontX + M(40), -L.crankR * 0.6, L.bore * 0.5));
+  const opG = group('oilpump');
+  opG.add(at(roundBox(M(70), M(70), M(50), .01, MAT.alloyDark()), frontX + M(40), -L.crankR * 0.6, L.bore * 0.5));
+  /* The pressure relief valve: a spring behind a plunger that dumps oil back to
+     the pan above about 5 bar. It is why a cold engine on a winter morning does
+     not split its own filter, and why oil pressure stops climbing with revs. */
+  const rv = group('relief');
+  rv.add(at(rot(cyl(M(13), M(13), M(46), MAT.alloyDark(), 14), 0, 0, Math.PI/2),
+            frontX + M(40) + M(46), -L.crankR * 0.6, L.bore * 0.5));
+  rv.add(at(rot(hexPrism(M(15), M(12), MAT.plated()), 0, 0, Math.PI/2),
+            frontX + M(40) + M(74), -L.crankR * 0.6, L.bore * 0.5));
+  opG.add(rv);
+  add('oilpump', opG);
   add('pickup', pipe([[0,-L.crankR*0.9,0],[0,-L.crankR*1.6,L.bore*0.25],[L.len*0.15,-L.crankR*1.9,L.bore*0.3]], M(9), MAT.steel()));
   const pan = oilPanMesh(L.len * 0.94, L.bore * 1.35, L.crankR * 1.5, MAT.alloyDark());
   add('oilpan', at(pan, 0, -L.crankR * 1.9, 0));
