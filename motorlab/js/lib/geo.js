@@ -262,6 +262,23 @@ export const MAT = {
   ceramic: () => mat('ceramic', () => new THREE.MeshPhysicalMaterial({
     color:0xe8e4dc, metalness:0.0, roughness:0.30, clearcoat:0.5, clearcoatRoughness:0.25,
     sheen:0.3, sheenColor:0xfff8ee, envMapIntensity:0.9 })),
+  /* corrugated nylon conduit — the black tubing every engine loom runs inside */
+  conduit: () => mat('conduit', () => new THREE.MeshStandardMaterial({
+    color:0x15171b, metalness:0.0, roughness:0.62, envMapIntensity:0.35 })),
+  /* the moulded shell of a connector: glass-filled nylon, matt, slightly grey */
+  connector: () => mat('connector', () => new THREE.MeshStandardMaterial({
+    color:0x1d2026, metalness:0.0, roughness:0.58, envMapIntensity:0.40 })),
+  /* stainless braid over a PTFE oil or fuel line */
+  braid: () => mat('braid', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xb4bac2, metalness:1.0, roughness:0.44, envMapIntensity:0.85 }),
+    m => dressSurface(m, 'brushed', 10, 1.0))),
+  /* anodised aluminium, which is what an AN fitting is */
+  anodised: () => mat('anodised', () => new THREE.MeshStandardMaterial({
+    color:0x2b5f9c, metalness:0.90, roughness:0.32, envMapIntensity:0.95 })),
+  /* stamped stainless: heat shields, and only heat shields */
+  stainless: () => mat('stainless', () => new THREE.MeshStandardMaterial({
+    color:0xc6cad0, metalness:1.0, roughness:0.26, envMapIntensity:0.95,
+    side:THREE.DoubleSide })),
   /* zinc-plated fastener finish: bright, slightly yellow, not chrome */
   plated: () => mat('plated', () => new THREE.MeshStandardMaterial({
     color:0xcfd3cf, metalness:0.95, roughness:0.30, envMapIntensity:1.25 })),
@@ -1365,6 +1382,11 @@ export function turboUnit(size, mats = {}){
     turbineIn, compressorOut,
     turbineOut:   new THREE.Vector3(0, 0, zT - size * 0.40),
     compressorIn: new THREE.Vector3(0, 0, zC + size * 0.38),
+    /* the bearing housing has to be fed and drained, and the wastegate
+       actuator has to see boost, so say where all three connect */
+    oilIn:    new THREE.Vector3(0, size * 0.50, 0),
+    oilOut:   new THREE.Vector3(0, -size * 0.38, 0),
+    wgSignal: new THREE.Vector3(size * 0.74, size * 0.36, zC - size * 0.13),
     hotTube:  tThroat.tube,
     coldTube: cThroat.tube,
     axialTube: size * 0.34,
@@ -1596,5 +1618,251 @@ export function starterMesh(size){
   rot(pinion, 0, 0, Math.PI/2);
   pinion.position.x = size*0.80;
   g.add(body, sol, nose, pinion);
+  return g;
+}
+
+/* ---------------------------------------------------------------------- *
+ * The small parts.
+ *
+ * An engine is mostly not castings. It is sensors, connectors, looms, hoses,
+ * clamps, lines, clips and shields — and their absence is exactly what makes a
+ * generated engine look generated. Everything below is built the way the real
+ * part is built, and every one of them has an origin at the face it mounts to,
+ * so a caller places it against a surface rather than near one.
+ * ---------------------------------------------------------------------- */
+
+/** A moulded electrical connector. Body centred on the origin, the mating face
+ *  looking down −Y, the lock tab on +X, and the wires leaving through +Y. */
+export function connectorShell(w, h, d, mats = {}){
+  const shell = mats.shell || MAT.connector();
+  const g = group('connector');
+  g.add(roundBox(w, h, d, Math.min(w, d) * 0.14, shell));
+  /* the latch: a ramp on the outside with the release lever above it */
+  g.add(at(rot(box(w * 0.16, h * 0.30, d * 0.44, shell), 0, 0, deg(-8)),
+           w * 0.54, h * 0.10, 0));
+  g.add(at(box(w * 0.10, h * 0.44, d * 0.30, shell), w * 0.58, h * 0.34, 0));
+  /* the seal at the mating face, and the strain-relief boot the wires go into */
+  g.add(at(roundBox(w * 0.92, h * 0.10, d * 0.92, 0.002, MAT.rubber()), 0, -h * 0.52, 0));
+  g.add(at(lathe([[Math.min(w, d) * 0.34, 0], [Math.min(w, d) * 0.30, h * 0.24],
+                  [Math.min(w, d) * 0.20, h * 0.46]], MAT.rubber(), 14), 0, h * 0.48, 0));
+  return g;
+}
+
+/** A sensor. `kind` is how it is held: 'screw' threads into a boss (lambda,
+ *  coolant temperature, knock, oil pressure), 'flange' bolts to a face through
+ *  a single ear (crank and cam position), 'boss' sits on two feet with a port
+ *  underneath (MAP). The origin is the mounting face; the body runs up +Y. */
+export function sensorMesh(kind, size, mats = {}){
+  const body = mats.body || MAT.connector();
+  const metal = mats.metal || MAT.plated();
+  const g = group('sensor');
+  const M2 = (f) => size * f;
+
+  if (kind === 'screw'){
+    g.add(at(helixThread(M2(0.30), M2(0.34), M2(0.09), M2(0.035), metal), 0, -M2(0.30), 0));
+    g.add(at(cyl(M2(0.27), M2(0.27), M2(0.34), metal, 14), 0, -M2(0.30), 0));
+    g.add(at(hexPrism(M2(0.78), M2(0.30), metal), 0, -M2(0.02), 0));   // the spanner flats
+    g.add(at(lathe([[M2(0.30), 0], [M2(0.34), M2(0.10)], [M2(0.34), M2(0.62)],
+                    [M2(0.26), M2(0.72)]], body, 16), 0, M2(0.14), 0));
+  } else if (kind === 'flange'){
+    g.add(at(cyl(M2(0.30), M2(0.30), M2(0.26), metal, 16), 0, -M2(0.10), 0));  // the spigot
+    g.add(at(roundBox(M2(1.30), M2(0.20), M2(0.56), M2(0.08), metal), M2(0.42), M2(0.06), 0));
+    g.add(at(cyl(M2(0.16), M2(0.16), M2(0.34), MAT.steel(), 10), M2(0.86), M2(0.14), 0));
+    g.add(at(hexPrism(M2(0.34), M2(0.14), MAT.plated()), M2(0.86), M2(0.28), 0));
+    g.add(at(roundBox(M2(0.56), M2(0.70), M2(0.50), M2(0.10), body), 0, M2(0.38), 0));
+  } else {
+    for (const s of [-1, 1])                                   // the two mounting ears
+      g.add(at(roundBox(M2(0.30), M2(0.14), M2(0.34), M2(0.05), body), s * M2(0.62), M2(0.08), 0));
+    g.add(at(cyl(M2(0.14), M2(0.14), M2(0.22), body, 12), 0, -M2(0.10), 0));   // the port stub
+    g.add(at(roundBox(M2(0.90), M2(0.56), M2(0.62), M2(0.10), body), 0, M2(0.30), 0));
+  }
+  const c = connectorShell(M2(0.66), M2(0.46), M2(0.52), mats);
+  const top = kind === 'screw' ? M2(0.94) : kind === 'flange' ? M2(0.94) : M2(0.80);
+  g.add(at(c, 0, top, 0));
+  g.userData.lead = new THREE.Vector3(0, top + M2(0.44), 0);   // where its loom starts
+  return g;
+}
+
+/** A wiring loom: corrugated conduit, taped at intervals, clipped where it
+ *  turns. Points are in the caller's frame; the taped wraps are placed along
+ *  the same curve so they land on the tube rather than beside it. */
+export function loomMesh(points, radius, mats = {}){
+  if (points.length < 2) return null;
+  const pts = points.map(p => p.isVector3 ? p : new THREE.Vector3(...p));
+  const g = group('loom');
+  g.add(pipe(pts, radius, mats.conduit || MAT.conduit(), 8));
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const wraps = Math.max(2, Math.round(curve.getLength() / (radius * 26)));
+  for (let i = 1; i <= wraps; i++){
+    const t = i / (wraps + 1);
+    const p = curve.getPointAt(t), tan = curve.getTangentAt(t);
+    const ring = cyl(radius * 1.22, radius * 1.22, radius * 1.1, MAT.rubber(), 10);
+    ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan.normalize());
+    ring.position.copy(p);
+    g.add(ring);
+  }
+  return g;
+}
+
+/** A worm-drive hose clamp: the band, and the housing the screw sits in. The
+ *  band's axis is +Y, like everything else here, so a caller aligns it to the
+ *  hose by turning +Y onto the tangent. */
+export function hoseClamp(radius, mats = {}){
+  const m = mats.band || MAT.plated();
+  const g = group('clamp');
+  g.add(tubeMesh(radius * 1.10, radius * 1.02, radius * 0.20, m, 24));
+  g.add(at(roundBox(radius * 0.46, radius * 0.30, radius * 0.34, radius * 0.05, m),
+           radius * 1.18, 0, 0));
+  g.add(at(rot(cyl(radius * 0.11, radius * 0.11, radius * 0.44, m, 8), Math.PI / 2, 0, 0),
+           radius * 1.24, 0, radius * 0.24));
+  return g;
+}
+
+/** A braided-steel line with an anodised fitting at each end — a turbo oil
+ *  feed, a fuel line, a brake line. The fittings sit square to the run. */
+export function braidedLine(points, radius, mats = {}){
+  const pts = points.map(p => p.isVector3 ? p : new THREE.Vector3(...p));
+  const g = group('line');
+  g.add(pipe(pts, radius, mats.hose || MAT.braid(), 8));
+  const curve = new THREE.CatmullRomCurve3(pts);
+  for (const t of [0, 1]){
+    const p = curve.getPointAt(t), tan = curve.getTangentAt(t).normalize();
+    const fit = group('fitting');
+    fit.add(at(hexPrism(radius * 3.0, radius * 1.5, mats.fitting || MAT.anodised()), 0, 0, 0));
+    fit.add(at(cyl(radius * 1.15, radius * 1.15, radius * 2.4, mats.fitting || MAT.anodised(), 12),
+               0, radius * (t ? 1.4 : -1.4), 0));
+    fit.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan);
+    fit.position.copy(p);
+    g.add(fit);
+  }
+  return g;
+}
+
+/** The dipstick: a tube down into the sump, and the looped handle on top. */
+export function dipstickMesh(points, radius, mats = {}){
+  const g = group('dipstick');
+  g.add(pipe(points, radius, mats.tube || MAT.steel(), 8));
+  const top = points[0].isVector3 ? points[0] : new THREE.Vector3(...points[0]);
+  g.add(at(torus(radius * 2.6, radius * 0.55, mats.handle || MAT.orange(), 18),
+           top.x, top.y + radius * 3.0, top.z));
+  g.add(at(cyl(radius * 1.4, radius * 1.4, radius * 2.2, mats.tube || MAT.steel(), 12),
+           top.x, top.y + radius * 0.8, top.z));
+  return g;
+}
+
+/** A screw-on oil filler cap: knurled rim, the tab you turn it by, and the
+ *  neck it screws into. The origin is the cover face it stands on. */
+export function fillerCap(radius, mats = {}){
+  const m = mats.cap || MAT.connector();
+  const g = group('fillercap');
+  g.add(at(lathe([[radius * 1.08, 0], [radius * 1.08, radius * 0.34],
+                  [radius * 0.92, radius * 0.46]], MAT.alloyDark(), 22), 0, 0, 0));
+  g.add(at(lathe([[radius, radius * 0.30], [radius * 1.16, radius * 0.42],
+                  [radius * 1.16, radius * 0.78], [radius * 0.86, radius * 0.92]], m, 24), 0, 0, 0));
+  for (let i = 0; i < 12; i++){                       // the knurl you grip
+    const a = (i / 12) * TAU;
+    g.add(at(box(radius * 0.10, radius * 0.44, radius * 0.14, m),
+             Math.cos(a) * radius * 1.14, radius * 0.60, Math.sin(a) * radius * 1.14));
+  }
+  g.add(at(box(radius * 1.9, radius * 0.16, radius * 0.30, m), 0, radius * 0.92, 0));
+  return g;
+}
+
+/** The thermostat housing: a flange onto the block, the thermostat chamber,
+ *  and the outlet neck the top hose clamps onto. The origin is the flange
+ *  face; the neck points along +X, and `userData.outlet` says where it ends. */
+export function thermostatMesh(radius, mats = {}){
+  const m = mats.body || MAT.alloy();
+  const g = group('thermostat');
+  g.add(at(rot(lathe([[radius * 1.5, 0], [radius * 1.5, radius * 0.20],
+                      [radius * 1.15, radius * 0.28]], m, 22), 0, 0, -Math.PI / 2), 0, 0, 0));
+  g.add(at(rot(lathe([[radius * 1.15, radius * 0.20], [radius * 1.15, radius * 1.10],
+                      [radius * 0.86, radius * 1.30], [radius * 0.86, radius * 1.90]], m, 22),
+               0, 0, -Math.PI / 2), 0, 0, 0));
+  for (let i = 0; i < 3; i++){                        // the bolts holding it on
+    const a = (i / 3) * TAU + 0.4;
+    g.add(at(rot(bolt(radius * 0.12, radius * 0.40, MAT.plated()), 0, 0, -Math.PI / 2),
+             radius * 0.10, Math.sin(a) * radius * 1.24, Math.cos(a) * radius * 1.24));
+  }
+  g.add(at(rot(hoseClamp(radius * 0.90), 0, 0, -Math.PI / 2), radius * 1.72, 0, 0));
+  g.userData.outlet = new THREE.Vector3(radius * 1.90, 0, 0);
+  return g;
+}
+
+/** A braided earth strap between two points, with a ring terminal on each. */
+export function groundStrap(a, b, radius, mats = {}){
+  const A = a.isVector3 ? a : new THREE.Vector3(...a);
+  const B = b.isVector3 ? b : new THREE.Vector3(...b);
+  const mid = A.clone().add(B).multiplyScalar(0.5);
+  mid.y -= A.distanceTo(B) * 0.16;                     // straps hang, they do not span
+  const g = group('strap');
+  g.add(pipe([A, mid, B], radius, mats.braid || MAT.braid(), 8));
+  for (const p of [A, B]){
+    g.add(at(tubeMesh(radius * 2.6, radius * 1.1, radius * 0.7, MAT.copper(), 16), p.x, p.y, p.z));
+    g.add(at(cyl(radius * 1.0, radius * 1.0, radius * 1.6, MAT.plated(), 8), p.x, p.y, p.z));
+  }
+  return g;
+}
+
+/** A canister in an exhaust: inlet cone, shell, outlet cone. Used for the
+ *  catalyst and for a silencer. The origin is the inlet, running along +X. */
+export function canBody(length, radius, mats = {}){
+  const shell = mats.shell || MAT.stainless();
+  const g = group('can');
+  const inR = radius * 0.42;
+  g.add(rot(lathe([[inR, 0], [inR, length * 0.06], [radius, length * 0.20],
+                   [radius, length * 0.80], [inR, length * 0.94], [inR, length]],
+                  shell, 26), 0, 0, -Math.PI / 2));
+  /* the seam weld round the middle, which is how these are actually made */
+  g.add(at(rot(tubeMesh(radius * 1.04, radius * 0.99, length * 0.03, shell, 26), 0, 0, Math.PI / 2),
+           length * 0.5, 0, 0));
+  return g;
+}
+
+/** A stamped heat shield wrapped round something hot: a partial cylinder with
+ *  a rolled edge and the standoffs that hold it off the surface. */
+export function heatShield(radius, length, arc, mats = {}){
+  const m = mats.shield || MAT.stainless();
+  const g = group('heatshield');
+  const geo = new THREE.CylinderGeometry(radius, radius, length, 24, 1, true,
+                                         -arc / 2, arc);
+  const sh = new THREE.Mesh(geo, m);
+  rot(sh, 0, 0, Math.PI / 2);
+  g.add(sh);
+  for (const x of [-length * 0.36, length * 0.36])
+    for (const s of [-1, 1]){
+      const a = s * arc / 2;
+      g.add(at(cyl(radius * 0.05, radius * 0.05, radius * 0.22, MAT.plated(), 8),
+               x, Math.cos(a) * radius * 0.92, Math.sin(a) * radius * 0.92));
+    }
+  return g;
+}
+
+/** A PCV valve or breather: the grommet in the cover, the valve body, and the
+ *  hose stub. Origin at the cover face, standing up +Y. */
+export function pcvValve(size, mats = {}){
+  const g = group('pcv');
+  g.add(at(lathe([[size * 0.62, 0], [size * 0.62, size * 0.16], [size * 0.44, size * 0.24]],
+                 MAT.rubber(), 16), 0, 0, 0));
+  g.add(at(lathe([[size * 0.44, size * 0.10], [size * 0.44, size * 0.70],
+                  [size * 0.34, size * 0.80]], mats.body || MAT.alloyDark(), 16), 0, 0, 0));
+  g.add(at(lathe([[size * 0.30, size * 0.70], [size * 0.30, size * 1.10],
+                  [size * 0.38, size * 1.16], [size * 0.30, size * 1.24]],
+                 MAT.plated(), 14), 0, 0, 0));
+  return g;
+}
+
+/** An engine mount: the arm off the block, the bonded rubber, and the stud
+ *  that goes down into the subframe. Origin is the block face. */
+export function engineMount(size, mats = {}){
+  const g = group('mount');
+  g.add(at(roundBox(size * 0.34, size * 1.10, size * 0.90, size * 0.08,
+                    mats.arm || MAT.alloyDark()), size * 0.17, 0, 0));
+  g.add(at(lathe([[size * 0.62, 0], [size * 0.62, size * 0.52], [size * 0.50, size * 0.60]],
+                 MAT.damperRubber(), 20), size * 0.34, -size * 0.62, 0));
+  g.add(at(cyl(size * 0.16, size * 0.16, size * 0.50, MAT.steel(), 10),
+           size * 0.34, -size * 0.92, 0));
+  for (const s of [-1, 1])
+    g.add(at(bolt(size * 0.09, size * 0.30, MAT.plated()), 0, s * size * 0.36, size * 0.28));
   return g;
 }
