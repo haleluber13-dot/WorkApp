@@ -28,7 +28,7 @@ const js = res.outputFiles[0].text;
 
 /* inline every runtime asset so the single file needs no server at all */
 const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
-               '.glb':'model/gltf-binary' };
+               '.glb':'model/gltf-binary', '.hdr':'image/vnd.radiance' };
 function collect(dir, out = {}, base = dir){
   for (const name of readdirSync(dir)){
     const full = join(dir, name);

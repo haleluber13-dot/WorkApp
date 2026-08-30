@@ -18,10 +18,10 @@ export const SCANNED = {
     prefix:'nns_lod0_',
     /* model is nose-along-+Z, left-hand side at +X, sitting on Y = 0 */
     yaw: Math.PI / 2,
-    normalMap:'textures/nns_normal.png',
+    normalMap:'textures/nns_normal.jpg',
     liveries:[
-      { id:'placeholder', name:'House livery #6', file:'paint/nns_placeholder_paint.png' },
-      { id:'sprint',      name:'Series car #008', file:'paint/nns_sprint_paint.png' },
+      { id:'placeholder', name:'House livery #6', file:'paint/nns_placeholder_paint.jpg' },
+      { id:'sprint',      name:'Series car #008', file:'paint/nns_sprint_paint.jpg' },
     ],
     /* every named object in the file, and the part it belongs to */
     map:{

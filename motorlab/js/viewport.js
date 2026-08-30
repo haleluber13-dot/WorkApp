@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { surface, whenTextures } from './lib/textures.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
@@ -73,14 +75,82 @@ export class Viewport {
   /* Image-based lighting. Metal with nothing to reflect reads as grey plastic —
    * this is the single biggest difference between a CG part and a real one. */
   _environment(){
+    /* the generated room is the floor: it always works, needs no download, and
+       is what everything falls back to */
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     pmrem.compileEquirectangularShader();
     const room = new RoomEnvironment();
     this.envMap = pmrem.fromScene(room, 0.03).texture;
+    this.roomEnv = this.envMap;
     this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.85;
     room.dispose?.();
     pmrem.dispose();
+  }
+
+  /** Light the scene with a real place.
+   *
+   *  Chrome, clearcoat paint and glass do not look like anything on their own —
+   *  they look like whatever they are reflecting. A procedural room gives soft
+   *  studio light and nothing to reflect; a photographed environment gives the
+   *  strip lights, the roller door and the far wall, and suddenly a polished
+   *  rim reads as metal. These are equirectangular HDRs, prefiltered once into
+   *  a radiance map and then just used.
+   */
+  setEnvironment(id, base = ''){
+    if (id === this._envId) return Promise.resolve(true);
+    /* these are photographs of real rooms, so they arrive at whatever
+       brightness that room happened to be; each is scaled to sit at the same
+       working level as the generated one */
+    const GAIN = { garage:2.1, studio:1.3, neutral:0.85 };
+    const fall = () => {
+      this._envId = 'neutral';
+      this.scene.environment = this.roomEnv;
+      this.scene.environmentIntensity = GAIN.neutral;
+      this.scene.background = null;
+      this.needsRender = true;
+      return false;
+    };
+    if (!id || id === 'neutral') return Promise.resolve(fall());
+
+    const cached = (this._envCache ||= new Map()).get(id);
+    const apply = (tex) => {
+      this._envId = id;
+      this.scene.environment = tex;
+      this.scene.environmentIntensity = GAIN[id] ?? 1.2;
+      if (this.envBackdrop){ this.scene.background = tex; this.scene.backgroundBlurriness = 0.55; }
+      else this.scene.background = null;
+      this.needsRender = true;
+      return true;
+    };
+    if (cached) return Promise.resolve(apply(cached));
+
+    const mgr = new THREE.LoadingManager();
+    const inlined = globalThis.__MOTORLAB_ASSETS;
+    if (inlined) mgr.setURLModifier((url) => {
+      const key = './assets/' + String(url).split('/assets/').pop();
+      return inlined[key] || url;
+    });
+    return new Promise((res) => {
+      new RGBELoader(mgr).load(`${base}./assets/env/${id}.hdr`, (hdr) => {
+        const pm = new THREE.PMREMGenerator(this.renderer);
+        pm.compileEquirectangularShader();
+        const tex = pm.fromEquirectangular(hdr).texture;
+        pm.dispose();
+        hdr.dispose();
+        this._envCache.set(id, tex);
+        res(apply(tex));
+      }, undefined, () => res(fall()));
+    });
+  }
+
+  /** Show the environment behind the model as well as in its reflections. */
+  setBackdrop(on){
+    this.envBackdrop = !!on;
+    const tex = this._envCache?.get(this._envId);
+    this.scene.background = (on && tex) ? tex : null;
+    if (on && tex) this.scene.backgroundBlurriness = 0.55;
+    this.needsRender = true;
   }
 
   /* Ambient occlusion darkens the creases where parts meet, which is what makes
@@ -147,8 +217,18 @@ export class Viewport {
 
   _ground(){
     const g = new THREE.Group();
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(24, 64),
-      new THREE.MeshStandardMaterial({ color:0x11141b, roughness:.95, metalness:.05 }));
+    /* a real workshop floor, off a scan, so the shadows land on something */
+    const floorMat = new THREE.MeshStandardMaterial({ color:0x11141b, roughness:.95, metalness:.05 });
+    whenTextures(() => {
+      const maps = surface('floor', 26, true);
+      if (maps.normalMap){ floorMat.normalMap = maps.normalMap;
+                           floorMat.normalScale = new THREE.Vector2(0.6, 0.6); }
+      if (maps.roughnessMap) floorMat.roughnessMap = maps.roughnessMap;
+      if (maps.map){ floorMat.map = maps.map; floorMat.color.setHex(0x3a4048); }
+      floorMat.needsUpdate = true;
+      this.needsRender = true;
+    });
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(24, 64), floorMat);
     floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; g.add(floor);
     const grid = new THREE.GridHelper(24, 48, 0x2a3446, 0x1a212c);
     grid.material.transparent = true; grid.material.opacity = .55;

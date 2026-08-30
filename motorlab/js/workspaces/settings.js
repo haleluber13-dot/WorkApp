@@ -56,6 +56,13 @@ export function render(ctx, tab){
       ], s.powerUnit, (v) => set('powerUnit', v)))),
 
     section('3D view',
+      field('Lighting', select([
+        { value:'garage',  label:'Auto service bay — photographed HDRI' },
+        { value:'studio',  label:'Studio — photographed HDRI' },
+        { value:'neutral', label:'Neutral room — generated' },
+      ], s.environment, (v) => set('environment', v))),
+      note('The environment is what a polished rim, a clearcoat panel or a pane of glass is actually reflecting. Both photographed options are real places, lit by real lights.'),
+      toggle('Show the environment behind the model', s.backdrop, (v) => set('backdrop', v)),
       field('Render quality', select([
         { value:'balanced', label:'Balanced — reflections and shadows (recommended)' },
         { value:'high', label:'High — adds ambient occlusion and bloom; needs a real GPU' },

@@ -37,7 +37,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.500000
 d 1.000000
 illum 2
-map_Kd paint/nns_placeholder_paint.png
+map_Kd paint/nns_placeholder_paint.jpg
 
 newmtl nns_tireface
 Ns 360.000000

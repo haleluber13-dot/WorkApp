@@ -54,6 +54,9 @@ const SURFACES = {
   plastic: { nrm:'plastic_nrm.jpg', rgh:'plastic_rgh.jpg', col:'plastic_col.jpg' },
   leather: { nrm:'leather_nrm.jpg', rgh:'leather_rgh.jpg', col:'leather_col.jpg' },
   asphalt: { nrm:'asphalt_nrm.jpg', rgh:'asphalt_rgh.jpg', col:'asphalt_col.jpg' },
+  brushed: { nrm:'brushed_nrm.jpg', rgh:'brushed_rgh.jpg' },
+  paint:   { nrm:'paint_nrm.jpg',   rgh:'paint_rgh.jpg' },
+  floor:   { nrm:'floor_nrm.jpg',   rgh:'floor_rgh.jpg',   col:'floor_col.jpg' },
 };
 const SURF_DIR = './assets/surfaces/';
 

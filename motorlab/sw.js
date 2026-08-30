@@ -1,5 +1,5 @@
 /* MotorLab service worker — offline app shell. Bump CACHE when files change. */
-const CACHE = 'motorlab-v5';
+const CACHE = 'motorlab-v6';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './icons/icon.svg',
@@ -8,6 +8,8 @@ const SHELL = [
   './vendor/three/examples/jsm/loaders/OBJLoader.js',
   './vendor/three/examples/jsm/loaders/MTLLoader.js',
   './vendor/three/examples/jsm/loaders/GLTFLoader.js',
+  './vendor/three/examples/jsm/loaders/RGBELoader.js',
+  './assets/env/garage.hdr', './assets/env/studio.hdr',
   './data/world_land.json',
   './js/main.js', './js/ui.js', './js/store.js', './js/game.js', './js/viewport.js', './js/updates.js',
   './js/lib/geo.js', './js/lib/textures.js', './js/lib/importModel.js',

@@ -158,8 +158,9 @@ export const MAT = {
     color:0xc2c9d2, metalness:1.0, roughness:0.26, envMapIntensity:1.3,
     roughnessMap: withRepeat(machined(), 2), bumpMap: withRepeat(machined(), 2), bumpScale:0.25 }),
     m => dressSurface(m, 'steel', 2, 0.5))),
-  chrome: () => mat('chrome', () => new THREE.MeshStandardMaterial({
-    color:0xeef2f7, metalness:1.0, roughness:0.06, envMapIntensity:1.6 })),
+  chrome: () => mat('chrome', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xeef2f7, metalness:1.0, roughness:0.08, envMapIntensity:1.6 }),
+    m => dressSurface(m, 'brushed', 3, 0.25))),
   copper: () => mat('copper', () => new THREE.MeshStandardMaterial({
     color:0xc4763a, metalness:1.0, roughness:0.32, envMapIntensity:1.3 })),
   brass: () => mat('brass', () => new THREE.MeshStandardMaterial({
@@ -197,8 +198,9 @@ export const MAT = {
   emissive: (c, i=1.4) => new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:i, roughness:.4 }),
   /* machined alloy wheel: brighter and smoother than a casting, because the
      face of a road wheel is turned and lacquered */
-  rimAlloy: () => mat('rimAlloy', () => new THREE.MeshStandardMaterial({
-    color:0xc6ccd4, metalness:0.92, roughness:0.26, envMapIntensity:1.35 })),
+  rimAlloy: () => mat('rimAlloy', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xc6ccd4, metalness:0.92, roughness:0.26, envMapIntensity:1.35 }),
+    m => dressSurface(m, 'brushed', 4, 0.4))),
   /* real carbon-fibre weave, off a scan; used for aero, tubs and trim */
   carbon: () => mat('carbon', () => scanned(new THREE.MeshPhysicalMaterial({
     color:0xffffff, metalness:0.28, roughness:0.30, clearcoat:1, clearcoatRoughness:0.07,
@@ -260,9 +262,15 @@ export const MAT = {
     side:THREE.DoubleSide }),
     m => { m.map = tex('engineBay'); if (!m.map) m.color.set(0xb04a4a); })),
   /* body paint: metallic base under a clearcoat, tinted so the structure shows */
-  paint: (colour, opacity = 1) => new THREE.MeshPhysicalMaterial({
+  paint: (colour, opacity = 1) => scanned(new THREE.MeshPhysicalMaterial({
     color:colour, metalness:0.72, roughness:0.26, clearcoat:1, clearcoatRoughness:0.045,
-    envMapIntensity:1.35, transparent: opacity < 1, opacity, side: opacity < 1 ? THREE.DoubleSide : THREE.FrontSide }),
+    envMapIntensity:1.35, transparent: opacity < 1, opacity,
+    side: opacity < 1 ? THREE.DoubleSide : THREE.FrontSide }),
+    /* orange peel: the faint ripple every sprayed panel has, and the reason a
+       real car reflects the world slightly unevenly */
+    m => { const maps = surface('paint', 9);
+           if (maps.normalMap){ m.clearcoatNormalMap = maps.normalMap;
+                                m.clearcoatNormalScale = new THREE.Vector2(0.28, 0.28); } }),
 };
 
 /* cached geometry so a V12 does not build 12 identical cylinders from scratch */

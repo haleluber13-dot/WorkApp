@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = {
   /* look */
   theme:'workshop', accent:'#ff7a1a', units:'metric', powerUnit:'hp',
   showGrid:true, showShadows:true, quality:'balanced', fov:42, reflections:0.85, bodyOpacity:0.8,
+  environment:'garage', backdrop:false,
   /* behaviour */
   autoGhost:true, autoLabels:false, autoFrame:true, explodeDefault:0,
   confirmRemove:false, torqueGame:true, hints:true, sound:false,

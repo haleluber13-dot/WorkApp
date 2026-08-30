@@ -23,10 +23,13 @@ await page.setContent('<html><body></body></html>');
 let total = 0;
 for (const spec of args) {
   const [name, rest] = spec.split('=');
-  const [file, sizeStr, qStr] = rest.split(':');
+  const [file, sizeStr, qStr, fmt] = rest.split(':');
   const size = parseInt(sizeStr, 10);
   const quality = qStr ? parseFloat(qStr) : 0.82;
-  const mime = extname(file).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg';
+  /* output format follows the input unless asked otherwise — a PNG source
+     re-encoded as JPEG is usually a third the size and no worse to look at */
+  const outFmt = fmt || (extname(file).toLowerCase() === '.png' ? 'png' : 'jpg');
+  const mime = outFmt === 'png' ? 'image/png' : 'image/jpeg';
   const dataUri = `data:${mime};base64,` + readFileSync(file).toString('base64');
 
   const out = await page.evaluate(async ([uri, n, q, m]) => {

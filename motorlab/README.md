@@ -65,15 +65,31 @@ See each folder's `ABOUT.md` — [nns](assets/nns/ABOUT.md),
 [koenigsegg](assets/koenigsegg/ABOUT.md), [harley](assets/harley/ABOUT.md) — for
 provenance, trademarks and the exact conversion command used.
 
+### Real light
+
+Chrome, clearcoat paint and glass do not look like anything on their own — they
+look like whatever they are reflecting. `assets/env/` holds two equirectangular
+HDR environment maps from **Poly Haven** (CC0): a real **auto service bay** and a
+photographic **studio**. They are prefiltered into radiance maps and light the
+whole scene, so a polished rim reflects strip lights and a roller door instead of
+a grey gradient. **Settings → Lighting** switches between them and the generated
+room, which is also the fallback.
+
+This is the single biggest visual lever in the app, and it costs 700 KB — see
+[`assets/env/ABOUT.md`](assets/env/ABOUT.md).
+
 ### Scanned surfaces, on everything
 
 Geometry is only half of it. `assets/surfaces/` holds photogrammetry-scanned
 PBR maps from **ambientCG** (CC0) that carry the micro-detail a generated
 material cannot invent: the grain of a sand casting, the tool marks on machined
 steel, the heat scale on an exhaust, the tooth of rubber. They dress
-`MAT.alloy`, `MAT.alloyDark`, `MAT.iron`, `MAT.steel`, `MAT.hot`, `MAT.rubber`
-and `MAT.plastic`, so every engine and vehicle in the catalog gets a real
-surface, not just the scanned components.
+`MAT.alloy`, `MAT.alloyDark`, `MAT.iron`, `MAT.steel`, `MAT.hot`, `MAT.rubber`,
+`MAT.plastic`, `MAT.chrome` and `MAT.rimAlloy`, so every engine and vehicle in
+the catalog gets a real surface, not just the scanned components. Body paint
+gets a scanned **orange peel** on its clearcoat — the faint ripple every sprayed
+panel has, and the reason a real car reflects the world slightly unevenly. The
+workshop floor under the model is a scan of real concrete.
 
 Metals take only the normal and roughness maps, so MotorLab keeps its own
 palette — a cast aluminium block should not turn the colour of whatever lump the
@@ -169,6 +185,7 @@ standing in for it:
 | `tools/wrl2obj.py` | VRML 2.0 `IndexedFaceSet` (what a 3D scanner exports) to OBJ |
 | `tools/scan2glb.py` | Any raw scan (PLY, STL, OBJ, VRML) to a web-sized binary glTF: decimate to a triangle budget by vertex clustering, scale to real size, trim strays |
 | `tools/resize-maps.mjs` | Downscale and re-encode PBR maps by driving a headless browser's canvas — there is no image library here |
+| `tools/hdr2small.py` | Downscale a Radiance HDR environment map: decode RGBE to linear, box-filter, re-encode run-length |
 
 All three are pure standard-library Python 3 — no build step, no dependencies.
 
@@ -364,7 +381,8 @@ data/updates.json     the update feed
 data/world_land.json  coastlines for the racing map
 assets/parts/         scanned part maps: disc, caliper, carbon, tyre, filter
 assets/scans/         ten scanned components: engines, wheel, gearbox, pump…
-assets/surfaces/      scanned PBR surfaces: cast, steel, hot, rubber, plastic…
+assets/surfaces/      scanned PBR surfaces: cast, steel, hot, rubber, paint, floor…
+assets/env/           photographed HDR lighting: a service bay and a studio
 assets/nns/           NASCAR stock car model
 assets/koenigsegg/    carbon hypercar model
 assets/harley/        custom V-twin cruiser model
