@@ -313,17 +313,11 @@ function buildCar(v, tree){
     const opacity = globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8;
     const paint = MAT.paint(v.colour, opacity);
     const surf = bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR);
-    const shell = surf.lower.filter(Boolean);
-    bd.add(new THREE.Mesh(loft(shell, 48), paint));
-    /* the greenhouse is painted metal with the windows cut into it, so the
-       pillars are whatever paint is left between them */
-    const green = surf.green.filter(Boolean);
-    if (green.length > 3){
-      bd.add(new THREE.Mesh(loft(green, 44), paint));
-      bd.add(bodyGlazing(surf.L, surf.green, len, new THREE.MeshPhysicalMaterial({
-        color:0x080d14, metalness:0.0, roughness:0.035, clearcoat:1, clearcoatRoughness:0.02,
-        transparent:true, opacity:0.90, envMapIntensity:2.8, side:THREE.DoubleSide })));
-    }
+    const shell = surf.body;
+    bd.add(new THREE.Mesh(loft(shell, 56), paint));
+    bd.add(bodyGlazing(surf, len, hgt, new THREE.MeshPhysicalMaterial({
+      color:0x080d14, metalness:0.0, roughness:0.035, clearcoat:1, clearcoatRoughness:0.02,
+      transparent:true, opacity:0.90, envMapIntensity:2.8, side:THREE.DoubleSide })));
 
     /* a scan of a real radiator grille in the nose, where the air goes in */
     /* the scan's long side is its own X, so it has to be turned across the car
@@ -385,7 +379,7 @@ const BODY_LINES = {
   */
   coupe: {
     sill :[[0,0.130],[0.10,0.085],[0.35,0.072],[0.65,0.072],[0.90,0.085],[1,0.140]],
-    wide :[[0,0.42],[0.07,0.72],[0.18,0.90],[0.32,0.96],[0.50,0.97],[0.68,1.00],[0.84,0.94],[0.94,0.74],[1,0.44]],
+    wide :[[0,0.65],[0.07,0.72],[0.18,0.90],[0.32,0.96],[0.50,0.97],[0.68,1.00],[0.84,0.94],[0.94,0.74],[1,0.66]],
     waist:[[0,0.30],[0.07,0.41],[0.18,0.455],[0.30,0.470],[0.50,0.490],[0.72,0.500],[0.86,0.505],[0.95,0.490],[1,0.44]],
     roof :[[0,0.16],[0.28,0.42],[0.35,0.60],[0.43,0.86],[0.50,0.97],[0.62,0.99],[0.70,0.94],[0.78,0.78],[0.86,0.46],[1,0.26]],
     pillars:[[0.335,0.455],[0.615,0.615],[0.855,0.755]],
@@ -394,7 +388,7 @@ const BODY_LINES = {
   },
   sedan: {
     sill :[[0,0.136],[0.10,0.087],[0.35,0.074],[0.65,0.074],[0.90,0.087],[1,0.149]],
-    wide :[[0,0.42],[0.09,0.72],[0.22,0.91],[0.38,0.96],[0.56,0.98],[0.74,0.98],[0.88,0.90],[1,0.52]],
+    wide :[[0,0.65],[0.09,0.72],[0.22,0.91],[0.38,0.96],[0.56,0.98],[0.74,0.98],[0.88,0.90],[1,0.78]],
     waist:[[0,0.30],[0.07,0.42],[0.18,0.460],[0.30,0.475],[0.50,0.495],[0.72,0.505],[0.86,0.510],[0.95,0.500],[1,0.46]],
     roof :[[0,0.16],[0.26,0.44],[0.33,0.62],[0.42,0.88],[0.49,0.99],[0.68,1.00],[0.76,0.93],[0.84,0.74],[0.90,0.52],[1,0.30]],
     pillars:[[0.315,0.435],[0.545,0.545],[0.835,0.755]],
@@ -403,7 +397,7 @@ const BODY_LINES = {
   },
   hatch: {
     sill :[[0,0.136],[0.10,0.093],[0.35,0.081],[0.65,0.081],[0.90,0.093],[1,0.149]],
-    wide :[[0,0.44],[0.09,0.74],[0.22,0.92],[0.38,0.97],[0.58,0.98],[0.76,0.97],[0.90,0.90],[1,0.56]],
+    wide :[[0,0.68],[0.09,0.74],[0.22,0.92],[0.38,0.97],[0.58,0.98],[0.76,0.97],[0.90,0.90],[1,0.84]],
     waist:[[0,0.32],[0.07,0.44],[0.18,0.480],[0.30,0.495],[0.50,0.515],[0.72,0.525],[0.88,0.530],[1,0.48]],
     roof :[[0,0.18],[0.24,0.46],[0.31,0.66],[0.40,0.90],[0.47,1.00],[0.72,1.00],[0.82,0.94],[0.90,0.78],[0.96,0.56],[1,0.40]],
     pillars:[[0.295,0.415],[0.545,0.545],[0.815,0.775]],
@@ -412,7 +406,7 @@ const BODY_LINES = {
   },
   super: {
     sill :[[0,0.099],[0.12,0.062],[0.40,0.056],[0.70,0.056],[0.92,0.074],[1,0.124]],
-    wide :[[0,0.46],[0.10,0.78],[0.24,0.94],[0.40,0.96],[0.56,0.98],[0.72,1.00],[0.86,0.96],[0.95,0.78],[1,0.52]],
+    wide :[[0,0.71],[0.10,0.78],[0.24,0.94],[0.40,0.96],[0.56,0.98],[0.72,1.00],[0.86,0.96],[0.95,0.78],[1,0.78]],
     waist:[[0,0.24],[0.08,0.34],[0.20,0.375],[0.32,0.390],[0.50,0.420],[0.70,0.450],[0.86,0.470],[0.95,0.460],[1,0.40]],
     roof :[[0,0.12],[0.28,0.36],[0.34,0.54],[0.42,0.80],[0.48,0.92],[0.58,0.92],[0.66,0.84],[0.74,0.66],[0.82,0.48],[1,0.30]],
     pillars:[[0.325,0.435],[0.735,0.665]],
@@ -421,7 +415,7 @@ const BODY_LINES = {
   },
   gt: {
     sill :[[0,0.116],[0.10,0.074],[0.35,0.064],[0.65,0.064],[0.90,0.078],[1,0.128]],
-    wide :[[0,0.42],[0.08,0.72],[0.20,0.92],[0.34,0.96],[0.52,0.95],[0.70,1.00],[0.86,0.95],[0.95,0.78],[1,0.46]],
+    wide :[[0,0.65],[0.08,0.72],[0.20,0.92],[0.34,0.96],[0.52,0.95],[0.70,1.00],[0.86,0.95],[0.95,0.78],[1,0.69]],
     waist:[[0,0.26],[0.07,0.36],[0.20,0.400],[0.34,0.415],[0.52,0.435],[0.72,0.450],[0.88,0.455],[0.96,0.440],[1,0.40]],
     roof :[[0,0.14],[0.34,0.40],[0.41,0.60],[0.50,0.88],[0.56,0.98],[0.66,0.97],[0.74,0.88],[0.82,0.70],[0.90,0.46],[1,0.28]],
     pillars:[[0.395,0.505],[0.815,0.735]],
@@ -430,7 +424,7 @@ const BODY_LINES = {
   },
   muscle: {
     sill :[[0,0.130],[0.10,0.086],[0.35,0.072],[0.65,0.072],[0.90,0.086],[1,0.140]],
-    wide :[[0,0.46],[0.08,0.76],[0.20,0.94],[0.34,0.97],[0.52,0.96],[0.70,1.00],[0.86,0.96],[0.95,0.82],[1,0.56]],
+    wide :[[0,0.71],[0.08,0.76],[0.20,0.94],[0.34,0.97],[0.52,0.96],[0.70,1.00],[0.86,0.96],[0.95,0.82],[1,0.84]],
     waist:[[0,0.30],[0.07,0.42],[0.20,0.465],[0.36,0.480],[0.54,0.500],[0.74,0.515],[0.88,0.525],[1,0.50]],
     roof :[[0,0.18],[0.40,0.46],[0.47,0.66],[0.55,0.90],[0.61,1.00],[0.74,1.00],[0.81,0.92],[0.88,0.72],[0.94,0.56],[1,0.44]],
     pillars:[[0.455,0.575],[0.865,0.775]],
@@ -439,7 +433,7 @@ const BODY_LINES = {
   },
   roadster: {
     sill :[[0,0.124],[0.10,0.078],[0.35,0.066],[0.65,0.066],[0.90,0.080],[1,0.132]],
-    wide :[[0,0.42],[0.08,0.72],[0.20,0.92],[0.34,0.96],[0.52,0.96],[0.68,0.99],[0.84,0.93],[0.94,0.74],[1,0.44]],
+    wide :[[0,0.65],[0.08,0.72],[0.20,0.92],[0.34,0.96],[0.52,0.96],[0.68,0.99],[0.84,0.93],[0.94,0.74],[1,0.66]],
     waist:[[0,0.28],[0.08,0.38],[0.20,0.425],[0.34,0.440],[0.52,0.460],[0.72,0.470],[0.88,0.470],[1,0.42]],
     roof :[[0,0.16],[0.36,0.42],[0.42,0.60],[0.47,0.66],[0.53,0.64],[0.58,0.46],[1,0.28]],
     pillars:[[0.405,0.455]],
@@ -448,7 +442,7 @@ const BODY_LINES = {
   },
   hyper: {
     sill :[[0,0.092],[0.12,0.056],[0.40,0.050],[0.70,0.050],[0.92,0.068],[1,0.116]],
-    wide :[[0,0.48],[0.10,0.80],[0.24,0.96],[0.40,0.98],[0.56,0.99],[0.72,1.02],[0.86,0.98],[0.95,0.80],[1,0.54]],
+    wide :[[0,0.74],[0.10,0.80],[0.24,0.96],[0.40,0.98],[0.56,0.99],[0.72,1.02],[0.86,0.98],[0.95,0.80],[1,0.81]],
     waist:[[0,0.22],[0.08,0.30],[0.20,0.340],[0.32,0.355],[0.50,0.385],[0.70,0.410],[0.86,0.430],[1,0.36]],
     roof :[[0,0.10],[0.26,0.32],[0.33,0.52],[0.42,0.78],[0.48,0.90],[0.58,0.90],[0.66,0.80],[0.76,0.58],[0.86,0.40],[1,0.26]],
     pillars:[[0.315,0.425],[0.755,0.675]],
@@ -457,7 +451,7 @@ const BODY_LINES = {
   },
   rally: {
     sill :[[0,0.149],[0.10,0.105],[0.35,0.093],[0.65,0.093],[0.90,0.105],[1,0.161]],
-    wide :[[0,0.46],[0.09,0.78],[0.22,0.98],[0.38,1.02],[0.58,1.03],[0.76,1.02],[0.90,0.94],[1,0.58]],
+    wide :[[0,0.71],[0.09,0.78],[0.22,0.98],[0.38,1.02],[0.58,1.03],[0.76,1.02],[0.90,0.94],[1,0.87]],
     waist:[[0,0.32],[0.07,0.44],[0.18,0.485],[0.30,0.500],[0.50,0.520],[0.72,0.530],[0.88,0.535],[1,0.48]],
     roof :[[0,0.18],[0.24,0.47],[0.31,0.68],[0.40,0.92],[0.47,1.00],[0.72,1.00],[0.82,0.94],[0.90,0.80],[0.96,0.58],[1,0.40]],
     pillars:[[0.295,0.415],[0.545,0.545],[0.815,0.775]],
@@ -466,7 +460,7 @@ const BODY_LINES = {
   },
   suv: {
     sill :[[0,0.161],[0.10,0.118],[0.35,0.105],[0.65,0.105],[0.90,0.118],[1,0.174]],
-    wide :[[0,0.46],[0.09,0.76],[0.22,0.93],[0.38,0.98],[0.60,0.99],[0.78,0.98],[0.92,0.92],[1,0.58]],
+    wide :[[0,0.71],[0.09,0.76],[0.22,0.93],[0.38,0.98],[0.60,0.99],[0.78,0.98],[0.92,0.92],[1,0.87]],
     waist:[[0,0.36],[0.07,0.48],[0.18,0.530],[0.30,0.545],[0.50,0.565],[0.72,0.575],[0.90,0.580],[1,0.52]],
     roof :[[0,0.22],[0.24,0.52],[0.31,0.74],[0.40,0.94],[0.47,1.00],[0.80,1.00],[0.90,0.94],[0.97,0.76],[1,0.50]],
     pillars:[[0.295,0.415],[0.565,0.565],[0.845,0.805]],
@@ -475,7 +469,7 @@ const BODY_LINES = {
   },
   pickup: {
     sill :[[0,0.161],[0.10,0.124],[0.40,0.118],[0.70,0.118],[0.92,0.130],[1,0.174]],
-    wide :[[0,0.50],[0.09,0.80],[0.22,0.94],[0.40,0.97],[0.62,0.97],[0.80,0.99],[0.94,0.96],[1,0.62]],
+    wide :[[0,0.78],[0.09,0.80],[0.22,0.94],[0.40,0.97],[0.62,0.97],[0.80,0.99],[0.94,0.96],[1,0.93]],
     waist:[[0,0.36],[0.07,0.50],[0.18,0.560],[0.30,0.580],[0.42,0.600],[0.60,0.600],[0.66,0.585],[0.95,0.580],[1,0.55]],
     roof :[[0,0.22],[0.26,0.56],[0.33,0.80],[0.40,0.98],[0.46,1.02],[0.58,1.02],[0.62,0.62],[1,0.50]],
     pillars:[[0.315,0.415],[0.605,0.575]],
@@ -484,7 +478,7 @@ const BODY_LINES = {
   },
   semi: {
     sill :[[0,0.186],[0.10,0.149],[0.50,0.143],[0.90,0.149],[1,0.186]],
-    wide :[[0,0.56],[0.10,0.86],[0.24,0.98],[0.50,1.00],[0.72,0.98],[0.90,0.94],[1,0.66]],
+    wide :[[0,0.87],[0.10,0.86],[0.24,0.98],[0.50,1.00],[0.72,0.98],[0.90,0.94],[1,0.99]],
     waist:[[0,0.42],[0.08,0.66],[0.16,0.720],[0.24,0.740],[0.56,0.740],[0.62,0.660],[0.72,0.640],[1,0.62]],
     roof :[[0,0.30],[0.14,0.70],[0.20,0.96],[0.26,1.04],[0.54,1.04],[0.60,0.70],[1,0.56]],
     pillars:[[0.185,0.255],[0.555,0.535]],
@@ -803,16 +797,14 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR){
   return { trim, lamps };
 }
 
-/** The three surfaces a car body is actually made of.
+/** The body: one continuous surface from nose to tail, sill to roof.
  *
- *  lower  – the body tub: sill up to the shoulder line, flat-sided and square,
- *           with the wheel arches scalloped out of it.
- *  green  – the greenhouse: narrower, sitting on the shoulder, glazed.
- *  roofP  – the roof panel capping the greenhouse, in body colour.
- *
- *  Keeping them apart is what gives the car a hard shoulder line, a cabin that
- *  is visibly narrower than the body, and glass you can see through — none of
- *  which a single lofted tube can produce.
+ *  A car really is one shell. Building the cabin as a separate narrower loft
+ *  perched on the body gave a pod sitting on a slab, which is not what a car
+ *  looks like from the side. What makes the cabin read is not that it is a
+ *  different object — it is that the section is squared off so the flanks and
+ *  roof are flat, that it pulls in hard as it rises (tumblehome), and that the
+ *  windows are cut into it.
  */
 function bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR){
   const L = BODY_LINES[v.body] || BODY_LINES.sedan;
@@ -820,9 +812,9 @@ function bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR){
   /* the bodywork has to cover the wheels — this is what gives a car its hips */
   const overF = (M(v.trackF || v.widthMm * 0.85) / 2) * 0.86 + M(40) + M(v.tyreF) / 2;
   const overR = (M(v.trackR || v.widthMm * 0.85) / 2) * 0.86 + M(40) + M(v.tyreR) / 2;
-  const N = 72;
-  const lower = [], green = [];
-  let roofMax = 0;
+  const N = 80;
+  const body = [];
+  let tFirst = 1, tLast = 0;
   for (let i = 0; i < N; i++){
     const t = i / (N - 1);
     const x = len/2 - t * len;
@@ -830,44 +822,28 @@ function bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR){
     let sillY = floorY + hgt * curveAt(L.sill, t);
     const waistY = floorY + hgt * curveAt(L.waist, t);
     const roofY  = floorY + hgt * curveAt(L.roof, t);
-    /* scallop the sill up over each axle — that is the wheel arch — and flare
-       the section out over it so the tyre sits inside the bodywork */
     for (const [ax, r, over] of [[axF, rF, overF], [axR, rR, overR]]){
-      const d = Math.abs(x - ax) / (r * 1.55);
+      const d = Math.abs(x - ax) / (r * 1.28);
       if (d < 1){
         const k = 1 - d * d;
-        sillY = Math.max(sillY, r * 1.34 * (1 - d * d * 0.38));
-        wide  = Math.max(wide, (over + M(34)) * (0.94 + 0.06 * k));
+        sillY = Math.max(sillY, r * 1.16 * (1 - d * d * 0.30));
+        wide  = Math.max(wide, (over + M(26)) * (0.95 + 0.05 * k));
       }
     }
-    lower.push({ x, yBot:sillY, yTop:Math.max(waistY, sillY + hgt * 0.03),
-                 wBot:wide, wTop:wide * 0.905, squ:L.squL });
-    if (roofY > waistY + hgt * 0.075){
-      /* At the shoulder the cabin is almost as wide as the body — it has to
-         be, it is welded to it — and it pulls in as it rises. Starting it
-         narrow made the roof look like a canopy dropped on a flat deck. */
-      green.push({ x, yBot:waistY - hgt * 0.020, yTop:roofY,
-                   wBot:wide * (L.ghW * 0.30 + 0.685), wTop:wide * L.ghW * 0.94,
-                   squ:L.squG });
-      roofMax = Math.max(roofMax, roofY);
-    } else green.push(null);
+    /* over the cabin the section pulls in hard toward the roof; over the
+       bonnet and boot it barely tapers at all */
+    const cabin = roofY > waistY + hgt * 0.055;
+    const topY  = Math.max(roofY, waistY);
+    if (cabin){ tFirst = Math.min(tFirst, t); tLast = Math.max(tLast, t); }
+    body.push({ x, t, yBot:sillY, yTop:Math.max(topY, sillY + hgt * 0.03),
+                wBot:wide, wTop:wide * (cabin ? L.ghW : 0.94),
+                squ:L.squL, waistY, roofY, cabin });
   }
-  /* the roof panel: the top slice of the greenhouse, in paint rather than glass,
-     wherever the roof is within a hand's breadth of its highest point */
-  const roofP = green.map(g => (g && g.yTop > roofMax - hgt * 0.085) ? {
-    x:g.x, yBot:g.yTop - hgt * 0.055, yTop:g.yTop + M(3),
-    wBot:g.wTop * 1.012, wTop:g.wTop * 1.006, squ:g.squ } : null);
   /* Close the ends without pinching them to a point — cars have flat faces. */
-  const taper = (arr, k) => {
-    const first = arr.findIndex(Boolean);
-    let last = arr.length - 1; while (last > 0 && !arr[last]) last--;
-    for (const i of [first, last]){
-      const sec = arr[i]; if (!sec) continue;
-      sec.wBot *= k; sec.wTop *= k; sec.squ = (sec.squ || 2.6) * 1.4;
-    }
-  };
-  taper(lower, 0.68); taper(green, 0.96); taper(roofP, 0.72);
-  return { L, lower, green, roofP };
+  for (const i of [0, body.length - 1]){
+    body[i].wBot *= 0.86; body[i].wTop *= 0.86; body[i].squ *= 1.25;
+  }
+  return { L, body, tFirst, tLast };
 }
 
 /** Stitch a grid of rows of points into a surface. */
@@ -886,66 +862,86 @@ function patch(rows, mat){
   return new THREE.Mesh(g, mat);
 }
 
-/** The glazing: windscreen, side windows and backlight, cut into the painted
- *  greenhouse rather than replacing it.
+/** The glazing: windscreen, side windows and backlight cut into the body.
  *
- *  This is how a car is actually put together, and it is what gives you
- *  pillars for free — the pillars are simply the paint left between the
- *  windows, so they are exactly as wide as the gaps and always in the right
- *  place. Modelling the cabin as a glass bubble with tubes stuck on it gave a
- *  roll cage instead.
+ *  Cutting them into the shell rather than replacing the cabin with glass is
+ *  what gives you pillars for free — a pillar is simply the paint left between
+ *  two windows, so it is always exactly as wide as the gap and always in the
+ *  right place.
  */
-function bodyGlazing(L, green, len, glassMat){
+function bodyGlazing(surf, len, hgt, glassMat){
+  const { L, body, tFirst, tLast } = surf;
   const g = group('glazing');
-  const gp = shellProbe(green);
-  if (!gp.secAt(0)) return g;
-  const X = (t) => len / 2 - t * len;
-  /* a row of points across the greenhouse at one station, between two angles
-     around its section — the same superellipse the loft is built from */
-  const row = (t, th0, th1, n) => {
-    const c = gp.secAt(X(t)); if (!c) return null;
-    const nn = c.squ || 4, yMid = (c.yTop + c.yBot) / 2, hH = (c.yTop - c.yBot) / 2;
-    const out = [];
-    for (let i = 0; i <= n; i++){
-      const th = th0 + (th1 - th0) * (i / n);
-      const cz = Math.cos(th), cy = Math.sin(th);
-      const sz = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / nn);
-      const sy = Math.sign(cy) * Math.pow(Math.abs(cy), 2 / nn);
-      const w = (cy >= 0 ? c.wBot + (c.wTop - c.wBot) * cy : c.wBot) * 1.022;
-      out.push(new THREE.Vector3(c.x, yMid + hH * sy, w * sz));
-    }
-    return out;
+  const P = L.pillars || [];
+  if (!P.length || tLast <= tFirst) return g;
+  const secAt = (t) => {
+    const k = Math.max(0, Math.min(body.length - 1.001, t * (body.length - 1)));
+    const i = Math.floor(k), f = k - i, a = body[i], b = body[i + 1] || a;
+    const m = (p, q) => p + (q - p) * f;
+    return { x:m(a.x,b.x), yBot:m(a.yBot,b.yBot), yTop:m(a.yTop,b.yTop),
+             wBot:m(a.wBot,b.wBot), wTop:m(a.wTop,b.wTop), squ:m(a.squ,b.squ),
+             waistY:m(a.waistY,b.waistY), roofY:m(a.roofY,b.roofY) };
   };
-  const sheet = (t0, t1, th0, th1, nAcross, nAlong) => {
+  const LIFT = 1.018;
+  /* the angle around the section at a given height — the loft's superellipse,
+     solved the other way */
+  const thAt = (c, y) => {
+    const yMid = (c.yTop + c.yBot) / 2, hH = Math.max(1e-4, (c.yTop - c.yBot) / 2);
+    const sy = Math.max(-0.999, Math.min(0.999, (y - yMid) / hH));
+    const n = c.squ || 5;
+    return Math.asin(Math.sign(sy) * Math.pow(Math.abs(sy), n / 2));
+  };
+  const pt = (c, th) => {
+    const n = c.squ || 5, yMid = (c.yTop + c.yBot) / 2, hH = (c.yTop - c.yBot) / 2;
+    const cz = Math.cos(th), cy = Math.sin(th);
+    const sz = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / n);
+    const sy = Math.sign(cy) * Math.pow(Math.abs(cy), 2 / n);
+    const w = (cy >= 0 ? c.wBot + (c.wTop - c.wBot) * cy : c.wBot) * LIFT;
+    return new THREE.Vector3(c.x, yMid + hH * sy, w * sz);
+  };
+  /* a sheet across the crown: the windscreen and the backlight */
+  const cross = (t0, t1, inset) => {
     const rows = [];
-    for (let i = 0; i <= nAlong; i++){
-      const r = row(t0 + (t1 - t0) * (i / nAlong), th0, th1, nAcross);
-      if (r) rows.push(r);
+    const n = 14;
+    for (let i = 0; i <= n; i++){
+      const t = t0 + (t1 - t0) * (i / n);
+      const c = secAt(t);
+      const lo = thAt(c, c.waistY + hgt * inset);
+      if (!(lo < Math.PI/2 - 0.05)) continue;
+      const r = [];
+      for (let j = 0; j <= 20; j++) r.push(pt(c, lo + (Math.PI - 2*lo) * (j / 20)));
+      rows.push(r);
     }
     if (rows.length > 1) g.add(patch(rows, glassMat));
   };
-  const P = L.pillars || [];
-  if (!P.length) return g;
+  /* a band up the flank: the side windows */
+  const flank = (t0, t1, side) => {
+    const rows = [];
+    const n = 16;
+    for (let i = 0; i <= n; i++){
+      const t = t0 + (t1 - t0) * (i / n);
+      const c = secAt(t);
+      const yLo = c.waistY + hgt * 0.014, yHi = c.roofY - hgt * 0.052;
+      if (yHi - yLo < hgt * 0.03) continue;
+      const th0 = thAt(c, yLo), th1 = thAt(c, yHi);
+      const r = [];
+      for (let j = 0; j <= 5; j++){
+        const th = th0 + (th1 - th0) * (j / 5);
+        r.push(pt(c, side > 0 ? th : Math.PI - th));
+      }
+      rows.push(r);
+    }
+    if (rows.length > 1) g.add(patch(rows, glassMat));
+  };
   const A = P[0], C = P[P.length - 1];
-  const PI = Math.PI;
-  /* The cabin starts and ends where the roof line rises above the shoulder,
-     which is not necessarily where the pillars were placed. loft() caps those
-     two ends with a flat face, so the glass has to run from cap to cap or the
-     cap shows through the windscreen as a ragged white wedge. */
-  let iF = 0; while (iF < green.length && !green[iF]) iF++;
-  let iL = green.length - 1; while (iL > 0 && !green[iL]) iL--;
-  const tF = iF / (green.length - 1), tL = iL / (green.length - 1);
-  sheet(tF - 0.004, Math.max(A[1], tF + 0.02), PI * 0.19, PI * 0.81, 22, 7);
-  sheet(Math.min(C[1], tL - 0.02), tL + 0.004, PI * 0.21, PI * 0.79, 22, 7);
-  /* side glass: the band up the flank between the shoulder and the roof,
-     split by the B pillar where there is one */
+  cross(Math.max(tFirst + 0.004, A[0]), A[1], 0.010);
+  cross(C[1], Math.min(tLast - 0.004, C[0]), 0.014);
   const spans = P.length >= 3
-    ? [[A[1] + 0.010, P[1][0] - 0.012], [P[1][0] + 0.012, C[1] - 0.010]]
-    : [[A[1] + 0.010, C[1] - 0.010]];
+    ? [[A[1] + 0.012, P[1][0] - 0.014], [P[1][0] + 0.014, C[1] - 0.012]]
+    : [[A[1] + 0.012, C[1] - 0.012]];
   for (const [t0, t1] of spans){
     if (t1 - t0 < 0.02) continue;
-    sheet(t0, t1, PI * 0.045, PI * 0.30, 8, 14);      // right flank
-    sheet(t0, t1, PI * 0.955, PI * 0.70, 8, 14);      // left flank
+    flank(t0, t1, 1); flank(t0, t1, -1);
   }
   return g;
 }
