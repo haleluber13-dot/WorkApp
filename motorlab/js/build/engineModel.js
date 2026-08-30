@@ -14,6 +14,7 @@ import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, ta
          clutchMesh, waterPumpMesh, velocityStack, portFlange, hexPrism,
          superchargerMesh, oilFilterMesh, serpentineBelt } from '../lib/geo.js';
 import { firingOrder } from '../data/engines.js';
+import { partMesh } from '../lib/partModels.js';
 
 const M = (mm) => mm / 1000;   // spec is in millimetres, scene is in metres
 
@@ -405,8 +406,10 @@ function buildPiston(e, tree){
       }
     }
   } else {
-    const camSpr = tubeMesh(L.crankR * 1.0, L.crankR*0.4, M(11), MAT.steel(), 22);
-    rot(camSpr, 0, 0, Math.PI/2); camSpr.position.set(frontX, L.crankR*1.55, 0); tG.add(camSpr);
+    /* the cam sprocket is a scan of a real timing gear where one is available */
+    const camSpr = partMesh('camGear', { dia: L.crankR * 2.0, depth: M(14), axis:'x', mat: MAT.steel() })
+                 || rot(tubeMesh(L.crankR * 1.0, L.crankR*0.4, M(11), MAT.steel(), 22), 0, 0, Math.PI/2);
+    camSpr.position.set(frontX, L.crankR*1.55, 0); tG.add(camSpr);
   }
   add('timing', tG);
   add('tensioner', at(box(M(20), M(70), M(16), MAT.plastic()), frontX, L.deckH * 0.55, L.bore * 0.5));

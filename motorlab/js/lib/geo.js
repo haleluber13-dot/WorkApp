@@ -172,6 +172,10 @@ export const MAT = {
   wire: (c) => mat('wire' + c, () => new THREE.MeshStandardMaterial({
     color:c, metalness:0.0, roughness:0.48, envMapIntensity:0.6 })),
   emissive: (c, i=1.4) => new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:i, roughness:.4 }),
+  /* machined alloy wheel: brighter and smoother than a casting, because the
+     face of a road wheel is turned and lacquered */
+  rimAlloy: () => mat('rimAlloy', () => new THREE.MeshStandardMaterial({
+    color:0xc6ccd4, metalness:0.92, roughness:0.26, envMapIntensity:1.35 })),
   /* real carbon-fibre weave, off a scan; used for aero, tubs and trim */
   carbon: () => mat('carbon', () => scanned(new THREE.MeshPhysicalMaterial({
     color:0xffffff, metalness:0.28, roughness:0.30, clearcoat:1, clearcoatRoughness:0.07,
@@ -658,6 +662,12 @@ export function clutchMesh(radius, width, mat){
 export function waterPumpMesh(size, mat){
   const g = group('waterpump');
   const m = mat || MAT.alloyDark();
+  /* the housing is a scan of a real pump where one is available; the pulley
+     stays generated, because it has to turn with the belt */
+  const scan = partMesh('waterPump', { dia: size * 1.05, depth: size * 0.55, axis:'x', mat:m });
+  if (scan){
+    g.add(scan);
+  } else {
   const housing = lathe([[size * 0.14, -size * 0.30], [size * 0.50, -size * 0.30],
                          [size * 0.52, -size * 0.10], [size * 0.44, size * 0.16],
                          [size * 0.20, size * 0.22], [size * 0.14, size * 0.22]], m, 30);
@@ -665,6 +675,7 @@ export function waterPumpMesh(size, mat){
   g.add(housing);
   g.add(at(rot(cyl(size * 0.20, size * 0.22, size * 0.42, m, 18), 0, 0, Math.PI / 2),
            size * 0.10, -size * 0.42, 0));             // the lower hose snout
+  }
   const pulley = lathe([[size * 0.10, -size * 0.40], [size * 0.42, -size * 0.40],
                         [size * 0.38, -size * 0.30], [size * 0.42, -size * 0.22],
                         [size * 0.10, -size * 0.22]], MAT.steel(), 28);
@@ -672,7 +683,8 @@ export function waterPumpMesh(size, mat){
   pulley.position.x = -size * 0.34;
   g.add(pulley);
   g.userData.pulley = pulley;
-  g.add(at(boltCircle(size * 0.42, 6, size * 0.08, size * 0.10, MAT.plated(), 'xy'), size * 0.24, 0, 0));
+  if (!scan)
+    g.add(at(boltCircle(size * 0.42, 6, size * 0.08, size * 0.10, MAT.plated(), 'xy'), size * 0.24, 0, 0));
   return g;
 }
 
@@ -992,6 +1004,19 @@ export function wheelMesh({ radius, width, rimR, spokes = 5, style = 'alloy', tr
     if (s < 0) wall.rotation.y = Math.PI;
     g.add(wall);
   }
+  /* the rim itself is a scan of a real alloy wheel where one is available —
+     spokes, lug holes, centre bore and bead seat all as cast */
+  const scanRim = partMesh('carRim', {
+    dia: rimR * 2.12, depth: width * 0.82, axis:'z',
+    mat: style === 'chrome' ? MAT.chrome() : style === 'dark' ? MAT.alloyDark() : MAT.rimAlloy(),
+  });
+  if (scanRim){
+    scanRim.position.z = width * 0.09;      // the face sits near flush with the tyre
+    g.add(scanRim);
+    g.userData.scannedRim = true;
+    return g;
+  }
+
   /* rim: inner barrel, outer lip, dish face */
   const barrel = lathe([
     [rimR*0.98, -half*0.94], [rimR*1.05, -half*0.98], [rimR*1.05, -half*0.86],

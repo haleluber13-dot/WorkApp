@@ -1,23 +1,43 @@
 /* MotorLab — scanned component models.
  *
- * Some parts are impossible to fake convincingly: a turbine wheel is eleven
- * blades, each a twisted surface with a different curvature at every radius,
- * and no amount of lofting gets you the real thing. Where a proper scan of the
- * component exists, MotorLab uses it and drops the generated stand-in.
+ * Some parts cannot be faked convincingly. A turbine wheel is eleven twisted
+ * blades; a cast engine block is a landscape of webs, bosses and draft angles;
+ * an alloy rim is a shape somebody spent months styling. Where a real scan of
+ * the component exists, MotorLab loads it and drops the generated stand-in.
  *
- * They load once at boot, alongside the texture library, so the geometry
- * builders stay synchronous. Every caller falls back if a model is absent.
+ * Every model here is a 3D scan of the actual hardware by Artec 3D, used under
+ * CC BY 3.0. They load once at boot, alongside the texture library, so the
+ * geometry builders stay synchronous — and every caller keeps its generated
+ * fallback, so the app still runs with this folder deleted.
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const DIR = './assets/scans/';
+const CREDIT = 'Scanned by Artec 3D (artec3d.com), CC BY 3.0, decimated for the web';
 
-/* `axis` is the part's own long axis, `size` its real diameter in metres —
- * both needed to drop it into a build at whatever scale that engine wants. */
+/* `axis` is the part's own long/rotational axis, `size` its largest dimension
+ * in metres and `depth` its extent along that axis — between them a scan can
+ * be dropped into a build at whatever size that engine or vehicle wants. */
 const PARTS = {
-  turbine: { file:'turbine_wheel.glb', axis:'z', dia:0.0503,
-             credit:'Turbine wheel scanned by Artec 3D (artec3d.com), CC BY 3.0' },
+  turbine:    { file:'turbine_wheel.glb',   axis:'z', size:0.0503, depth:0.030,
+                what:'Turbocharger turbine wheel' },
+  carRim:     { file:'car_rim.glb',         axis:'z', size:0.500,  depth:0.472,
+                what:'Alloy road wheel' },
+  motoWheel:  { file:'moto_wheel.glb',      axis:'y', size:0.620,  depth:0.100,
+                what:'Motorcycle wheel' },
+  camGear:    { file:'cam_gear.glb',        axis:'z', size:0.200,  depth:0.051,
+                what:'Camshaft timing gear' },
+  waterPump:  { file:'water_pump.glb',      axis:'z', size:0.200,  depth:0.091,
+                what:'Water pump' },
+  gearbox:    { file:'gearbox.glb',         axis:'y', size:0.600,  depth:0.578,
+                what:'Dual-clutch gearbox' },
+  engineI4:   { file:'engine_i4.glb',       axis:'x', size:0.680,  depth:0.530,
+                what:'Four-cylinder engine' },
+  engineMoto: { file:'engine_moto.glb',     axis:'y', size:0.500,  depth:0.461,
+                what:'Motorcycle engine' },
+  grille:     { file:'radiator_grille.glb', axis:'y', size:1.200,  depth:0.171,
+                what:'Radiator grille' },
 };
 
 const loaded = new Map();
@@ -25,26 +45,48 @@ let readyPromise = null;
 
 export function partsReady(){ return loaded.has('__done'); }
 
-/** The credits every scanned component in use requires. */
+/** What each scan in use is, so the app can credit it as its licence requires. */
 export function partCredits(){
-  return Object.entries(PARTS).filter(([id]) => loaded.has(id)).map(([, p]) => p.credit);
+  const have = Object.entries(PARTS).filter(([id]) => loaded.has(id));
+  if (!have.length) return [];
+  return [`${have.map(([, p]) => p.what).sort().join(', ')} — ${CREDIT}`];
 }
 
-/** A copy of the scanned part, scaled so it measures `dia` across and turned
- *  so its axis runs along `axis`. Null when the model is not available. */
-export function partMesh(id, { dia, mat, axis = 'z' } = {}){
+/* turning one axis onto another, as an Euler rotation */
+const TURN = {
+  'z:y':[-Math.PI/2, 0, 0], 'z:x':[0, Math.PI/2, 0],
+  'y:z':[ Math.PI/2, 0, 0], 'y:x':[0, 0, -Math.PI/2],
+  'x:z':[0, -Math.PI/2, 0], 'x:y':[0, 0, Math.PI/2],
+};
+
+/**
+ * A copy of the scanned part, sized and turned to fit where it is going.
+ *   dia   — target size across the two axes normal to its own axis
+ *   depth — target extent along its axis (omit to scale uniformly)
+ *   fit    — target largest dimension, for parts that are not round
+ *   axis  — the axis it should end up running along
+ * Returns null when the model is not available, so every caller can fall back.
+ */
+export function partMesh(id, { dia, depth, fit, axis, mat, tint } = {}){
   const spec = PARTS[id];
   const src = loaded.get(id);
   if (!spec || !src) return null;
   const mesh = src.clone();
   if (mat) mesh.material = mat;
+  else if (tint){ mesh.material = src.material.clone(); mesh.material.color.setHex(tint); }
+
+  const k = (fit != null ? fit : dia != null ? dia : spec.size) / spec.size;
+  const kd = depth != null ? depth / spec.depth : k;
+  /* scale across and along its own axis, before it is turned */
+  const s = { x:k, y:k, z:k };
+  s[spec.axis] = kd;
+  mesh.scale.set(s.x, s.y, s.z);
+
   const g = new THREE.Group();
   g.add(mesh);
-  const k = dia ? dia / spec.dia : 1;
-  mesh.scale.setScalar(k);
-  if (axis !== spec.axis){
-    if (spec.axis === 'z' && axis === 'y') mesh.rotation.x = -Math.PI / 2;
-    if (spec.axis === 'z' && axis === 'x') mesh.rotation.y = Math.PI / 2;
+  if (axis && axis !== spec.axis){
+    const t = TURN[`${spec.axis}:${axis}`];
+    if (t) g.rotation.set(t[0], t[1], t[2]);
   }
   g.userData.scanned = id;
   return g;
@@ -68,7 +110,7 @@ export function loadPartModels(base = ''){
       let found = null;
       gltf.scene.traverse(o => { if (o.isMesh && !found) found = o; });
       if (!found) return;
-      /* scanner output has no normals worth shipping, and a smooth recompute
+      /* scanner output ships no normals worth keeping, and a smooth recompute
          reads better than the per-triangle facets the raw scan gives */
       found.geometry.computeVertexNormals();
       found.geometry.center();

@@ -6,6 +6,7 @@ import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, group, tag, at,
          boundsOf, deg, TAU, lathe, wheelMesh, brakeDisc, caliper, coreMesh } from '../lib/geo.js';
 import { wheelRadius, weightDistribution } from '../data/vehicles.js';
 import { custom, fitToVehicle } from '../lib/importModel.js';
+import { partMesh } from '../lib/partModels.js';
 
 const M = (mm) => mm / 1000;
 
@@ -84,14 +85,25 @@ function buildCar(v, tree){
     const eg = group('eng');
     const transverse = bay.includes('transverse') || kart;
     const bw = transverse ? tf*0.62 : M(520), bd = transverse ? M(520) : tf*0.5;
-    eg.add(roundBox(bw, M(420), bd, 0.03, MAT.alloy()));
-    eg.add(at(roundBox(bw*0.92, M(120), bd*0.88, 0.02, MAT.alloyDark()), 0, M(280), 0));
+    /* in the chassis view the engine is one part, so it can be a scan of a
+       real one — the strip-down happens on the generated model in the Engine
+       Bay, where every casting has to come apart */
+    const scan = kart ? null : partMesh('engineI4', { fit: M(660), axis: transverse ? 'z' : 'x',
+                                                      mat: MAT.alloy() });
+    if (scan){
+      eg.add(scan);
+    } else {
+      eg.add(roundBox(bw, M(420), bd, 0.03, MAT.alloy()));
+      eg.add(at(roundBox(bw*0.92, M(120), bd*0.88, 0.02, MAT.alloyDark()), 0, M(280), 0));
+    }
     add('engine', at(eg, engX, engY, 0));
   }
   if (has('gearbox')){
     const gb = group('gb');
     const transverse = bay.includes('transverse') || kart;
-    gb.add(rot(cyl(M(180), M(140), M(560), MAT.alloyDark(), 16), transverse ? 0 : 0, 0, Math.PI/2));
+    const scan = partMesh('gearbox', { fit: M(640), axis:'x', mat: MAT.alloyDark() });
+    if (scan) gb.add(scan);
+    else gb.add(rot(cyl(M(180), M(140), M(560), MAT.alloyDark(), 16), 0, 0, Math.PI/2));
     add('gearbox', at(gb, transverse ? engX : engX - M(560), engY - M(60), transverse ? -tf*0.34 : 0));
   }
   if (has('transfer')) add('transfer', at(roundBox(M(260), M(220), M(220), .02, MAT.alloyDark()), engX - M(600), engY - M(140), tf*0.16));
@@ -306,6 +318,10 @@ function buildCar(v, tree){
       bd.add(new THREE.Mesh(loft(glass, 26), new THREE.MeshPhysicalMaterial({
         color:0x2b3a4c, metalness:0.0, roughness:0.04, clearcoat:1, clearcoatRoughness:0.02,
         transparent:true, opacity:0.62, envMapIntensity:2.4, side:THREE.DoubleSide })));
+    /* a scan of a real radiator grille in the nose, where the air goes in */
+    const grille = partMesh('grille', { fit: wid * 0.66, depth: M(70), axis:'y',
+                                        mat: MAT.plastic() });
+    if (grille) bd.add(at(grille, len * 0.455, floorY + hgt * 0.30, 0));
     add('body', bd);
   }
   if (open && has('body')){
@@ -528,10 +544,16 @@ function buildBike(v, tree){
   if (has('engine')){
     const eg = group('eng');
     const wide = v.bay === 'boxer';
-    eg.add(at(roundBox(M(400), M(380), wide ? M(900) : M(420), .03, MAT.alloy()), axF*0.1, rR + M(300), 0));
-    eg.add(at(roundBox(M(340), M(230), wide ? M(760) : M(360), .03, MAT.alloyDark()), axF*0.1 - M(40), rR + M(90), 0));
-    if (v.bay === 'longitudinal-v') for (const a of [deg(22), deg(-23)])
-      eg.add(at(rot(box(M(230), M(300), M(240), MAT.alloyDark()), 0, 0, a), axF*0.1 + Math.sin(a)*M(220), rR + M(430) + Math.cos(a)*M(120), 0));
+    /* a scan of a real motorcycle engine — cases, barrel, cam cover and fins */
+    const scan = wide ? null : partMesh('engineMoto', { fit: M(520), axis:'y', mat: MAT.alloy() });
+    if (scan){
+      eg.add(at(scan, axF*0.1, rR + M(250), 0));
+    } else {
+      eg.add(at(roundBox(M(400), M(380), wide ? M(900) : M(420), .03, MAT.alloy()), axF*0.1, rR + M(300), 0));
+      eg.add(at(roundBox(M(340), M(230), wide ? M(760) : M(360), .03, MAT.alloyDark()), axF*0.1 - M(40), rR + M(90), 0));
+      if (v.bay === 'longitudinal-v') for (const a of [deg(22), deg(-23)])
+        eg.add(at(rot(box(M(230), M(300), M(240), MAT.alloyDark()), 0, 0, a), axF*0.1 + Math.sin(a)*M(220), rR + M(430) + Math.cos(a)*M(120), 0));
+    }
     add('engine', eg);
   }
   if (has('triple')){

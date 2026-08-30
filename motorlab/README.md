@@ -81,17 +81,41 @@ before; see [`assets/parts/ABOUT.md`](assets/parts/ABOUT.md).
 
 ### Scanned components
 
-Some parts cannot be faked. A turbocharger turbine wheel is eleven blades, each
-one a twisted surface with a different curvature at every radius, and no amount
-of lofting produces the real thing — so MotorLab loads a real scan of one and
-drops the generated stand-in. It lives in `assets/scans/`, is registered in
-[`js/lib/partModels.js`](js/lib/partModels.js), and every caller keeps its
-fallback so the app still runs with the folder deleted.
+Some parts cannot be faked. A cast engine block is a landscape of webs, bosses
+and draft angles; an alloy wheel is a shape somebody spent months styling; a
+turbine wheel is eleven twisted blades. You do not get those from maths.
 
-The turbine wheel is a scan by **Artec 3D**, used under CC BY 3.0. That licence
-requires credit and a statement of changes: the credit is shown in the app under
-**Help → Credits**, and the changes are recorded in
-[`assets/scans/ABOUT.md`](assets/scans/ABOUT.md).
+So nine real 3D scans ship in `assets/scans/`, and each one replaces a generated
+stand-in where the generated version could never be honest:
+
+| Scan | Replaces |
+|---|---|
+| Alloy road wheel | The rim inside every car and bike wheel |
+| Four-cylinder engine | The engine in the Chassis workspace |
+| Motorcycle engine | The engine on every generated motorcycle |
+| Dual-clutch gearbox | The gearbox in the Chassis workspace |
+| Water pump | The pump housing on every engine |
+| Camshaft timing gear | The cam sprocket on every engine |
+| Turbocharger turbine wheel | The hot side of every turbo |
+| Radiator grille | The nose of every generated car |
+| Motorcycle wheel | Available to any builder that wants it |
+
+The tyre around a scanned rim stays generated, because it has to size itself to
+the vehicle's spec; the water pump's pulley stays generated, because it has to
+turn with the belt; and the Engine Bay's strip-down still runs on the generated
+engine, because every casting there has to come apart on its own. The scans go
+where a part is one solid thing.
+
+They are registered in [`js/lib/partModels.js`](js/lib/partModels.js), load once
+at boot, and every caller keeps its fallback so the app still runs with the
+folder deleted.
+
+All nine are scans by **Artec 3D**, used under CC BY 3.0. That licence requires
+credit and a statement of changes: the credit is shown in the app under
+**Help → Credits**, the licence text ships beside the models, and the exact
+reduction applied to each is recorded in
+[`assets/scans/ABOUT.md`](assets/scans/ABOUT.md). The originals run from 2 to 10
+million triangles; what ships is between 0.2% and 2% of that.
 
 ### Real parts, not primitives
 
@@ -127,6 +151,7 @@ standing in for it:
 | `tools/tds2obj.py` | Autodesk `.3DS` to OBJ + MTL, Z-up to Y-up, one object per material |
 | `tools/obj2glb.py` | OBJ + MTL to binary glTF: scale, offset, clip stray faces, weld, drop unused UVs |
 | `tools/wrl2obj.py` | VRML 2.0 `IndexedFaceSet` (what a 3D scanner exports) to OBJ |
+| `tools/scan2glb.py` | Any raw scan (PLY, STL, OBJ, VRML) to a web-sized binary glTF: decimate to a triangle budget by vertex clustering, scale to real size, trim strays |
 
 All three are pure standard-library Python 3 — no build step, no dependencies.
 
@@ -321,11 +346,12 @@ sw.js                 service worker (offline)
 data/updates.json     the update feed
 data/world_land.json  coastlines for the racing map
 assets/parts/         scanned part maps: disc, caliper, carbon, tyre, filter
-assets/scans/         scanned components: the turbocharger turbine wheel
+assets/scans/         nine scanned components: engines, wheel, gearbox, pump…
 assets/nns/           NASCAR stock car model
 assets/koenigsegg/    carbon hypercar model
 assets/harley/        custom V-twin cruiser model
-tools/                tga2png.py, tds2obj.py, wrl2obj.py, obj2glb.py, build-single.mjs
+tools/                tga2png.py, tds2obj.py, wrl2obj.py, scan2glb.py,
+                      obj2glb.py, build-single.mjs
 vendor/three/         bundled three.js + OrbitControls + OBJ/MTL/GLTF loaders
 js/
   main.js             shell: workspaces, 3D model loading, keyboard, HUD
