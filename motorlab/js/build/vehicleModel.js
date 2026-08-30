@@ -79,6 +79,7 @@ function buildCar(v, tree){
 
   /* ---- powertrain ---- */
   const bay = v.bay;
+  let detailLamps = null;          // set by the body-detail pass, if there is a shell
   const engX = bay === 'mid' ? axR*0.45 : bay === 'rear' ? axR*1.2 : axF*0.62;
   const engY = floorY + M(230);
   if (has('engine')){
@@ -281,11 +282,6 @@ function buildCar(v, tree){
                    [axR*0.7, floorY + M(230) + i*M(9), -wid*0.2]], M(6), MAT.wire(cols[i]), 5));
     add('harness', hn);
   }
-  if (has('lights')) for (const s of [-1,1]){
-    /* set into the bodywork, not stuck on the end of it */
-    add('lights', at(roundBox(M(55), M(105), M(230), .02, MAT.glass()), len*0.425, floorY + hgt*0.33, s*wid*0.27));
-    add('lights', at(roundBox(M(50), M(95), M(210), .02, MAT.red()), -len*0.425, floorY + hgt*0.35, s*wid*0.27));
-  }
   if (has('headunit')) add('headunit', at(roundBox(M(180), M(110), M(180), .01, MAT.black()), axF*0.02, floorY + M(560), 0));
   if (has('amp')) add('amp', at(roundBox(M(320), M(70), M(240), .01, MAT.alloyDark()), axR*0.9, floorY + M(240), -wid*0.2));
   if (has('speakers')){
@@ -316,13 +312,18 @@ function buildCar(v, tree){
     const bd = group('body');
     const opacity = globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8;
     const paint = MAT.paint(v.colour, opacity);
-    const shell = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, 'shell').filter(Boolean);
-    bd.add(new THREE.Mesh(loft(shell, 30), paint));
-    const glass = bodySections(v, len, hgt, floorY, axF, axR, rF, rR, 'glass').filter(Boolean);
-    if (glass.length > 3)
-      bd.add(new THREE.Mesh(loft(glass, 26), new THREE.MeshPhysicalMaterial({
-        color:0x141c26, metalness:0.0, roughness:0.05, clearcoat:1, clearcoatRoughness:0.03,
-        transparent:true, opacity:0.80, envMapIntensity:2.2, side:THREE.DoubleSide })));
+    const surf = bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR);
+    const shell = surf.lower.filter(Boolean);
+    bd.add(new THREE.Mesh(loft(shell, 48), paint));
+    /* the greenhouse is painted metal with the windows cut into it, so the
+       pillars are whatever paint is left between them */
+    const green = surf.green.filter(Boolean);
+    if (green.length > 3){
+      bd.add(new THREE.Mesh(loft(green, 44), paint));
+      bd.add(bodyGlazing(surf.L, surf.green, len, new THREE.MeshPhysicalMaterial({
+        color:0x080d14, metalness:0.0, roughness:0.035, clearcoat:1, clearcoatRoughness:0.02,
+        transparent:true, opacity:0.90, envMapIntensity:2.8, side:THREE.DoubleSide })));
+    }
 
     /* a scan of a real radiator grille in the nose, where the air goes in */
     /* the scan's long side is its own X, so it has to be turned across the car
@@ -333,6 +334,12 @@ function buildCar(v, tree){
       grille.rotation.y = Math.PI / 2;
       bd.add(at(grille, len * 0.412, floorY + hgt * 0.30, 0));
     }
+    /* the trim that turns the shell into a car: panel gaps, arch lips,
+       mirrors, grille, intakes and pipes, all placed on the shell's surface */
+    const det = bodyDetail(v, surf.L, shell, len, hgt, wid, floorY, axF, axR, rF, rR);
+    if (det.trim) bd.add(det.trim);
+    if (det.lamps && has('lights')) add('lights', det.lamps);
+    detailLamps = det.lamps;
     add('body', bd);
   }
   if (open && has('body')){
@@ -341,6 +348,14 @@ function buildCar(v, tree){
     bd.add(at(roundBox(len*0.55, hgt*0.36, wid*0.42, .06, paint), len*0.02, floorY + hgt*0.2, 0));
     bd.add(at(box(len*0.2, M(50), wid*0.6, paint), len*0.36, floorY + hgt*0.1, 0));
     add('body', bd);
+  }
+
+  /* Lamps normally come out of the body-detail pass, set into the real skin.
+     A vehicle built from an imported model, or an open-wheeler with no shell to
+     set them into, falls back to a pair on the nose and tail. */
+  if (has('lights') && !detailLamps) for (const s of [-1,1]){
+    add('lights', at(roundBox(M(55), M(105), M(230), .02, MAT.glass()), len*0.425, floorY + hgt*0.33, s*wid*0.27));
+    add('lights', at(roundBox(M(50), M(95), M(210), .02, MAT.red()), -len*0.425, floorY + hgt*0.35, s*wid*0.27));
   }
 
   return finalize(root, nodes, anim, v);
@@ -354,69 +369,127 @@ function buildCar(v, tree){
  * t runs 0 at the front bumper to 1 at the tail.
  * -------------------------------------------------------------------- */
 const BODY_LINES = {
+  /* A car is not one rounded form. It is a flat-sided lower body with a hard
+     shoulder line along the top of it, a narrower greenhouse sitting on that
+     shoulder with pillars holding up a roof panel, and glass filling the gaps
+     between the pillars. Building it as a single lofted tube is exactly why it
+     came out looking like a bar of soap.
+       sill  – underside of the body, as a fraction of overall height
+       waist – the shoulder: bonnet top, door tops, boot lid. Runs the whole car.
+       roof  – the roof line. Where it falls below the waist there is no cabin.
+       wide  – half width, as a fraction of the car's own half width
+       ghW   – how much narrower the greenhouse is than the body below it
+       squL/squG – how square the sections are: high means flat flanks and a
+                   crisp shoulder, low means rounded. A car is very square.
+       pillars – [t at the shoulder, t at the roof] for the A, B and C pillars.
+  */
   coupe: {
-    roof:[[0,0.26],[0.08,0.33],[0.22,0.40],[0.36,0.47],[0.46,0.64],[0.56,0.85],[0.66,0.90],
-          [0.78,0.86],[0.90,0.62],[1,0.46]],
-    sill:[[0,0.124],[0.10,0.081],[0.35,0.068],[0.65,0.068],[0.90,0.081],[1,0.136]],
-    wide:[[0,0.40],[0.08,0.70],[0.20,0.90],[0.34,0.96],[0.52,0.97],[0.68,1.00],[0.84,0.94],[0.94,0.74],[1,0.44]],
-    glass:[[0,0.30],[0.42,0.62],[0.58,0.80],[0.74,0.78],[0.88,0.56],[1,0.34]],
-    squ:2.9, beltline:0.62,
-  },
-  super: {
-    roof:[[0,0.22],[0.10,0.28],[0.26,0.33],[0.38,0.40],[0.48,0.58],[0.58,0.72],[0.68,0.74],
-          [0.80,0.68],[0.92,0.52],[1,0.44]],
-    sill:[[0,0.099],[0.12,0.062],[0.40,0.056],[0.70,0.056],[0.92,0.074],[1,0.124]],
-    wide:[[0,0.46],[0.10,0.78],[0.24,0.94],[0.40,0.96],[0.56,0.98],[0.72,1.00],[0.86,0.96],[0.95,0.78],[1,0.52]],
-    glass:[[0,0.28],[0.44,0.60],[0.58,0.70],[0.70,0.68],[0.84,0.52],[1,0.32]],
-    squ:3.3, beltline:0.52,
-  },
-  hatch: {
-    roof:[[0,0.30],[0.10,0.38],[0.24,0.46],[0.36,0.53],[0.46,0.74],[0.58,0.95],[0.74,0.97],
-          [0.86,0.94],[0.95,0.80],[1,0.52]],
-    sill:[[0,0.136],[0.10,0.093],[0.35,0.081],[0.65,0.081],[0.90,0.093],[1,0.149]],
-    wide:[[0,0.44],[0.09,0.74],[0.22,0.92],[0.38,0.97],[0.58,0.98],[0.76,0.97],[0.90,0.90],[1,0.56]],
-    glass:[[0,0.32],[0.42,0.70],[0.58,0.88],[0.78,0.88],[0.92,0.72],[1,0.40]],
-    squ:2.6, beltline:0.66,
+    sill :[[0,0.130],[0.10,0.085],[0.35,0.072],[0.65,0.072],[0.90,0.085],[1,0.140]],
+    wide :[[0,0.42],[0.07,0.72],[0.18,0.90],[0.32,0.96],[0.50,0.97],[0.68,1.00],[0.84,0.94],[0.94,0.74],[1,0.44]],
+    waist:[[0,0.30],[0.07,0.41],[0.18,0.455],[0.30,0.470],[0.50,0.490],[0.72,0.500],[0.86,0.505],[0.95,0.490],[1,0.44]],
+    roof :[[0,0.16],[0.28,0.42],[0.35,0.60],[0.43,0.86],[0.50,0.97],[0.62,0.99],[0.70,0.94],[0.78,0.78],[0.86,0.46],[1,0.26]],
+    pillars:[[0.335,0.455],[0.615,0.615],[0.855,0.755]],
+    ghW:0.82, squL:7.0, squG:4.6,
+    cuts:{ bonnet:0.30, doorF:0.34, doorR:0.72, boot:0.86 },
   },
   sedan: {
-    roof:[[0,0.28],[0.10,0.35],[0.24,0.43],[0.36,0.50],[0.46,0.70],[0.58,0.92],[0.70,0.93],
-          [0.80,0.80],[0.90,0.62],[1,0.54]],
-    sill:[[0,0.136],[0.10,0.087],[0.35,0.074],[0.65,0.074],[0.90,0.087],[1,0.149]],
-    wide:[[0,0.42],[0.09,0.72],[0.22,0.91],[0.38,0.96],[0.56,0.98],[0.74,0.98],[0.88,0.90],[1,0.52]],
-    glass:[[0,0.30],[0.42,0.66],[0.58,0.86],[0.72,0.84],[0.86,0.60],[1,0.36]],
-    squ:2.7, beltline:0.64,
+    sill :[[0,0.136],[0.10,0.087],[0.35,0.074],[0.65,0.074],[0.90,0.087],[1,0.149]],
+    wide :[[0,0.42],[0.09,0.72],[0.22,0.91],[0.38,0.96],[0.56,0.98],[0.74,0.98],[0.88,0.90],[1,0.52]],
+    waist:[[0,0.30],[0.07,0.42],[0.18,0.460],[0.30,0.475],[0.50,0.495],[0.72,0.505],[0.86,0.510],[0.95,0.500],[1,0.46]],
+    roof :[[0,0.16],[0.26,0.44],[0.33,0.62],[0.42,0.88],[0.49,0.99],[0.68,1.00],[0.76,0.93],[0.84,0.74],[0.90,0.52],[1,0.30]],
+    pillars:[[0.315,0.435],[0.545,0.545],[0.835,0.755]],
+    ghW:0.83, squL:6.6, squG:4.4,
+    cuts:{ bonnet:0.28, doorF:0.32, doorR:0.80, boot:0.84 },
   },
-  suv: {
-    roof:[[0,0.34],[0.10,0.44],[0.24,0.54],[0.36,0.60],[0.46,0.82],[0.58,1.00],[0.76,1.01],
-          [0.90,0.98],[0.97,0.88],[1,0.58]],
-    sill:[[0,0.161],[0.10,0.118],[0.35,0.105],[0.65,0.105],[0.90,0.118],[1,0.174]],
-    wide:[[0,0.46],[0.09,0.76],[0.22,0.93],[0.38,0.98],[0.60,0.99],[0.78,0.98],[0.92,0.92],[1,0.58]],
-    glass:[[0,0.36],[0.42,0.76],[0.58,0.94],[0.80,0.94],[0.94,0.80],[1,0.44]],
-    squ:2.4, beltline:0.70,
+  hatch: {
+    sill :[[0,0.136],[0.10,0.093],[0.35,0.081],[0.65,0.081],[0.90,0.093],[1,0.149]],
+    wide :[[0,0.44],[0.09,0.74],[0.22,0.92],[0.38,0.97],[0.58,0.98],[0.76,0.97],[0.90,0.90],[1,0.56]],
+    waist:[[0,0.32],[0.07,0.44],[0.18,0.480],[0.30,0.495],[0.50,0.515],[0.72,0.525],[0.88,0.530],[1,0.48]],
+    roof :[[0,0.18],[0.24,0.46],[0.31,0.66],[0.40,0.90],[0.47,1.00],[0.72,1.00],[0.82,0.94],[0.90,0.78],[0.96,0.56],[1,0.40]],
+    pillars:[[0.295,0.415],[0.545,0.545],[0.815,0.775]],
+    ghW:0.84, squL:6.2, squG:4.2,
+    cuts:{ bonnet:0.26, doorF:0.30, doorR:0.66, boot:0.86 },
   },
-  pickup: {
-    roof:[[0,0.32],[0.10,0.50],[0.22,0.62],[0.34,0.66],[0.42,0.94],[0.52,1.02],[0.60,1.02],
-          [0.64,0.66],[0.70,0.62],[0.95,0.62],[1,0.60]],
-    sill:[[0,0.161],[0.10,0.124],[0.40,0.118],[0.70,0.118],[0.92,0.13],[1,0.174]],
-    wide:[[0,0.50],[0.09,0.80],[0.22,0.94],[0.40,0.97],[0.62,0.97],[0.80,0.99],[0.94,0.96],[1,0.62]],
-    glass:[[0,0.36],[0.40,0.66],[0.47,0.96],[0.58,0.96],[0.63,0.66],[1,0.40]],
-    squ:2.2, beltline:0.64,
+  super: {
+    sill :[[0,0.099],[0.12,0.062],[0.40,0.056],[0.70,0.056],[0.92,0.074],[1,0.124]],
+    wide :[[0,0.46],[0.10,0.78],[0.24,0.94],[0.40,0.96],[0.56,0.98],[0.72,1.00],[0.86,0.96],[0.95,0.78],[1,0.52]],
+    waist:[[0,0.24],[0.08,0.34],[0.20,0.375],[0.32,0.390],[0.50,0.420],[0.70,0.450],[0.86,0.470],[0.95,0.460],[1,0.40]],
+    roof :[[0,0.12],[0.28,0.36],[0.34,0.54],[0.42,0.80],[0.48,0.92],[0.58,0.92],[0.66,0.84],[0.74,0.66],[0.82,0.48],[1,0.30]],
+    pillars:[[0.325,0.435],[0.735,0.665]],
+    ghW:0.80, squL:7.5, squG:4.8,
+    cuts:{ bonnet:0.28, doorF:0.32, doorR:0.62, boot:0.80 },
   },
-  semi: {
-    roof:[[0,0.40],[0.08,0.72],[0.16,0.86],[0.24,1.02],[0.40,1.04],[0.56,1.04],[0.62,0.70],
-          [0.72,0.66],[0.95,0.66],[1,0.62]],
-    sill:[[0,0.186],[0.10,0.149],[0.50,0.143],[0.90,0.149],[1,0.186]],
-    wide:[[0,0.56],[0.10,0.86],[0.24,0.98],[0.50,1.00],[0.72,0.98],[0.90,0.94],[1,0.66]],
-    glass:[[0,0.44],[0.22,0.72],[0.30,1.00],[0.52,1.00],[0.60,0.72],[1,0.44]],
-    squ:2.0, beltline:0.72,
+  gt: {
+    sill :[[0,0.116],[0.10,0.074],[0.35,0.064],[0.65,0.064],[0.90,0.078],[1,0.128]],
+    wide :[[0,0.42],[0.08,0.72],[0.20,0.92],[0.34,0.96],[0.52,0.95],[0.70,1.00],[0.86,0.95],[0.95,0.78],[1,0.46]],
+    waist:[[0,0.26],[0.07,0.36],[0.20,0.400],[0.34,0.415],[0.52,0.435],[0.72,0.450],[0.88,0.455],[0.96,0.440],[1,0.40]],
+    roof :[[0,0.14],[0.34,0.40],[0.41,0.60],[0.50,0.88],[0.56,0.98],[0.66,0.97],[0.74,0.88],[0.82,0.70],[0.90,0.46],[1,0.28]],
+    pillars:[[0.395,0.505],[0.815,0.735]],
+    ghW:0.81, squL:7.2, squG:4.6,
+    cuts:{ bonnet:0.36, doorF:0.40, doorR:0.76, boot:0.86 },
+  },
+  muscle: {
+    sill :[[0,0.130],[0.10,0.086],[0.35,0.072],[0.65,0.072],[0.90,0.086],[1,0.140]],
+    wide :[[0,0.46],[0.08,0.76],[0.20,0.94],[0.34,0.97],[0.52,0.96],[0.70,1.00],[0.86,0.96],[0.95,0.82],[1,0.56]],
+    waist:[[0,0.30],[0.07,0.42],[0.20,0.465],[0.36,0.480],[0.54,0.500],[0.74,0.515],[0.88,0.525],[1,0.50]],
+    roof :[[0,0.18],[0.40,0.46],[0.47,0.66],[0.55,0.90],[0.61,1.00],[0.74,1.00],[0.81,0.92],[0.88,0.72],[0.94,0.56],[1,0.44]],
+    pillars:[[0.455,0.575],[0.865,0.775]],
+    ghW:0.84, squL:6.4, squG:4.3,
+    cuts:{ bonnet:0.42, doorF:0.46, doorR:0.78, boot:0.90 },
+  },
+  roadster: {
+    sill :[[0,0.124],[0.10,0.078],[0.35,0.066],[0.65,0.066],[0.90,0.080],[1,0.132]],
+    wide :[[0,0.42],[0.08,0.72],[0.20,0.92],[0.34,0.96],[0.52,0.96],[0.68,0.99],[0.84,0.93],[0.94,0.74],[1,0.44]],
+    waist:[[0,0.28],[0.08,0.38],[0.20,0.425],[0.34,0.440],[0.52,0.460],[0.72,0.470],[0.88,0.470],[1,0.42]],
+    roof :[[0,0.16],[0.36,0.42],[0.42,0.60],[0.47,0.66],[0.53,0.64],[0.58,0.46],[1,0.28]],
+    pillars:[[0.405,0.455]],
+    ghW:0.78, squL:6.8, squG:4.2,
+    cuts:{ bonnet:0.34, doorF:0.40, doorR:0.68, boot:0.80 },
+  },
+  hyper: {
+    sill :[[0,0.092],[0.12,0.056],[0.40,0.050],[0.70,0.050],[0.92,0.068],[1,0.116]],
+    wide :[[0,0.48],[0.10,0.80],[0.24,0.96],[0.40,0.98],[0.56,0.99],[0.72,1.02],[0.86,0.98],[0.95,0.80],[1,0.54]],
+    waist:[[0,0.22],[0.08,0.30],[0.20,0.340],[0.32,0.355],[0.50,0.385],[0.70,0.410],[0.86,0.430],[1,0.36]],
+    roof :[[0,0.10],[0.26,0.32],[0.33,0.52],[0.42,0.78],[0.48,0.90],[0.58,0.90],[0.66,0.80],[0.76,0.58],[0.86,0.40],[1,0.26]],
+    pillars:[[0.315,0.425],[0.755,0.675]],
+    ghW:0.79, squL:7.8, squG:5.0,
+    cuts:{ bonnet:0.26, doorF:0.30, doorR:0.60, boot:0.78 },
   },
   rally: {
-    roof:[[0,0.30],[0.10,0.38],[0.24,0.46],[0.36,0.52],[0.46,0.74],[0.58,0.94],[0.74,0.95],
-          [0.86,0.90],[0.95,0.74],[1,0.50]],
-    sill:[[0,0.149],[0.10,0.105],[0.35,0.093],[0.65,0.093],[0.90,0.105],[1,0.161]],
-    wide:[[0,0.46],[0.09,0.78],[0.22,0.98],[0.38,1.02],[0.58,1.03],[0.76,1.02],[0.90,0.94],[1,0.58]],
-    glass:[[0,0.32],[0.42,0.70],[0.58,0.88],[0.78,0.86],[0.92,0.70],[1,0.40]],
-    squ:2.5, beltline:0.66,
+    sill :[[0,0.149],[0.10,0.105],[0.35,0.093],[0.65,0.093],[0.90,0.105],[1,0.161]],
+    wide :[[0,0.46],[0.09,0.78],[0.22,0.98],[0.38,1.02],[0.58,1.03],[0.76,1.02],[0.90,0.94],[1,0.58]],
+    waist:[[0,0.32],[0.07,0.44],[0.18,0.485],[0.30,0.500],[0.50,0.520],[0.72,0.530],[0.88,0.535],[1,0.48]],
+    roof :[[0,0.18],[0.24,0.47],[0.31,0.68],[0.40,0.92],[0.47,1.00],[0.72,1.00],[0.82,0.94],[0.90,0.80],[0.96,0.58],[1,0.40]],
+    pillars:[[0.295,0.415],[0.545,0.545],[0.815,0.775]],
+    ghW:0.85, squL:6.0, squG:4.1,
+    cuts:{ bonnet:0.26, doorF:0.30, doorR:0.66, boot:0.86 },
+  },
+  suv: {
+    sill :[[0,0.161],[0.10,0.118],[0.35,0.105],[0.65,0.105],[0.90,0.118],[1,0.174]],
+    wide :[[0,0.46],[0.09,0.76],[0.22,0.93],[0.38,0.98],[0.60,0.99],[0.78,0.98],[0.92,0.92],[1,0.58]],
+    waist:[[0,0.36],[0.07,0.48],[0.18,0.530],[0.30,0.545],[0.50,0.565],[0.72,0.575],[0.90,0.580],[1,0.52]],
+    roof :[[0,0.22],[0.24,0.52],[0.31,0.74],[0.40,0.94],[0.47,1.00],[0.80,1.00],[0.90,0.94],[0.97,0.76],[1,0.50]],
+    pillars:[[0.295,0.415],[0.565,0.565],[0.845,0.805]],
+    ghW:0.86, squL:5.8, squG:4.0,
+    cuts:{ bonnet:0.26, doorF:0.30, doorR:0.72, boot:0.88 },
+  },
+  pickup: {
+    sill :[[0,0.161],[0.10,0.124],[0.40,0.118],[0.70,0.118],[0.92,0.130],[1,0.174]],
+    wide :[[0,0.50],[0.09,0.80],[0.22,0.94],[0.40,0.97],[0.62,0.97],[0.80,0.99],[0.94,0.96],[1,0.62]],
+    waist:[[0,0.36],[0.07,0.50],[0.18,0.560],[0.30,0.580],[0.42,0.600],[0.60,0.600],[0.66,0.585],[0.95,0.580],[1,0.55]],
+    roof :[[0,0.22],[0.26,0.56],[0.33,0.80],[0.40,0.98],[0.46,1.02],[0.58,1.02],[0.62,0.62],[1,0.50]],
+    pillars:[[0.315,0.415],[0.605,0.575]],
+    ghW:0.88, squL:5.4, squG:3.9,
+    cuts:{ bonnet:0.24, doorF:0.30, doorR:0.58, boot:0.64 },
+  },
+  semi: {
+    sill :[[0,0.186],[0.10,0.149],[0.50,0.143],[0.90,0.149],[1,0.186]],
+    wide :[[0,0.56],[0.10,0.86],[0.24,0.98],[0.50,1.00],[0.72,0.98],[0.90,0.94],[1,0.66]],
+    waist:[[0,0.42],[0.08,0.66],[0.16,0.720],[0.24,0.740],[0.56,0.740],[0.62,0.660],[0.72,0.640],[1,0.62]],
+    roof :[[0,0.30],[0.14,0.70],[0.20,0.96],[0.26,1.04],[0.54,1.04],[0.60,0.70],[1,0.56]],
+    pillars:[[0.185,0.255],[0.555,0.535]],
+    ghW:0.90, squL:5.0, squG:3.8,
+    cuts:{ bonnet:0.12, doorF:0.22, doorR:0.50, boot:0.60 },
   },
 };
 BODY_LINES.stockcar = BODY_LINES.rally;
@@ -474,72 +547,410 @@ function loft(sections, N){
   return g;
 }
 
-/** Cross-sections for a car body, with the wheel arches scalloped out. */
-/* A car is three surfaces stacked, not one lozenge: the lower body up to the
- * beltline, the greenhouse of glass above it over the cabin, and the roof
- * panel capping that. Building it as one closed tube with a second tube of
- * glass shrink-wrapped over the top is what made it read as a blob under
- * cling film. `mode` picks which of the three this pass is building. */
-function bodySections(v, len, hgt, floorY, axF, axR, rF, rR, mode){
+/* ----------------------------------------------------------------------
+ * Body detail.
+ *
+ * A lofted shell is a shape. A car is that shape with lights set into it,
+ * panel gaps running across it, arch lips around the wheels, mirrors on the
+ * doors and pipes out the back — and it is those, not the silhouette, that
+ * make the eye read "car" instead of "lozenge". Every piece below is placed
+ * against the shell's own surface, solved exactly from the same superellipse
+ * the loft is built from, so trim sits on the paint rather than near it.
+ * -------------------------------------------------------------------- */
+function shellProbe(sections){
+  const S = sections.filter(Boolean).slice().sort((a, b) => b.x - a.x);   // nose first
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const secAt = (x) => {
+    if (!S.length) return null;
+    if (x >= S[0].x) return S[0];
+    for (let i = 1; i < S.length; i++){
+      if (x >= S[i].x){
+        const a = S[i-1], b = S[i], k = (a.x - x) / Math.max(1e-6, a.x - b.x);
+        return { x, yBot:lerp(a.yBot,b.yBot,k), yTop:lerp(a.yTop,b.yTop,k),
+                 wBot:lerp(a.wBot,b.wBot,k), wTop:lerp(a.wTop,b.wTop,k),
+                 squ:lerp(a.squ||2.6, b.squ||2.6, k) };
+      }
+    }
+    return S[S.length-1];
+  };
+  /* Invert the loft: given a height on a section, return the half-width of the
+     surface there. loft() puts a vertex at y = yMid + hH·sign(cy)|cy|^(2/n) and
+     z = w·|cz|^(2/n), so going the other way is |cy| = |sy|^(n/2). */
+  const surfZ = (sec, y) => {
+    if (!sec) return 0;
+    const yMid = (sec.yTop + sec.yBot) / 2, hH = Math.max(1e-4, (sec.yTop - sec.yBot) / 2);
+    const sy = Math.max(-1, Math.min(1, (y - yMid) / hH));
+    const n = sec.squ || 2.6;
+    const cy = Math.sign(sy) * Math.pow(Math.abs(sy), n / 2);
+    const cz = Math.sqrt(Math.max(0, 1 - cy * cy));
+    const w = cy >= 0 ? sec.wBot + (sec.wTop - sec.wBot) * cy : sec.wBot;
+    return w * Math.pow(cz, 2 / n);
+  };
+  const noseX = S.length ? S[0].x : 0, tailX = S.length ? S[S.length-1].x : 0;
+  return {
+    noseX, tailX, secAt, surfZ,
+    z(x, y){ return surfZ(secAt(x), y); },
+    /* a point sitting on the skin, nudged out by `lift` so trim does not
+       z-fight with the paint it is lying on */
+    p(x, y, side, lift = 0){ return new THREE.Vector3(x, y, side * (this.z(x, y) + lift)); },
+    top(x){ const c = secAt(x); return c ? c.yTop : 0; },
+    bot(x){ const c = secAt(x); return c ? c.yBot : 0; },
+  };
+}
+
+function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR){
+  const sp = shellProbe(sections);
+  if (!sp.secAt(0)) return { trim:null, lamps:null };
+  const trim = group('trim'), lamps = group('lamps');
+  const X = (t) => len / 2 - t * len;                 // 0 = nose, 1 = tail
+  /* the shoulder line, read off the body's own top edge rather than a constant:
+     it rises from the nose over the bonnet and again over the boot */
+  const waist = (t) => floorY + hgt * curveAt(L.waist, t);
+  const belt = waist(0.5);
+  const dark   = MAT.black();
+  const rubber = MAT.rubber();
+  const gap    = new THREE.MeshStandardMaterial({ color:0x0a0c10, roughness:0.9, metalness:0.0 });
+  const lensF  = new THREE.MeshPhysicalMaterial({ color:0xdfe8ff, metalness:0.0, roughness:0.06,
+                   clearcoat:1, transmission:0.55, thickness:0.02, ior:1.45,
+                   emissive:0xbcd0f0, emissiveIntensity:0.85, envMapIntensity:2.4 });
+  const lensR  = new THREE.MeshPhysicalMaterial({ color:0x8c0d10, metalness:0.0, roughness:0.10,
+                   clearcoat:1, transmission:0.35, thickness:0.02, ior:1.45,
+                   emissive:0xe01820, emissiveIntensity:1.15, envMapIntensity:2.0 });
+  const amber  = new THREE.MeshPhysicalMaterial({ color:0xc06a10, metalness:0.0, roughness:0.12,
+                   clearcoat:1, emissive:0xe08a18, emissiveIntensity:0.80 });
+
+  /* --- panel gaps: a 5 mm dark line lying in the skin ------------------- */
+  const seam = (pts, r = M(5)) => pts.length > 1 && trim.add(pipe(pts, r, gap, 5));
+  const runV = (t, y0, y1, side, n = 9) => {          // up the body at one station
+    const out = [], x = X(t);
+    for (let i = 0; i <= n; i++){
+      const y = y0 + (y1 - y0) * (i / n);
+      if (y > sp.top(x) - M(20) || y < sp.bot(x) + M(10)) continue;
+      if (sp.z(x, y) < M(60)) continue;
+      out.push(sp.p(x, y, side, M(3)).toArray());
+    }
+    return out;
+  };
+  const runH = (t0, t1, y, side, n = 12) => {         // along the body at one height
+    const out = [];
+    for (let i = 0; i <= n; i++){
+      const t = t0 + (t1 - t0) * (i / n);
+      const x = X(t);
+      /* past the nose or tail the section has no surface at this height and
+         the point collapses onto the centreline — which drew a straight line
+         through the middle of the car */
+      if (y > sp.top(x) - M(20) || y < sp.bot(x) + M(10)) continue;
+      if (sp.z(x, y) < M(60)) continue;
+      out.push(sp.p(x, y, side, M(3)).toArray());
+    }
+    return out;
+  };
+  const cuts = L.cuts || { bonnet:0.34, doorF:0.42, doorR:0.68, boot:0.80 };
+  for (const side of [-1, 1]){
+    const sill = Math.max(sp.bot(X(0.50)) + hgt * 0.04, floorY + hgt * 0.10);
+    /* the door: up the A-pillar side, along the sill, up the rear cut */
+    seam(runV(cuts.doorF, sill, sp.top(X(cuts.doorF)) - hgt * 0.012, side));
+    seam(runV(cuts.doorR, sill, sp.top(X(cuts.doorR)) - hgt * 0.012, side));
+    seam(runH(cuts.doorF, cuts.doorR, sill, side));
+    /* bonnet and boot shut lines, running down the flanks to the cross cut,
+       following the shoulder as it rises and falls */
+    for (const [t0, t1] of [[0.06, cuts.bonnet], [cuts.boot, 0.96]]){
+      const pts = [];
+      for (let i = 0; i <= 10; i++){
+        const t = t0 + (t1 - t0) * (i / 10), x = X(t), y = waist(t) - hgt * 0.012;
+        if (sp.z(x, y) < M(60)) continue;
+        pts.push(sp.p(x, y, side, M(3)).toArray());
+      }
+      seam(pts);
+    }
+  }
+  /* The cross cuts over the bonnet and boot arc over the crown, so they are
+     walked around the loft's own ring rather than solved height by height —
+     the same superellipse, top half only, from one flank over the top to the
+     other. */
+  const arc = (t) => {
+    const c = sp.secAt(X(t)); if (!c) return null;
+    const n = c.squ || 2.6;
+    const yMid = (c.yTop + c.yBot) / 2, hH = (c.yTop - c.yBot) / 2;
+    const pts = [];
+    for (let i = 0; i <= 20; i++){
+      const th = Math.PI * (i / 20);
+      const cz = Math.cos(th), cy = Math.sin(th);
+      const sz = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / n);
+      const sy = Math.pow(Math.max(0, cy), 2 / n);
+      const w = c.wBot + (c.wTop - c.wBot) * cy;
+      pts.push([c.x, yMid + hH * sy + M(2), w * sz * 1.006]);
+    }
+    return pts;
+  };
+  seam(arc(cuts.bonnet)); seam(arc(cuts.boot));
+
+  /* --- wheel arch lips -------------------------------------------------- */
+  for (const [ax, r] of [[axF, rF], [axR, rR]])
+    for (const side of [-1, 1]){
+      const pts = [];
+      for (let i = 0; i <= 16; i++){
+        const th = Math.PI * (0.07 + 0.86 * (i / 16));
+        const x = ax + r * 1.30 * Math.cos(th);
+        const y = Math.max(sp.bot(x) + M(10), r + r * 1.24 * Math.sin(th));
+        pts.push(sp.p(x, y, side, M(2)).toArray());
+      }
+      trim.add(pipe(pts, M(13), rubber, 6));
+    }
+
+  /* --- lower body: bumpers, valances and sills ---------------------------
+     A car is not one colour from the ground up. The bumper skins, the sill and
+     the valances are separate mouldings, and the tonal break between them and
+     the paint is a large part of why a real car does not read as one blob. */
+  const skirtY = Math.max(sp.bot(X(0.5)) + hgt * 0.02, floorY + hgt * 0.07);
+  for (const side of [-1, 1]){
+    const sk = [];
+    for (let i = 0; i <= 14; i++){
+      const t = 0.24 + (0.76 - 0.24) * (i / 14), x = X(t);
+      if (sp.z(x, skirtY) < M(80)) continue;
+      sk.push(sp.p(x, skirtY, side, -M(6)).toArray());
+    }
+    if (sk.length > 3) trim.add(pipe(sk, M(26), dark, 6));
+  }
+  /* the front and rear bumper skins, wrapped round the corners of the shell */
+  for (const [t0, t1] of [[0.005, 0.10], [0.90, 0.995]]){
+    for (const side of [-1, 1]){
+      const bp = [];
+      for (let i = 0; i <= 10; i++){
+        const t = t0 + (t1 - t0) * (i / 10), x = X(t);
+        const y = floorY + hgt * 0.135;
+        if (sp.z(x, y) < M(50)) continue;
+        bp.push(sp.p(x, y, side, -M(4)).toArray());
+      }
+      if (bp.length > 3) trim.add(pipe(bp, M(30), dark, 6));
+    }
+  }
+
+  /* --- lights -----------------------------------------------------------
+     A lamp is a lens in a dark housing, and the housing is what gives it an
+     edge against the paint. Without it the lens reads as a sticker. */
+  const lampY = waist(0.06) - hgt * 0.045;
+  const tailY = waist(0.95) - hgt * 0.035;
+  for (const side of [-1, 1]){
+    const zf = sp.z(X(0.06), lampY), zr = sp.z(X(0.945), tailY);
+    if (zf > M(60)){
+      const hz = zf * 0.44, hh = hgt * 0.072;
+      lamps.add(at(roundBox(M(110), hh * 1.20, hz * 1.12, .012, dark),
+                   X(0.058), lampY, side * zf * 0.52));
+      lamps.add(at(roundBox(M(86), hh, hz, .010, lensF), X(0.072), lampY, side * zf * 0.52));
+      /* the projector barrels you can see through the lens */
+      for (const k of [-1, 1])
+        lamps.add(at(rot(cyl(hh * 0.32, hh * 0.32, M(56), MAT.chrome(), 14), 0, 0, Math.PI/2),
+                     X(0.066), lampY, side * zf * 0.52 + k * hz * 0.28));
+      /* the indicator, in its own lens outboard and below */
+      lamps.add(at(roundBox(M(64), hgt * 0.030, zf * 0.16, .006, amber),
+                   X(0.050), lampY - hgt * 0.058, side * zf * 0.84));
+    }
+    if (zr > M(60)){
+      const rz = zr * 0.42, rh = hgt * 0.062;
+      lamps.add(at(roundBox(M(96), rh * 1.24, rz * 1.14, .012, dark),
+                   X(0.952), tailY, side * zr * 0.54));
+      lamps.add(at(roundBox(M(76), rh, rz, .010, lensR), X(0.968), tailY, side * zr * 0.54));
+    }
+  }
+
+  /* --- grille and lower intakes ----------------------------------------- */
+  const gy = floorY + hgt * 0.20;
+  const gz = sp.z(X(0.035), gy);
+  if (gz > M(80)){
+    trim.add(at(rot(coreMesh(gz * 1.34, hgt * 0.13, M(40), {}, 22), 0, Math.PI/2, 0),
+                X(0.055), gy, 0));
+    for (const side of [-1, 1])
+      trim.add(at(roundBox(M(70), hgt * 0.09, gz * 0.34, .01, dark),
+                  X(0.028), floorY + hgt * 0.10, side * gz * 0.66));
+  }
+
+  /* --- mirrors ---------------------------------------------------------- */
+  const mt = cuts.doorF + 0.03, my = waist(mt) + hgt * 0.012;
+  const mz = sp.z(X(mt), my);
+  if (mz > M(120)) for (const side of [-1, 1]){
+    const g2 = group('mirror');
+    /* a short triangular sail from the door skin, then the housing on the end */
+    g2.add(at(rot(cyl(M(14), M(20), M(58), dark, 10), 0, 0, deg(78)), M(16), -M(16), side * M(24)));
+    g2.add(at(roundBox(M(62), M(88), M(150), .03, MAT.paint(v.colour, 1)), 0, 0, side * M(64)));
+    g2.add(at(roundBox(M(14), M(74), M(128), .01, MAT.chrome()), -M(28), 0, side * M(66)));
+    trim.add(at(g2, X(mt), my, side * (mz - M(10))));
+  }
+
+  /* --- a side intake, on anything with the engine behind the driver ------ */
+  if (v.bay === 'mid' || v.bay === 'rear'){
+    const it = 0.66, iy = waist(it) - hgt * 0.055;
+    const iz = sp.z(X(it), iy);
+    for (const side of [-1, 1]){
+      trim.add(at(roundBox(len * 0.10, hgt * 0.13, M(60), .02, dark), X(it), iy, side * (iz - M(20))));
+      trim.add(at(rot(coreMesh(hgt * 0.10, len * 0.075, M(30), {}, 14), Math.PI/2, 0, 0),
+                  X(it), iy, side * (iz - M(34))));
+    }
+  }
+
+  /* --- exhaust tips and a rear valance ---------------------------------- */
+  const ey = floorY + hgt * 0.10;
+  const ez = sp.z(X(0.985), ey);
+  if (ez > M(80)){
+    const tips = v.class === 'car' ? (v.drivetrain === 'FWD' ? 1 : 2) : 1;
+    for (const side of (tips > 1 ? [-1, 1] : [0])){
+      const tip = tubeMesh(M(46), M(38), M(150), MAT.stainless ? MAT.stainless() : MAT.chrome(), 18);
+      rot(tip, 0, 0, Math.PI/2);
+      trim.add(at(tip, X(1.0) - M(30), ey, side * ez * 0.52));
+    }
+    trim.add(at(roundBox(M(130), hgt * 0.10, ez * 1.5, .02, dark), X(0.985), floorY + hgt * 0.055, 0));
+  }
+  return { trim, lamps };
+}
+
+/** The three surfaces a car body is actually made of.
+ *
+ *  lower  – the body tub: sill up to the shoulder line, flat-sided and square,
+ *           with the wheel arches scalloped out of it.
+ *  green  – the greenhouse: narrower, sitting on the shoulder, glazed.
+ *  roofP  – the roof panel capping the greenhouse, in body colour.
+ *
+ *  Keeping them apart is what gives the car a hard shoulder line, a cabin that
+ *  is visibly narrower than the body, and glass you can see through — none of
+ *  which a single lofted tube can produce.
+ */
+function bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR){
   const L = BODY_LINES[v.body] || BODY_LINES.sedan;
   const halfW = M(v.widthMm) / 2;
   /* the bodywork has to cover the wheels — this is what gives a car its hips */
   const overF = (M(v.trackF || v.widthMm * 0.85) / 2) * 0.86 + M(40) + M(v.tyreF) / 2;
   const overR = (M(v.trackR || v.widthMm * 0.85) / 2) * 0.86 + M(40) + M(v.tyreR) / 2;
-  const STATIONS = 56;
-  const out = [];
-  for (let i = 0; i < STATIONS; i++){
-    const t = i / (STATIONS - 1);
+  const N = 72;
+  const lower = [], green = [];
+  let roofMax = 0;
+  for (let i = 0; i < N; i++){
+    const t = i / (N - 1);
     const x = len/2 - t * len;
-    let wide = curveAt(L.wide, t) * halfW;
-    const roofY = floorY + hgt * curveAt(L.roof, t);
+    let wide  = curveAt(L.wide, t) * halfW;
     let sillY = floorY + hgt * curveAt(L.sill, t);
+    const waistY = floorY + hgt * curveAt(L.waist, t);
+    const roofY  = floorY + hgt * curveAt(L.roof, t);
     /* scallop the sill up over each axle — that is the wheel arch — and flare
        the section out over it so the tyre sits inside the bodywork */
     for (const [ax, r, over] of [[axF, rF, overF], [axR, rR, overR]]){
       const d = Math.abs(x - ax) / (r * 1.55);
       if (d < 1){
         const k = 1 - d * d;
-        /* the arch has to clear the tyre, or the wheel ends up buried in the
-           bodywork instead of sitting in a wheel well */
         sillY = Math.max(sillY, r * 1.34 * (1 - d * d * 0.38));
-        wide = Math.max(wide, (over + M(34)) * (0.94 + 0.06 * k));
+        wide  = Math.max(wide, (over + M(34)) * (0.94 + 0.06 * k));
       }
     }
-    const belt = floorY + hgt * L.beltline;
-    const glassT = floorY + hgt * curveAt(L.glass, t);
-    const shellTop = Math.max(roofY, sillY + 0.02);
-    const shellWTop = wide * (0.70 + 0.22 * (1 - curveAt(L.glass, t)));
-
-    if (mode === 'glass'){
-      /* The glass is not a second body over the first — it is a band lying on
-         the body's own surface. So it takes the shell's width at the same two
-         heights and sits a few millimetres proud of it: windows where the
-         cabin is, painted metal above and below, and no gap anywhere. */
-      const gTop = Math.min(glassT, shellTop - hgt * 0.02);
-      if (roofY - belt < hgt * 0.07 || gTop <= belt + hgt * 0.02){ out.push(null); continue; }
-      const yMid = (shellTop + sillY) / 2, hH = Math.max(1e-4, (shellTop - sillY) / 2);
-      const shellW = (y) => wide + (shellWTop - wide) * Math.max(0, Math.min(1, (y - yMid) / hH));
-      out.push({ x, yBot:belt, yTop:gTop,
-                 wBot:shellW(belt) * 1.004, wTop:shellW(gTop) * 1.004, squ:L.squ });
-    } else {
-      out.push({ x, yBot:sillY, yTop:shellTop, wBot:wide, wTop:shellWTop, squ:L.squ });
+    lower.push({ x, yBot:sillY, yTop:Math.max(waistY, sillY + hgt * 0.03),
+                 wBot:wide, wTop:wide * 0.905, squ:L.squL });
+    if (roofY > waistY + hgt * 0.075){
+      /* At the shoulder the cabin is almost as wide as the body — it has to
+         be, it is welded to it — and it pulls in as it rises. Starting it
+         narrow made the roof look like a canopy dropped on a flat deck. */
+      green.push({ x, yBot:waistY - hgt * 0.020, yTop:roofY,
+                   wBot:wide * (L.ghW * 0.30 + 0.685), wTop:wide * L.ghW * 0.94,
+                   squ:L.squG });
+      roofMax = Math.max(roofMax, roofY);
+    } else green.push(null);
+  }
+  /* the roof panel: the top slice of the greenhouse, in paint rather than glass,
+     wherever the roof is within a hand's breadth of its highest point */
+  const roofP = green.map(g => (g && g.yTop > roofMax - hgt * 0.085) ? {
+    x:g.x, yBot:g.yTop - hgt * 0.055, yTop:g.yTop + M(3),
+    wBot:g.wTop * 1.012, wTop:g.wTop * 1.006, squ:g.squ } : null);
+  /* Close the ends without pinching them to a point — cars have flat faces. */
+  const taper = (arr, k) => {
+    const first = arr.findIndex(Boolean);
+    let last = arr.length - 1; while (last > 0 && !arr[last]) last--;
+    for (const i of [first, last]){
+      const sec = arr[i]; if (!sec) continue;
+      sec.wBot *= k; sec.wTop *= k; sec.squ = (sec.squ || 2.6) * 1.4;
     }
-  }
-  /* Close the ends without pinching them to a point — cars have flat faces.
-     This has to find the first and last section that actually exists: the
-     greenhouse and roof are null everywhere outside the cabin, and tapering
-     the nulls left their end caps standing out as flat wings. */
-  const taper = (i, k) => { const sec = out[i]; if (!sec) return;
-    Object.assign(sec, { wBot:sec.wBot*k, wTop:sec.wTop*k, squ:(sec.squ||2.6)*1.5 }); };
-  const first = out.findIndex(Boolean);
-  let last = out.length - 1; while (last > 0 && !out[last]) last--;
-  if (first >= 0){
-    const ends = mode === 'shell' ? [0.66, 0.70] : [0.30, 0.34];
-    taper(first, ends[0]); taper(last, ends[1]);
-  }
-  return out;
+  };
+  taper(lower, 0.68); taper(green, 0.96); taper(roofP, 0.72);
+  return { L, lower, green, roofP };
 }
+
+/** Stitch a grid of rows of points into a surface. */
+function patch(rows, mat){
+  const pos = [], idx = [];
+  const R = rows.length, C = rows[0].length;
+  for (const row of rows) for (const p of row) pos.push(p.x, p.y, p.z);
+  for (let i = 0; i < R - 1; i++)
+    for (let j = 0; j < C - 1; j++){
+      const a = i*C + j, b = i*C + j+1, c = (i+1)*C + j+1, d = (i+1)*C + j;
+      idx.push(a, b, c, a, c, d);
+    }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+
+/** The glazing: windscreen, side windows and backlight, cut into the painted
+ *  greenhouse rather than replacing it.
+ *
+ *  This is how a car is actually put together, and it is what gives you
+ *  pillars for free — the pillars are simply the paint left between the
+ *  windows, so they are exactly as wide as the gaps and always in the right
+ *  place. Modelling the cabin as a glass bubble with tubes stuck on it gave a
+ *  roll cage instead.
+ */
+function bodyGlazing(L, green, len, glassMat){
+  const g = group('glazing');
+  const gp = shellProbe(green);
+  if (!gp.secAt(0)) return g;
+  const X = (t) => len / 2 - t * len;
+  /* a row of points across the greenhouse at one station, between two angles
+     around its section — the same superellipse the loft is built from */
+  const row = (t, th0, th1, n) => {
+    const c = gp.secAt(X(t)); if (!c) return null;
+    const nn = c.squ || 4, yMid = (c.yTop + c.yBot) / 2, hH = (c.yTop - c.yBot) / 2;
+    const out = [];
+    for (let i = 0; i <= n; i++){
+      const th = th0 + (th1 - th0) * (i / n);
+      const cz = Math.cos(th), cy = Math.sin(th);
+      const sz = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / nn);
+      const sy = Math.sign(cy) * Math.pow(Math.abs(cy), 2 / nn);
+      const w = (cy >= 0 ? c.wBot + (c.wTop - c.wBot) * cy : c.wBot) * 1.022;
+      out.push(new THREE.Vector3(c.x, yMid + hH * sy, w * sz));
+    }
+    return out;
+  };
+  const sheet = (t0, t1, th0, th1, nAcross, nAlong) => {
+    const rows = [];
+    for (let i = 0; i <= nAlong; i++){
+      const r = row(t0 + (t1 - t0) * (i / nAlong), th0, th1, nAcross);
+      if (r) rows.push(r);
+    }
+    if (rows.length > 1) g.add(patch(rows, glassMat));
+  };
+  const P = L.pillars || [];
+  if (!P.length) return g;
+  const A = P[0], C = P[P.length - 1];
+  const PI = Math.PI;
+  /* The cabin starts and ends where the roof line rises above the shoulder,
+     which is not necessarily where the pillars were placed. loft() caps those
+     two ends with a flat face, so the glass has to run from cap to cap or the
+     cap shows through the windscreen as a ragged white wedge. */
+  let iF = 0; while (iF < green.length && !green[iF]) iF++;
+  let iL = green.length - 1; while (iL > 0 && !green[iL]) iL--;
+  const tF = iF / (green.length - 1), tL = iL / (green.length - 1);
+  sheet(tF - 0.004, Math.max(A[1], tF + 0.02), PI * 0.19, PI * 0.81, 22, 7);
+  sheet(Math.min(C[1], tL - 0.02), tL + 0.004, PI * 0.21, PI * 0.79, 22, 7);
+  /* side glass: the band up the flank between the shoulder and the roof,
+     split by the B pillar where there is one */
+  const spans = P.length >= 3
+    ? [[A[1] + 0.010, P[1][0] - 0.012], [P[1][0] + 0.012, C[1] - 0.010]]
+    : [[A[1] + 0.010, C[1] - 0.010]];
+  for (const [t0, t1] of spans){
+    if (t1 - t0 < 0.02) continue;
+    sheet(t0, t1, PI * 0.045, PI * 0.30, 8, 14);      // right flank
+    sheet(t0, t1, PI * 0.955, PI * 0.70, 8, 14);      // left flank
+  }
+  return g;
+}
+
+/* ====================================================================== */
 /* ====================================================================== */
 function buildBike(v, tree){
   const root = group('bike'); const nodes = new Map();
