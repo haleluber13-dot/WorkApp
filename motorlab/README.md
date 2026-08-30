@@ -65,6 +65,21 @@ See each folder's `ABOUT.md` — [nns](assets/nns/ABOUT.md),
 [koenigsegg](assets/koenigsegg/ABOUT.md), [harley](assets/harley/ABOUT.md) — for
 provenance, trademarks and the exact conversion command used.
 
+### Scanned surfaces, on everything
+
+Geometry is only half of it. `assets/surfaces/` holds photogrammetry-scanned
+PBR maps from **ambientCG** (CC0) that carry the micro-detail a generated
+material cannot invent: the grain of a sand casting, the tool marks on machined
+steel, the heat scale on an exhaust, the tooth of rubber. They dress
+`MAT.alloy`, `MAT.alloyDark`, `MAT.iron`, `MAT.steel`, `MAT.hot`, `MAT.rubber`
+and `MAT.plastic`, so every engine and vehicle in the catalog gets a real
+surface, not just the scanned components.
+
+Metals take only the normal and roughness maps, so MotorLab keeps its own
+palette — a cast aluminium block should not turn the colour of whatever lump the
+photographer happened to scan. All twenty-one maps together come to about
+260 KB; see [`assets/surfaces/ABOUT.md`](assets/surfaces/ABOUT.md).
+
 ### Scanned parts, on the generated vehicles too
 
 `assets/parts/` holds photographic maps taken off real hardware, and they dress
@@ -85,7 +100,7 @@ Some parts cannot be faked. A cast engine block is a landscape of webs, bosses
 and draft angles; an alloy wheel is a shape somebody spent months styling; a
 turbine wheel is eleven twisted blades. You do not get those from maths.
 
-So nine real 3D scans ship in `assets/scans/`, and each one replaces a generated
+So ten real 3D scans ship in `assets/scans/`, and each one replaces a generated
 stand-in where the generated version could never be honest:
 
 | Scan | Replaces |
@@ -98,6 +113,7 @@ stand-in where the generated version could never be honest:
 | Camshaft timing gear | The cam sprocket on every engine |
 | Turbocharger turbine wheel | The hot side of every turbo |
 | Radiator grille | The nose of every generated car |
+| Manual transmission | The gearbox on longitudinal cars (the DCT goes on transverse ones — two different parts) |
 | Motorcycle wheel | Available to any builder that wants it |
 
 The tyre around a scanned rim stays generated, because it has to size itself to
@@ -110,7 +126,7 @@ They are registered in [`js/lib/partModels.js`](js/lib/partModels.js), load once
 at boot, and every caller keeps its fallback so the app still runs with the
 folder deleted.
 
-All nine are scans by **Artec 3D**, used under CC BY 3.0. That licence requires
+All ten are scans by **Artec 3D**, used under CC BY 3.0. That licence requires
 credit and a statement of changes: the credit is shown in the app under
 **Help → Credits**, the licence text ships beside the models, and the exact
 reduction applied to each is recorded in
@@ -152,6 +168,7 @@ standing in for it:
 | `tools/obj2glb.py` | OBJ + MTL to binary glTF: scale, offset, clip stray faces, weld, drop unused UVs |
 | `tools/wrl2obj.py` | VRML 2.0 `IndexedFaceSet` (what a 3D scanner exports) to OBJ |
 | `tools/scan2glb.py` | Any raw scan (PLY, STL, OBJ, VRML) to a web-sized binary glTF: decimate to a triangle budget by vertex clustering, scale to real size, trim strays |
+| `tools/resize-maps.mjs` | Downscale and re-encode PBR maps by driving a headless browser's canvas — there is no image library here |
 
 All three are pure standard-library Python 3 — no build step, no dependencies.
 
@@ -346,7 +363,8 @@ sw.js                 service worker (offline)
 data/updates.json     the update feed
 data/world_land.json  coastlines for the racing map
 assets/parts/         scanned part maps: disc, caliper, carbon, tyre, filter
-assets/scans/         nine scanned components: engines, wheel, gearbox, pump…
+assets/scans/         ten scanned components: engines, wheel, gearbox, pump…
+assets/surfaces/      scanned PBR surfaces: cast, steel, hot, rubber, plastic…
 assets/nns/           NASCAR stock car model
 assets/koenigsegg/    carbon hypercar model
 assets/harley/        custom V-twin cruiser model

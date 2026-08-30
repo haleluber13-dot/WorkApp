@@ -101,7 +101,10 @@ function buildCar(v, tree){
   if (has('gearbox')){
     const gb = group('gb');
     const transverse = bay.includes('transverse') || kart;
-    const scan = partMesh('gearbox', { fit: M(640), axis:'x', mat: MAT.alloyDark() });
+    /* a transverse car runs a transaxle, a longitudinal one a gearbox behind
+       the engine — two different scans, because they are two different parts */
+    const scan = transverse ? partMesh('gearbox', { fit: M(600), axis:'z', mat: MAT.alloyDark() })
+                            : partMesh('transmission', { fit: M(760), axis:'x', mat: MAT.alloyDark() });
     if (scan) gb.add(scan);
     else gb.add(rot(cyl(M(180), M(140), M(560), MAT.alloyDark(), 16), 0, 0, Math.PI/2));
     add('gearbox', at(gb, transverse ? engX : engX - M(560), engY - M(60), transverse ? -tf*0.34 : 0));

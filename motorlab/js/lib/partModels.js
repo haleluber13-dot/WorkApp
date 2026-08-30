@@ -38,6 +38,8 @@ const PARTS = {
                 what:'Motorcycle engine' },
   grille:     { file:'radiator_grille.glb', axis:'y', size:1.200,  depth:0.171,
                 what:'Radiator grille' },
+  transmission:{file:'transmission.glb',    axis:'x', size:0.720,  depth:0.720,
+                what:'Manual transmission' },
 };
 
 const loaded = new Map();

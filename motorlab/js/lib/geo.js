@@ -1,10 +1,26 @@
 /* MotorLab — small geometry/material toolkit shared by every 3D builder. */
 import * as THREE from 'three';
-import { tex, repeated, whenTextures, CALIPER_UV, FILTER_UV } from './textures.js';
+import { tex, repeated, surface, whenTextures, CALIPER_UV, FILTER_UV } from './textures.js';
 import { partMesh } from './partModels.js';
 
 /** Dress a material with scanned maps as soon as the library is in place.
  *  Until then — and if the files are missing — the generated look stands in. */
+/** Put a scanned surface onto a material: the normal and roughness always,
+ *  the colour only where the scan's own colour is wanted. Anything the
+ *  procedural version supplied for the same slot is dropped, so they do not
+ *  fight each other. */
+function dressSurface(m, name, repeat, normalScale = 1, useColour = false){
+  const maps = surface(name, repeat, useColour);
+  if (!maps.normalMap && !maps.roughnessMap) return;
+  if (maps.normalMap){
+    m.normalMap = maps.normalMap;
+    m.normalScale = new THREE.Vector2(normalScale, normalScale);
+    m.bumpMap = null;
+  }
+  if (maps.roughnessMap) m.roughnessMap = maps.roughnessMap;
+  if (maps.map) m.map = maps.map;
+}
+
 function scanned(m, dress){
   whenTextures(() => { dress(m); m.needsUpdate = true; });
   return m;
@@ -124,20 +140,24 @@ const mat = (key, make) => { if (!_mat.has(key)) _mat.set(key, make()); return _
 
 export const MAT = {
   /* sand-cast aluminium: bright, fairly rough, grainy */
-  alloy: () => mat('alloy', () => new THREE.MeshStandardMaterial({
+  alloy: () => mat('alloy', () => scanned(new THREE.MeshStandardMaterial({
     color:0xa8b0ba, metalness:0.88, roughness:0.52, envMapIntensity:1.15,
-    roughnessMap: withRepeat(castGrain(), 3), bumpMap: withRepeat(castGrain(), 3), bumpScale:0.6 })),
-  alloyDark: () => mat('alloyDark', () => new THREE.MeshStandardMaterial({
+    roughnessMap: withRepeat(castGrain(), 3), bumpMap: withRepeat(castGrain(), 3), bumpScale:0.6 }),
+    m => dressSurface(m, 'cast', 3, 0.85))),
+  alloyDark: () => mat('alloyDark', () => scanned(new THREE.MeshStandardMaterial({
     color:0x767e88, metalness:0.86, roughness:0.62, envMapIntensity:1.0,
-    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.7 })),
+    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.7 }),
+    m => dressSurface(m, 'cast', 4, 0.9))),
   /* cast iron: darker, rougher, still metal */
-  iron: () => mat('iron', () => new THREE.MeshStandardMaterial({
+  iron: () => mat('iron', () => scanned(new THREE.MeshStandardMaterial({
     color:0x4e535b, metalness:0.82, roughness:0.72, envMapIntensity:0.85,
-    roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.8 })),
+    roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.8 }),
+    m => dressSurface(m, 'cast', 5, 1.0))),
   /* forged and machined steel: tool marks, low roughness */
-  steel: () => mat('steel', () => new THREE.MeshStandardMaterial({
+  steel: () => mat('steel', () => scanned(new THREE.MeshStandardMaterial({
     color:0xc2c9d2, metalness:1.0, roughness:0.26, envMapIntensity:1.3,
-    roughnessMap: withRepeat(machined(), 2), bumpMap: withRepeat(machined(), 2), bumpScale:0.25 })),
+    roughnessMap: withRepeat(machined(), 2), bumpMap: withRepeat(machined(), 2), bumpScale:0.25 }),
+    m => dressSurface(m, 'steel', 2, 0.5))),
   chrome: () => mat('chrome', () => new THREE.MeshStandardMaterial({
     color:0xeef2f7, metalness:1.0, roughness:0.06, envMapIntensity:1.6 })),
   copper: () => mat('copper', () => new THREE.MeshStandardMaterial({
@@ -146,15 +166,18 @@ export const MAT = {
     color:0xc9a227, metalness:1.0, roughness:0.30, envMapIntensity:1.3 })),
   bearing: () => mat('bearing', () => new THREE.MeshStandardMaterial({
     color:0xd7c9a8, metalness:0.85, roughness:0.34, envMapIntensity:1.2 })),
-  rubber: () => mat('rubber', () => new THREE.MeshStandardMaterial({
+  rubber: () => mat('rubber', () => scanned(new THREE.MeshStandardMaterial({
     color:0x14161a, metalness:0.0, roughness:0.94, envMapIntensity:0.35,
-    roughnessMap: withRepeat(rubberTooth(), 6), bumpMap: withRepeat(rubberTooth(), 6), bumpScale:0.5 })),
-  plastic: () => mat('plastic', () => new THREE.MeshStandardMaterial({
-    color:0x23282f, metalness:0.0, roughness:0.58, envMapIntensity:0.7 })),
+    roughnessMap: withRepeat(rubberTooth(), 6), bumpMap: withRepeat(rubberTooth(), 6), bumpScale:0.5 }),
+    m => dressSurface(m, 'rubber', 6, 1.0))),
+  plastic: () => mat('plastic', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x23282f, metalness:0.0, roughness:0.58, envMapIntensity:0.7 }),
+    m => dressSurface(m, 'plastic', 3, 0.7))),
   /* exhaust side: heat-discoloured, oxidised, barely reflective */
-  hot: () => mat('hot', () => new THREE.MeshStandardMaterial({
-    color:0x8d6552, metalness:0.72, roughness:0.66, envMapIntensity:0.8,
-    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.6 })),
+  hot: () => mat('hot', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xa8836c, metalness:0.72, roughness:0.66, envMapIntensity:0.8,
+    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.6 }),
+    m => dressSurface(m, 'hot', 4, 1.1, true))),
   /* painted components get a clearcoat, which is what makes paint read as paint */
   red: () => mat('red', () => new THREE.MeshPhysicalMaterial({
     color:0xb52a20, metalness:0.15, roughness:0.34, clearcoat:1, clearcoatRoughness:0.10, envMapIntensity:1.1 })),

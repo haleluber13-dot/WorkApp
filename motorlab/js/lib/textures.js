@@ -41,6 +41,22 @@ export const CALIPER_UV = { u0:0.0, u1:0.3594, v0:0.5957, v1:0.7090 };
 /** And where the pleated filter element sits in the engine-bay sheet. */
 export const FILTER_UV = { u0:0.016, u1:0.984, v0:0.719, v1:0.953 };
 
+/* Photogrammetry-scanned PBR surfaces, CC0, from ambientCG. These carry the
+ * micro-detail a generated material cannot invent: the grain of a casting, the
+ * tool marks on machined steel, the heat scale on an exhaust, the tooth of
+ * rubber. Metals take only the normal and roughness so MotorLab keeps its own
+ * palette; the rest take the colour too. */
+const SURFACES = {
+  cast:    { nrm:'cast_nrm.jpg',    rgh:'cast_rgh.jpg',    col:'cast_col.jpg' },
+  steel:   { nrm:'steel_nrm.jpg',   rgh:'steel_rgh.jpg',   col:'steel_col.jpg' },
+  hot:     { nrm:'hot_nrm.jpg',     rgh:'hot_rgh.jpg',     col:'hot_col.jpg' },
+  rubber:  { nrm:'rubber_nrm.jpg',  rgh:'rubber_rgh.jpg',  col:'rubber_col.jpg' },
+  plastic: { nrm:'plastic_nrm.jpg', rgh:'plastic_rgh.jpg', col:'plastic_col.jpg' },
+  leather: { nrm:'leather_nrm.jpg', rgh:'leather_rgh.jpg', col:'leather_col.jpg' },
+  asphalt: { nrm:'asphalt_nrm.jpg', rgh:'asphalt_rgh.jpg', col:'asphalt_col.jpg' },
+};
+const SURF_DIR = './assets/surfaces/';
+
 const loaded = new Map();
 let readyPromise = null;
 const waiting = [];
@@ -68,6 +84,23 @@ export function repeated(key, rx, ry = rx){
   return c;
 }
 
+/** The maps for one scanned surface, tiled `r` times. Any of them may be null.
+ *  `colour` opts in to the scan's own colour, which metals do not want. */
+export function surface(name, r = 2, colour = false){
+  const spec = SURFACES[name];
+  if (!spec) return {};
+  const out = {};
+  const nrm = repeated('surf_' + name + '_nrm', r);
+  const rgh = repeated('surf_' + name + '_rgh', r);
+  if (nrm) out.normalMap = nrm;
+  if (rgh) out.roughnessMap = rgh;
+  if (colour){
+    const col = repeated('surf_' + name + '_col', r);
+    if (col) out.map = col;
+  }
+  return out;
+}
+
 /** Load every map. Safe to call more than once; resolves even if all fail. */
 export function loadTextures(base = ''){
   if (readyPromise) return readyPromise;
@@ -82,15 +115,22 @@ export function loadTextures(base = ''){
     return inlined[key] || url;
   });
   const loader = new THREE.TextureLoader(mgr);
-  readyPromise = Promise.all(Object.entries(FILES).map(([key, [file, space]]) =>
-    new Promise((res) => loader.load(base + DIR + file, (t) => {
-      t.colorSpace = space === 'srgb' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-      t.anisotropy = 8;
-      t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-      loaded.set(key, t);
-      res(t);
-    }, undefined, () => res(null)))
-  )).then(() => {
+  const one = (key, url, space, wrap) => new Promise((res) => loader.load(url, (t) => {
+    t.colorSpace = space === 'srgb' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.anisotropy = 8;
+    t.wrapS = t.wrapT = wrap;
+    loaded.set(key, t);
+    res(t);
+  }, undefined, () => res(null)));
+
+  const jobs = Object.entries(FILES).map(([key, [file, space]]) =>
+    one(key, base + DIR + file, space, THREE.ClampToEdgeWrapping));
+  for (const [name, spec] of Object.entries(SURFACES))
+    for (const [kind, file] of Object.entries(spec))
+      jobs.push(one(`surf_${name}_${kind}`, base + SURF_DIR + file,
+                    kind === 'col' ? 'srgb' : 'data', THREE.RepeatWrapping));
+
+  readyPromise = Promise.all(jobs).then(() => {
     loaded.set('__done', true);
     while (waiting.length) waiting.shift()();
     return loaded;

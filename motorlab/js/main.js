@@ -418,6 +418,7 @@ function showHelp(){
     section('Credits',
       para('Almost everything you see is generated. Where a part is genuinely impossible to fake — a turbine wheel, a scanned vehicle body — MotorLab uses a real model, and those are credited here:'),
       ...credits().map(c => h('div', { class:'tiny muted', text:c })),
+      h('div', { class:'tiny muted', text:'Scanned PBR surfaces — the grain on every casting, the tooth of the rubber — from ambientCG (ambientcg.com), CC0.' }),
       h('div', { class:'tiny muted', text:'Vehicle models and part textures were supplied by the repository owner; see the ABOUT.md beside each one in assets/ for provenance and trademarks.' })),
   ), actions:[{ label:'Start', primary:true }] });
 }
