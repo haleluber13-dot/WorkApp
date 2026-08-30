@@ -141,21 +141,34 @@ const mat = (key, make) => { if (!_mat.has(key)) _mat.set(key, make()); return _
 export const MAT = {
   /* sand-cast aluminium: bright, fairly rough, grainy */
   alloy: () => mat('alloy', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xa8b0ba, metalness:0.88, roughness:0.52, envMapIntensity:1.15,
+    color:0xa6adb5, metalness:0.55, roughness:0.66, envMapIntensity:0.60,
     roughnessMap: withRepeat(castGrain(), 3), bumpMap: withRepeat(castGrain(), 3), bumpScale:0.6 }),
     m => dressSurface(m, 'cast', 3, 0.85))),
+  /* the block and the big structural castings: sand-cast, unmachined, and a
+     good deal duller than the head and the covers bolted to it. Casting them
+     all in the same bright alloy is what made an engine read as one lump of
+     machined metal instead of an assembly of different parts. */
+  cast: () => mat('cast', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x92979d, metalness:0.30, roughness:0.86, envMapIntensity:0.45,
+    roughnessMap: withRepeat(castGrain(), 3), bumpMap: withRepeat(castGrain(), 3), bumpScale:0.9 }),
+    m => dressSurface(m, 'cast', 3, 1.1))),
+  /* glass-filled nylon: what the inlet manifold and most top covers are made
+     of on anything built since about 1995 */
+  composite: () => mat('composite', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x1c1f24, metalness:0.0, roughness:0.55, envMapIntensity:0.55 }),
+    m => dressSurface(m, 'plastic', 2, 0.9))),
   alloyDark: () => mat('alloyDark', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x767e88, metalness:0.86, roughness:0.62, envMapIntensity:1.0,
+    color:0x5b6068, metalness:0.45, roughness:0.74, envMapIntensity:0.45,
     roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.7 }),
     m => dressSurface(m, 'cast', 4, 0.9))),
   /* cast iron: darker, rougher, still metal */
   iron: () => mat('iron', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x4e535b, metalness:0.82, roughness:0.72, envMapIntensity:0.85,
+    color:0x4a4f56, metalness:0.35, roughness:0.86, envMapIntensity:0.35,
     roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.8 }),
     m => dressSurface(m, 'cast', 5, 1.0))),
   /* forged and machined steel: tool marks, low roughness */
   steel: () => mat('steel', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xc2c9d2, metalness:1.0, roughness:0.26, envMapIntensity:1.3,
+    color:0xb2b9c2, metalness:1.00, roughness:0.36, envMapIntensity:0.95,
     roughnessMap: withRepeat(machined(), 2), bumpMap: withRepeat(machined(), 2), bumpScale:0.25 }),
     m => dressSurface(m, 'steel', 2, 0.5))),
   chrome: () => mat('chrome', () => scanned(new THREE.MeshStandardMaterial({
@@ -178,7 +191,7 @@ export const MAT = {
   /* exhaust side: heat-scaled steel. Not copper — headers go straw, then blue,
      then a dull grey scale, and they were reading like plumbing. */
   hot: () => mat('hot', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x6d6a68, metalness:0.86, roughness:0.52, envMapIntensity:1.0,
+    color:0x6a6663, metalness:0.55, roughness:0.74, envMapIntensity:0.40,
     roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.6 }),
     m => dressSurface(m, 'hot', 4, 0.8))),
   /* painted components get a clearcoat, which is what makes paint read as paint */
@@ -1248,6 +1261,7 @@ export function turboUnit(size, mats = {}){
     const tx = -Math.sin(a), ty = Math.cos(a);        // tangential, at the throat
     const p = pipe([[x, y, z], [x + tx * len, y + ty * len, z]], throat.tube * 0.92, m, 14);
     g.add(p);
+    const face = new THREE.Vector3(x + tx * len, y + ty * len, z);
     /* the flange on the end of it, square to the pipe */
     const fl = cyl(throat.tube * 1.20, throat.tube * 1.20, size * 0.05, m, 18);
     rot(fl, 0, 0, a);                       // cylinder axis Y, turned onto the tangent
@@ -1263,9 +1277,12 @@ export function turboUnit(size, mats = {}){
                      z + Math.sin(ph) * rr);
       g.add(b);
     }
+    return face;
   };
-  stub(tThroat, zT, hot,  size * 0.42);
-  stub(cThroat, zC, cold, size * 0.40);
+  /* where the four pipes bolt on, so a caller can join real pipework to them
+     instead of guessing where the housings ended up */
+  const turbineIn    = stub(tThroat, zT, hot,  size * 0.42);
+  const compressorOut = stub(cThroat, zC, cold, size * 0.40);
 
   /* --- the axial mouths: turbine outlet one side, compressor inlet the
          other, both on the shaft line ------------------------------------ */
@@ -1344,6 +1361,14 @@ export function turboUnit(size, mats = {}){
                .rotateX(Math.PI / 2), 0, 0, 0));
   g.add(shaft);
   g.userData.shaft = shaft;
+  g.userData.ports = {
+    turbineIn, compressorOut,
+    turbineOut:   new THREE.Vector3(0, 0, zT - size * 0.40),
+    compressorIn: new THREE.Vector3(0, 0, zC + size * 0.38),
+    hotTube:  tThroat.tube,
+    coldTube: cThroat.tube,
+    axialTube: size * 0.34,
+  };
   return g;
 }
 

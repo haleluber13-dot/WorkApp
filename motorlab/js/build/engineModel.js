@@ -142,7 +142,7 @@ function buildPiston(e, tree){
     bevelThickness:M(4), bevelSize:M(4), bevelSegments:1, curveSegments:1 });
   bgeo.rotateY(Math.PI / 2);                 // extruded along Z; the block runs on X
   bgeo.translate(-L.len / 2, 0, 0);
-  blockG.add(new THREE.Mesh(bgeo, MAT.alloy()));
+  blockG.add(new THREE.Mesh(bgeo, MAT.cast()));
 
   /* the cylinder walls, which show once the block is cut away */
   for (const bank of L.bankAngles.keys()){
@@ -164,7 +164,7 @@ function buildPiston(e, tree){
     blockG.add(bg);
   }
   /* the sump rail and main-bearing bulkheads below the crank */
-  const cc = roundBox(L.len, L.crankR * 0.5, wCase * 2.0, 0.02, MAT.alloyDark());
+  const cc = roundBox(L.len, L.crankR * 0.5, wCase * 2.0, 0.02, MAT.cast());
   cc.position.y = yCase + L.crankR * 0.22;
   blockG.add(cc);
   add('block', blockG);
@@ -356,12 +356,14 @@ function buildPiston(e, tree){
       /* spark plug / injector / coil */
       if (e.fuel !== 'diesel'){
         /* a real plug: terminal, ribbed insulator, hex, thread, ground strap */
+        /* the plug is screwed into the chamber, so it sits low enough that
+           only its terminal reaches up the well */
         const pl = sparkPlug(L.bore * 0.98);
-        plugG.add(mk(at(pl, p.x, 0, 0), L.deckH + L.bore * 0.92));
-        /* the boot reaches down the plug well onto the terminal, and the
-           body stands proud of the cam cover — which is where it lives */
-        const co = coilPack(L.bore * 1.20);
-        coilG.add(mk(at(co, p.x, 0, 0), L.deckH + L.bore * 1.38));
+        plugG.add(mk(at(pl, p.x, 0, 0), L.deckH + L.bore * 0.56));
+        /* and the coil drops down the well onto that terminal, standing about
+           a finger's width proud of the cam cover — not half a head above it */
+        const co = coilPack(L.bore * 0.88);
+        coilG.add(mk(at(co, p.x, 0, 0), L.deckH + L.bore * 1.04));
       } else {
         const inj = cyl(M(9), M(9), L.bore*0.4, MAT.steel(), 10);
         injG.add(mk(at(inj, p.x, 0, 0), L.deckH + L.bore*0.90));
@@ -472,21 +474,35 @@ function buildPiston(e, tree){
     return [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
   };
 
+  /* Where each bank's primaries collect. On a turbocharged engine the turbine
+     housing bolts straight onto this, so the turbo is positioned from it too —
+     which is the whole point of naming it once instead of twice. */
+  const colX = L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
+  const colY = L.crankR * 0.5;
+  /* on a vee the exhaust ports are a long way outboard, because the head is
+     tilted away from the crank — so the collector has to be out there too */
+  const colZ = L.bore * (L.banks >= 2 ? 1.62 : 1.20);
+
   /* ---- induction ---- */
   /* On a vee the manifold sits down in the valley between the heads. The deck
      is measured along the bank axis, so its actual height above the crank is
      deckH·cos(bank angle) — using deckH directly floated the plenum well clear
      of the engine. */
   const vAngle = Math.abs(L.bankAngles[0] || 0);
-  const inducY = L.banks >= 2 ? L.deckH * Math.cos(vAngle) * 1.04 + L.bore * 0.26
+  /* the valley floor is the inner edge of the two decks; a plenum that sits
+     below that line is buried in the vee instead of filling it */
+  const inducY = L.banks >= 2 ? L.deckH * Math.cos(vAngle) * 1.04 + L.bore * 0.70
                               : L.deckH + L.bore * 1.95;
   const intakeG = group('intake');
   /* a high-revving atmospheric engine runs individual throttles with a trumpet
      on each one; everything else runs a plenum and a single throttle body */
   const itb = e.aspiration === 'na' && e.redline >= 7600;
+  /* a plenum and its runners are moulded nylon on anything modern; individual
+     throttles and their trumpets are machined alloy, and look it */
+  const inletMat = itb ? MAT.alloy() : MAT.composite();
   if (!itb){
-    const plenum = roundBox(L.len * 0.80, L.bore * 0.46,
-                           L.banks >= 2 ? L.bore * 1.25 : L.bore * 0.70, 0.03, MAT.alloy());
+    const plenum = roundBox(L.len * 0.80, L.bore * (L.banks >= 2 ? 0.72 : 0.46),
+                           L.banks >= 2 ? L.bore * 1.45 : L.bore * 0.70, 0.03, inletMat);
     at(plenum, 0, inducY, L.banks >= 2 ? 0 : -L.bore * 0.95);
     intakeG.add(plenum);
   }
@@ -501,7 +517,7 @@ function buildPiston(e, tree){
       [p.x, topY, zEnd],
       [p.x, (topY + py) / 2, (zEnd + pz) / 2 * 1.25],
       [p.x, py, pz],
-    ], M(17), MAT.alloy(), 8));
+    ], M(17), inletMat, 8));
     if (itb){
       /* the throttle body, and the bellmouth above it */
       intakeG.add(at(cyl(M(23), M(23), L.bore * 0.20, MAT.alloyDark(), 20),
@@ -520,22 +536,35 @@ function buildPiston(e, tree){
     add('throttle', tG);
   }
   if (has('injectors') && e.fuel !== 'diesel'){
+    /* an injector feeds the inlet side, so on a vee it lives in the valley
+       beside the plenum — not out on the exhaust face, and not floating above
+       the covers on nothing */
+    const railY = L.banks >= 2 ? inducY - L.bore * 0.44 : L.deckH + L.bore * 0.86;
+    const railZ = L.banks >= 2 ? L.bore * 0.86 : -L.bore * 0.92;
     for (let i = 0; i < e.cyl; i++){
       const p = cylPosition(e, i, L);
-      const zHead = L.banks >= 2 ? (cylSlot(e,i,L).bank ? 1 : -1) * L.bore * 0.52 : -L.bore * 0.46;
-      injG.add(at(cyl(M(8), M(8), M(56), MAT.plastic(), 10), p.x, L.deckH + L.bore * 0.62, zHead));
+      const sgn = L.banks >= 2 ? (cylSlot(e,i,L).bank ? 1 : -1) : 1;
+      injG.add(at(rot(cyl(M(8), M(8), M(60), MAT.plastic(), 10), deg(L.banks >= 2 ? 26 * sgn : 0), 0, 0),
+                  p.x, railY - M(18), sgn * railZ * (L.banks >= 2 ? 1 : 1) * 0.94));
     }
     add('injectors', injG);
     for (const b of [0, 1].slice(0, nBanksHead)){
-      const z = L.banks >= 2 ? (b ? 1 : -1) * L.bore * 0.62 : -L.bore * 0.56;
-      railG.add(at(rot(cyl(M(13), M(13), L.len * 0.9, MAT.steel(), 12), 0, 0, Math.PI/2), 0, L.deckH + L.bore * 0.80, z));
+      const z = (L.banks >= 2 ? (b ? 1 : -1) : 1) * railZ;
+      railG.add(at(rot(cyl(M(13), M(13), L.len * 0.9, MAT.steel(), 12), 0, 0, Math.PI/2), 0, railY, z));
     }
     add('fuelrail', railG);
   }
-  if (has('hpfp')) add('hpfp', at(roundBox(M(60), M(60), M(60), .01, MAT.alloyDark()), -L.len*0.36, L.deckH + L.bore*1.15, L.bore*0.7));
-  if (has('fuelpump')) add('fuelpump', at(roundBox(M(60), M(50), M(50), .01, MAT.alloyDark()), -L.len*0.3, L.crankR, L.bore*0.85));
+  if (has('hpfp'))
+    add('hpfp', at(roundBox(M(60), M(60), M(60), .01, MAT.alloyDark()),
+                   -L.len * 0.38,
+                   L.banks >= 2 ? inducY - L.bore * 0.30 : L.deckH + L.bore * 0.70,
+                   L.banks >= 2 ? -L.bore * 0.55 : -L.bore * 1.02));
+  if (has('fuelpump'))
+    add('fuelpump', at(roundBox(M(60), M(50), M(50), .01, MAT.alloyDark()),
+                       -L.len * 0.30, L.crankR * 0.6, L.bore * 1.16));
 
   /* turbo / blower */
+  const turbos = [];              /* where each one ended up, for the pipework */
   if (has('turbo')){
     const n = { turbo:1, twinturbo:2, quadturbo:4 }[e.aspiration] || 1;
     const tg = group('turbos');
@@ -543,36 +572,89 @@ function buildPiston(e, tree){
        is physically enormous next to a pair of small twins on a V8 */
     const size = L.bore * (n === 1 ? 1.05 : n === 2 ? 0.82 : 0.62)
                * (1 + (e.boostTarget || 0) * 0.18);
+    /* A turbine housing is bolted to the end of an exhaust manifold, not hung
+       in the vee over the inlet manifold. So each one sits just outboard of the
+       collector its own bank feeds, low down beside the sump, with the turbine
+       inboard facing the collector and the compressor pointing out to the air.
+       On a vee with two turbos that is one per bank; everything else lines them
+       up along the single collector. */
+    const perBank = L.banks >= 2 && n >= 2;
     for (let i = 0; i < n; i++){
+      const side = perBank ? (i % 2 ? 1 : -1) : 1;
+      const rank = perBank ? Math.floor(i / 2) - (n / 2 - 1) / 2 : i - (n - 1) / 2;
       const t = turboUnit(size);
-      const zs = L.banks >= 2 ? (i % 2 ? 1 : -1) * L.bore * 0.55 : L.bore * 1.25;
-      const xs = n > 2 ? (Math.floor(i/2) - 0.5) * L.len * 0.42
-               : n === 2 ? (i ? 1 : -1) * L.len * 0.22 : L.len * 0.18;
-      at(t, xs, L.banks >= 2 ? L.deckH + L.bore * 0.72 : L.deckH * 0.62, zs);
-      /* the compressor faces outward, away from the engine */
-      t.rotation.y = zs < 0 ? Math.PI : 0;
+      const pos = new THREE.Vector3(colX + L.len * 0.10 + rank * size * 1.55,
+                                    colY + size * 0.36,
+                                    side * (colZ + size * 0.80));
+      at(t, pos.x, pos.y, pos.z);
+      const flip = side < 0;                    /* turbine always faces the block */
+      t.rotation.y = flip ? Math.PI : 0;
       anim.turbos.push(t.userData.shaft);
       tg.add(t);
+      /* the housings are placed in the turbo's own frame, so put its four
+         connections back into the engine's before anything joins onto them */
+      const world = (v) => new THREE.Vector3(pos.x + (flip ? -v.x : v.x),
+                                             pos.y + v.y,
+                                             pos.z + (flip ? -v.z : v.z));
+      const P = t.userData.ports;
+      turbos.push({ pos, side, size,
+                    hotIn: world(P.turbineIn), hotOut: world(P.turbineOut),
+                    coldOut: world(P.compressorOut), coldIn: world(P.compressorIn),
+                    hotTube:P.hotTube, coldTube:P.coldTube, axialTube:P.axialTube });
     }
     add('turbo', tg);
-    add('wastegate', at(cyl(M(28), M(28), M(70), MAT.hot(), 14), L.len*0.3, L.deckH*0.7, (L.banks>=2? L.bore*0.6 : L.bore*1.3)));
-    add('bov', at(cyl(M(24), M(24), M(60), MAT.blue(), 14), -L.len*0.35, L.deckH + L.bore*0.5, L.bore*1.1));
+
+    /* the external wastegate: a valve body teed off the collector ahead of the
+       turbine, its actuator canister above it, and the screamer pipe out */
+    const wgG = group('wg');
+    const wt = turbos[0];
+    const wgX = colX - L.len * 0.06, wgZ = wt.side * (colZ + L.bore * 0.12);
+    wgG.add(pipe([[colX, colY, wt.side * colZ],
+                  [wgX, colY + L.bore * 0.34, wgZ]], M(17), MAT.hot(), 8));
+    wgG.add(at(lathe([[0, -M(26)], [M(34), -M(26)], [M(38), -M(14)], [M(38), M(14)],
+                      [M(34), M(26)], [0, M(26)]], MAT.steel(), 24),
+               wgX, colY + L.bore * 0.52, wgZ));
+    wgG.add(at(cyl(M(7), M(7), M(46), MAT.plated(), 10), wgX, colY + L.bore * 0.44, wgZ));
+    /* and the dump pipe, back into the downpipe past the turbine */
+    wgG.add(pipe([[wgX, colY + L.bore * 0.28, wgZ + wt.side * M(30)],
+                  [colX + L.len * 0.34, colY - L.bore * 0.10, wt.side * colZ * 1.05]],
+                 M(13), MAT.hot(), 8));
+    add('wastegate', wgG);
+
     /* the intercooler lives ahead of the engine, in the airstream, in front of
        the radiator — not beside the block */
-    const icX = frontX - L.bore * 2.05;
-    const ic = coreMesh(L.bore * 4.6, L.bore * 1.35, M(80));
+    const icX = frontX - L.bore * 1.55;
+    const icZ = L.bore * 1.55;
     const icG = group('ic');
-    icG.add(at(ic, icX, L.deckH * 0.62, 0));
-    /* compressor outlet forward to the core, then back to the throttle */
-    icG.add(pipe([[L.len*0.18, L.deckH*0.62, L.bore*1.25],
-                  [L.len*0.30, L.deckH*0.45, L.bore*1.9],
-                  [icX*0.55,   L.deckH*0.42, L.bore*1.9],
-                  [icX + M(30), L.deckH*0.62, L.bore*1.6]], L.bore*0.17, MAT.alloy(), 10));
-    icG.add(pipe([[icX + M(30), L.deckH*0.62, -L.bore*1.6],
-                  [icX*0.5,    L.deckH*0.9,  -L.bore*1.7],
-                  [-L.len*0.55, inducY*0.92, -L.bore*0.9],
-                  [-L.len*0.48, inducY,      L.banks >= 2 ? 0 : -L.bore*0.95]], L.bore*0.17, MAT.alloy(), 10));
+    icG.add(at(coreMesh(L.bore * 4.0, L.bore * 1.20, M(72)), icX, L.deckH * 0.62, 0));
+    /* every compressor outlet forward to the core… */
+    for (const tb of turbos)
+      icG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
+                    [tb.coldOut.x + L.len * 0.10, tb.coldOut.y + L.bore * 0.30, tb.side * icZ],
+                    [icX * 0.55, L.deckH * 0.50, tb.side * icZ],
+                    [icX + M(30), L.deckH * 0.62, tb.side * icZ * 0.55]],
+                   tb.coldTube * 0.85, MAT.alloy(), 10));
+    /* …and one cold pipe back from it to the throttle */
+    const thrZ = L.banks >= 2 ? 0 : -L.bore * 0.95;
+    const bovAt = new THREE.Vector3(-L.len * 0.34, inducY - L.bore * 0.10, thrZ - L.bore * 1.30);
+    icG.add(pipe([[icX + M(30), L.deckH * 0.62, -icZ * 0.55],
+                  [icX * 0.50, L.deckH * 0.95, -icZ * 0.80],
+                  [-L.len * 0.20, inducY * 0.92, thrZ - L.bore * 0.95],
+                  [bovAt.x, bovAt.y - L.bore * 0.16, bovAt.z],
+                  [-L.len * 0.48, inducY, thrZ]], L.bore * 0.115, MAT.alloy(), 10));
     add('intercooler', icG);
+
+    /* the blow-off valve sits on that cold pipe, right before the throttle,
+       because that is the only place the trapped charge has to go */
+    const bovG = group('bov');
+    bovG.add(at(lathe([[0, -M(24)], [M(30), -M(24)], [M(33), -M(10)], [M(33), M(16)],
+                       [M(26), M(26)], [0, M(26)]], MAT.blue(), 22),
+                bovAt.x, bovAt.y + M(26), bovAt.z));
+    bovG.add(at(cyl(M(16), M(16), M(34), MAT.alloyDark(), 16), bovAt.x, bovAt.y + M(2), bovAt.z));
+    bovG.add(pipe([[bovAt.x, bovAt.y + M(40), bovAt.z],
+                   [bovAt.x + L.len * 0.06, inducY + L.bore * 0.42, thrZ - L.bore * 0.30]],
+                  M(8), MAT.rubber(), 8));
+    add('bov', bovG);
   }
   if (has('blower')){
     /* a Roots blower sits on the vee and is driven off the crank nose */
@@ -595,15 +677,24 @@ function buildPiston(e, tree){
     /* the exhaust port is on the outer face of the head; from there the
        primary sweeps down the side of the block to a collector */
     const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, side * L.bore * 0.70);
-    const collectorX = L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
+    /* out of the port, down the outside of the engine, then in to the
+       collector. Every waypoint is taken off the port's own position — a
+       primary that heads for a fixed z runs back through the block. */
+    const outZ = pz + side * L.bore * 0.34;
+    const runZ = side * Math.max(Math.abs(outZ), colZ * 1.18);
     exG.add(pipe([
       [p.x, py, pz],
-      [p.x, py - L.bore * 0.30, pz + side * L.bore * 0.36],
-      [p.x, L.deckH * 0.52, side * L.bore * 1.12],
-      [(p.x + collectorX) / 2, L.crankR * 0.9, side * L.bore * 1.20],
-      [collectorX, L.crankR * 0.5, side * L.bore * 1.20],
+      [p.x, py - L.bore * 0.38, outZ],
+      [p.x, L.crankR * 1.45, runZ],
+      [(p.x + colX) / 2, L.crankR * 0.95, side * colZ * 1.08],
+      [colX, colY, side * colZ],
     ], M(16), MAT.hot(), 8));
   }
+  /* the collector itself: a cone that gathers the primaries and hands them on */
+  for (const side of (L.banks >= 2 ? [-1, 1] : [1]))
+    exG.add(at(lathe([[M(26), -M(34)], [M(30), -M(10)], [M(24), M(22)], [M(24), M(34)]],
+                     MAT.hot(), 22).rotateZ(Math.PI / 2),
+               colX + M(30), colY, side * colZ));
   /* the manifold bolts to a real port flange, not to thin air */
   for (const bk of (L.banks >= 2 ? [-1, 1] : [1])){
     const fl = portFlange(Math.max(1, Math.round(e.cyl / L.banks)), L.bore * 0.26,
@@ -611,21 +702,36 @@ function buildPiston(e, tree){
     rot(fl, 0, 0, 0);
     fl.rotation.y = Math.PI / 2;
     const bIdx = L.banks >= 2 ? (bk > 0 ? (bankSign(0) > 0 ? 0 : 1) : (bankSign(0) > 0 ? 1 : 0)) : 0;
-    const [fy, fz] = portAt(bIdx, L.deckH + L.bore * 0.34, bk * L.bore * 0.76);
+    const [fy, fz] = portAt(bIdx, L.deckH + L.bore * 0.34, bk * L.bore * 0.70);
     fl.rotation.x = L.bankAngles[bIdx] || 0;
     at(fl, 0, fy, fz);
     exG.add(fl);
   }
+  /* on a turbo engine the collector hands the gas to the turbine, so the last
+     length of manifold is the pipe that reaches the housing */
+  for (const tb of turbos)
+    exG.add(pipe([[colX + M(30), colY, tb.side * colZ],
+                  [(colX + tb.hotIn.x) / 2, (colY + tb.hotIn.y) / 2, tb.side * colZ * 1.04],
+                  [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.92, MAT.hot(), 10));
   add('exmanifold', exG);
-  /* the downpipe picks up where the primaries collect, instead of starting
-     somewhere near it and leaving a gap */
-  const colX = L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
-  const colZ = L.bore * 1.20;
-  const dp = pipe([[colX, L.crankR * 0.5, colZ],
-                   [colX + L.len * 0.22, L.crankR * 0.3, colZ * 1.05],
-                   [colX + L.len * 0.42, L.crankR * 0.1, colZ * 1.05]], M(24), MAT.iron(), 10);
-  add('exhaust', dp);
-  addPuffs(root, anim, new THREE.Vector3(colX + L.len*0.44, L.crankR*0.1, colZ*1.05), L.bore);
+
+  /* The downpipe starts where the gas actually leaves: the turbine's axial
+     mouth on a turbo engine, the collector on everything else. A vee collects
+     twice, so the second side crosses under the sump and joins the first. */
+  const dpG = group('dp');
+  const tail = new THREE.Vector3(colX + L.len * 0.46, L.crankR * 0.05, colZ * 1.05);
+  const starts = turbos.length
+    ? turbos.map(tb => ({ p:tb.hotOut, r:tb.axialTube * 0.86 }))
+    : (L.banks >= 2 ? [-1, 1] : [1]).map(side =>
+        ({ p:new THREE.Vector3(colX + M(30), colY, side * colZ), r:M(24) }));
+  const join = new THREE.Vector3(colX + L.len * 0.30, L.crankR * 0.15, colZ * 1.02);
+  for (const st of starts)
+    dpG.add(pipe([[st.p.x, st.p.y, st.p.z],
+                  [st.p.x + L.len * 0.10, st.p.y - L.bore * 0.28, st.p.z * 0.86],
+                  [join.x, join.y, join.z]], st.r, MAT.iron(), 10));
+  dpG.add(pipe([[join.x, join.y, join.z], [tail.x, tail.y, tail.z]], M(26), MAT.iron(), 10));
+  add('exhaust', dpG);
+  addPuffs(root, anim, tail, L.bore);
 
   /* ---- cooling / accessories ---- */
   /* the accessories all drive off one belt, so their pulleys have to land on
