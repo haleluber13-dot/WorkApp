@@ -127,16 +127,22 @@ function buildPiston(e, tree){
   const blockG = group('block');
   const yCase = -L.crankR * 1.30;                       // pan rail
   const wCase = L.bore * 0.92;
+  /* The bores run across the extrusion direction, so they cannot be cut out of
+     the block profile. Instead the cylinder case is its own piece, extruded
+     along the bank axis with a hole per bore straight through it, and the
+     profile below stops where that case begins. That is what lets you look
+     down a bore and see the liner rather than a flat lid. */
+  const caseBot = L.banks >= 2 ? L.crankR * 1.55 : L.crankR * 1.30;
   const prof = [];
   if (L.banks >= 2){
     const half = L.bore * 0.775;
-    const deck = (a) => {
-      const c = [Math.sin(a) * L.deckH, Math.cos(a) * L.deckH];      // [z, y]
+    const deck = (a, h) => {
+      const c = [Math.sin(a) * h, Math.cos(a) * h];                  // [z, y]
       const t = [Math.cos(a) * half, -Math.sin(a) * half];
       return { outer:[c[0] + t[0], c[1] + t[1]], inner:[c[0] - t[0], c[1] - t[1]] };
     };
-    const dR = deck(Math.abs(L.bankAngles[0] || Math.PI / 4));
-    const yValley = L.deckH * 0.52;
+    const dR = deck(Math.abs(L.bankAngles[0] || Math.PI / 4), caseBot);
+    const yValley = caseBot * 0.62;
     prof.push([-wCase, yCase], [-wCase, L.crankR * 0.55],
               [-dR.outer[0], dR.outer[1]], [-dR.inner[0], dR.inner[1]],
               [-dR.inner[0] * 0.86, yValley], [dR.inner[0] * 0.86, yValley],
@@ -149,7 +155,7 @@ function buildPiston(e, tree){
     const half = L.bore * 0.66;
     prof.push([-wCase, yCase], [-wCase, L.crankR * 0.72],
               [-half * 1.10, L.crankR * 0.86], [-half, L.crankR * 1.20],
-              [-half, L.deckH], [half, L.deckH],
+              [-half, caseBot], [half, caseBot],
               [half, L.crankR * 1.20], [half * 1.10, L.crankR * 0.86],
               [wCase, L.crankR * 0.72], [wCase, yCase]);
   }
@@ -170,8 +176,13 @@ function buildPiston(e, tree){
     for (let i = 0; i < e.cyl; i++){
       const s = cylSlot(e, i, L); if (s.bank !== bank) continue;
       const p = cylPosition(e, i, L);
-      const liner = tubeMesh(L.bore/2 * 1.06, L.bore/2, L.stroke * 1.35, MAT.iron(), 20);
-      liner.position.set(p.x, L.crankR * 0.95 + L.stroke * 0.9, 0);
+      /* A liner runs from just clear of the crank throw all the way up to the
+         deck face — it has to, because the deck's bore opening IS the top of
+         the liner. Stopping it short left you looking at solid casting through
+         the bore. */
+      const lTop = L.deckH, lBot = L.crankR * 0.85;
+      const liner = tubeMesh(L.bore/2 * 1.06, L.bore/2, lTop - lBot, MAT.iron(), 22);
+      liner.position.set(p.x, (lTop + lBot) / 2, 0);
       bg.add(liner);
       if (airCooled) for (let f = 0; f < 7; f++){
         const fin = tubeMesh(L.bore/2*1.5, L.bore/2*1.1, M(3), MAT.alloyDark(), 20);
@@ -182,6 +193,69 @@ function buildPiston(e, tree){
     bg.rotation.x = a;
     blockG.add(bg);
   }
+  /* The deck: the face the head bolts to, with a hole through it for every
+     bore. It is the one surface of a block everybody recognises, and it is the
+     reason a block photographs as a block and not as a box. */
+  for (let bank = 0; bank < L.bankAngles.length; bank++){
+    const dShape = new THREE.Shape();
+    const halfD = L.bore * (L.banks >= 2 ? 0.80 : 0.72), halfL = L.len / 2;
+    dShape.moveTo(-halfL, -halfD); dShape.lineTo(halfL, -halfD);
+    dShape.lineTo(halfL, halfD);   dShape.lineTo(-halfL, halfD); dShape.closePath();
+    let bores = 0;
+    for (let i = 0; i < e.cyl; i++){
+      if (cylSlot(e, i, L).bank !== bank) continue;
+      const h = new THREE.Path();
+      h.absarc(cylPosition(e, i, L).x, 0, L.bore * 0.535, 0, TAU, true);
+      dShape.holes.push(h); bores++;
+      /* the head-bolt holes and coolant transfer passages around each bore */
+      for (let k = 0; k < 6; k++){
+        const t = (k / 6) * TAU + 0.5;
+        const j = new THREE.Path();
+        j.absarc(cylPosition(e, i, L).x + Math.cos(t) * L.bore * 0.60,
+                 Math.sin(t) * L.bore * 0.60, L.bore * 0.035, 0, TAU, true);
+        dShape.holes.push(j);
+      }
+    }
+    if (!bores) continue;
+    const dg = new THREE.ExtrudeGeometry(dShape, { depth:L.deckH - caseBot,
+                                                  bevelEnabled:false, curveSegments:16 });
+    dg.rotateX(-Math.PI / 2);                    // shape lies flat, thickness up
+    const dm = new THREE.Mesh(dg, MAT.cast());
+    const dGrp = group('deck');
+    dm.position.y = caseBot;
+    dGrp.add(dm);
+    dGrp.rotation.x = L.bankAngles[bank] ?? 0;
+    blockG.add(dGrp);
+  }
+
+  /* Core plugs — the "freeze plugs" — are pressed into the sand-core holes left
+     in the water jacket. They are the first thing you look for on a block that
+     has been left out in the cold, and they are on the side of every one. */
+  if (!airCooled) for (let i = 0; i < Math.max(2, L.perBank); i++){
+    const cx = (i - (Math.max(2, L.perBank) - 1) / 2) * L.pitch;
+    for (const zs of [-1, 1]){
+      const cp = cyl(L.bore * 0.24, L.bore * 0.24, M(6), MAT.plated(), 18);
+      rot(cp, Math.PI / 2, 0, 0);
+      blockG.add(at(cp, cx, L.crankR * 0.30, zs * (wCase - M(3))));
+    }
+  }
+  /* casting ribs down the sides of the crankcase */
+  for (let i = 0; i <= L.perBank; i++){
+    const rx = (i - L.perBank / 2) * L.pitch;
+    for (const zs of [-1, 1])
+      blockG.add(at(box(M(9), L.crankR * 0.70, M(10), MAT.cast()),
+                    rx, yCase + L.crankR * 0.45, zs * (wCase + M(3))));
+  }
+  /* the bellhousing flange at the back, where the gearbox bolts on */
+  const bh = tubeMesh(L.bore * 1.28, L.bore * 1.10, M(16), MAT.cast(), 30);
+  rot(bh, 0, 0, Math.PI / 2);
+  blockG.add(at(bh, L.len / 2 + M(8), 0, 0));
+  for (let k = 0; k < 8; k++){
+    const t = (k / 8) * TAU;
+    blockG.add(at(rot(bolt(M(8), M(20), MAT.steel()), 0, 0, -Math.PI / 2),
+                  L.len / 2 + M(16), Math.sin(t) * L.bore * 1.19, Math.cos(t) * L.bore * 1.19));
+  }
+
   /* the sump rail and main-bearing bulkheads below the crank */
   const cc = roundBox(L.len, L.crankR * 0.5, wCase * 2.0, 0.02, MAT.cast());
   cc.position.y = yCase + L.crankR * 0.22;
@@ -289,8 +363,43 @@ function buildPiston(e, tree){
     };
 
     hgG.add(mk(box(L.len, M(2.2), L.bore*1.5, MAT.gasket()), L.deckH));
-    const headBody = roundBox(L.len, L.bore * 1.32, L.bore * 1.5, 0.03, MAT.alloy());
-    headG.add(mk(headBody, L.deckH + L.bore * 0.66));
+    /* The head is not a block of metal: its underside is the fire deck, and cut
+       into it is a combustion chamber per cylinder with the valves sitting in
+       the roof. Pull the head off a real engine and that is the first thing you
+       look at — the chamber shape and the carbon pattern in it. So the fire
+       deck is its own plate with a chamber opening per bore, and behind each
+       opening sits the chamber roof the valves seal against. */
+    const fireT = L.bore * 0.26, chamR = L.bore * 0.46;
+    const fShape = new THREE.Shape();
+    const fHalfD = L.bore * 0.75, fHalfL = L.len / 2;
+    fShape.moveTo(-fHalfL, -fHalfD); fShape.lineTo(fHalfL, -fHalfD);
+    fShape.lineTo(fHalfL, fHalfD);   fShape.lineTo(-fHalfL, fHalfD); fShape.closePath();
+    for (let i = 0; i < L.perBank; i++){
+      const px = (i - (L.perBank - 1) / 2) * L.pitch;
+      const h = new THREE.Path(); h.absarc(px, 0, chamR, 0, TAU, true);
+      fShape.holes.push(h);
+    }
+    const fgeo = new THREE.ExtrudeGeometry(fShape, { depth:fireT, bevelEnabled:false, curveSegments:16 });
+    fgeo.rotateX(-Math.PI / 2);
+    const fire = new THREE.Mesh(fgeo, MAT.alloy());
+    headG.add(mk(fire, L.deckH));
+    /* the chamber roof: a shallow dish, pent-roof on a four-valve head and a
+       wedge-ish bowl on a two-valve, that the valves close against */
+    for (let i = 0; i < L.perBank; i++){
+      const px = (i - (L.perBank - 1) / 2) * L.pitch;
+      /* The roof is highest on the axis and falls away to the rim, so seen from
+         underneath it is a dish, not a bump. Rim on the deck face, crown up
+         inside the casting. */
+      const cr = L.bore * (e.valvesPerCyl >= 4 ? 0.14 : 0.11);   // pent roof is deeper
+      const dome = lathe([[0, cr], [chamR * 0.42, cr * 0.92], [chamR * 0.74, cr * 0.66],
+                          [chamR * 0.93, cr * 0.30], [chamR, 0],
+                          [chamR, cr * 1.5], [0, cr * 1.5]], MAT.alloy(), 26);
+      dome.position.x = px;
+      headG.add(mk(dome, L.deckH));
+    }
+    /* the rest of the casting sits on top of the fire deck */
+    const headBody = roundBox(L.len, L.bore * 1.32 - fireT, L.bore * 1.5, 0.03, MAT.alloy());
+    headG.add(mk(headBody, L.deckH + fireT + (L.bore * 1.32 - fireT) / 2));
     /* port bosses on each face — the lumps you actually see on a head */
     for (let i = 0; i < L.perBank; i++){
       const px = (i - (L.perBank - 1)/2) * L.pitch;
@@ -361,8 +470,13 @@ function buildPiston(e, tree){
                    + (perSide > 1 ? (j - (perSide - 1)/2) * L.bore * 0.19 : 0);
         const headR = L.bore * (intake ? 0.20 : 0.175);
         const vg = group('v');
-        vg.add(valveMesh(headR, L.bore * 0.038, L.bore * 0.86, intake ? MAT.steel() : MAT.hot()));
-        valG.add(mk(at(vg, p.x, 0, zoff), L.deckH + L.bore * 0.32, zoff));
+        /* A closed valve sits on its seat in the chamber roof, not hanging down
+           into the bore — it was doing the latter, which is why the head face
+           looked wrong the moment the chambers became real. Shorten the valve
+           and lift it so the seat lands in the roof while the stem tip stays
+           where the cam expects it. */
+        vg.add(valveMesh(headR, L.bore * 0.038, L.bore * 0.695, intake ? MAT.steel() : MAT.hot()));
+        valG.add(mk(at(vg, p.x, 0, zoff), L.deckH + L.bore * 0.4025, zoff));
         /* the spring seats on the head and is compressed by the retainer */
         const sp = springMesh(L.bore * 0.115, L.bore * 0.30, 6, L.bore * 0.020, MAT.steel());
         const spHolder = mk(at(sp, p.x, 0, zoff), L.deckH + L.bore * 0.52, zoff);
@@ -370,7 +484,7 @@ function buildPiston(e, tree){
         const centre = intake ? CAM.intake : CAM.exhaust;
         anim.valves.push({ node:vg, cyl:i, intake, bank:b, lift:maxLift,
                            phase:-(fires[i] + centre) / 2, duration:CAM.duration,
-                           spring:sp, springHome:sp.position.y });
+                           home:vg.position.y, spring:sp, springHome:sp.position.y });
       }
       /* spark plug / injector / coil */
       if (e.fuel !== 'diesel'){
@@ -1859,7 +1973,10 @@ function animate(e, anim, state, L){
     lo.node.rotation.x = camRot + lo.phase + (lo.up ? Math.PI : 0);
   for (const v of anim.valves){
     const lift = lobeLift(camRot + v.phase, v.duration) * v.lift;
-    v.node.position.y = -lift;
+    /* lift is a displacement off the seat, not an absolute height — setting it
+       absolutely dropped every valve out of its chamber down to crank level the
+       first time the model updated */
+    v.node.position.y = v.home - lift;
     if (v.spring){
       const f = lift / v.lift;
       v.spring.scale.y = 1 - f * 0.30;
