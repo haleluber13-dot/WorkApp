@@ -110,7 +110,11 @@ function pistonTree(e){
     spec:{ 'Type': e.class==='race' ? 'dry sump, 4-stage' : 'wet sump gerotor', 'Hot idle pressure':'>1.0 bar', 'At redline':'3.5–5.5 bar' } });
   add({ id:'pickup', name:'Oil pickup & windage tray', group:'lube', deps:['oilpump'], mesh:'pickup',
     teach:'The pickup screen must sit a few millimetres off the pan floor. A windage tray stops the crank whipping oil into a froth — aerated oil will not hold a bearing film.' });
-  add({ id:'oilpan', name:'Oil pan / sump', group:'lube', deps:['pickup'], mesh:'oilpan',
+  add({ id:'pangasket', name:'Oil pan gasket, drain bolt & crush washer', group:'lube', deps:['pickup'], mesh:'headgasket',
+    torque:{ nm:B.med.nm*1.2|0, size:'M14 drain', count:1, pattern:pattern('sequence',1), stages:[`${B.med.nm*1.2|0} Nm`] },
+    teach:'One-piece moulded rubber on a modern engine, cork or paper on an old one — either way it is fitted dry and never re-used. The drain bolt gets a fresh copper or aluminium crush washer every oil change: the washer is what seals, not the thread, which is why over-tightening the bolt strips the pan instead of stopping the drip.',
+    spec:{ 'Gasket':'moulded rubber / cork', 'Crush washer':'copper or aluminium, one use', 'Sealant':'RTV at the timing-cover and rear-seal corners only' } });
+  add({ id:'oilpan', name:'Oil pan / sump', group:'lube', deps:['pangasket'], mesh:'oilpan',
     torque:{ nm:B.small.nm, size:'M6', count:18, pattern:pattern('perimeter',18), stages:[`${B.small.nm} Nm`] },
     teach:'Perimeter bolts go in criss-cross to squeeze the sealant or gasket evenly. Over-torquing here dimples the flange and *causes* the leak you were trying to prevent.' });
   add({ id:'oilfilter', name:'Oil filter & cooler', group:'lube', deps:['oilpan'], mesh:'oilfilter',
@@ -144,6 +148,10 @@ function pistonTree(e){
       teach: e.class==='race' ? 'Solid roller lifters — a needle-bearing wheel on the lobe lets the cam use ramps that would shred a flat tappet.' : 'Hydraulic lifters take up lash automatically using oil pressure. That is why a cold engine ticks for a few seconds.' });
     add({ id:'pushrods', name:'Pushrods', group:'valvetrain', qty:e.cyl*2, deps:['lifters','head'], mesh:'pushrod',
       teach:'Length sets rocker geometry; the roller tip should sweep a narrow band across the valve stem. Too short or too long and you side-load the guide.' });
+    if (airCooled)
+      add({ id:'pushrodtubes', name:'Pushrod tubes & seals', group:'valvetrain', qty:e.cyl*2, deps:['pushrods'], mesh:'pushrod',
+        teach:'On an air-cooled engine the pushrods run outside the castings, so each one gets a chromed tube with a rubber boot at either end. The boots are the seal between the rocker box and the crankcase — when a big twin marks its spot on the driveway, this is usually where it came from. The tubes are telescopic so they can be collapsed to get a pushrod out without pulling the head.',
+        spec:{ 'Tubes':e.cyl*2, 'Seals':'O-ring at head, umbrella boot at case', 'Adjustment': 'collapse to fit, then set lash' } });
     add({ id:'rockers', name:'Rocker arms & shafts', group:'valvetrain', qty:e.cyl*2, deps:['pushrods'], mesh:'rocker',
       torque:{ nm:B.med.nm, size:'M8', count:e.cyl*2, pattern:pattern('sequence', e.cyl*2), stages:[`${B.med.nm} Nm`] },
       teach:`Rocker ratio multiplies cam lift — a 1.6 rocker turns 8 mm of lobe into 12.8 mm at the valve. Set lash with the lobe on its base circle.` });
@@ -174,7 +182,13 @@ function pistonTree(e){
   add({ id:'frontcover', name:'Front / timing cover', group:'timing', deps:['tensioner'], mesh:'frontcover',
     torque:{ nm:B.small.nm, size:'M6', count:12, pattern:pattern('perimeter',12), stages:[`${B.small.nm} Nm`] },
     teach:'Carries the front crank seal. Fit the seal to the cover, not the crank, and lubricate the lip — a dry lip tears on the first start.' });
-  add({ id:'valvecover', name: airCooled ? 'Rocker covers' : 'Valve cover(s)', group:'timing', qty:heads, deps:[ohv?'rockers':'camcaps'], mesh:'valvecover',
+  add({ id:'seals', name:'Front & rear crank seals', group:'timing', qty:2, deps:['frontcover'], mesh:'headgasket',
+    teach:'Two lip seals ride on the crank itself: one in the timing cover, one in the block behind the flywheel. Fit them square with a driver, not a hammer and screwdriver, and wet the lip with oil — a dry lip tears on the first start and you are back in there with the gearbox out. The rear one is the reason a clutch job and a rear main seal are always the same job.',
+    spec:{ 'Type':'PTFE or nitrile lip seal', 'Front':'in the timing cover', 'Rear':'behind the flywheel', 'Runout limit':'0.05 mm on the sealing land' } });
+  add({ id:'vcgasket', name:'Head cover gasket & grommets', group:'timing', qty:heads, deps:[ohv?'rockers':'camcaps'], mesh:'headgasket',
+    teach:'The rubber gasket runs the whole perimeter, and each cover bolt pulls down through a rubber grommet with a metal crush limiter inside it. The limiter is what stops you squashing the gasket flat — it is also why this joint has a torque figure at all when it only holds oil mist.',
+    spec:{ 'Gasket':'moulded rubber, re-usable if unsplit', 'Grommets':e.cyl*2+4, 'Limiter':'steel, sets the crush' } });
+  add({ id:'valvecover', name: airCooled ? 'Rocker covers' : 'Valve cover(s)', group:'timing', qty:heads, deps:['vcgasket'], mesh:'valvecover',
     torque:{ nm:9, size:'M6', count:heads*10, pattern:pattern('inside-out',10), stages:['9 Nm'] },
     teach:'Almost every "oil leak" is this gasket. Torque is tiny and it is a spiral from the centre out — crushing the seal is the classic first-timer mistake.' });
 
@@ -202,8 +216,12 @@ function pistonTree(e){
     add({ id:'intercooler', name:'Charge cooler', group:'induction', deps:['blower'], mesh:'intercooler',
       teach:'Air-to-water core built into the blower lid, with its own pump and heat exchanger. Short path, low pressure drop, and it can be pre-chilled with ice for a dyno pull.' });
   }
+  add({ id:'intgasket', name:'Intake manifold gasket', group:'induction',
+    qty:heads, deps:[turbos?'intercooler':blown?'intercooler':'head'], mesh:'headgasket',
+    teach:'It seals vacuum, not pressure, so a shrunken one leaks air *in* and leans the engine out at idle — the classic hunting idle that no amount of ECU work fixes. On a V engine it also seals coolant and the valley, which is why a failed one can put water in the oil.',
+    spec:{ 'Type': boosted ? 'moulded rubber on alloy carrier' : 'composite / rubber-on-steel', 'Re-use':'never' } });
   add({ id:'intake', name: carb ? 'Intake manifold & carburettor' : 'Intake manifold', group:'induction',
-    deps:[turbos?'intercooler':blown?'intercooler':'head'], mesh:'intake',
+    deps:['intgasket'], mesh:'intake',
     torque:{ nm:B.med.nm, size:'M8', count:e.cyl*2, pattern:pattern('inside-out', e.cyl*2), stages:[`${Math.round(B.med.nm/2)} Nm`, `${B.med.nm} Nm`] },
     teach:`${carb?'A four-barrel carburettor meters fuel with airflow through a venturi — no sensors, no ECU, just physics and jets.':'Runner length tunes torque: long runners use pressure-wave reflection to stuff the cylinder at low rpm, short runners work up top. Plenum volume damps the pulses between cylinders.'}`,
     spec:{ 'Runner length': e.class==='race'?'short, ~180 mm':'320–450 mm', 'Plenum': carb?'—':`~${Math.round(e.displacement/1000*0.7*10)/10} L` } });
@@ -243,8 +261,11 @@ function pistonTree(e){
   }
 
   /* ---- exhaust ---- */
+  add({ id:'exgasket', name:'Exhaust manifold gasket', group:'exhaust', qty:heads, deps:['head'], mesh:'headgasket',
+    teach:'Multi-layer steel or embossed graphite, and it lives at 800 °C. It has to let the manifold grow and slide across the head without losing its seal — that movement is why the gasket wears out and why the studs go in with anti-seize and come out broken if they do not.',
+    spec:{ 'Type':'MLS or graphite-faced steel', 'Peak temp':'800–950 °C', 'Re-use':'never' } });
   add({ id:'exmanifold', name: e.class==='race'||e.class==='bike' ? 'Exhaust headers' : 'Exhaust manifold(s)', group:'exhaust',
-    qty:heads, deps:['head'], mesh:'exmanifold',
+    qty:heads, deps:['exgasket'], mesh:'exmanifold',
     torque:{ nm:e.bore>=95?32:25, size:'M8 stud', count:e.cyl*2,
              pattern:pattern('inside-out', e.cyl*2), stages:[`${Math.round((e.bore>=95?32:25)/2)} Nm`, `${e.bore>=95?32:25} Nm`], lube:'copper anti-seize' },
     teach:`Equal-length primaries let each cylinder's exhaust pulse scavenge the next one — a well-tuned header is worth real power for free. Use new gaskets and copper nuts; these fasteners cycle through 800 °C every drive.` });
@@ -253,7 +274,10 @@ function pistonTree(e){
 
   /* ---- cooling ---- */
   if (!airCooled){
-    add({ id:'waterpump', name:'Water pump & thermostat', group:'cooling', deps:['frontcover'], mesh:'waterpump',
+    add({ id:'wpgasket', name:'Water pump gasket', group:'cooling', deps:['frontcover'], mesh:'headgasket',
+      teach:'Paper, rubber-coated steel, or a plain O-ring depending on the engine. The weep hole below the pump is deliberate: when the shaft seal starts to go, coolant drips out of that hole instead of into the bearing, and that drip is your warning to change the pump before it seizes and throws the belt.',
+      spec:{ 'Type':'paper / rubber-coated steel / O-ring', 'Sealant': 'none — fit dry unless the manual says otherwise' } });
+    add({ id:'waterpump', name:'Water pump & thermostat', group:'cooling', deps:['wpgasket'], mesh:'waterpump',
       teach:'A closed 1.1 bar system raises the boiling point to about 125 °C. The thermostat stays shut until the block is warm so the engine reaches operating temperature quickly — cold running is what wears bores.' });
     add({ id:'radiator', name:'Radiator, fans & hoses', group:'cooling', deps:['waterpump'], mesh:'radiator',
       teach:`Coolant carries roughly a third of the fuel's energy straight out to the air. ${boosted?'Under sustained boost the cooling system, not the engine, is usually what ends the run.':''}` });
@@ -263,7 +287,7 @@ function pistonTree(e){
   }
 
   /* ---- accessories ---- */
-  add({ id:'flywheel', name: e.class==='bike' ? 'Clutch basket & primary drive' : 'Flywheel / flexplate', group:'accessory', deps:['crank'], mesh:'flywheel',
+  add({ id:'flywheel', name: e.class==='bike' ? 'Clutch basket & primary drive' : 'Flywheel / flexplate', group:'accessory', deps:['seals'], mesh:'flywheel',
     torque:{ nm:Math.round(B.main.nm*1.4), size:'M12', count:e.class==='bike'?6:8,
              pattern:pattern('star', e.class==='bike'?6:8), stages:[`${Math.round(B.main.nm*0.6)} Nm`, `${Math.round(B.main.nm*1.4)} Nm`, '+45°'], lube:'thread locker' },
     teach:`Stored rotational inertia. A heavy flywheel makes an engine easy to launch and hard to stall; a light one lets revs rise and fall instantly but will stall in traffic. It also carries the starter ring gear${e.class!=='bike'?' and the crank position reluctor on many engines':''}.` });

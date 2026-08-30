@@ -330,7 +330,11 @@ export function tubeMesh(rOuter, rInner, h, mat, seg=24){
   const s = new THREE.Shape(); s.absarc(0,0,rOuter,0,Math.PI*2,false);
   const hole = new THREE.Path(); hole.absarc(0,0,rInner,0,Math.PI*2,true); s.holes.push(hole);
   const g = new THREE.ExtrudeGeometry(s,{ depth:h, bevelEnabled:false, curveSegments:seg });
-  g.rotateX(-Math.PI/2); g.translate(0,h/2,0);
+  /* extrude runs 0..h along +Z; rotateX(-90°) turns that into 0..h along +Y, so
+     the shift has to be -h/2 to leave the tube centred on its own origin the way
+     cyl() is.  With +h/2 it sat a full half-length high, which quietly threw off
+     every sprocket, fin, flywheel and pulley built from it. */
+  g.rotateX(-Math.PI/2); g.translate(0,-h/2,0);
   return new THREE.Mesh(g, mat);
 }
 export function sphere(r, mat, seg=18){
