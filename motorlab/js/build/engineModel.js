@@ -490,8 +490,17 @@ function buildPiston(e, tree){
   /* Where each bank's primaries collect. On a turbocharged engine the turbine
      housing bolts straight onto this, so the turbo is positioned from it too —
      which is the whole point of naming it once instead of twice. */
-  const colX = L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
-  const colY = L.crankR * 0.5;
+  /* A turbocharged engine's headers run FORWARD, not back: the turbos hang off
+     the front corners of the engine ahead of the heads, and every primary
+     sweeps down the side of the block and forward into the turbine bolted to
+     the end of it. That is the shape of a front-mount twin-turbo V8, and it is
+     what makes one recognisable across a workshop. Anything atmospheric keeps
+     its collector at the back, where the rest of the exhaust goes. */
+  const boosted = e.aspiration !== 'na';
+  const frontTurbo = boosted && !!tree.byId['turbo'];
+  const colX = frontTurbo ? frontX - L.len * 0.04
+             : L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
+  const colY = frontTurbo ? L.crankR * 0.95 : L.crankR * 0.5;
   /* on a vee the exhaust ports are a long way outboard, because the head is
      tilted away from the crank — so the collector has to be out there too */
   const colZ = L.bore * (L.banks >= 2 ? 1.62 : 1.20);
@@ -552,7 +561,6 @@ function buildPiston(e, tree){
   /* the blow-off valve sits on the cold side just before the throttle, which
      is the only place the trapped charge has anywhere to go */
   const bovAt = V3(-L.len * 0.34, inducY - L.bore * 0.10, thrAt.z - L.bore * 1.30);
-  const boosted = e.aspiration !== 'na';
   if (has('throttle')){
     const tG = group('throttle');
     tG.add(at(rot(cyl(M(38), M(38), M(60), MAT.alloyDark(), 18), 0, 0, Math.PI/2),
@@ -602,30 +610,31 @@ function buildPiston(e, tree){
        is physically enormous next to a pair of small twins on a V8 */
     const size = L.bore * (n === 1 ? 1.05 : n === 2 ? 0.82 : 0.62)
                * (1 + (e.boostTarget || 0) * 0.18);
-    /* A turbine housing bolts to the end of an exhaust manifold. On a hot-V
-       that manifold is inside the vee, so the turbo is too: one per bank, shaft
-       along the crank with the compressor facing forward into the airstream and
-       the turbine at the back, rolled so its inlet looks out at the bank it is
-       fed by. On everything else the manifold runs down the outside, and the
-       turbo sits just outboard of the collector, low beside the sump. */
+    /* One turbo per front corner, turned out at forty-five degrees so the
+       compressor looks forward into the air and the turbine looks back down
+       the headers coming to meet it. The housings are then rolled so the
+       compressor's outlet points straight up — because the big charge pipe
+       leaving it has to clear the engine and come back over the top, and that
+       arc is the most recognisable thing on a twin-turbo V8. */
     const perBank = L.banks >= 2 && n >= 2;
     for (let i = 0; i < n; i++){
       const side = perBank ? (i % 2 ? 1 : -1) : 1;
       const rank = perBank ? Math.floor(i / 2) - (n / 2 - 1) / 2 : i - (n - 1) / 2;
       const t = turboUnit(size);
-      /* level with the block and out on its flank, where a turbo is bolted and
-         where you can get a spanner to it — not tucked under the sump */
-      const pos = new THREE.Vector3(colX + L.len * 0.10 + rank * size * 1.55,
-                                    colY + size * 0.52,
-                                    side * (colZ + size * 0.82));
+      const pos = frontTurbo
+        ? new THREE.Vector3(frontX - size * 0.62 + rank * size * 0.55,
+                            L.crankR * 0.95,
+                            side * (L.bore * 1.16 + size * 0.30))
+        : new THREE.Vector3(colX + L.len * 0.10 + rank * size * 1.55,
+                            colY + size * 0.52,
+                            side * (colZ + size * 0.82));
       at(t, pos.x, pos.y, pos.z);
-      /* the compressor faces out to the air, the turbine in at the collector,
-         and the housings are rolled so the turbine's throat looks down the
-         manifold rather than at the sky. The roll is worked out from where the
-         scroll actually put its throat, not guessed. */
       const P0 = t.userData.ports;
-      const yaw = side < 0 ? Math.PI : 0;
-      const roll = deg(-120) - Math.atan2(P0.turbineIn.y, P0.turbineIn.x);
+      const yaw = frontTurbo ? (side > 0 ? deg(-45) : deg(-135))
+                             : (side < 0 ? Math.PI : 0);
+      const roll = frontTurbo
+        ? Math.PI / 2 - Math.atan2(P0.compressorOut.y, P0.compressorOut.x)
+        : deg(-120) - Math.atan2(P0.turbineIn.y, P0.turbineIn.x);
       t.rotation.set(0, yaw, roll);
       anim.turbos.push(t.userData.shaft);
       tg.add(t);
@@ -657,45 +666,43 @@ function buildPiston(e, tree){
                   wt.hotOut], M(12), MAT.hot(), 8));
     add('wastegate', wgG);
 
-    /* The charge-air path, end to end. Air is drawn in through the filter at
-       the front of the car, down the inlet pipe to the compressor; out of the
-       compressor it is hot, so it goes forward again through the intercooler
-       sitting in front of the radiator, and only then does it come back to the
-       throttle body and the plenum. Those four runs are most of what you see
-       when you open the bonnet on a turbo car, and the engine looked wrong
-       without them. */
-    const icX = frontX - L.bore * 1.55;
-    const icZ = L.bore * 1.70;
-    const icY = L.deckH * 0.56;
+    /* The charge-air path. Out of each compressor the pipe goes straight up,
+       arcs over the front of the engine and down into the intercooler sitting
+       low and central ahead of the block; out of the core it comes back up and
+       over the top into the throttle body on the nose of the plenum. Two big
+       arcs, an air-to-air core between them, and the compressor inlets left
+       open on their bellmouths — which is exactly how one of these is built. */
+    /* the core sits low and central ahead of the sump, under the radiator and
+       between the two turbos — which is the only place it fits on a car like
+       this, and where every one of these builds puts it */
+    const icY = -L.crankR * 0.55;
+    const icX = frontX - L.bore * 1.05;
     const icG = group('ic');
-    icG.add(at(coreMesh(L.bore * 4.0, L.bore * 1.20, M(76)), icX, icY, 0));
-    const tank = (z) => V3(icX + M(34), icY, z);
+    icG.add(at(coreMesh(L.bore * 2.40, L.bore * 0.86, M(84)), icX, icY, 0));
     for (const tb of turbos){
       const sgn = tb.side;
-      /* the induction pipe: filter, then back to the compressor's mouth */
-      const filterAt = V3(icX - L.bore * 0.30, icY + L.bore * 1.05, sgn * icZ * 0.80);
-      icG.add(at(rot(filterElement(M(76), M(160), MAT.alloyDark()), 0, 0, Math.PI / 2),
-                 filterAt.x, filterAt.y, filterAt.z));
-      icG.add(pipe([[filterAt.x + M(90), filterAt.y, filterAt.z],
-                    [frontX * 0.55, icY + L.bore * 1.15, sgn * icZ * 0.95],
-                    [tb.coldIn.x - L.len * 0.10, tb.coldIn.y + L.bore * 0.55, sgn * icZ * 1.02],
-                    [tb.coldIn.x, tb.coldIn.y, tb.coldIn.z]],
-                   tb.axialTube * 0.95, MAT.rubber(), 10));
-      /* the hot side: compressor outlet forward to the core's end tank */
+      /* the bellmouth on the compressor's mouth, square to the shaft */
+      const axis = tb.coldIn.clone().sub(tb.pos).normalize();
+      const mouth = velocityStack(tb.axialTube * 2.1, tb.size * 0.34, MAT.alloy());
+      mouth.quaternion.setFromUnitVectors(V3(0, 1, 0), axis);
+      icG.add(at(mouth, tb.coldIn.x, tb.coldIn.y, tb.coldIn.z));
+      /* up out of the compressor, over, and down into the core's end tank */
       icG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
-                    [tb.coldOut.x + L.len * 0.06, tb.coldOut.y - L.bore * 0.30, sgn * icZ],
-                    [frontX * 0.60, icY - L.bore * 0.25, sgn * icZ],
-                    [tank(sgn * L.bore * 1.65).x, icY, sgn * L.bore * 1.65]],
-                   tb.coldTube * 0.90, MAT.alloy(), 10));
+                    [tb.coldOut.x - L.bore * 0.30, tb.coldOut.y + L.bore * 0.75, tb.coldOut.z * 1.05],
+                    [icX - L.bore * 0.24, tb.coldOut.y + L.bore * 0.30, sgn * L.bore * 1.30],
+                    [icX - L.bore * 0.12, icY + L.bore * 0.20, sgn * L.bore * 1.02]],
+                   tb.coldTube * 1.05, MAT.alloy(), 12));
     }
-    /* the cold side: out of the other end tank, up and back to the throttle */
-    const back = turbos.length > 1 ? -1 : -1;
-    icG.add(pipe([[tank(back * L.bore * 1.10).x, icY, back * L.bore * 1.10],
-                  [frontX * 0.70, icY + L.bore * 0.55, back * L.bore * 1.75],
-                  [thrAt.x - L.bore * 1.30, (thrAt.y + icY) / 2 + L.bore * 0.30,
-                   thrAt.z + back * L.bore * 1.20],
-                  [thrAt.x - M(150), thrAt.y, thrAt.z]],
-                 L.bore * 0.135, MAT.alloy(), 10));
+    /* and back out of the core, up over the front of the engine, to the
+       throttle body on the nose of the manifold */
+    for (const tb of turbos){
+      const sgn = tb.side;
+      icG.add(pipe([[icX + L.bore * 0.16, icY + L.bore * 0.20, sgn * L.bore * 0.90],
+                    [frontX - L.bore * 0.62, L.deckH * 0.55, sgn * L.bore * 1.40],
+                    [frontX - L.bore * 0.20, thrAt.y + L.bore * 0.30, sgn * L.bore * 0.80],
+                    [thrAt.x - M(60), thrAt.y, thrAt.z + sgn * L.bore * 0.10]],
+                   L.bore * 0.150, MAT.alloy(), 12));
+    }
     add('intercooler', icG);
 
     /* the blow-off valve sits on that cold pipe, right before the throttle,
