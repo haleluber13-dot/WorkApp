@@ -149,6 +149,18 @@ reduction applied to each is recorded in
 [`assets/scans/ABOUT.md`](assets/scans/ABOUT.md). The originals run from 2 to 10
 million triangles; what ships is between 0.2% and 2% of that.
 
+### Nothing floats
+
+An assembly reads as real when every part is resting on, bolted to or screwed
+into another one — and reads as a pile of shapes the moment one is not. The
+build test walks every part's bounding box on all 35 engines and fails any that
+touches nothing else. It currently reports zero. That check caught the ECU
+mounted a bore and a half above the engine on nothing, the lambda sensor
+screwed into thin air, exhaust primaries starting inside the vee instead of on
+the outside of the head, a downpipe that began somewhere near the collector
+rather than at it, and a serpentine belt thrown clear across the scene by a
+scaling bug.
+
 ### Real parts, not primitives
 
 Everything else is still generated — but generated as the part, not as a box

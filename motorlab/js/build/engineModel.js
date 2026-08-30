@@ -98,16 +98,51 @@ function buildPiston(e, tree){
   const fires = fireAngles(e);
   const CAM = camTiming(e);
 
-  /* ---- block ---- */
+  /* ---- block ----
+   * One casting, not a slab per bank. A block's cross-section is the shape
+   * that makes an engine recognisable from the end: crankcase skirts down
+   * either side of the crank, walls rising and spreading out to the decks,
+   * and — on a vee — the valley between the two banks. Two floating slabs
+   * with a gap down to the crank is what made this read as parts in mid-air.
+   */
   const blockG = group('block');
-  const blockH = L.deckH - L.crankR * 0.15;
+  const yCase = -L.crankR * 1.30;                       // pan rail
+  const wCase = L.bore * 0.86;
+  const prof = [];
+  if (L.banks >= 2){
+    const half = L.bore * 0.775;
+    const deck = (a) => {
+      const c = [Math.sin(a) * L.deckH, Math.cos(a) * L.deckH];      // [z, y]
+      const t = [Math.cos(a) * half, -Math.sin(a) * half];
+      return { outer:[c[0] + t[0], c[1] + t[1]], inner:[c[0] - t[0], c[1] - t[1]] };
+    };
+    const dR = deck(Math.abs(L.bankAngles[0] || Math.PI / 4));
+    const yValley = L.deckH * 0.52;
+    prof.push([-wCase, yCase], [-wCase, L.crankR * 0.55],
+              [-dR.outer[0], dR.outer[1]], [-dR.inner[0], dR.inner[1]],
+              [-dR.inner[0] * 0.86, yValley], [dR.inner[0] * 0.86, yValley],
+              [dR.inner[0], dR.inner[1]], [dR.outer[0], dR.outer[1]],
+              [wCase, L.crankR * 0.55], [wCase, yCase]);
+  } else {
+    const half = L.bore * 0.80;
+    prof.push([-wCase, yCase], [-wCase, L.crankR * 0.55], [-half, L.crankR * 1.15],
+              [-half, L.deckH], [half, L.deckH], [half, L.crankR * 1.15],
+              [wCase, L.crankR * 0.55], [wCase, yCase]);
+  }
+  const shape = new THREE.Shape();
+  shape.moveTo(prof[0][0], prof[0][1]);
+  for (let i = 1; i < prof.length; i++) shape.lineTo(prof[i][0], prof[i][1]);
+  shape.closePath();
+  const bgeo = new THREE.ExtrudeGeometry(shape, { depth:L.len, bevelEnabled:true,
+    bevelThickness:M(4), bevelSize:M(4), bevelSegments:1, curveSegments:1 });
+  bgeo.rotateY(Math.PI / 2);                 // extruded along Z; the block runs on X
+  bgeo.translate(-L.len / 2, 0, 0);
+  blockG.add(new THREE.Mesh(bgeo, MAT.alloy()));
+
+  /* the cylinder walls, which show once the block is cut away */
   for (const bank of L.bankAngles.keys()){
     const a = L.bankAngles[bank];
     const bg = group('bank');
-    const body = roundBox(L.len, blockH * 0.72, L.bore * 1.55, 0.02, MAT.alloy());
-    body.position.y = L.crankR * 0.7 + blockH * 0.36;
-    bg.add(body);
-    /* cylinder walls visible through the casting */
     for (let i = 0; i < e.cyl; i++){
       const s = cylSlot(e, i, L); if (s.bank !== bank) continue;
       const p = cylPosition(e, i, L);
@@ -123,9 +158,9 @@ function buildPiston(e, tree){
     bg.rotation.x = a;
     blockG.add(bg);
   }
-  /* crankcase / bedplate */
-  const cc = roundBox(L.len, L.crankR * 1.9, L.bore * 1.5, 0.02, MAT.alloyDark());
-  cc.position.y = -L.crankR * 0.35;
+  /* the sump rail and main-bearing bulkheads below the crank */
+  const cc = roundBox(L.len, L.crankR * 0.5, wCase * 2.0, 0.02, MAT.alloyDark());
+  cc.position.y = yCase + L.crankR * 0.22;
   blockG.add(cc);
   add('block', blockG);
 
@@ -423,27 +458,44 @@ function buildPiston(e, tree){
   add('oilpan', at(pan, 0, -L.crankR * 1.9, 0));
   add('oilfilter', at(oilFilterMesh(M(92), M(115), MAT.blue()), L.len*0.2, -L.crankR*0.9, L.bore*0.85));
 
+  /* A port lives on the head, so its position has to be rotated with the bank
+     it is cut into. Placing it in the untilted frame is what left the headers
+     starting in mid-air inside the vee instead of on the outside of the head. */
+  const bankSign = (b) => (L.bankAngles[b] || 0) >= 0 ? 1 : -1;
+  const portAt = (b, y, z) => {
+    const a = L.bankAngles[b] || 0;
+    return [y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+  };
+
   /* ---- induction ---- */
-  const inducY = L.deckH + L.bore * 1.95;
+  /* On a vee the manifold sits down in the valley between the heads. The deck
+     is measured along the bank axis, so its actual height above the crank is
+     deckH·cos(bank angle) — using deckH directly floated the plenum well clear
+     of the engine. */
+  const vAngle = Math.abs(L.bankAngles[0] || 0);
+  const inducY = L.banks >= 2 ? L.deckH * Math.cos(vAngle) * 1.04 + L.bore * 0.26
+                              : L.deckH + L.bore * 1.95;
   const intakeG = group('intake');
   /* a high-revving atmospheric engine runs individual throttles with a trumpet
      on each one; everything else runs a plenum and a single throttle body */
   const itb = e.aspiration === 'na' && e.redline >= 7600;
   if (!itb){
-    const plenum = roundBox(L.len * 0.8, L.bore * 0.5, L.bore * 0.7, 0.03, MAT.alloy());
+    const plenum = roundBox(L.len * 0.80, L.bore * 0.46,
+                           L.banks >= 2 ? L.bore * 1.25 : L.bore * 0.70, 0.03, MAT.alloy());
     at(plenum, 0, inducY, L.banks >= 2 ? 0 : -L.bore * 0.95);
     intakeG.add(plenum);
   }
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
-    const bank = L.banks >= 2 ? (cylSlot(e,i,L).bank ? 1 : -1) : 1;
-    const zHead = L.banks >= 2 ? bank * L.bore * 0.5 : -L.bore * 0.42;
-    const zEnd = itb ? zHead * 0.55 : (L.banks >= 2 ? 0 : -L.bore * 0.95);
+    const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
+    /* the inlet port is on the inner face of the head — the valley side */
+    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, -bankSign(b) * L.bore * 0.50);
+    const zEnd = itb ? pz * 0.55 : (L.banks >= 2 ? 0 : -L.bore * 0.95);
     const topY = itb ? L.deckH + L.bore * 1.62 : inducY;
     intakeG.add(pipe([
       [p.x, topY, zEnd],
-      [p.x, topY - L.bore * 0.24, zHead * 0.85],
-      [p.x, L.deckH + L.bore * 0.50, zHead],
+      [p.x, (topY + py) / 2, (zEnd + pz) / 2 * 1.25],
+      [p.x, py, pz],
     ], M(17), MAT.alloy(), 8));
     if (itb){
       /* the throttle body, and the bellmouth above it */
@@ -533,14 +585,18 @@ function buildPiston(e, tree){
   const exG = group('ex');
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
-    const side = L.banks >= 2 ? (cylSlot(e,i,L).bank ? 1 : -1) : 1;
-    const zH = L.banks >= 2 ? side * L.bore * 0.55 : L.bore * 0.5;
-    const collectorX = L.banks >= 2 ? 0 : L.len * 0.35;
+    const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
+    const side = L.banks >= 2 ? bankSign(b) : 1;
+    /* the exhaust port is on the outer face of the head; from there the
+       primary sweeps down the side of the block to a collector */
+    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, side * L.bore * 0.52);
+    const collectorX = L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
     exG.add(pipe([
-      [p.x, L.deckH + L.bore * 0.46, zH],
-      [p.x, L.deckH * 0.72, zH + side * L.bore * 0.45],
-      [(p.x + collectorX)/2, L.deckH * 0.5, side * L.bore * 0.95],
-      [collectorX, L.deckH * 0.42, side * L.bore * 1.0],
+      [p.x, py, pz],
+      [p.x, py - L.bore * 0.30, pz + side * L.bore * 0.36],
+      [p.x, L.deckH * 0.52, side * L.bore * 1.12],
+      [(p.x + collectorX) / 2, L.crankR * 0.9, side * L.bore * 1.20],
+      [collectorX, L.crankR * 0.5, side * L.bore * 1.20],
     ], M(16), MAT.hot(), 8));
   }
   /* the manifold bolts to a real port flange, not to thin air */
@@ -549,14 +605,22 @@ function buildPiston(e, tree){
                           L.len / Math.max(1, e.cyl / L.banks), M(11), MAT.iron());
     rot(fl, 0, 0, 0);
     fl.rotation.y = Math.PI / 2;
-    at(fl, 0, L.deckH + L.bore * 0.46, bk * L.bore * 0.76);
+    const bIdx = L.banks >= 2 ? (bk > 0 ? (bankSign(0) > 0 ? 0 : 1) : (bankSign(0) > 0 ? 1 : 0)) : 0;
+    const [fy, fz] = portAt(bIdx, L.deckH + L.bore * 0.34, bk * L.bore * 0.62);
+    fl.rotation.x = L.bankAngles[bIdx] || 0;
+    at(fl, 0, fy, fz);
     exG.add(fl);
   }
   add('exmanifold', exG);
-  const dp = pipe([[0, L.deckH*0.42, L.bore*1.0],[L.len*0.42, L.crankR, L.bore*1.35],
-                   [L.len*0.70, L.crankR*0.5, L.bore*1.35]], M(24), MAT.iron(), 10);
+  /* the downpipe picks up where the primaries collect, instead of starting
+     somewhere near it and leaving a gap */
+  const colX = L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
+  const colZ = L.bore * 1.20;
+  const dp = pipe([[colX, L.crankR * 0.5, colZ],
+                   [colX + L.len * 0.22, L.crankR * 0.3, colZ * 1.05],
+                   [colX + L.len * 0.42, L.crankR * 0.1, colZ * 1.05]], M(24), MAT.iron(), 10);
   add('exhaust', dp);
-  addPuffs(root, anim, new THREE.Vector3(L.len*0.72, L.crankR*0.5, L.bore*1.35), L.bore);
+  addPuffs(root, anim, new THREE.Vector3(colX + L.len*0.44, L.crankR*0.1, colZ*1.05), L.bore);
 
   /* ---- cooling / accessories ---- */
   /* the accessories all drive off one belt, so their pulleys have to land on
@@ -633,12 +697,23 @@ function buildPiston(e, tree){
     ['crksensor', frontX + M(10), -L.crankR*0.9, L.bore*0.6],
     ['mapsensor', 0, inducY + L.bore*0.30, L.banks>=2?L.bore*0.2:-L.bore*0.8],
     ['knock', 0, L.crankR*1.4, -L.bore*0.82],
-    ['o2', L.len*0.75, L.crankR*0.8, L.bore*1.35],
+    /* the lambda sensor screws into the collector, not into thin air */
+    ['o2', L.len * (L.banks >= 2 ? 0.30 : 0.35) + L.len * 0.10, L.crankR * 0.62, L.bore * 1.18],
   ];
   for (const [id,x,y,z] of sens) if (has(id)) add(id, at(cyl(M(11), M(11), M(46), MAT.plastic(), 10), x, y, z));
   if (has('ecu')){
-    const ecu = roundBox(M(190), M(45), M(150), .01, MAT.plastic());
-    add('ecu', at(ecu, -L.len*0.2, L.deckH + L.bore*2.25, -L.bore*1.5));
+    /* on a bracket off the side of the block, where one actually lives — it
+       was floating a bore and a half above the engine on nothing */
+    const eg = group('ecu');
+    const ez = -L.bore * 1.30, ey = L.deckH * 0.42;
+    eg.add(roundBox(M(190), M(45), M(150), .01, MAT.plastic()));
+    for (const dx of [-M(70), M(70)])                       // the mounting feet
+      eg.add(at(box(M(26), M(8), M(150), MAT.alloyDark()), dx, -M(27), 0));
+    eg.add(at(rot(box(M(150), M(10), M(70), MAT.alloyDark()), 0, 0, deg(-16)),
+              0, -M(52), M(46)));                           // the bracket to the block
+    eg.add(at(cyl(M(9), M(9), M(60), MAT.rubber(), 8), M(84), 0, -M(40))
+             .rotateZ(Math.PI / 2));                        // the loom leaving it
+    add('ecu', at(eg, -L.len * 0.18, ey, ez));
   }
   if (has('vvt')){
     const vg = group('vvt');
