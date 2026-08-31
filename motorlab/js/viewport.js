@@ -317,6 +317,7 @@ export class Viewport {
       if (!id) continue;
       if (h.object.visible === false) continue;
       if (!this.installed.has(id) && !this.bench.has(id) && !this.ghost) continue;
+      if (h.object.visible === false) continue;
       return h;
     }
     return null;
@@ -576,16 +577,31 @@ export class Viewport {
     if (!this.model) return;
     const ghostMat = this._ghostMat || (this._ghostMat = new THREE.MeshBasicMaterial({
       color:0x5d7ea8, wireframe:true, transparent:true, opacity:0.20 }));
+    /* An engine with a real model wears it as a shell over the generated one.
+       Rendering both leaves a scan and the machine it was scanned from in the
+       same cubic foot of space, tangled together. While the shell is on, it
+       is what you see; take it off and the whole teardown is underneath,
+       exactly as it was. */
+    const shelled = this.model.nodes.has('shell') && this.installed.has('shell');
+
     for (const [id, objs] of this.model.nodes){
       /* A part on the bench is off the machine but very much still in the
          room: it has to stay solid and visible, or picking one up would look
          like destroying it. */
       const inst = this.installed.has(id) || this.bench.has(id);
+      const under = shelled && id !== 'shell' && !this.bench.has(id);
       const sel  = this.selected === id;
       const hov  = this.hovered === id;
       const hl   = this.highlight.has(id);
       for (const root of objs) root.traverse(o => {
         if (!o.isMesh) return;
+        if (under){
+          /* under the shell, but still shown as a wireframe if ghosting is on,
+             so you can see what the skin is covering */
+          o.visible = this.ghost && !inst;
+          if (o.visible){ o.material = ghostMat; o.castShadow = false; }
+          return;
+        }
         if (!inst){
           o.visible = this.ghost;
           o.material = ghostMat;
