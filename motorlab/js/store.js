@@ -1,7 +1,7 @@
 /* MotorLab — application state, settings and persistence. */
 
 import { ENGINE_BY_ID } from './data/engines.js';
-import { VEHICLE_BY_ID } from './data/vehicles.js';
+import { VEHICLE_BY_ID, VEHICLES } from './data/vehicles.js';
 import { defaultTune } from './sim/ecu.js';
 import { buildPartTree } from './data/parts.js';
 import { modelFor } from './lib/importModel.js';
@@ -32,8 +32,12 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const state = {
-  engineId:'i4-20-t',
-  vehicleId:'coupe',
+  /* A Supra with a 2JZ in it: both of these are real models, and the first
+     thing anyone sees should be a real car rather than a shape derived from a
+     specification. The derived ones are still there for every machine that has
+     no scan — they are just not what the app opens on. */
+  engineId:'i6-30-legend',
+  vehicleId:'toyota-supra-a80',
   workspace:'garage',
   installed:{},            // engineId -> [partIds]
   vInstalled:{},           // vehicleId -> [partIds]
@@ -50,7 +54,10 @@ export const state = {
 /* ---- derived ---------------------------------------------------------- */
 const treeCache = new Map();
 export function engine(){ return ENGINE_BY_ID[state.engineId] || ENGINE_BY_ID['i4-20-t']; }
-export function vehicle(){ return VEHICLE_BY_ID[state.vehicleId] || VEHICLE_BY_ID['coupe']; }
+/* The offline build leaves out any vehicle it had no room for, so a saved
+   choice — or the default — can name one that is not in this copy. Fall back
+   to whatever is actually here rather than to a name that might not be. */
+export function vehicle(){ return VEHICLE_BY_ID[state.vehicleId] || VEHICLE_BY_ID['coupe'] || VEHICLES[0]; }
 
 export function tree(){
   const e = engine();

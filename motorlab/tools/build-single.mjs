@@ -121,6 +121,26 @@ for (const [rel, src] of candidates){
 }
 console.log(`  models: ${takenModels.length} of ${candidates.length} fit in ${budgetMB} MB `
             + `(${(spent/1048576).toFixed(1)} MB used)`);
+
+/* Every vehicle in this file is a real model or it is not in this file.
+ *
+ * The hosted app fetches a model when you pick its machine, so a car without
+ * one falls back to the generated body and that is the right thing to do. In
+ * the single file there is no fetching: whatever did not fit above would show
+ * as a generated body for ever. Rather than fill a catalogue of photographs
+ * with shapes derived from a specification, the ones whose model did not fit
+ * are left out of it. --keep-all turns that off.
+ */
+if (!process.argv.includes('--keep-all')){
+  const have = new Set(takenModels.filter(s => s.startsWith('veh-')).map(s => s.slice(4)));
+  for (const [rel] of candidates){
+    if (!rel.startsWith('models/veh-')) continue;
+    const id = rel.slice('models/veh-'.length, -'.glb'.length);
+    if (!have.has(id)) omit.push(id);
+  }
+  console.log(`  catalogue: ${have.size} vehicles kept, ${omit.length} left out `
+              + `(no room for their model)`);
+}
 for (const [k, v] of Object.entries(assets))
   console.log(`  asset ${k.padEnd(44)} ${(v.length / 1024 / 1024).toFixed(2)} MB inlined`);
 
