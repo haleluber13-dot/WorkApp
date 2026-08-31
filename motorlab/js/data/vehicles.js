@@ -83,7 +83,7 @@ const CATALOG = [
       brakeF:330, brakeR:330, cd:0.38, area:2.3, downforceKg:320, fuelL:70, seats:1,
       blurb:'Steel tube frame, live rear axle on trailing arms, and deliberate left-side weight bias for turning left at 300 km/h for four hours.' }),
 
-  V({ id:'nns', name:'NASCAR stock car (modelled)', body:'stockcar', model:'nns',
+  V({ id:'nns', name:'NASCAR stock car', maker:'Chevrolet', body:'stockcar',
       drivetrain:'RWD', bay:'front-longitudinal', suspF:'doublewishbone', suspR:'liveaxle',
       chassis:'tube frame', engines:['race-58-stock','v8-50-ohv','v8-70-bb','v8-62-sc'],
       massKg:1540, wheelbase:2780, trackF:1600, trackR:1600,
@@ -93,7 +93,7 @@ const CATALOG = [
       colour:0xc0392b,
       blurb:'Built from a real model rather than generated, so the bodywork comes apart the way the actual car does: front and rear clip, wheel arches, doors, roof, hood and boot each come off separately, over a welded tube frame with a live rear axle. Steel tube chassis, no driver aids, and a body shaped by a rulebook rather than a wind tunnel.' }),
 
-  V({ id:'koenigsegg', name:'Carbon hypercar (modelled)', maker:'Koenigsegg', body:'super', model:'koenigsegg',
+  V({ id:'koenigsegg', name:'Carbon hypercar', maker:'Koenigsegg', body:'super',
       drivetrain:'RWD', bay:'mid', suspF:'doublewishbone', suspR:'doublewishbone',
       chassis:'carbon monocoque', engines:['v8-40-tt','v8-52-flat','v12-65-na','v10-52-na','w16-80-qt'],
       massKg:1360, wheelbase:2660, trackF:1700, trackR:1735,
@@ -103,7 +103,7 @@ const CATALOG = [
       driveLoss:0.11, tyreMu:1.42, colour:0x9aa3ad,
       blurb:'Built from a real model, not generated. A carbon tub with the bodywork, exposed carbon aero, cabin, glass and lights each coming off separately. Mid-mounted engine, double wishbones at both ends, and enough carbon in the structure that the whole car weighs less than a family hatchback.' }),
 
-  V({ id:'concept', name:'Concept coupé (modelled)', body:'coupe', model:'carconcept',
+  V({ id:'concept', name:'Concept coupé', maker:'Nissan', body:'coupe',
       drivetrain:'AWD', bay:'front-longitudinal', suspF:'doublewishbone', suspR:'multilink',
       chassis:'bonded aluminium', engines:['v8-40-tt','v6-29-tt','i6-30-tt','v10-52-na','i4-20-t'],
       massKg:1780, wheelbase:2800, trackF:1950, trackR:1965,
@@ -338,7 +338,7 @@ const CATALOG = [
       cd:0.7, area:0.8, fuelL:18, seats:2, driveLoss:0.11, rakeDeg:30, trailMm:145,
       blurb:'Long wheelbase, 30° of rake, low seat. Belt final drive and an air-cooled 45° V-twin bolted rigidly into a steel backbone frame.' }),
 
-  V({ id:'harley', name:'Custom V-twin cruiser (modelled)', maker:'Harley-Davidson', class:'bike', body:'cruiser', model:'harley',
+  V({ id:'harley', name:'V-twin cruiser', maker:'Harley-Davidson', class:'bike', body:'cruiser',
       drivetrain:'belt', bay:'longitudinal-v', suspF:'tele-fork', suspR:'twin-shock',
       chassis:'steel backbone', engines:['m-vtwin-1200','m-ptwin-900'],
       massKg:310, wheelbase:1690, lengthMm:2500, widthMm:900, heightMm:1040,
