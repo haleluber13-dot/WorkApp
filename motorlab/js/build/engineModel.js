@@ -128,6 +128,13 @@ function buildPiston(e, tree){
   const blockG = group('block');
   const yCase = -L.crankR * 1.30;                       // pan rail
   const wCase = L.bore * 0.92;
+  /* How far out the engine actually reaches. A vee's heads are flung sideways
+     by the bank angle and a W's outer banks further still, so bolting an
+     accessory at a fixed fraction of the bore buried it in the casting on
+     everything except an inline four. Anything that lives outside the engine
+     is placed against this. */
+  const outerZ = Math.max(wCase,
+    ...L.bankAngles.map(a => Math.abs(Math.sin(a)) * L.deckH + L.bore * 0.62));
   /* The bores run across the extrusion direction, so they cannot be cut out of
      the block profile. Instead the cylinder case is its own piece, extruded
      along the bank axis with a hole per bore straight through it, and the
@@ -744,7 +751,7 @@ function buildPiston(e, tree){
   /* the filter screws into a boss on the block's flank, so it stands clear of
      it — you have to get a strap wrench round one */
   add('oilfilter', at(oilFilterMesh(M(92), M(115), MAT.blue()),
-                      L.len * 0.20, -L.crankR * 0.90, L.bore * 0.92 + M(64)));
+                      L.len * 0.20, -L.crankR * 0.90, outerZ + M(50)));
 
   /* Where each bank's primaries collect. On a turbocharged engine the turbine
      housing bolts straight onto this, so the turbo is positioned from it too —
@@ -877,8 +884,13 @@ function buildPiston(e, tree){
     const tg = group('turbos');
     /* size scales with how much air it has to move — a big single on a 2-litre
        is physically enormous next to a pair of small twins on a V8 */
-    const size = L.bore * (n === 1 ? 1.05 : n === 2 ? 0.82 : 0.62)
-               * (1 + (e.boostTarget || 0) * 0.18);
+    /* turboUnit() draws its housings out to size × 0.98, so the unit ends up
+       about 2 × size across. Real numbers: a 2.0-litre runs a compressor
+       housing about 130 mm in diameter, so size ≈ 65 mm — three quarters of an
+       86 mm bore, not one and a quarter of it. It was drawing a turbo half the
+       height of the engine it was bolted to. */
+    const size = L.bore * (n === 1 ? 0.72 : n === 2 ? 0.56 : 0.43)
+               * (1 + (e.boostTarget || 0) * 0.08);
     /* One turbo per front corner, turned out at forty-five degrees so the
        compressor looks forward into the air and the turbine looks back down
        the headers coming to meet it. The housings are then rolled so the
@@ -890,17 +902,22 @@ function buildPiston(e, tree){
       const side = perBank ? (i % 2 ? 1 : -1) : 1;
       const rank = perBank ? Math.floor(i / 2) - (n / 2 - 1) / 2 : i - (n - 1) / 2;
       const t = turboUnit(size);
+      /* Whatever else is true, the housings have to sit outside the engine.
+         The crankcase is bore × 0.92 either side of the crank and a vee's heads
+         reach half a bore further again; a turbo centred any closer than that
+         plus its own radius is buried in the block. */
+      const clearZ = outerZ + size * 1.10;
       const pos = frontTurbo
-        ? new THREE.Vector3(frontX - size * 0.62 + rank * size * 0.55,
+        ? new THREE.Vector3(frontX - size * 1.15 + rank * size * 0.55,
                             L.crankR * 0.95,
-                            side * (L.bore * 1.16 + size * 0.30))
+                            side * clearZ)
         : sideTurbo
         ? new THREE.Vector3(colX + rank * size * 1.35,
-                            L.deckH * 0.92 + size * 0.34,
-                            colZ + size * 0.78)
+                            L.deckH * 0.86 + size * 0.20,
+                            clearZ)
         : new THREE.Vector3(colX + L.len * 0.10 + rank * size * 1.55,
                             colY + size * 0.52,
-                            side * (colZ + size * 0.82));
+                            side * clearZ);
       at(t, pos.x, pos.y, pos.z);
       const P0 = t.userData.ports;
       const yaw = frontTurbo ? (side > 0 ? deg(-45) : deg(-135))
@@ -950,20 +967,33 @@ function buildPiston(e, tree){
        throttle body. Two hot pipes in, one cold pipe out — a second return
        would be two engines' worth of plumbing on one engine. The compressor
        inlets are left open on bellmouths, which is how these are built. */
-    const icY = frontTurbo ? -L.crankR * 0.55 : L.deckH * 0.30;
-    const icX = frontX - L.bore * (frontTurbo ? 1.05 : 1.30);
-    const icZ = L.bore * 1.55;
+    /* A front-mount intercooler is the front-most thing on the car: ahead of
+       the radiator, low, in clean air. It was sitting on top of the engine and
+       reaching back over the block, which is not where any of them live. */
+    const icY = L.crankR * 0.10;
+    const icX = frontX - L.bore * 4.60;
+    const icZ = L.bore * 1.70;
     const icG = group('ic');
-    icG.add(at(coreMesh(L.bore * (frontTurbo ? 2.40 : 2.90), L.bore * 0.90, M(84)), icX, icY, 0));
-    const inTank  = V3(icX + L.bore * 0.05,  icY + L.bore * 0.28,  icZ * 0.72);
-    const outTank = V3(icX + L.bore * 0.05,  icY + L.bore * 0.28, -icZ * 0.72);
+    icG.add(at(coreMesh(L.bore * 3.60, L.bore * 1.05, M(76)), icX, icY, 0));
+    const inTank  = V3(icX + L.bore * 0.05,  icY + L.bore * 0.34,  icZ * 0.86);
+    const outTank = V3(icX + L.bore * 0.05,  icY + L.bore * 0.34, -icZ * 0.86);
     for (const tb of turbos){
       const sgn = Math.sign(tb.pos.z) || 1;
-      /* the bellmouth on the compressor's mouth, square to the shaft */
+      /* The compressor draws through a hose from the airbox, so what is on its
+         mouth is an inlet stub and a hose clamp — not a trumpet. A bellmouth
+         the size of the housing reads as an air filter, and an engine with a
+         turbo does not have one sitting on the engine. */
       const axis = tb.coldIn.clone().sub(tb.pos).normalize();
-      const mouth = velocityStack(tb.axialTube * 2.1, tb.size * 0.34, MAT.alloy());
-      mouth.quaternion.setFromUnitVectors(V3(0, 1, 0), axis);
-      icG.add(at(mouth, tb.coldIn.x, tb.coldIn.y, tb.coldIn.z));
+      const stub = tubeMesh(tb.axialTube * 1.16, tb.axialTube * 0.98,
+                            tb.size * 0.34, MAT.alloy(), 20);
+      stub.quaternion.setFromUnitVectors(V3(0, 1, 0), axis);
+      icG.add(at(stub, tb.coldIn.x, tb.coldIn.y, tb.coldIn.z));
+      const boot = tubeMesh(tb.axialTube * 1.30, tb.axialTube * 1.10,
+                            tb.size * 0.16, MAT.rubber(), 18);
+      boot.quaternion.setFromUnitVectors(V3(0, 1, 0), axis);
+      icG.add(at(boot, tb.coldIn.x + axis.x * tb.size * 0.30,
+                       tb.coldIn.y + axis.y * tb.size * 0.30,
+                       tb.coldIn.z + axis.z * tb.size * 0.30));
       /* out of the compressor, round the front of the engine, into the core */
       icG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
                     [tb.coldOut.x - L.bore * 0.45,
@@ -1204,13 +1234,17 @@ function buildPiston(e, tree){
     beltRun.push({ y:L.deckH * 0.55, z:-L.bore * 0.4, r:wpSize * 0.42 });
   }
   if (has('radiator')){
+    /* A radiator is not bolted to the front of the engine. It is at the nose of
+       the car with the belt drive, the fan and a hand's width of air between
+       the two — this was standing nine millimetres off the block face, with the
+       fan cutting into the crank pulley. */
     const rad = group('rad');
     rad.add(coreMesh(L.bore * 3.9, L.deckH * 1.15, M(44), {}, 30));
     const fan = bladedWheel(L.deckH * 0.52, 7, M(52), MAT.black(), 0.7);
     rot(fan, 0, Math.PI/2, 0);
-    fan.position.x = M(56);
+    fan.position.x = M(56);                       // on the engine side of the core
     rad.add(fan); anim.fans.push(fan);
-    add('radiator', at(rad, frontX - L.bore * 1.15, L.deckH * 0.58, 0));
+    add('radiator', at(rad, frontX - L.bore * 3.10, L.deckH * 0.58, 0));
   }
   if (has('fins')){
     /* Air-cooled means the fin area IS the cooling system, and on a flat six it
@@ -1259,7 +1293,10 @@ function buildPiston(e, tree){
   const altSize = L.bore * 1.35;
   const alt = alternatorMesh(altSize);
   anim.pulleys.push({ node:alt.userData.pulley, ratio:2.6 });
-  add('alternator', at(alt, beltX + altSize * 0.56, L.deckH * 0.78, -L.bore * 0.92));
+  /* the alternator hangs off the front of the engine on its own bracket, out
+     past the widest point of the casting — not tucked into the vee */
+  add('alternator', at(alt, beltX + altSize * 0.56, L.deckH * 0.78,
+                       -(outerZ + altSize * 0.30)));
   beltRun.push({ y:L.deckH * 0.78, z:-L.bore * 0.92, r:altSize * 0.34 });
 
   /* an idler and a spring-loaded tensioner, which is what makes the run work */
@@ -1513,7 +1550,7 @@ function buildPiston(e, tree){
     add('waterpump', st);
     const pumpIn = V3(beltX + L.bore * 0.30, L.deckH * 0.36, -L.bore * 0.82);
     if (has('radiator')){
-      const radX = frontX - L.bore * 1.15;
+      const radX = frontX - L.bore * 3.10;      // where the core actually is
       add('radiator', hoseRun([statOut,
                                V3(statOut.x - L.bore * 0.55, L.deckH * 1.00, -L.bore * 0.55),
                                V3(radX + M(30), L.deckH * 1.02, -L.bore * 0.95)],
@@ -1570,9 +1607,9 @@ function buildPiston(e, tree){
        returned by two hoses off the block's gallery — the part the tree has
        been calling "filter & cooler" without ever drawing the cooler */
     const cool = coreMesh(L.bore * 1.30, L.bore * 0.72, M(52), { body:MAT.alloyDark() }, 14);
-    add('oilfilter', at(cool, L.len * 0.06, -L.crankR * 0.75, L.bore * 0.92 + M(78)));
-    const coolZ = L.bore * 0.92 + M(78);
-    add('oilfilter', hoseRun([V3(L.len * 0.20, -L.crankR * 0.90, L.bore * 0.92 + M(30)),
+    const coolZ = outerZ + L.bore * 0.55;
+    add('oilfilter', at(cool, L.len * 0.06, -L.crankR * 0.75, coolZ));
+    add('oilfilter', hoseRun([V3(L.len * 0.20, -L.crankR * 0.90, outerZ + M(20)),
                               V3(L.len * 0.16, -L.crankR * 0.72, coolZ),
                               V3(L.len * 0.06 + L.bore * 0.55, -L.crankR * 0.62, coolZ)],
                              L.bore * 0.055));
