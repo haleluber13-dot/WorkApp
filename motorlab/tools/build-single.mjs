@@ -6,7 +6,7 @@
  *     node motorlab/tools/build-single.mjs motorlab-offline.html
  */
 import * as esbuild from 'esbuild';
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve, dirname, join, relative } from 'path';
 
 const ROOT = process.env.MOTORLAB_ROOT || 'motorlab';
@@ -39,6 +39,11 @@ const arg = (name) => {
   return hit ? hit.slice(name.length + 3).split(',').filter(Boolean) : [];
 };
 const skip = arg('skip'), omit = arg('omit');
+/* The scanned surface maps ship at full detail for the hosted app, but every
+   byte of this build is inlined into one file with a size cap on it. When a
+   small copy of a map exists in assets/surfaces-lite/, use that instead — the
+   app still asks for ./assets/surfaces/<name>, so nothing in it has to know. */
+const liteTex = !process.argv.includes('--full-tex');
 
 /* inline every runtime asset so the single file needs no server at all */
 const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
@@ -49,9 +54,15 @@ function collect(dir, out = {}, base = dir){
     if (statSync(full).isDirectory()){ collect(full, out, base); continue; }
     const ext = name.slice(name.lastIndexOf('.'));
     if (!MIME[ext]) continue;
-    const rel = relative(`${ROOT}/assets`, full).split(/[\\/]/).join('/');
+    let rel = relative(`${ROOT}/assets`, full).split(/[\\/]/).join('/');
+    if (rel.startsWith('surfaces-lite/')) continue;          // reached via its full-tier twin
     if (skip.some(s => rel === s || rel.startsWith(s + '/'))) continue;
-    out['./assets/' + rel] = `data:${MIME[ext]};base64,` + readFileSync(full).toString('base64');
+    let src = full;
+    if (liteTex && rel.startsWith('surfaces/')){
+      const lite = join(`${ROOT}/assets`, 'surfaces-lite', rel.slice('surfaces/'.length));
+      if (existsSync(lite)) src = lite;
+    }
+    out['./assets/' + rel] = `data:${MIME[ext]};base64,` + readFileSync(src).toString('base64');
   }
   return out;
 }
