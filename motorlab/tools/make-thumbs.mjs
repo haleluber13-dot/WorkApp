@@ -162,10 +162,29 @@ for (let qi = 0; qi < queue.length; qi++){
     /* Did the real model actually arrive? If it did not, the app quietly draws
        the generated machine, which is right for the app and wrong for a
        catalogue picture — so say so rather than shipping the wrong photo. */
-    const got = await page.evaluate(async ([kind, id]) => {
+    let got = await page.evaluate(async ([kind, id]) => {
       const im = await import('./js/lib/importModel.js');
       return !im.hasBundled(kind, id) || !!im.rawModelFor(kind, id);
     }, [s.kind, s.id]);
+    if (!got){
+      /* The settle wait can come back before the fetch has finished — it is a
+         poll, and a poll can miss. Ask for the model outright and wait for the
+         answer before declaring it missing. */
+      got = await page.evaluate(async ([kind, id]) => {
+        const im = await import('./js/lib/importModel.js');
+        return !!(await im.ensureModel(kind, id));
+      }, [s.kind, s.id]).catch(() => false);
+      if (got){
+        await page.evaluate(() => {
+          const vp = globalThis.__motorlab.viewport;
+          vp.setGhost(false); vp.setWire(false); vp.setCutaway(false);
+          vp.setExplode(0); vp.frame();
+          vp.camera.position.lerpVectors(vp.controls.target, vp.camera.position, 0.70);
+          vp.camera.updateProjectionMatrix(); vp.controls.update();
+        });
+        await page.waitForTimeout(900);
+      }
+    }
     if (!got){
       /* one more go on a clean page before giving up on it, rather than
          quietly shipping a photo of the wrong car */
