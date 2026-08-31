@@ -92,10 +92,20 @@ function wall({ ctx, keyName, filters, items, render }){
   return h('div', null, h('div', { class:'wallbar' }, search, chips), grid);
 }
 
+/* The offline single file carries only the machines it has a real model for —
+ * a catalogue of photographs is worth nothing if half the photographs are of
+ * shapes derived from a specification. The hosted app shows everything,
+ * because there a model is one fetch away. */
+const scansOnly = () => !!globalThis.__MOTORLAB_SCANS_ONLY;
+const shown = (items, kind) =>
+  scansOnly() ? items.filter(x => hasBundled(kind, x.id)) : items;
+
 function renderVehicles(ctx, wrap){
-  add(wrap, para('Every machine in the catalogue. The picture is a render of the model the app will actually build, so what you see is what you get on the ramp.'));
+  add(wrap, para(scansOnly()
+    ? 'Every machine in this copy is a real 3D scan, photographed in three dimensions and credited in assets/models/CREDITS.md. The picture on each card is a render of that model.'
+    : 'Every machine in the catalogue. The picture is a render of the model the app will actually build, so what you see is what you get on the ramp.'));
   add(wrap, wall({
-    ctx, keyName:'vehWall', filters:VEHICLE_FILTERS, items:VEHICLES,
+    ctx, keyName:'vehWall', filters:VEHICLE_FILTERS, items:shown(VEHICLES, 'veh'),
     render:(v) => pickCard({
       kind:'veh', id:v.id, name:v.name, maker:v.maker || labelFor(v),
       line:`${v.drivetrain} · ${v.chassis}`,

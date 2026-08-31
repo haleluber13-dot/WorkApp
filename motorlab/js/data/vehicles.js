@@ -12,27 +12,27 @@ const V = (o) => Object.assign({
 }, o);
 
 const CATALOG = [
-  V({ id:'hatch', name:'Hot hatchback', body:'hatch', engines:['i4-16-na','i4-20-t','i4-20-vtec','d-i4-20'],
+  V({ id:'hatch', name:'Volkswagen Golf GTI (Mk4)', maker:'Volkswagen', body:'hatch', engines:['i4-16-na','i4-20-t','i4-20-vtec','d-i4-20'],
       massKg:1320, wheelbase:2620, trackF:1540, trackR:1520, lengthMm:4250, widthMm:1800, heightMm:1450,
       gears:[3.62,2.08,1.36,1.03,0.84,0.69], final:4.06, tyreF:225, tyreR:225, rimF:18, rimR:18,
       brakeF:340, brakeR:300, cd:0.33, area:2.15, fuelL:50,
       blurb:'Front-wheel drive, transverse engine, MacPherson struts up front and a torsion beam at the back. The most common performance-car layout on earth and the best place to learn why understeer happens.' }),
 
-  V({ id:'sedan', name:'Sports sedan', body:'sedan', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'sedan', name:'Audi A6 (C7)', maker:'Audi', body:'sedan', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'doublewishbone', suspR:'multilink', engines:['i6-30-tt','v6-29-tt','i4-20-t','v8-40-tt'],
       massKg:1720, wheelbase:2860, trackF:1600, trackR:1620, lengthMm:4750, widthMm:1870, heightMm:1440,
       gears:[5.25,3.36,2.17,1.72,1.32,1.00,0.82,0.64], final:3.15, tyreF:255, tyreR:275, rimF:19, rimR:19,
       brakeF:380, brakeR:360, cd:0.29, area:2.25, fuelL:65,
       blurb:'Longitudinal engine, gearbox behind it, propshaft to a limited-slip differential. Double wishbones front, multilink rear — the classic recipe for a car that steers with the throttle.' }),
 
-  V({ id:'coupe', name:'Rear-drive sports coupe', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'coupe', name:'Nissan 200SX (S14)', maker:'Nissan', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'doublewishbone', suspR:'multilink', engines:['i6-30-legend','f4-25-t','v8-50-ohv','i4-20-vtec','rotary-13b-t'],
       massKg:1380, wheelbase:2570, trackF:1520, trackR:1550, lengthMm:4380, widthMm:1790, heightMm:1290,
       gears:[3.63,2.19,1.54,1.21,1.00,0.79], final:3.73, tyreF:235, tyreR:265, rimF:18, rimR:18,
       brakeF:355, brakeR:330, cd:0.28, area:2.0, fuelL:55, seats:4,
       blurb:'Light, short-wheelbase, rear-drive. Weight distribution near 50:50 and a limited-slip diff — this is the car every drift and track lesson is built around.' }),
 
-  V({ id:'super', name:'Mid-engine supercar', body:'super', drivetrain:'RWD', bay:'mid',
+  V({ id:'super', name:'Mercedes-AMG One', maker:'Mercedes-AMG', body:'super', drivetrain:'RWD', bay:'mid',
       suspF:'doublewishbone', suspR:'doublewishbone', chassis:'carbon monocoque',
       engines:['v10-52-na','v12-65-na','v8-52-flat','f6-30-t','v8-40-tt'],
       massKg:1480, wheelbase:2700, trackF:1670, trackR:1650, lengthMm:4550, widthMm:1990, heightMm:1160,
@@ -40,14 +40,14 @@ const CATALOG = [
       brakeF:398, brakeR:380, cd:0.34, area:1.95, downforceKg:180, fuelL:80, seats:2,
       blurb:'Engine behind the driver, ahead of the rear axle — the lowest possible polar moment of inertia. Pushrod-actuated inboard dampers and real aerodynamic downforce.' }),
 
-  V({ id:'awd-rally', name:'AWD rally car', body:'rally', drivetrain:'AWD', bay:'front-transverse',
+  V({ id:'awd-rally', name:'Toyota GR Yaris Rally1', maker:'Toyota', body:'rally', drivetrain:'AWD', bay:'front-transverse',
       suspF:'macpherson', suspR:'macpherson', engines:['race-20-rally','i5-25-t','f4-25-t','i4-20-t'],
       massKg:1230, wheelbase:2600, trackF:1600, trackR:1600, lengthMm:4180, widthMm:1875, heightMm:1440,
       gears:[2.92,2.07,1.59,1.28,1.06,0.88], final:4.11, tyreF:225, tyreR:225, rimF:18, rimR:18,
       brakeF:355, brakeR:305, cd:0.36, area:2.2, fuelL:60,
       blurb:'Three differentials, 300 mm of suspension travel and a centre diff you can bias from the cockpit. Long-travel struts and a welded roll cage doing structural work.' }),
 
-  V({ id:'pickup', name:'Heavy-duty pickup', body:'pickup', drivetrain:'AWD', bay:'front-longitudinal',
+  V({ id:'pickup', name:'Ford F-150 Raptor', maker:'Ford', body:'pickup', drivetrain:'AWD', bay:'front-longitudinal',
       suspF:'doublewishbone', suspR:'liveaxle', chassis:'ladder frame',
       engines:['d-i6-67','d-v8-66','v8-62-sc','v8-50-ohv'],
       massKg:3400, wheelbase:3680, trackF:1740, trackR:1780, lengthMm:6120, widthMm:2050, heightMm:2020,
@@ -55,35 +55,35 @@ const CATALOG = [
       brakeF:380, brakeR:380, cd:0.42, area:3.6, fuelL:130, driveLoss:0.19,
       blurb:'Body-on-frame: a ladder chassis carrying a live rear axle on leaf springs. Everything is sized for towing loads, not for corner speed.' }),
 
-  V({ id:'semi', name:'Class-8 truck tractor', body:'semi', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'semi', name:'Peterbilt 6x6', maker:'Peterbilt', body:'semi', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'liveaxle', suspR:'airbag', chassis:'ladder frame', engines:['d-i6-67','d-v8-66'],
       massKg:8200, wheelbase:4300, trackF:2050, trackR:1850, lengthMm:6800, widthMm:2550, heightMm:3900,
       gears:[12.8,8.9,6.5,4.7,3.4,2.5,1.8,1.35,1.0,0.74], final:3.42, tyreF:315, tyreR:295, rimF:22, rimR:22,
       brakeF:430, brakeR:430, cd:0.62, area:9.5, fuelL:900, driveLoss:0.22, seats:2,
       blurb:'Air suspension, air brakes, a ten-speed range-splitter gearbox and an engine tuned for 1,000,000 km between rebuilds rather than for peak power.' }),
 
-  V({ id:'drift', name:'Drift-spec coupe', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'drift', name:'JDM drift coupe', maker:'Drift', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'macpherson', suspR:'multilink', engines:['i6-30-legend','v8-50-ohv','rotary-20b','i4-20-t'],
       massKg:1250, wheelbase:2570, trackF:1560, trackR:1580, lengthMm:4400, widthMm:1820, heightMm:1290,
       gears:[3.32,1.90,1.31,1.00,0.75], final:4.08, tyreF:235, tyreR:265, rimF:18, rimR:18,
       brakeF:330, brakeR:310, cd:0.31, area:2.0, fuelL:60, seats:2, steerAngle:65,
       blurb:'Welded or two-way locked differential, hydraulic handbrake, and modified steering knuckles for 65° of lock. Built to hold a slide, not to set a lap time.' }),
 
-  V({ id:'formula', name:'Open-wheel formula car', body:'formula', drivetrain:'RWD', bay:'mid',
+  V({ id:'formula', name:'Ferrari F1 (2019)', maker:'Ferrari', body:'formula', drivetrain:'RWD', bay:'mid',
       suspF:'pushrod', suspR:'pushrod', chassis:'carbon monocoque', engines:['race-16-v6h','i4-20-vtec','race-58-stock'],
       massKg:798, wheelbase:3600, trackF:1600, trackR:1550, lengthMm:5600, widthMm:2000, heightMm:950,
       gears:[2.85,2.12,1.72,1.44,1.23,1.07,0.94,0.83], final:3.10, tyreF:305, tyreR:405, rimF:18, rimR:18,
       brakeF:278, brakeR:266, cd:0.90, area:1.5, downforceKg:1400, fuelL:110, seats:1, driveLoss:0.09, tyreMu:1.75,
       blurb:'Carbon monocoque, inboard pushrod suspension, and more downforce than the car weighs at speed. The engine is a stressed member — the gearbox bolts to it and the rear suspension bolts to the gearbox.' }),
 
-  V({ id:'stockcar', name:'Oval stock car', body:'stockcar', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'stockcar', name:'Late-model stock car', maker:'Stock car', body:'stockcar', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'doublewishbone', suspR:'liveaxle', chassis:'tube frame', engines:['race-58-stock','v8-50-ohv','v8-70-bb'],
       massKg:1540, wheelbase:2790, trackF:1600, trackR:1600, lengthMm:5000, widthMm:1900, heightMm:1300,
       gears:[2.66,1.78,1.30,1.00], final:3.90, tyreF:305, tyreR:305, rimF:15, rimR:15,
       brakeF:330, brakeR:330, cd:0.38, area:2.3, downforceKg:320, fuelL:70, seats:1,
       blurb:'Steel tube frame, live rear axle on trailing arms, and deliberate left-side weight bias for turning left at 300 km/h for four hours.' }),
 
-  V({ id:'nns', name:'NASCAR stock car', maker:'Chevrolet', body:'stockcar',
+  V({ id:'nns', name:'NASCAR Chevrolet Monte Carlo', maker:'Chevrolet', body:'stockcar',
       drivetrain:'RWD', bay:'front-longitudinal', suspF:'doublewishbone', suspR:'liveaxle',
       chassis:'tube frame', engines:['race-58-stock','v8-50-ohv','v8-70-bb','v8-62-sc'],
       massKg:1540, wheelbase:2780, trackF:1600, trackR:1600,
@@ -93,7 +93,7 @@ const CATALOG = [
       colour:0xc0392b,
       blurb:'Built from a real model rather than generated, so the bodywork comes apart the way the actual car does: front and rear clip, wheel arches, doors, roof, hood and boot each come off separately, over a welded tube frame with a live rear axle. Steel tube chassis, no driver aids, and a body shaped by a rulebook rather than a wind tunnel.' }),
 
-  V({ id:'koenigsegg', name:'Carbon hypercar', maker:'Koenigsegg', body:'super',
+  V({ id:'koenigsegg', name:'Koenigsegg Jesko', maker:'Koenigsegg', body:'super',
       drivetrain:'RWD', bay:'mid', suspF:'doublewishbone', suspR:'doublewishbone',
       chassis:'carbon monocoque', engines:['v8-40-tt','v8-52-flat','v12-65-na','v10-52-na','w16-80-qt'],
       massKg:1360, wheelbase:2660, trackF:1700, trackR:1735,
@@ -103,7 +103,7 @@ const CATALOG = [
       driveLoss:0.11, tyreMu:1.42, colour:0x9aa3ad,
       blurb:'Built from a real model, not generated. A carbon tub with the bodywork, exposed carbon aero, cabin, glass and lights each coming off separately. Mid-mounted engine, double wishbones at both ends, and enough carbon in the structure that the whole car weighs less than a family hatchback.' }),
 
-  V({ id:'concept', name:'Concept coupé', maker:'Nissan', body:'coupe',
+  V({ id:'concept', name:'Nissan Z Proto', maker:'Nissan', body:'coupe',
       drivetrain:'AWD', bay:'front-longitudinal', suspF:'doublewishbone', suspR:'multilink',
       chassis:'bonded aluminium', engines:['v8-40-tt','v6-29-tt','i6-30-tt','v10-52-na','i4-20-t'],
       massKg:1780, wheelbase:2800, trackF:1950, trackR:1965,
@@ -312,7 +312,7 @@ const CATALOG = [
       brakeF:340, brakeR:326, cd:0.35, area:2.16, fuelL:60, seats:5, colour:0x1f4fa8,
       blurb:'A flat four slung low over the front axle, a centre differential you can lock by hand, and a helical limited-slip at the front with a Torsen at the back. The boxer layout is the point: the crankshaft sits barely above the sump, so the whole car’s centre of gravity comes down with it.' }),
 
-  V({ id:'dragster', name:'Top-fuel dragster', body:'dragster', drivetrain:'RWD', bay:'mid',
+  V({ id:'dragster', name:'Top-fuel dragster', maker:'Drag racing', body:'dragster', drivetrain:'RWD', bay:'mid',
       suspF:'none', suspR:'solid', chassis:'chromoly tube', engines:['race-82-nitro','v8-62-sc'],
       massKg:1050, wheelbase:7600, trackF:600, trackR:2200, lengthMm:9000, widthMm:2400, heightMm:1000,
       gears:[1.00], final:3.20, tyreF:100, tyreR:430, rimF:18, rimR:16,
@@ -320,7 +320,7 @@ const CATALOG = [
       blurb:'No gearbox — a multi-stage slipper clutch is the transmission. Seven and a half metres of chromoly, a wing making three tonnes of downforce, and four seconds of engine life per run.' }),
 
   /* ---- motorcycles ---- */
-  V({ id:'sportbike', name:'Litre-class superbike', class:'bike', body:'sportbike', drivetrain:'chain',
+  V({ id:'sportbike', name:'Kawasaki Ninja H2', maker:'Kawasaki', class:'bike', body:'sportbike', drivetrain:'chain',
       bay:'transverse', suspF:'usd-fork', suspR:'swingarm-monoshock', chassis:'twin-spar aluminium',
       engines:['m-i4-1000','m-v4-1100','m-triple-765'],
       massKg:200, wheelbase:1420, trackF:0, trackR:0, lengthMm:2070, widthMm:710, heightMm:1140,
@@ -329,7 +329,7 @@ const CATALOG = [
       cd:0.58, area:0.6, fuelL:17, seats:1, driveLoss:0.10, rakeDeg:24, trailMm:100,
       blurb:'Twin-spar aluminium frame using the engine as a stressed member. Rake, trail and swingarm length are the only chassis tuning you get — and they change everything.' }),
 
-  V({ id:'cruiser', name:'V-twin cruiser', class:'bike', body:'cruiser', drivetrain:'belt',
+  V({ id:'cruiser', name:'Softail cruiser', maker:'Cruiser', class:'bike', body:'cruiser', drivetrain:'belt',
       bay:'longitudinal-v', suspF:'tele-fork', suspR:'twin-shock', chassis:'steel backbone',
       engines:['m-vtwin-1200','m-ptwin-900'],
       massKg:295, wheelbase:1630, lengthMm:2340, widthMm:900, heightMm:1120,
@@ -338,7 +338,7 @@ const CATALOG = [
       cd:0.7, area:0.8, fuelL:18, seats:2, driveLoss:0.11, rakeDeg:30, trailMm:145,
       blurb:'Long wheelbase, 30° of rake, low seat. Belt final drive and an air-cooled 45° V-twin bolted rigidly into a steel backbone frame.' }),
 
-  V({ id:'harley', name:'V-twin cruiser', maker:'Harley-Davidson', class:'bike', body:'cruiser',
+  V({ id:'harley', name:'Harley-Davidson Sportster', maker:'Harley-Davidson', class:'bike', body:'cruiser',
       drivetrain:'belt', bay:'longitudinal-v', suspF:'tele-fork', suspR:'twin-shock',
       chassis:'steel backbone', engines:['m-vtwin-1200','m-ptwin-900'],
       massKg:310, wheelbase:1690, lengthMm:2500, widthMm:900, heightMm:1040,
@@ -348,7 +348,7 @@ const CATALOG = [
       colour:0x8f1410,
       blurb:'A scanned custom build rather than a generated one: raked front end, narrow 21-inch front wheel, fat rear, and every chromed piece exactly where the builder put it. Strip it down to the backbone frame and the V-twin, then put the tank, the chrome and the wheels back on.' }),
 
-  V({ id:'adv', name:'Adventure tourer', class:'bike', body:'adv', drivetrain:'shaft',
+  V({ id:'adv', name:'Honda Africa Twin', maker:'Honda', class:'bike', body:'adv', drivetrain:'shaft',
       bay:'boxer', suspF:'usd-fork', suspR:'single-sided', chassis:'steel trellis',
       engines:['m-flat2-1200','m-ptwin-900','m-triple-765'],
       massKg:250, wheelbase:1520, lengthMm:2210, widthMm:950, heightMm:1420,
@@ -357,7 +357,7 @@ const CATALOG = [
       cd:0.68, area:0.85, fuelL:25, seats:2, driveLoss:0.12, rakeDeg:26, trailMm:116,
       blurb:'Long-travel suspension, shaft final drive and a flat-twin slung low. Built to carry luggage across a continent and still climb a gravel pass.' }),
 
-  V({ id:'mx', name:'Motocross bike', class:'bike', body:'mx', drivetrain:'chain',
+  V({ id:'mx', name:'Honda CRF450R', maker:'Honda', class:'bike', body:'mx', drivetrain:'chain',
       bay:'transverse', suspF:'usd-fork', suspR:'linkage-monoshock', chassis:'aluminium perimeter',
       engines:['m-single-450'],
       massKg:110, wheelbase:1485, lengthMm:2190, widthMm:825, heightMm:1270,
@@ -366,7 +366,7 @@ const CATALOG = [
       cd:0.75, area:0.7, fuelL:7, seats:1, driveLoss:0.11, rakeDeg:27, trailMm:118, travelMm:310,
       blurb:'310 mm of suspension travel at both ends, a linkage rear shock with high- and low-speed compression adjusters, and a 450 single that will loft the front wheel in third.' }),
 
-  V({ id:'kart', name:'Shifter kart', class:'kart', body:'kart', drivetrain:'chain', bay:'side',
+  V({ id:'kart', name:'Shifter kart', maker:'Karting', class:'kart', body:'kart', drivetrain:'chain', bay:'side',
       suspF:'none', suspR:'none', chassis:'tube frame', engines:['m-single-450'],
       massKg:165, wheelbase:1050, trackF:1200, trackR:1400, lengthMm:1900, widthMm:1400, heightMm:600,
       gears:[2.30,1.85,1.55,1.33,1.15,1.00], final:2.50, primary:1.0,

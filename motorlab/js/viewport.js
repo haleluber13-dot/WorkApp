@@ -582,14 +582,15 @@ export class Viewport {
        same cubic foot of space, tangled together. While the shell is on, it
        is what you see; take it off and the whole teardown is underneath,
        exactly as it was. */
-    const shelled = this.model.nodes.has('shell') && this.installed.has('shell');
+    const shellId = this.model.shellId;
+    const shelled = !!shellId && this.installed.has(shellId);
 
     for (const [id, objs] of this.model.nodes){
       /* A part on the bench is off the machine but very much still in the
          room: it has to stay solid and visible, or picking one up would look
          like destroying it. */
       const inst = this.installed.has(id) || this.bench.has(id);
-      const under = shelled && id !== 'shell' && !this.bench.has(id);
+      const under = shelled && id !== shellId && !this.bench.has(id);
       const sel  = this.selected === id;
       const hov  = this.hovered === id;
       const hl   = this.highlight.has(id);

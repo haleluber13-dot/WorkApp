@@ -1964,6 +1964,8 @@ function finalize(e, root, nodes, anim, L){
   anim.homePos = root.position.clone();
   return {
     root, nodes, anim, home, bounds, layout:L,
+    /* the imported model, when there is one, stands in for the whole engine */
+    shellId: nodes.has('shell') ? 'shell' : null,
     partIds: [...nodes.keys()],
     setExplode(f){
       for (const [id, objs] of nodes) for (const o of objs){

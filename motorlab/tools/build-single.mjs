@@ -166,7 +166,7 @@ const out = `<title>MotorLab</title>
 ${css}
 </style>
 ${body}
-<script>window.__MOTORLAB_OMIT=${JSON.stringify(omit)};window.__MOTORLAB_LAND=${land};window.__MOTORLAB_FEED=${feed};window.__MOTORLAB_ASSETS=${JSON.stringify(assets)};</script>
+<script>window.__MOTORLAB_OMIT=${JSON.stringify(omit)};window.__MOTORLAB_SCANS_ONLY=${JSON.stringify(!process.argv.includes('--keep-all'))};window.__MOTORLAB_LAND=${land};window.__MOTORLAB_FEED=${feed};window.__MOTORLAB_ASSETS=${JSON.stringify(assets)};</script>
 <script>
 ${js}
 </script>

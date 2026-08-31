@@ -34,8 +34,9 @@ const MIME = { '.html':'text/html', '.js':'text/javascript', '.mjs':'text/javasc
   '.hdr':'application/octet-stream', '.webmanifest':'application/json' };
 
 const argv = process.argv.slice(2);
-const only = argv.filter(a => !a.startsWith('--'));
 const kindOnly = argv.includes('--only') ? argv[argv.indexOf('--only') + 1] : null;
+/* --only takes a value, so the word after it is not a subject id */
+const only = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--only');
 const force = argv.includes('--force');
 
 mkdirSync(OUT, { recursive: true });

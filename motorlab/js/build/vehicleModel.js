@@ -360,7 +360,7 @@ function buildCar(v, tree){
     add('lights', at(roundBox(M(50), M(95), M(210), .02, MAT.red()), -len*0.425, floorY + hgt*0.35, s*wid*0.27));
   }
 
-  return finalize(root, nodes, anim, v);
+  return finalize(root, nodes, anim, v, imported ? 'body' : null);
 }
 
 /* ----------------------------------------------------------------------
@@ -1146,11 +1146,11 @@ function buildBike(v, tree){
     bd.add(at(rot(cyl(M(18), M(18), M(680), MAT.black(), 10), Math.PI/2, 0, 0), headX + M(60), headY + M(120), 0));
     add('body', bd);
   }
-  return finalize(root, nodes, anim, v);
+  return finalize(root, nodes, anim, v, imported ? 'body' : null);
 }
 
 /* ====================================================================== */
-function finalize(root, nodes, anim, v){
+function finalize(root, nodes, anim, v, shellId = null){
   const home = new Map();
   for (const [id, objs] of nodes) for (const o of objs){
     home.set(o, o.position.clone());
@@ -1159,6 +1159,10 @@ function finalize(root, nodes, anim, v){
   const bounds = boundsOf(root);
   return {
     root, nodes, anim, home, bounds,
+    /* which part, if any, is a real model standing in for the whole machine.
+       While it is fitted it is what you see; take it off and the teachable
+       version underneath is all still there. */
+    shellId,
     partIds:[...nodes.keys()],
     setExplode(f){
       for (const [, objs] of nodes) for (const o of objs){
