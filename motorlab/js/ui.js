@@ -110,8 +110,12 @@ export function slider({ label, min, max, step = 1, value, format = (v)=>v, onIn
   return h('div', { class:'slrow' }, h('label', { text:label }), input, out);
 }
 export function toggle(label, value, onChange){
-  const b = h('button', { class:'btn' + (value ? ' btn--pri' : ''), onclick:() => onChange(!value) }, value ? 'On' : 'Off');
-  return h('div', { class:'slrow' }, h('label', { text:label }), h('span', { style:{ flex:'1' } }), b);
+  const b = h('button', { class:'btn btn--sm' + (value ? ' btn--pri' : ''),
+                          onclick:() => onChange(!value) }, value ? 'On' : 'Off');
+  /* its own row rather than a slider row: a setting's name is a sentence, not
+     a 118-pixel column, and wrapping it into three lines beside a switch is
+     how a settings page becomes unreadable */
+  return h('div', { class:'tglrow' }, h('label', { text:label }), b);
 }
 
 /* ---- charts ----------------------------------------------------------- */

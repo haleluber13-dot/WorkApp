@@ -430,20 +430,24 @@ export class Viewport {
     if (this.benchNode || !this.model) return;
     const b = new THREE.Box3().setFromObject(this.model.root);
     const size = b.getSize(new THREE.Vector3());
-    const w = Math.max(size.x, size.z) * 0.62, d = w * 0.62, t = w * 0.022;
+    /* Deliberately low and off to one side. A bench at working height, beside
+       an engine, is nearly as big as the engine and sits between it and the
+       camera — so the thing you came to look at ends up behind a slab. This
+       one is knee height and stands clear. */
+    const w = Math.max(size.x, size.z) * 0.52, d = w * 0.58, t = w * 0.018;
+    const legH = Math.max(0.12, size.y * 0.20);
     const g = new THREE.Group();
-    const wood = new THREE.MeshStandardMaterial({ color:0x2a3242, roughness:0.72, metalness:0.05 });
-    const steel = new THREE.MeshStandardMaterial({ color:0x39445c, roughness:0.45, metalness:0.7 });
+    const wood = new THREE.MeshStandardMaterial({ color:0x232b39, roughness:0.78, metalness:0.04 });
+    const steel = new THREE.MeshStandardMaterial({ color:0x2f394d, roughness:0.5, metalness:0.65 });
     const top = new THREE.Mesh(new THREE.BoxGeometry(w, t, d), wood);
     top.receiveShadow = true;
     g.add(top);
-    const legH = Math.max(0.35, b.min.y + size.y * 0.28);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]){
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(t * 1.2, legH, t * 1.2), steel);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(t * 1.3, legH, t * 1.3), steel);
       leg.position.set(sx * (w/2 - t), -legH/2 - t/2, sz * (d/2 - t));
       g.add(leg);
     }
-    g.position.set(0, this._benchY() + legH, b.max.z + d * 0.85);
+    g.position.set(-size.x * 0.10, this._benchY() + legH, b.max.z + d * 0.80);
     g.userData.benchTopY = g.position.y + t / 2;
     g.userData.benchW = w; g.userData.benchD = d;
     g.visible = false;

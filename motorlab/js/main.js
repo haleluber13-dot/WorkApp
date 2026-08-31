@@ -433,6 +433,7 @@ function showHelp(){
     section('In the 3D view',
       kv('Left-drag', 'orbit'), kv('Scroll / pinch', 'zoom'), kv('Right-drag', 'pan'),
       kv('Click a part', 'select it and open the actions menu'),
+      kv('Press and hold a part', 'take it off and put it on the bench'),
       kv('Right-click a part', 'actions menu directly'),
       kv('X / C / G / L / W / F', 'explode · cutaway · ghost · labels · wireframe · frame'),
       kv('1–9', 'jump between workspaces')),

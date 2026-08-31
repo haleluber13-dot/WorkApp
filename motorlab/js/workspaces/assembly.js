@@ -378,18 +378,22 @@ export function renderPanel(ctx, kind, tab){
   const wrap = h('div');
 
   if (tab === 'inspect') return renderInspector(ctx, kind, wrap);
+  if (tab === 'bench')   return renderBench(ctx, kind, wrap);
   if (tab === 'guide')   return renderGuide(ctx, kind, wrap);
   if (tab === 'ref')     return renderReference(ctx, kind, wrap);
 
   /* --- parts list --- */
   const total = M.tree.parts.length, on = M.tree.parts.filter(p => inst.has(p.id)).length;
   const step = nextStep(kind);
+  const onBench = benchedIds(kind).map(id => M.tree.byId[id]).filter(Boolean);
   add(wrap,
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:'Build progress' }),
         chip(`${on}/${total}`, on === total ? 'ok' : '')),
       bar(on/total, on === total ? 'ok' : ''),
       h('div', { class:'note', html:step.msg, style:{ marginTop:'8px' } }),
+      h('div', { class:'tiny muted', style:{ marginTop:'6px' },
+        text:'Press and hold any part in the 3D view to take it off and set it down on the bench.' }),
       h('div', { class:'btnrow', style:{ marginTop:'8px' } },
         step.kind === 'install' ? btn('Fit it for me', { class:'btn--pri', onClick:() => doInstall(ctx, kind, step.id) }) : null,
         step.kind === 'torque'  ? btn('Torque it', { class:'btn--pri', onClick:() => openTorqueDrill(ctx, kind, step.id) }) : null,
@@ -527,6 +531,34 @@ function renderInspector(ctx, kind, wrap){
     on ? btn('Remove', { onClick:() => doRemove(ctx, kind, p.id), disabled:!canRemove(M.tree, inst, p.id) })
        : btn('Install', { class:'btn--pri', onClick:() => doInstall(ctx, kind, p.id), disabled:!canInstall(M.tree, inst, p.id) }),
     btn('Zoom to it', { onClick:() => ctx.viewport.focusPart(p.id) })));
+  return wrap;
+}
+
+/* ---- what is on the bench -------------------------------------------- */
+function renderBench(ctx, kind, wrap){
+  const M = model(kind);
+  const ids = benchedIds(kind).filter(id => M.tree.byId[id]);
+  if (!ids.length){
+    add(wrap, note('Nothing on the bench. <b>Press and hold</b> any part in the 3D view and it comes off in your hand — drag it clear, let go, and it stays where you put it.'));
+    return wrap;
+  }
+  add(wrap, para(`${ids.length} part${ids.length > 1 ? 's' : ''} off the machine and set down. Tap one to read it; put it back and it goes straight to where it belongs.`));
+  for (const id of ids){
+    const p = M.tree.byId[id];
+    add(wrap, h('div', { class:'urow' },
+      partPic(ctx, kind, id),
+      h('div', { class:'urow__t' },
+        h('div', { class:'card__t', text:p.name }),
+        h('div', { class:'card__b', text:p.teach.slice(0, 130) + (p.teach.length > 130 ? '…' : '') })),
+      h('div', { class:'urow__c' },
+        btn('Read it', { class:'btn--sm', onClick:() => {
+          setSelected(id); ctx.viewport.select(id); ctx.setTab('inspect'); } }),
+        btn('Put it back', { class:'btn--sm', onClick:() => returnPart(ctx, kind, id) }))));
+  }
+  add(wrap, h('div', { class:'btnrow' },
+    btn('Put everything back', { onClick:() => {
+      for (const id of ids) returnPart(ctx, kind, id);
+    } })));
   return wrap;
 }
 
