@@ -13,7 +13,34 @@
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { assetUrl, setAssetBase } from './assets.js';
+
+/* Every bundled model is Draco-compressed, because geometry is nearly all of
+ * a model's weight and Draco takes it to about an eighth. That is what lets
+ * the offline single file carry the whole catalogue instead of ten of it.
+ *
+ * DRACOLoader normally fetches its decoder from a directory path, which is no
+ * use in a build where every asset is a data: URI. _loadLibrary is the one
+ * place it does that, so it is the one place to redirect: both forms of the
+ * app then find the decoder wherever that copy of the app keeps its assets.
+ */
+let draco = null;
+function dracoLoader(){
+  if (draco) return draco;
+  draco = new DRACOLoader();
+  draco._loadLibrary = (name, responseType) => new Promise((res, rej) => {
+    const f = new THREE.FileLoader();
+    f.setResponseType(responseType === 'arraybuffer' ? 'arraybuffer' : 'text');
+    f.load(assetUrl('draco/' + name), res, undefined, rej);
+  });
+  return draco;
+}
+
+/** A loader that can read the models we ship. */
+function gltfLoader(){
+  return new GLTFLoader().setDRACOLoader(dracoLoader());
+}
 
 /* kind is 'veh' or 'eng'; the value is { group, name, triangles, meshes } */
 export const models = { veh:new Map(), eng:new Map() };
@@ -180,6 +207,10 @@ export function hasBundled(kind, id){
  * parses — must not be retried on every rebuild, or the app spins on it
  * instead of falling back to the generated model. One attempt per session. */
 const failed = new Set();
+const errors = new Map();
+
+/** Why this subject's model did not load, if it did not. */
+export function modelError(kind, id){ return errors.get(`${kind}:${id}`) || null; }
 
 /** Is there a model to wait for: on file, not in memory, not already tried? */
 export function modelPending(kind, id){
@@ -200,12 +231,21 @@ export function ensureModel(kind, id){
   const job = (async () => {
     try {
       const r = await grab(assetUrl('models/' + rec.file));
-      if (!r) { failed.add(k); return null; }
+      if (!r) throw new Error('could not be fetched');
       const out = await loadGLB(kind, id, await r.arrayBuffer(), rec.file, { persist:false });
       bundled.add(k);
       touch(kind, id);
       return out;
-    } catch { failed.add(k); return null; }
+    } catch (err) {
+      /* Falling back to the generated machine is the right behaviour and it
+         looks like nothing went wrong, which is how a third of the catalogue
+         once shipped as the wrong thing without anyone noticing. Say so. */
+      failed.add(k);
+      errors.set(k, String(err?.message || err));
+      console.warn(`MotorLab: the model for ${k} did not load — ${errors.get(k)}. `
+                 + 'Showing the generated machine instead.');
+      return null;
+    }
     finally { inFlight.delete(k); }
   })();
   inFlight.set(k, job);
@@ -216,7 +256,7 @@ export function ensureModel(kind, id){
 export function loadGLB(kind, id, arrayBuffer, fileName = 'model.glb', opts = {}){
   return new Promise((resolve, reject) => {
     if (!models[kind]) return reject(new Error('Unknown model kind: ' + kind));
-    new GLTFLoader().parse(arrayBuffer, '', (gltf) => {
+    gltfLoader().parse(arrayBuffer, '', (gltf) => {
       const g = gltf.scene || gltf.scenes?.[0];
       if (!g) return reject(new Error('That file has no scene in it.'));
       let meshes = 0, tris = 0;

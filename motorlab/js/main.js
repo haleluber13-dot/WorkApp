@@ -9,7 +9,7 @@ import { buildVehicle } from './build/vehicleModel.js';
 import { buildScannedVehicle, setLivery, liveriesFor } from './build/scannedVehicle.js';
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
-import { restoreModels, loadManifest, ensureModel, modelPending } from './lib/importModel.js';
+import { restoreModels, loadManifest, ensureModel, modelPending, modelError } from './lib/importModel.js';
 import { loadTextures } from './lib/textures.js';
 import { loadPartModels, partCredits } from './lib/partModels.js';
 
@@ -51,7 +51,11 @@ async function boot(){
     .then(() => { if (currentModel){ currentModel = null; reloadModel(); } });
 
   viewport = new Viewport($('#gl'), $('#labels'));
-  globalThis.__motorlab = { viewport, ctx };        // a handle for tooling and tests
+  /* a handle for tooling and tests — the single-file build has no module URLs
+     to import, so anything that wants to look inside it has to come through
+     here */
+  globalThis.__motorlab = { viewport, ctx, state,
+    models: { ensureModel, modelPending, loadManifest, modelError } };
   viewport.onPick = (id, hit, ev) => {
     const ws = current();
     if (ws.onPick) ws.onPick(ctx, id, hit, ev);

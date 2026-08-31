@@ -47,7 +47,13 @@ const liteTex = !process.argv.includes('--full-tex');
 
 /* inline every runtime asset so the single file needs no server at all */
 const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
-               '.glb':'model/gltf-binary', '.hdr':'image/vnd.radiance' };
+               '.glb':'model/gltf-binary', '.hdr':'image/vnd.radiance',
+               /* the Draco decoder every bundled model needs */
+               '.wasm':'application/wasm', '.js':'text/javascript',
+               /* and the manifest that says which models exist at all: without
+                  it every subject falls back to the generated machine, which
+                  is exactly what this build was doing */
+               '.json':'application/json' };
 /* The models that earn their place first when there is not room for all of
  * them: one per marque people will look for by name, then the engines that
  * teach the most distinct layouts. Everything not named here still competes

@@ -136,5 +136,15 @@ bpy.ops.export_scene.gltf(
     filepath=dst, export_format='GLB', export_apply=True, export_yup=True,
     export_image_format='JPEG', export_jpeg_quality=quality,
     export_normals=True, export_tangents=False,
-    export_draco_mesh_compression_enable=False)
+    # Geometry is nearly all of what is left once the textures are small, and
+    # float32 positions are a wasteful way to say where a bumper is to the
+    # nearest tenth of a millimetre. Quantised and Draco-coded it is about an
+    # eighth the size, for a shape nobody can tell apart at this scale.
+    export_draco_mesh_compression_enable=True,
+    export_draco_mesh_compression_level=6,
+    export_draco_position_quantization=12,
+    export_draco_normal_quantization=8,
+    export_draco_texcoord_quantization=10,
+    export_draco_color_quantization=8,
+    export_draco_generic_quantization=8)
 print('MLTINY verts %d -> %d, tris %d -> %d' % (before, len(me.vertices), total, min(total, tris)))
