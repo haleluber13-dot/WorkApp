@@ -34,12 +34,61 @@ export function preferGenerated(kind, id){ return !!generated()[`${kind}:${id}`]
  *  the generated one. */
 export function modelFor(kind, id){
   if (preferGenerated(kind, id)) return null;
-  return models[kind]?.get(id) || null;
+  const rec = models[kind]?.get(id) || null;
+  if (rec) touch(kind, id);
+  return rec;
 }
 
 /** The model regardless of that preference, for anything that needs to know
  *  whether one exists at all. */
 export function rawModelFor(kind, id){ return models[kind]?.get(id) || null; }
+
+/* ---- keeping only as many as will fit ---------------------------------
+ *
+ * A real model is a few megabytes of triangles and, more to the point,
+ * several dozen textures sitting on the graphics card. Browsing the catalogue
+ * loads one after another and nothing ever let go of them, so after a couple
+ * of dozen machines the next glTF simply fails to parse — quietly, with the
+ * app falling back to the generated one, which looks like nothing at all went
+ * wrong. So the ones the user is not looking at are let go of properly:
+ * dropping the reference is not enough, textures and geometry have to be
+ * disposed by hand or the driver keeps them.
+ */
+const MAX_RESIDENT = 6;
+const recent = [];                     // `${kind}:${id}`, most recent last
+const bundled = new Set();             // only what we fetched; imports stay
+
+function disposeGroup(g){
+  g.traverse(o => {
+    if (!o.isMesh) return;
+    o.geometry?.dispose?.();
+    for (const m of (Array.isArray(o.material) ? o.material : [o.material])){
+      if (!m) continue;
+      for (const k of Object.keys(m)){
+        const v = m[k];
+        if (v && v.isTexture) v.dispose();
+      }
+      m.dispose?.();
+    }
+  });
+}
+
+function touch(kind, id){
+  const k = `${kind}:${id}`;
+  const at = recent.indexOf(k);
+  if (at >= 0) recent.splice(at, 1);
+  recent.push(k);
+  while (recent.length > MAX_RESIDENT){
+    const old = recent.shift();
+    if (!bundled.has(old)) continue;          // a model the user imported stays
+    const [ok, oid] = [old.slice(0, old.indexOf(':')), old.slice(old.indexOf(':') + 1)];
+    const rec = models[ok]?.get(oid);
+    if (!rec) continue;
+    disposeGroup(rec.group);
+    models[ok].delete(oid);
+    bundled.delete(old);
+  }
+}
 export function hasModels(){ return models.veh.size + models.eng.size > 0; }
 export function listModels(){
   const out = [];
@@ -152,7 +201,10 @@ export function ensureModel(kind, id){
     try {
       const r = await grab(assetUrl('models/' + rec.file));
       if (!r) { failed.add(k); return null; }
-      return await loadGLB(kind, id, await r.arrayBuffer(), rec.file, { persist:false });
+      const out = await loadGLB(kind, id, await r.arrayBuffer(), rec.file, { persist:false });
+      bundled.add(k);
+      touch(kind, id);
+      return out;
     } catch { failed.add(k); return null; }
     finally { inFlight.delete(k); }
   })();
@@ -186,8 +238,14 @@ export function loadGLB(kind, id, arrayBuffer, fileName = 'model.glb', opts = {}
 }
 
 export function clearModel(kind, id){
+  const k = key(kind, id);
+  const rec = models[kind]?.get(id);
+  if (rec) disposeGroup(rec.group);
   models[kind]?.delete(id);
-  idbDel(key(kind, id)).catch(() => {});
+  bundled.delete(k);
+  const at = recent.indexOf(k);
+  if (at >= 0) recent.splice(at, 1);
+  idbDel(k).catch(() => {});
 }
 
 /** Fit an imported model to a real size: match its length, sit it on the ground.

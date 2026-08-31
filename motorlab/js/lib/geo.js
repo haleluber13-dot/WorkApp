@@ -1255,6 +1255,21 @@ export function scrollHousing(rHub, rOuter, width, mat, opts = {}){
  *  Shaft along Z, turbine at −Z, compressor at +Z. */
 export function turboUnit(size, mats = {}){
   const g = group('turbo');
+  /* Clocking.
+   *
+   * A turbo is three castings on one axis, and the two outer ones turn
+   * relative to the middle one — that is how the same turbo fits a hundred
+   * different engines. What does NOT turn is the bearing housing: its oil feed
+   * is on top and its drain is on the bottom, and the drain works by gravity,
+   * so a bearing housing rolled over with its volutes is a turbo that would
+   * fill its own exhaust with oil.
+   *
+   * So the housings live in here and the core does not. The caller turns
+   * `userData.clock` to aim the compressor outlet wherever the charge pipe has
+   * to leave, and the oil fittings stay where physics needs them.
+   */
+  const clock = group('clock');
+  g.add(clock);
   const hot = mats.hot || MAT.hot(), cold = mats.cold || MAT.alloy();
   const zT = -size * 0.44, zC = size * 0.44;   // turbine side, compressor side
 
@@ -1263,13 +1278,13 @@ export function turboUnit(size, mats = {}){
     const sc = scrollHousing(hubR, outR, w, m,
                              { hand, turns:0.94, minTube:w * 0.22, maxTube:w * 0.62 });
     sc.position.z = z;
-    g.add(sc);
+    clock.add(sc);
     /* the wheel shroud: the housing wall that wraps the blade tips */
     const shroud = lathe([[hubR * 1.02, -w * 0.42], [hubR * 1.02, w * 0.30],
                           [hubR * 0.70, w * 0.44], [hubR * 0.44, w * 0.44]], m, 40);
     rot(shroud, Math.PI / 2, 0, 0);
     shroud.position.z = z;
-    g.add(shroud);
+    clock.add(shroud);
     return sc.userData.throat;
   };
   const tThroat = build(zT, hot,  1, size * 0.52, size * 0.98, size * 0.50);
@@ -1281,13 +1296,13 @@ export function turboUnit(size, mats = {}){
     const x = Math.cos(a) * r, y = Math.sin(a) * r;
     const tx = -Math.sin(a), ty = Math.cos(a);        // tangential, at the throat
     const p = pipe([[x, y, z], [x + tx * len, y + ty * len, z]], throat.tube * 0.92, m, 14);
-    g.add(p);
+    clock.add(p);
     const face = new THREE.Vector3(x + tx * len, y + ty * len, z);
     /* the flange on the end of it, square to the pipe */
     const fl = cyl(throat.tube * 1.20, throat.tube * 1.20, size * 0.05, m, 18);
     rot(fl, 0, 0, a);                       // cylinder axis Y, turned onto the tangent
     at(fl, x + tx * len, y + ty * len, z);
-    g.add(fl);
+    clock.add(fl);
     for (let i = 0; i < 4; i++){            // and its bolts
       const b = hexPrism(throat.tube * 0.26, size * 0.05, MAT.plated());
       const ph = (i / 4) * TAU + Math.PI / 4;
@@ -1296,7 +1311,7 @@ export function turboUnit(size, mats = {}){
       b.position.set(x + tx * len + tx * 0 + (-Math.sin(a)) * 0 + Math.cos(a) * Math.cos(ph) * rr,
                      y + ty * len + Math.sin(a) * Math.cos(ph) * rr,
                      z + Math.sin(ph) * rr);
-      g.add(b);
+      clock.add(b);
     }
     return face;
   };
@@ -1311,12 +1326,12 @@ export function turboUnit(size, mats = {}){
                       [size * 0.38, -size * 0.34], [size * 0.46, -size * 0.34],
                       [size * 0.46, -size * 0.40], [size * 0.30, -size * 0.40]], hot, 26);
   rot(tOut, Math.PI / 2, 0, 0); tOut.position.z = zT - size * 0.14;
-  g.add(tOut);
+  clock.add(tOut);
   const cIn = lathe([[size * 0.32, 0], [size * 0.36, size * 0.10],
                      [size * 0.36, size * 0.32], [size * 0.44, size * 0.32],
                      [size * 0.44, size * 0.38], [size * 0.28, size * 0.38]], cold, 26);
   rot(cIn, Math.PI / 2, 0, 0); cIn.position.z = zC + size * 0.14;
-  g.add(cIn);
+  clock.add(cIn);
 
   /* --- the bearing housing between them, with its oil feed and drain --- */
   const chra = lathe([
@@ -1338,10 +1353,10 @@ export function turboUnit(size, mats = {}){
   /* --- the bolt rings that hold each housing to the bearing housing ---- */
   for (const [z, r, m, n] of [[zT + size * 0.24, size * 0.40, hot, 6],
                               [zC - size * 0.24, size * 0.38, cold, 6]]){
-    g.add(at(lathe([[r * 0.86, -size * 0.03], [r, -size * 0.03],
-                    [r, size * 0.03], [r * 0.86, size * 0.03]], m, 30)
-             .rotateX(Math.PI / 2), 0, 0, z));
-    g.add(at(boltCircle(r * 0.94, n, size * 0.09, size * 0.055, MAT.plated(), 'xy'), 0, 0, z));
+    clock.add(at(lathe([[r * 0.86, -size * 0.03], [r, -size * 0.03],
+                        [r, size * 0.03], [r * 0.86, size * 0.03]], m, 30)
+                 .rotateX(Math.PI / 2), 0, 0, z));
+    clock.add(at(boltCircle(r * 0.94, n, size * 0.09, size * 0.055, MAT.plated(), 'xy'), 0, 0, z));
   }
 
   /* --- the wastegate: the actuator canister, its rod, and the arm on the
@@ -1356,16 +1371,16 @@ export function turboUnit(size, mats = {}){
   wg.add(can);
   wg.add(at(cyl(wgR * 0.30, wgR * 0.30, size * 0.10, MAT.plated(), 12), 0, 0, -size * 0.11));
   wg.add(at(cyl(size * 0.05, size * 0.05, size * 0.12, MAT.rubber(), 10), 0, wgR * 0.62, size * 0.06));
-  g.add(at(wg, size * 0.74, size * 0.36, zC - size * 0.02));
+  clock.add(at(wg, size * 0.74, size * 0.36, zC - size * 0.02));
   /* the rod, running back to the arm on the turbine housing */
-  g.add(pipe([[size * 0.74, size * 0.36, zC - size * 0.13],
-              [size * 0.72, size * 0.44, zT + size * 0.30],
-              [size * 0.66, size * 0.52, zT + size * 0.14]], size * 0.028, MAT.plated(), 8));
-  g.add(at(rot(box(size * 0.16, size * 0.05, size * 0.03, MAT.plated()), 0, 0, deg(-30)),
-           size * 0.60, size * 0.50, zT + size * 0.14));
+  clock.add(pipe([[size * 0.74, size * 0.36, zC - size * 0.13],
+                  [size * 0.72, size * 0.44, zT + size * 0.30],
+                  [size * 0.66, size * 0.52, zT + size * 0.14]], size * 0.028, MAT.plated(), 8));
+  clock.add(at(rot(box(size * 0.16, size * 0.05, size * 0.03, MAT.plated()), 0, 0, deg(-30)),
+               size * 0.60, size * 0.50, zT + size * 0.14));
   /* and the bracket that holds the canister off the cover */
-  g.add(at(rot(box(size * 0.30, size * 0.04, size * 0.03, MAT.steel()), 0, 0, deg(14)),
-           size * 0.60, size * 0.28, zC + size * 0.02));
+  clock.add(at(rot(box(size * 0.30, size * 0.04, size * 0.03, MAT.steel()), 0, 0, deg(14)),
+               size * 0.60, size * 0.28, zC + size * 0.02));
 
   /* --- the rotating assembly ------------------------------------------- */
   const shaft = group('shaft');
@@ -1382,6 +1397,7 @@ export function turboUnit(size, mats = {}){
                .rotateX(Math.PI / 2), 0, 0, 0));
   g.add(shaft);
   g.userData.shaft = shaft;
+  g.userData.clock = clock;
   g.userData.ports = {
     turbineIn, compressorOut,
     turbineOut:   new THREE.Vector3(0, 0, zT - size * 0.40),

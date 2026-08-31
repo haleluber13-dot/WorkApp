@@ -931,18 +931,26 @@ function buildPiston(e, tree){
         : sideTurbo
         ? Math.PI - Math.atan2(P0.compressorOut.y, P0.compressorOut.x)
         : deg(-120) - Math.atan2(P0.turbineIn.y, P0.turbineIn.x);
-      t.rotation.set(0, yaw, roll);
+      /* Only the housings are clocked. The bearing housing between them keeps
+         its oil feed on top and its drain underneath, because the drain is
+         gravity-fed — rolling it over with the volutes is what made the turbo
+         look like it had been dropped in sideways. */
+      t.rotation.set(0, yaw, 0);
+      t.userData.clock.rotation.z = roll;
       anim.turbos.push(t.userData.shaft);
       tg.add(t);
-      /* the housings are placed in the turbo's own frame, so put its four
-         connections back into the engine's before anything joins onto them */
-      const turn = new THREE.Euler(0, yaw, roll);
-      const world = (v) => v.clone().applyEuler(turn).add(pos);
+      /* the housings are placed in the turbo's own frame, so put its
+         connections back into the engine's before anything joins onto them.
+         The hot and cold ports ride the clock; the oil ports do not. */
+      const spin = new THREE.Euler(0, yaw, 0);
+      const clocked = (v) => v.clone().applyEuler(new THREE.Euler(0, 0, roll)).applyEuler(spin).add(pos);
+      const fixed = (v) => v.clone().applyEuler(spin).add(pos);
       const P = t.userData.ports;
       turbos.push({ pos, side, size,
-                    hotIn: world(P.turbineIn), hotOut: world(P.turbineOut),
-                    coldOut: world(P.compressorOut), coldIn: world(P.compressorIn),
-                    oilIn: world(P.oilIn), oilOut: world(P.oilOut), wgSignal: world(P.wgSignal),
+                    hotIn: clocked(P.turbineIn), hotOut: clocked(P.turbineOut),
+                    coldOut: clocked(P.compressorOut), coldIn: clocked(P.compressorIn),
+                    oilIn: fixed(P.oilIn), oilOut: fixed(P.oilOut),
+                    wgSignal: clocked(P.wgSignal),
                     hotTube:P.hotTube, coldTube:P.coldTube, axialTube:P.axialTube });
     }
     add('turbo', tg);
@@ -1584,13 +1592,31 @@ function buildPiston(e, tree){
      the engine has to be dipped and filled */
   for (const tb of turbos){
     if (has('turbo')){
-      add('turbo', braidedLine([V3(L.len * 0.22, L.crankR * 0.30, tb.side * caseZ),
-                                V3(L.len * 0.30, tb.oilIn.y + L.bore * 0.35, tb.side * (caseZ + L.bore * 0.30)),
+      /* The feed is a braided line off a gallery boss on the block, and it
+         ends on the top of the bearing housing. The drain is a fat hose off
+         the bottom of the same housing into the side of the sump, and it has
+         to fall the whole way — a turbo drains by gravity, so a drain that
+         loops up anywhere is a turbo that smokes. Both ends land on something:
+         a boss on the block, a flange on the pan. */
+      const feedAt = V3(L.len * 0.22, L.crankR * 0.30, tb.side * caseZ);
+      add('turbo', at(rot(cyl(M(11), M(11), M(20), MAT.plated(), 12), 0, 0, Math.PI / 2),
+                      feedAt.x, feedAt.y, feedAt.z + tb.side * M(9)));
+      add('turbo', braidedLine([feedAt,
+                                V3(L.len * 0.30, tb.oilIn.y + L.bore * 0.35,
+                                   tb.side * (caseZ + L.bore * 0.30)),
                                 tb.oilIn], M(5)));
+      add('turbo', at(hexPrism(M(13), M(11), MAT.plated()), tb.oilIn.x, tb.oilIn.y, tb.oilIn.z));
+
+      /* the drain flange, on the sump wall below and inboard of the turbo */
+      const drainAt = V3(tb.oilOut.x - L.len * 0.06, -L.crankR * 1.42, tb.side * L.bore * 0.58);
       add('turbo', hoseRun([tb.oilOut,
-                            V3(tb.oilOut.x - L.len * 0.10, -L.crankR * 1.20, tb.oilOut.z * 0.72),
-                            V3(L.len * 0.10, -L.crankR * 1.55, tb.side * L.bore * 0.70)],
-                           L.bore * 0.075));
+                            V3((tb.oilOut.x + drainAt.x) / 2,
+                               (tb.oilOut.y + drainAt.y) / 2,
+                               (tb.oilOut.z + drainAt.z) / 2 + tb.side * L.bore * 0.06),
+                            drainAt], L.bore * 0.075));
+      add('turbo', at(rot(cyl(L.bore * 0.13, L.bore * 0.13, M(10), MAT.alloyDark(), 16),
+                          Math.PI / 2, 0, 0),
+                      drainAt.x, drainAt.y, drainAt.z));
     }
     if (has('wastegate'))
       add('wastegate', hoseRun([tb.wgSignal,
