@@ -118,9 +118,11 @@ function renderVehicles(ctx, wrap){
 }
 
 function renderEngines(ctx, wrap){
-  add(wrap, para('Every engine in the catalogue. Choosing one rebuilds its 3D model, its part tree, its torque specs and its tuning tables from the specification.'));
+  add(wrap, para(scansOnly()
+    ? 'Every engine in this copy is a real 3D scan. Choosing one rebuilds its part tree, its torque specs and its tuning tables from the specification — take the scan off and the teachable engine is underneath it.'
+    : 'Every engine in the catalogue. Choosing one rebuilds its 3D model, its part tree, its torque specs and its tuning tables from the specification.'));
   add(wrap, wall({
-    ctx, keyName:'engWall', filters:ENGINE_FILTERS, items:ENGINES,
+    ctx, keyName:'engWall', filters:ENGINE_FILTERS, items:shown(ENGINES, 'eng'),
     render:(e) => pickCard({
       kind:'eng', id:e.id, name:e.name, maker:e.maker,
       line:summaryLine(e),

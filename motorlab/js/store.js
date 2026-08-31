@@ -1,6 +1,6 @@
 /* MotorLab — application state, settings and persistence. */
 
-import { ENGINE_BY_ID } from './data/engines.js';
+import { ENGINE_BY_ID, ENGINES } from './data/engines.js';
 import { VEHICLE_BY_ID, VEHICLES } from './data/vehicles.js';
 import { defaultTune } from './sim/ecu.js';
 import { buildPartTree } from './data/parts.js';
@@ -53,7 +53,7 @@ export const state = {
 
 /* ---- derived ---------------------------------------------------------- */
 const treeCache = new Map();
-export function engine(){ return ENGINE_BY_ID[state.engineId] || ENGINE_BY_ID['i4-20-t']; }
+export function engine(){ return ENGINE_BY_ID[state.engineId] || ENGINE_BY_ID['i4-20-t'] || ENGINES[0]; }
 /* The offline build leaves out any vehicle it had no room for, so a saved
    choice — or the default — can name one that is not in this copy. Fall back
    to whatever is actually here rather than to a name that might not be. */
