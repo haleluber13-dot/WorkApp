@@ -13,6 +13,7 @@
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { assetUrl, setAssetBase } from './assets.js';
 
 /* kind is 'veh' or 'eng'; the value is { group, name, triangles, meshes } */
 export const models = { veh:new Map(), eng:new Map() };
@@ -74,44 +75,69 @@ export async function restoreModels(){
   return n;
 }
 
-/** Load the models that ship with the app.
+/** The manifest of models that ship with the app.
  *
- *  These are declared in assets/models/manifest.json by the import-model tool,
- *  which refuses to bundle anything without a recorded licence and credit. They
- *  load before the browser's own imports, so a model you bring yourself always
- *  wins over a bundled one for the same vehicle or engine.
+ *  Only the manifest is read at start-up — it is a few kilobytes. The models
+ *  themselves are several megabytes each and there are dozens of them, so
+ *  fetching the lot before the first frame meant the app never got to one.
+ *  Each is pulled when its vehicle or engine is actually selected.
  */
-export async function loadBundledModels(base = ''){
-  let n = 0;
-  /* A model is several megabytes, so its fetch is the one most likely to be cut
-     off — a reload part-way through start-up will do it. One retry costs
-     nothing and turns a silently missing model into a loaded one. */
-  const grab = async (u) => {
-    for (let i = 0; i < 2; i++){
-      try { const r = await fetch(u); if (r.ok) return r; }
-      catch { /* retry once */ }
-    }
-    return null;
-  };
+let manifest = null;
+
+const grab = async (u) => {
+  /* a multi-megabyte fetch is the one most likely to be cut off — a reload
+     part-way through will do it — and losing it silently is worse than a retry */
+  for (let i = 0; i < 2; i++){
+    try { const r = await fetch(u); if (r.ok) return r; }
+    catch { /* retry once */ }
+  }
+  return null;
+};
+export async function loadManifest(base = ''){
+  setAssetBase(base);
   try {
-    const inlined = globalThis.__MOTORLAB_ASSETS;
-    const url = (p) => inlined?.['./assets/' + p] || `${base}./assets/${p}`;
-    const res = await grab(url('models/manifest.json'));
-    if (!res) return 0;
-    const man = await res.json();
-    for (const [target, rec] of Object.entries(man.models || {})){
-      const i = target.indexOf(':');
-      const kind = target.slice(0, i), id = target.slice(i + 1);
-      if (!models[kind] || models[kind].has(id)) continue;
-      try {
-        const r = await grab(url('models/' + rec.file));
-        if (!r) continue;
-        await loadGLB(kind, id, await r.arrayBuffer(), rec.file, { persist:false });
-        n++;
-      } catch { /* one bad model must not stop the rest */ }
-    }
-  } catch { /* no manifest is the normal case */ }
-  return n;
+    const res = await grab(assetUrl('models/manifest.json'));
+    manifest = res ? (await res.json()).models || {} : {};
+  } catch { manifest = {}; }
+  return Object.keys(manifest).length;
+}
+
+/** Is there a model on file for this subject, loaded or not? */
+export function hasBundled(kind, id){
+  return !!(manifest && manifest[`${kind}:${id}`]);
+}
+
+/* A fetch that failed — offline, a truncated response, a file that no longer
+ * parses — must not be retried on every rebuild, or the app spins on it
+ * instead of falling back to the generated model. One attempt per session. */
+const failed = new Set();
+
+/** Is there a model to wait for: on file, not in memory, not already tried? */
+export function modelPending(kind, id){
+  const k = `${kind}:${id}`;
+  return hasBundled(kind, id) && !models[kind]?.get(id) && !failed.has(k);
+}
+
+/** Make sure this subject's model is in memory, fetching it if need be.
+ *  Resolves to the record, or null if there is nothing to fetch. */
+const inFlight = new Map();
+export function ensureModel(kind, id){
+  const have = models[kind]?.get(id);
+  if (have) return Promise.resolve(have);
+  const rec = manifest?.[`${kind}:${id}`];
+  if (!rec) return Promise.resolve(null);
+  const k = `${kind}:${id}`;
+  if (inFlight.has(k)) return inFlight.get(k);
+  const job = (async () => {
+    try {
+      const r = await grab(assetUrl('models/' + rec.file));
+      if (!r) { failed.add(k); return null; }
+      return await loadGLB(kind, id, await r.arrayBuffer(), rec.file, { persist:false });
+    } catch { failed.add(k); return null; }
+    finally { inFlight.delete(k); }
+  })();
+  inFlight.set(k, job);
+  return job;
 }
 
 /** Parse a .glb/.gltf ArrayBuffer and file it against one vehicle or engine. */

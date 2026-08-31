@@ -1,5 +1,6 @@
 /* Engine Bay & Chassis — both are the same teardown workspace on different trees. */
-import { renderPanel, openMenu, getSelected, setSelected, nextStep } from './assembly.js';
+import { renderPanel, openMenu, getSelected, setSelected, nextStep,
+         liftPart, dropPart, restoreBench } from './assembly.js';
 import { engine, vehicle, installedSet, vInstalledSet, tree, vTree, tune, fitted, U, state } from '../store.js';
 import { simulate, emptyMods } from '../sim/engineSim.js';
 import { applyUpgrades } from '../data/upgrades.js';
@@ -15,6 +16,9 @@ export const engineWs = {
   onPick:(ctx, id, hit, ev) => { if (!id) return; setSelected(id); ctx.viewport.select(id);
     if (ev?.detail !== 0) openMenu(ctx, 'engine', id, ev); ctx.setTab('inspect'); },
   onContext:(ctx, id, hit, ev) => id && openMenu(ctx, 'engine', id, ev),
+  onLift:(ctx, id) => liftPart(ctx, 'engine', id),
+  onDrop:(ctx, id) => dropPart(ctx, 'engine', id),
+  onModel:(ctx) => restoreBench(ctx, 'engine'),
   labelFor:(id) => { const p = tree().byId[id]; return p ? { name:p.name, installed:installedSet().has(id) } : null; },
   hud:() => {
     const e = engine(), inst = installedSet(), t = tree();
@@ -40,6 +44,9 @@ export const chassisWs = {
   onPick:(ctx, id, hit, ev) => { if (!id) return; setSelected(id); ctx.viewport.select(id);
     if (ev?.detail !== 0) openMenu(ctx, 'vehicle', id, ev); ctx.setTab('inspect'); },
   onContext:(ctx, id, hit, ev) => id && openMenu(ctx, 'vehicle', id, ev),
+  onLift:(ctx, id) => liftPart(ctx, 'vehicle', id),
+  onDrop:(ctx, id) => dropPart(ctx, 'vehicle', id),
+  onModel:(ctx) => restoreBench(ctx, 'vehicle'),
   labelFor:(id) => { const p = vTree().byId[id]; return p ? { name:p.name, installed:vInstalledSet().has(id) } : null; },
   hud:() => {
     const v = vehicle(), inst = vInstalledSet(), t = vTree();

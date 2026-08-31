@@ -1,45 +1,167 @@
-/* Garage — pick the machine and the engine that goes in it. */
+/* Garage — pick the machine and the engine that goes in it.
+ *
+ * You pick by looking. A dropdown of forty names tells you nothing about what
+ * a car is; a wall of photographs with the three numbers that matter under
+ * each one tells you almost everything, and the specification is a click away
+ * on the Project tab for when it does not.
+ */
 import { h, section, kv, note, para, chip, btn, toast, select, field, lineChart, add } from '../ui.js';
 import { state, engine, vehicle, save, invalidateTrees, U } from '../store.js';
 import { ENGINES, ENGINE_BY_ID, summaryLine, layoutName, aspirationLabel, displacementL,
          firingOrder, firingInterval, pistonSpeed, boreStrokeRatio } from '../data/engines.js';
-import { VEHICLES, VEHICLE_BY_ID, vehicleGroups, weightDistribution, wheelRadius } from '../data/vehicles.js';
+import { VEHICLES, VEHICLE_BY_ID, weightDistribution } from '../data/vehicles.js';
 import { simulate, emptyMods } from '../sim/engineSim.js';
 import { defaultTune } from '../sim/ecu.js';
 import { applyUpgrades } from '../data/upgrades.js';
 import { liveriesFor, setLivery } from '../build/scannedVehicle.js';
+import { hasBundled } from '../lib/importModel.js';
+import { photo } from '../lib/photo.js';
 
+/* ---------------------------------------------------------------------- */
+/* the picture wall                                                        */
+
+const VEHICLE_FILTERS = [
+  { id:'all',   name:'Everything', test:() => true },
+  { id:'car',   name:'Cars',       test:(v) => v.class === 'car' && !RACE.has(v.id) },
+  { id:'race',  name:'Race',       test:(v) => RACE.has(v.id) },
+  { id:'bike',  name:'Bikes',      test:(v) => v.class === 'bike' },
+  { id:'kart',  name:'Karts',      test:(v) => v.class === 'kart' },
+  { id:'real',  name:'3D scanned', test:(v) => hasBundled('veh', v.id) },
+];
+const RACE = new Set(['formula','dragster','stockcar','nns','awd-rally','drift','semi','kart']);
+
+const ENGINE_FILTERS = [
+  { id:'all',  name:'Everything', test:() => true },
+  { id:'car',  name:'Car',        test:(e) => e.class === 'car' },
+  { id:'race', name:'Race',       test:(e) => e.class === 'race' },
+  { id:'bike', name:'Motorcycle', test:(e) => e.class === 'bike' },
+  { id:'real', name:'3D scanned', test:(e) => hasBundled('eng', e.id) },
+];
+
+const matches = (text, q) => !q || String(text).toLowerCase().includes(q);
+
+/** One clickable photo card. */
+function pickCard({ kind, id, name, maker, line, specs, on, onPick }){
+  const card = h('button', { class:'pick' + (on ? ' pick--on' : ''), type:'button',
+                             onclick:onPick, title:name });
+  card.appendChild(photo(kind, id, name));
+  if (hasBundled(kind, id)) card.appendChild(h('span', { class:'pick__tag', text:'3D scan' }));
+  add(card,
+    h('span', { class:'pick__maker', text: maker || '' }),
+    h('span', { class:'pick__name', text: name }),
+    h('span', { class:'pick__line', text: line }),
+    h('span', { class:'pick__specs' }, ...specs.flatMap((s, i) => [
+      i ? h('i', { class:'pick__dot', text:'·' }) : null,
+      h('span', null, h('b', { text:s[0] }), ' ' + s[1]),
+    ]).filter(Boolean)));
+  return card;
+}
+
+/** Search box plus filter chips, wired to one piece of UI state. */
+function wall({ ctx, keyName, filters, items, render }){
+  const ui = state.ui[keyName] ||= { q:'', filter:'all' };
+  const grid = h('div', { class:'pickgrid' });
+
+  const paint = () => {
+    const f = filters.find(x => x.id === ui.filter) || filters[0];
+    const q = ui.q.trim().toLowerCase();
+    const list = items.filter(x => f.test(x) &&
+      (matches(x.name, q) || matches(x.maker, q) || matches(x.id, q) || matches(x.blurb, q)));
+    grid.textContent = '';
+    if (!list.length){
+      grid.appendChild(h('div', { class:'muted', text:'Nothing matches that.' }));
+      return;
+    }
+    for (const x of list) grid.appendChild(render(x));
+  };
+
+  const search = h('input', { class:'search', type:'search', value:ui.q,
+    placeholder:'Search by name, marque or anything in the description',
+    oninput:(e) => { ui.q = e.target.value; save(); paint(); } });
+
+  const chips = h('div', { class:'chiprow' }, ...filters.map(f =>
+    h('button', { class:'fchip' + (f.id === ui.filter ? ' fchip--on' : ''), type:'button',
+      text:f.name, onclick:(e) => {
+        ui.filter = f.id; save();
+        e.currentTarget.parentNode.querySelectorAll('.fchip')
+          .forEach(b => b.classList.toggle('fchip--on', b.textContent === f.name));
+        paint();
+      } })));
+
+  paint();
+  return h('div', null, h('div', { class:'wallbar' }, search, chips), grid);
+}
+
+function renderVehicles(ctx, wrap){
+  add(wrap, para('Every machine in the catalogue. The picture is a render of the model the app will actually build, so what you see is what you get on the ramp.'));
+  add(wrap, wall({
+    ctx, keyName:'vehWall', filters:VEHICLE_FILTERS, items:VEHICLES,
+    render:(v) => pickCard({
+      kind:'veh', id:v.id, name:v.name, maker:v.maker || labelFor(v),
+      line:`${v.drivetrain} · ${v.chassis}`,
+      specs:[[String(v.massKg), 'kg'], [String(v.lengthMm), 'mm long'], [String(v.wheelbase), 'mm wb']],
+      on:v.id === state.vehicleId,
+      onPick:() => choose(ctx, 'veh', v.id),
+    }),
+  }));
+  return wrap;
+}
+
+function renderEngines(ctx, wrap){
+  add(wrap, para('Every engine in the catalogue. Choosing one rebuilds its 3D model, its part tree, its torque specs and its tuning tables from the specification.'));
+  add(wrap, wall({
+    ctx, keyName:'engWall', filters:ENGINE_FILTERS, items:ENGINES,
+    render:(e) => pickCard({
+      kind:'eng', id:e.id, name:e.name, maker:e.maker,
+      line:summaryLine(e),
+      specs:[[displacementL(e).toFixed(e.displacement < 1000 ? 2 : 1), 'L'],
+             [String(e.redline), 'rpm'], [String(e.dryWeight), 'kg']],
+      on:e.id === state.engineId,
+      onPick:() => choose(ctx, 'eng', e.id),
+    }),
+  }));
+  return wrap;
+}
+
+const labelFor = (v) => v.class === 'bike' ? 'Motorcycle' : v.class === 'kart' ? 'Kart' : 'Car / truck';
+
+function choose(ctx, kind, id){
+  if (kind === 'veh'){
+    state.vehicleId = id;
+    const nv = VEHICLE_BY_ID[id];
+    if (nv.engines?.length && !nv.engines.includes(state.engineId)) state.engineId = nv.engines[0];
+    toast(`${nv.name} on the ramp.`);
+  } else {
+    state.engineId = id;
+    toast(`${ENGINE_BY_ID[id].name} selected.`);
+  }
+  invalidateTrees(); save(); ctx.reloadModel(); ctx.refresh();
+}
+
+/* ---------------------------------------------------------------------- */
 export function render(ctx, tab){
   const wrap = h('div');
   const v = vehicle(), e = engine();
+  if (tab === 'vehicles') return renderVehicles(ctx, wrap);
   if (tab === 'engines') return renderEngines(ctx, wrap);
   if (tab === 'compare') return renderCompare(ctx, wrap);
 
-  const groups = vehicleGroups();
-  add(wrap,
-    para('Choose what you are working on. The 3D model, the part list, the wiring, the tuning tables and the dyno all follow this choice.'),
-    field('Vehicle', select([
-      { group:'Cars & trucks', items:groups.car.map(x => ({ value:x.id, label:x.name })) },
-      { group:'Motorcycles',   items:groups.bike.map(x => ({ value:x.id, label:x.name })) },
-      { group:'Karts',         items:groups.kart.map(x => ({ value:x.id, label:x.name })) },
-    ], v.id, (id) => {
-      state.vehicleId = id;
-      const nv = VEHICLE_BY_ID[id];
-      if (nv.engines?.length && !nv.engines.includes(state.engineId)) state.engineId = nv.engines[0];
-      invalidateTrees(); save(); ctx.reloadModel(); ctx.refresh();
-      toast(`${nv.name} on the ramp.`);
-    })),
-    field('Engine', select(engineOptions(v), e.id, (id) => {
-      state.engineId = id; invalidateTrees(); save(); ctx.reloadModel(); ctx.refresh();
-      toast(`${ENGINE_BY_ID[id].name} selected.`);
-    })),
-  );
-
-  const t = defaultTune(e);
-  const res = simulate(e, state.tunes[e.id] || t, applyUpgrades(emptyMods(), state.fitted[e.id] || []));
-  const p = U.power(res.hp), tq = U.torque(res.tqNm);
+  /* ---- the project tab: what is on the ramp right now ---- */
+  const heads = h('div', { class:'grid2' },
+    h('button', { class:'nowcard', type:'button', onclick:() => ctx.setTab('vehicles') },
+      photo('veh', v.id, v.name),
+      h('span', { class:'nowcard__k', text:'Vehicle' }),
+      h('span', { class:'nowcard__n', text:v.name }),
+      h('span', { class:'nowcard__c', text:'Change →' })),
+    h('button', { class:'nowcard', type:'button', onclick:() => ctx.setTab('engines') },
+      photo('eng', e.id, e.name),
+      h('span', { class:'nowcard__k', text:'Engine' }),
+      h('span', { class:'nowcard__n', text:e.name }),
+      h('span', { class:'nowcard__c', text:'Change →' })));
+  add(wrap, heads);
 
   add(wrap,
+    field('Engine', select(engineOptions(v), e.id, (id) => choose(ctx, 'eng', id))),
     v.model && liveriesFor(v.model).length ? field('Livery', select(
       liveriesFor(v.model).map(l => ({ value:l.id, label:l.name })),
       (state.ui.liveries ||= {})[v.model] || liveriesFor(v.model)[0].id,
@@ -47,11 +169,16 @@ export function render(ctx, tab){
         (state.ui.liveries ||= {})[v.model] = id; save();
         const ok = await setLivery(v.model, id);
         toast(ok ? 'Livery changed.' : 'That livery could not be loaded.', ok ? 'good' : 'bad');
-      })) : null,
+      })) : null);
 
+  const t = defaultTune(e);
+  const res = simulate(e, state.tunes[e.id] || t, applyUpgrades(emptyMods(), state.fitted[e.id] || []));
+  const p = U.power(res.hp), tq = U.torque(res.tqNm);
+
+  add(wrap,
     section('The machine',
       para(v.blurb),
-      kv('Class', v.class === 'bike' ? 'Motorcycle' : v.class === 'kart' ? 'Kart' : 'Car / truck'),
+      kv('Class', labelFor(v)),
       kv('Chassis', v.chassis),
       kv('Drivetrain', v.drivetrain + (v.bay ? ` · ${v.bay}` : '')),
       kv('Mass', `${v.massKg} kg`),
@@ -107,26 +234,6 @@ function engineOptions(v){
   ];
 }
 
-function renderEngines(ctx, wrap){
-  const groups = { car:'Cars & trucks', race:'Race engines', bike:'Motorcycle engines' };
-  add(wrap, para('Every engine in the catalog. Selecting one rebuilds its 3D model, its part tree, its torque specs and its tuning tables from the specification.'));
-  for (const [cls, title] of Object.entries(groups)){
-    const list = ENGINES.filter(e => e.class === cls);
-    if (!list.length) continue;
-    add(wrap, h('div', { class:'sec' },
-      h('div', { class:'sec__h' }, h('span', { text:title }), chip(String(list.length))),
-      ...list.map(e => h('div', { class:'card' + (e.id === state.engineId ? ' on' : ''),
-        style:{ cursor:'pointer' },
-        onclick:() => { state.engineId = e.id; invalidateTrees(); save(); ctx.reloadModel(); ctx.refresh(); toast(e.name + ' loaded.'); } },
-        h('div', { class:'card__h' },
-          h('div', null, h('div', { class:'card__brand', text:e.maker }), h('div', { class:'card__t', text:e.name })),
-          e.added ? chip('new','acc') : null),
-        h('div', { class:'tiny mono muted', style:{ marginBottom:'4px' }, text:summaryLine(e) }),
-        h('div', { class:'card__b', text:e.blurb })))));
-  }
-  return wrap;
-}
-
 function renderCompare(ctx, wrap){
   const picks = state.ui.compare ||= [state.engineId, 'v8-50-ohv'];
   const colours = ['#ff7a1a', '#22d3ee', '#3ddc84'];
@@ -155,7 +262,8 @@ function renderCompare(ctx, wrap){
 
 export default {
   id:'garage', name:'Garage', icon:'🏠', model:'vehicle',
-  tabs:() => [{ id:'project', name:'Project' }, { id:'engines', name:'Engine catalog' }, { id:'compare', name:'Compare' }],
+  tabs:() => [{ id:'vehicles', name:'Vehicles' }, { id:'engines', name:'Engines' },
+              { id:'project', name:'Project' }, { id:'compare', name:'Compare' }],
   render,
   hud:() => ({ title: vehicle().name, sub: engine().name }),
 };

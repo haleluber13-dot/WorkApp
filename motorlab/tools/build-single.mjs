@@ -48,6 +48,21 @@ const liteTex = !process.argv.includes('--full-tex');
 /* inline every runtime asset so the single file needs no server at all */
 const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
                '.glb':'model/gltf-binary', '.hdr':'image/vnd.radiance' };
+/* The models that earn their place first when there is not room for all of
+ * them: one per marque people will look for by name, then the engines that
+ * teach the most distinct layouts. Everything not named here still competes
+ * for what is left, smallest first, so the file ends up as full as it can be.
+ */
+const FIRST = [
+  'veh-bmw-m3-e46', 'veh-toyota-supra-a80', 'veh-mazda-rx7', 'veh-porsche-911-gt3',
+  'veh-nissan-skyline-r34', 'veh-honda-nsx-na1', 'veh-ford-mustang-gt', 'veh-lambo-v12',
+  'veh-bugatti-w16', 'veh-audi-r8', 'veh-ferrari-812', 'veh-maserati-granturismo',
+  'veh-subaru-wrx-sti', 'veh-koenigsegg', 'veh-toyota-ae86', 'veh-sportbike',
+  'eng-v8-57-sb', 'eng-i6-30-legend', 'eng-rotary-13b-t', 'eng-f6-30-t',
+  'eng-f4-25-t', 'eng-v12-65-na', 'eng-m-triple-765',
+];
+const candidates = [];
+
 function collect(dir, out = {}, base = dir){
   for (const name of readdirSync(dir)){
     const full = join(dir, name);
@@ -56,11 +71,26 @@ function collect(dir, out = {}, base = dir){
     if (!MIME[ext]) continue;
     let rel = relative(`${ROOT}/assets`, full).split(/[\\/]/).join('/');
     if (rel.startsWith('surfaces-lite/')) continue;          // reached via its full-tier twin
+    if (rel.startsWith('models-lite/')) continue;            // ditto
+    if (rel.startsWith('thumbs-lite/')) continue;            // ditto
     if (skip.some(s => rel === s || rel.startsWith(s + '/'))) continue;
     let src = full;
-    if (liteTex && rel.startsWith('surfaces/')){
-      const lite = join(`${ROOT}/assets`, 'surfaces-lite', rel.slice('surfaces/'.length));
+    for (const folder of ['surfaces/', 'thumbs/']){
+      if (!liteTex || !rel.startsWith(folder)) continue;
+      const lite = join(`${ROOT}/assets`, folder.slice(0, -1) + '-lite', rel.slice(folder.length));
       if (existsSync(lite)) src = lite;
+    }
+    /* The real models total a couple of hundred megabytes and this build has a
+       size cap, so it carries the small tier — and only as much of it as fits.
+       Which ones fit is decided below, once every candidate's size is known;
+       here we only note the candidates. The manifest still lists them all, and
+       one that is not in the file is simply not fetched, so that vehicle stays
+       generated rather than breaking. */
+    if (liteTex && rel.startsWith('models/') && rel.endsWith('.glb')){
+      const lite = join(`${ROOT}/assets`, 'models-lite', rel.slice('models/'.length));
+      if (!existsSync(lite)) continue;
+      candidates.push([rel, lite]);
+      continue;
     }
     out['./assets/' + rel] = `data:${MIME[ext]};base64,` + readFileSync(src).toString('base64');
   }
@@ -68,6 +98,29 @@ function collect(dir, out = {}, base = dir){
 }
 let assets = {};
 try { assets = collect(`${ROOT}/assets`); } catch { assets = {}; }
+
+/* Fill the model budget: the named ones first, then whatever else fits,
+   smallest first, so the file carries as many machines as it can hold. */
+const budgetMB = Number((process.argv.find(a => a.startsWith('--model-budget=')) || '=7')
+                        .split('=').pop()) || 7;
+let spent = 0;
+const rank = (rel) => {
+  const stem = rel.slice('models/'.length, -'.glb'.length);
+  const i = FIRST.indexOf(stem);
+  return i < 0 ? 1e6 : i;
+};
+candidates.sort((a, b) => (rank(a[0]) - rank(b[0])) ||
+                          (statSync(a[1]).size - statSync(b[1]).size));
+const takenModels = [];
+for (const [rel, src] of candidates){
+  const bytes = statSync(src).size;
+  if ((spent + bytes) / 1048576 > budgetMB) continue;
+  spent += bytes;
+  assets['./assets/' + rel] = 'data:model/gltf-binary;base64,' + readFileSync(src).toString('base64');
+  takenModels.push(rel.slice('models/'.length, -'.glb'.length));
+}
+console.log(`  models: ${takenModels.length} of ${candidates.length} fit in ${budgetMB} MB `
+            + `(${(spent/1048576).toFixed(1)} MB used)`);
 for (const [k, v] of Object.entries(assets))
   console.log(`  asset ${k.padEnd(44)} ${(v.length / 1024 / 1024).toFixed(2)} MB inlined`);
 

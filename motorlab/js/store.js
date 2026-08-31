@@ -16,8 +16,12 @@ export const DEFAULT_SETTINGS = {
   showGrid:true, showShadows:true, quality:'balanced', fov:42, reflections:0.85, bodyOpacity:1.0,
   environment:'garage', backdrop:false,
   /* behaviour */
-  autoGhost:true, autoLabels:false, autoFrame:true, explodeDefault:0,
+  /* ghost off by default: the first thing you see should be the machine, not
+     a wireframe of everything that is missing from it. G still turns it on. */
+  autoGhost:false, autoLabels:false, autoFrame:true, explodeDefault:0,
   confirmRemove:false, torqueGame:true, hints:true, sound:false,
+  /* handling parts, and reading them */
+  holdMs:420, benchSnap:true, partPics:true, textScale:100, reduceMotion:false,
   /* simulation */
   ambientC:25, altitudeM:0, dynoSmoothing:1, difficulty:'apprentice',
   autoTuneAggression:0.5, damageEnabled:true,

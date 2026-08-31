@@ -9,7 +9,7 @@ import { buildVehicle } from './build/vehicleModel.js';
 import { buildScannedVehicle, setLivery, liveriesFor } from './build/scannedVehicle.js';
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
-import { restoreModels, loadBundledModels } from './lib/importModel.js';
+import { restoreModels, loadManifest, ensureModel, modelPending } from './lib/importModel.js';
 import { loadTextures } from './lib/textures.js';
 import { loadPartModels, partCredits } from './lib/partModels.js';
 
@@ -57,6 +57,9 @@ async function boot(){
     else if (id) viewport.select(id);
   };
   viewport.onContext = (id, hit, ev) => current().onContext?.(ctx, id, hit, ev);
+  /* press and hold lifts a part off; the workspace decides whether it may come */
+  viewport.onLift = (id) => current().onLift?.(ctx, id) === true;
+  viewport.onDrop = (id) => current().onDrop?.(ctx, id);
   viewport.setLabelSource((id) => current().labelFor?.(id) || null);
 
   buildNav();
@@ -65,16 +68,14 @@ async function boot(){
   applySettings();
   wireGameEvents();
 
-  /* Models come in before anything is built, not alongside it. A model changes
-     what the builders produce — an imported car replaces its bodywork, an
-     imported engine adds a shell part — so building first and swapping later
-     means the first thing on screen is wrong and the part list is too. */
-  let loaded = 0;
-  try { loaded = await loadBundledModels() + await restoreModels(); } catch { /* generated is fine */ }
+  /* The manifest is a few kilobytes and says which subjects have a real model
+     on file; the models themselves are fetched one at a time, when the thing
+     they belong to is selected. Anything imported in this browser is restored
+     now, because it is already local. */
+  try { await loadManifest(); await restoreModels(); } catch { /* generated is fine */ }
 
   if (!WS_BY_ID[state.workspace]) state.workspace = 'garage';
   goto(state.workspace, { silent:true });
-  if (loaded) toast(`${loaded} model${loaded > 1 ? 's' : ''} loaded.`);
 
   if (state.settings.autoCheckUpdates)
     checkForUpdates(state.settings.feedUrl).then(r => {
@@ -154,10 +155,29 @@ function reloadModel(){
 
   if (currentModel?.key === wantKey){ syncVisibility(); return; }
 
+  /* A real model changes what the builder produces — it replaces a car's
+     bodywork and adds a shell part to an engine — so a rebuild is needed once
+     it arrives. It is not worth waiting for, though: these are megabytes and
+     the generated model is right there, so show that immediately and swap.
+     modelPending() goes false once the model is in memory and once a fetch for
+     it has failed, which is what keeps this from going round for ever. */
+  const subjKind = kind === 'engine' ? 'eng' : 'veh';
+  const subjId   = kind === 'engine' ? state.engineId : state.vehicleId;
+  if (modelPending(subjKind, subjId)){
+    ensureModel(subjKind, subjId).then((rec) => {
+      if (!rec || currentModel?.key !== wantKey) return;   // failed, or moved on
+      invalidateTrees();          // the real model adds a shell part
+      currentModel = null;
+      reloadModel();
+      refresh();
+    });
+  }
+
   const show = (built) => {
     currentModel = { key:wantKey, kind, built };
     viewport.installed = kind === 'engine' ? installedSet() : vInstalledSet();
     viewport.load(built, { fit:true });
+    ws.onModel?.(ctx);                       // put the bench back after a rebuild
     viewport.setExplode(state.settings.explodeDefault / 100);
     const ex = $('#explode');
     if (ex) ex.value = state.settings.explodeDefault;
@@ -370,6 +390,10 @@ function applySettings(){
   viewport.renderer.shadowMap.enabled = s.showShadows && s.quality !== 'fast';
   if (viewport.scene) viewport.scene.environmentIntensity = s.reflections ?? 0.85;
   viewport.setGhost(s.autoGhost);
+  viewport.holdMs = s.holdMs ?? 420;
+  viewport.benchSnap = s.benchSnap !== false;
+  document.documentElement.style.fontSize = ((s.textScale ?? 100) / 100 * 16).toFixed(1) + 'px';
+  document.body.classList.toggle('calm', !!s.reduceMotion);
   viewport.resize();
 }
 

@@ -58,7 +58,17 @@ export class Viewport {
     this.ray = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
 
+    /* The bench: parts you have taken off and set down. Keyed by part id, the
+       value is an offset from where that part lives on the machine, so it
+       survives an explode and an animation frame without either fighting it. */
+    this.bench = new Map();
+    this.benchNode = null;
+    this.dragging = null;
+    this.holdMs = 420;
+    this.benchSnap = true;
+
     this.onPick = null; this.onContext = null; this.onHover = null;
+    this.onLift = null; this.onDrop = null;
     this._bindInput();
 
     this.state = { crankAngle:0, rpm:0, targetRpm:0, boost:0, running:false, time:0, dt:0.016,
@@ -239,21 +249,45 @@ export class Viewport {
   }
 
   _bindInput(){
-    let downAt = null, moved = 0;
+    let downAt = null, moved = 0, holdTimer = null;
     const toPointer = (ev) => {
       const r = this.canvas.getBoundingClientRect();
       this.pointer.set(((ev.clientX - r.left)/r.width)*2 - 1, -((ev.clientY - r.top)/r.height)*2 + 1);
     };
-    this.canvas.addEventListener('pointerdown', (ev) => { downAt = { x:ev.clientX, y:ev.clientY }; moved = 0; });
+    const cancelHold = () => { clearTimeout(holdTimer); holdTimer = null; };
+
+    this.canvas.addEventListener('pointerdown', (ev) => {
+      downAt = { x:ev.clientX, y:ev.clientY }; moved = 0;
+      if (ev.button !== 0) return;
+      toPointer(ev);
+      const hit = this._raycast();
+      const id = hit?.object?.userData?.partId || null;
+      if (!id) return;
+      /* Press and hold to pick a part up. A plain click still selects, and a
+         drag still orbits — the hold only fires if neither happened first. */
+      cancelHold();
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        if (moved >= 6) return;
+        if (this.onLift && this.onLift(id) === false) return;
+        this._beginDrag(id, hit.point);
+      }, this.holdMs ?? 420);
+    });
+
     this.canvas.addEventListener('pointermove', (ev) => {
       if (downAt) moved = Math.max(moved, Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y));
+      if (moved >= 6 && holdTimer) cancelHold();
       toPointer(ev);
+      if (this.dragging){ this._dragTo(); return; }
       const hit = this._raycast();
       const id = hit?.object?.userData?.partId || null;
       if (id !== this.hovered){ this.hovered = id; this._applyMaterials(); this.onHover?.(id); }
       this.canvas.style.cursor = id ? 'pointer' : 'default';
     });
+
     this.canvas.addEventListener('pointerup', (ev) => {
+      cancelHold();
+      if (this.dragging){ this._endDrag(); downAt = null; return; }
       if (downAt && moved < 5){
         toPointer(ev);
         const hit = this._raycast();
@@ -262,6 +296,7 @@ export class Viewport {
       }
       downAt = null;
     });
+    this.canvas.addEventListener('pointercancel', () => { cancelHold(); if (this.dragging) this._endDrag(); });
     this.canvas.addEventListener('contextmenu', (ev) => {
       ev.preventDefault();
       toPointer(ev);
@@ -281,7 +316,7 @@ export class Viewport {
       const id = h.object.userData.partId;
       if (!id) continue;
       if (h.object.visible === false) continue;
-      if (!this.installed.has(id) && !this.ghost) continue;
+      if (!this.installed.has(id) && !this.bench.has(id) && !this.ghost) continue;
       return h;
     }
     return null;
@@ -290,6 +325,9 @@ export class Viewport {
   /* ------------------------------------------------------------------ */
   load(model, opts = {}){
     if (this.model) this.scene.remove(this.model.root);
+    /* the bench is sized and placed from the machine, so it belongs to it */
+    if (this.benchNode){ this.scene.remove(this.benchNode); this.benchNode = null; }
+    this.dragging = null; this.controls.enabled = true;
     this.model = model;
     this.scene.add(model.root);
     this._origMats = new Map();
@@ -298,6 +336,7 @@ export class Viewport {
     this._clearLabels();
     if (opts.fit !== false) this.frame();
     this.applyInstalled(this.installed);
+    if (this.bench.size){ this._ensureBench(); this.benchNode.visible = true; this._applyBench(); }
   }
 
   frame(){
@@ -308,7 +347,10 @@ export class Viewport {
     const r = Math.max(size.x, size.y, size.z) * 0.62;
     const dist = r / Math.tan((this.camera.fov * Math.PI/180)/2) * 1.25;
     this.controls.target.copy(c);
-    const dir = new THREE.Vector3(0.82, 0.46, 0.95).normalize();
+    /* A three-quarter from about chest height. Higher than this and every car
+       reads as a floor plan of itself; the roof fills the frame and the shape
+       of the flanks, which is what you actually recognise a car by, goes flat. */
+    const dir = new THREE.Vector3(0.94, 0.30, 0.80).normalize();
     this.camera.position.copy(c).addScaledVector(dir, dist);
     this.camera.near = Math.max(0.01, dist/220); this.camera.far = dist*24;
     this.camera.updateProjectionMatrix();
@@ -349,7 +391,156 @@ export class Viewport {
     this._applyMaterials();
   }
 
-  setExplode(f){ this.explode = f; this.model?.setExplode(f); }
+  setExplode(f){ this.explode = f; this.model?.setExplode(f); this._applyBench(); }
+
+  /* ------------------------------------------------------------------
+   * The bench.
+   *
+   * Taking a part off and reading about it are two different things, and the
+   * second one is much easier when the part is in front of you instead of
+   * buried in the machine. Press and hold a part and it comes off in your
+   * hand; drag it to the bench and let go and it stays there, at whatever
+   * angle you left it, while everything else carries on being a car.
+   *
+   * A benched part is stored as an offset from where it lives on the machine
+   * rather than as an absolute position, so an explode, an animation frame or
+   * a rebuild cannot leave it somewhere it was never put.
+   * ------------------------------------------------------------------ */
+  _applyBench(){
+    if (!this.model?.home) return;
+    for (const [id, off] of this.bench){
+      const objs = this.model.nodes.get(id);
+      if (!objs) continue;
+      for (const o of objs){
+        const h = this.model.home.get(o);
+        if (h) o.position.copy(h).add(off);
+      }
+    }
+  }
+
+  /** The height a part rests at once it is put down. */
+  _benchY(){
+    const b = this.model ? new THREE.Box3().setFromObject(this.model.root) : null;
+    return b && isFinite(b.min.y) ? Math.max(0, b.min.y) + 0.02 : 0.02;
+  }
+
+  /** Make the bench itself: a plain top beside the machine, so there is
+   *  somewhere obvious to put things and a sense of scale next to them. */
+  _ensureBench(){
+    if (this.benchNode || !this.model) return;
+    const b = new THREE.Box3().setFromObject(this.model.root);
+    const size = b.getSize(new THREE.Vector3());
+    const w = Math.max(size.x, size.z) * 0.62, d = w * 0.62, t = w * 0.022;
+    const g = new THREE.Group();
+    const wood = new THREE.MeshStandardMaterial({ color:0x2a3242, roughness:0.72, metalness:0.05 });
+    const steel = new THREE.MeshStandardMaterial({ color:0x39445c, roughness:0.45, metalness:0.7 });
+    const top = new THREE.Mesh(new THREE.BoxGeometry(w, t, d), wood);
+    top.receiveShadow = true;
+    g.add(top);
+    const legH = Math.max(0.35, b.min.y + size.y * 0.28);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]){
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(t * 1.2, legH, t * 1.2), steel);
+      leg.position.set(sx * (w/2 - t), -legH/2 - t/2, sz * (d/2 - t));
+      g.add(leg);
+    }
+    g.position.set(0, this._benchY() + legH, b.max.z + d * 0.85);
+    g.userData.benchTopY = g.position.y + t / 2;
+    g.userData.benchW = w; g.userData.benchD = d;
+    g.visible = false;
+    this.benchNode = g;
+    this.scene.add(g);
+  }
+
+  /** Where the bench top is, in world units. */
+  benchSpot(){
+    this._ensureBench();
+    const g = this.benchNode;
+    if (!g) return new THREE.Vector3(0, 0.4, 0);
+    return new THREE.Vector3(g.position.x, g.userData.benchTopY, g.position.z);
+  }
+
+  _beginDrag(id, grabPoint){
+    const objs = this.model?.nodes.get(id);
+    if (!objs?.length) return;
+    this._ensureBench();
+    if (this.benchNode) this.benchNode.visible = true;
+    this.controls.enabled = false;
+    this.canvas.style.cursor = 'grabbing';
+    const y = this.benchNode ? this.benchNode.userData.benchTopY : this._benchY();
+    /* pop it clear of the machine straight away — a part that comes off and
+       does not move has not visibly come off */
+    const box = new THREE.Box3().setFromObject(this.model.root);
+    const lift = Math.max(0.05, box.getSize(new THREE.Vector3()).y * 0.16);
+    const start = (this.bench.get(id)?.clone() || new THREE.Vector3()).add(new THREE.Vector3(0, lift, 0));
+    this.bench.set(id, start);
+    this.dragging = {
+      id,
+      plane: new THREE.Plane(new THREE.Vector3(0, 1, 0), -Math.max(y, grabPoint.y + lift)),
+      start: start.clone(),
+      grab: grabPoint.clone().setY(grabPoint.y + lift),
+    };
+    this._applyBench();
+    this._applyMaterials();
+    this.select(id);
+  }
+
+  _dragTo(){
+    const d = this.dragging;
+    if (!d) return;
+    this.ray.setFromCamera(this.pointer, this.camera);
+    const at = new THREE.Vector3();
+    if (!this.ray.ray.intersectPlane(d.plane, at)) return;
+    const off = d.start.clone().add(at).sub(d.grab);
+    this.bench.set(d.id, off);
+    this._applyBench();
+  }
+
+  _endDrag(){
+    const d = this.dragging;
+    this.dragging = null;
+    this.controls.enabled = true;
+    this.canvas.style.cursor = 'default';
+    if (!d) return;
+    /* let go anywhere near the bench and it settles onto it squarely, which is
+       much easier than landing it by hand */
+    const spot = this.benchSpot();
+    const objs = this.model?.nodes.get(d.id) || [];
+    const box = new THREE.Box3();
+    objs.forEach(o => box.expandByObject(o));
+    if (!box.isEmpty()){
+      const c = box.getCenter(new THREE.Vector3());
+      const near = Math.hypot(c.x - spot.x, c.z - spot.z);
+      const reach = Math.max(0.4, (this.benchNode?.userData.benchW || 1.2) * 0.5);
+      if (this.benchSnap !== false && near < reach * 1.4){
+        const off = this.bench.get(d.id) || new THREE.Vector3();
+        off.y += spot.y - box.min.y;
+        this.bench.set(d.id, off);
+        this._applyBench();
+      }
+    }
+    this.onDrop?.(d.id, this.bench.get(d.id));
+  }
+
+  /** Put one part, or everything, back where it came from. */
+  clearBench(id){
+    if (id) this.bench.delete(id); else this.bench.clear();
+    if (!this.bench.size && this.benchNode) this.benchNode.visible = false;
+    this.setExplode(this.explode);
+  }
+
+  /** Restore a saved bench — [[partId, [x,y,z]], …]. */
+  setBench(entries){
+    this.bench.clear();
+    for (const [id, xyz] of entries || []) this.bench.set(id, new THREE.Vector3(...xyz));
+    if (this.bench.size){ this._ensureBench(); if (this.benchNode) this.benchNode.visible = true; }
+    else if (this.benchNode) this.benchNode.visible = false;
+    this._applyBench();
+  }
+
+  benchEntries(){
+    return [...this.bench].map(([id, v]) => [id, [v.x, v.y, v.z]]);
+  }
+
   setGhost(on){ this.ghost = on; this._applyMaterials(); }
   setWire(on){ this.wire = on; this._applyMaterials(); }
   /* Only the castings get sectioned. The crank, rods, pistons, cams and valves
@@ -382,7 +573,10 @@ export class Viewport {
     const ghostMat = this._ghostMat || (this._ghostMat = new THREE.MeshBasicMaterial({
       color:0x5d7ea8, wireframe:true, transparent:true, opacity:0.20 }));
     for (const [id, objs] of this.model.nodes){
-      const inst = this.installed.has(id);
+      /* A part on the bench is off the machine but very much still in the
+         room: it has to stay solid and visible, or picking one up would look
+         like destroying it. */
+      const inst = this.installed.has(id) || this.bench.has(id);
       const sel  = this.selected === id;
       const hov  = this.hovered === id;
       const hl   = this.highlight.has(id);

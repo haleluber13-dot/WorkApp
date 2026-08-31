@@ -62,6 +62,23 @@ export function render(ctx, tab){
     return wrap;
   }
 
+  /* Forty settings is forty settings however tidily it is grouped, so the
+     fastest way to change one is to type a word from it. */
+  const filter = h('input', { class:'search', type:'search', placeholder:'Find a setting — colour, units, shadows, sound…',
+    value:state.ui.settingsQ || '',
+    oninput:(ev) => {
+      const q = (state.ui.settingsQ = ev.target.value.trim().toLowerCase());
+      let shown = 0;
+      wrap.querySelectorAll('.sec').forEach(sec => {
+        const hit = !q || sec.textContent.toLowerCase().includes(q);
+        sec.hidden = !hit;
+        if (hit) shown++;
+      });
+      empty.hidden = !!shown;
+    } });
+  const empty = h('div', { class:'muted', text:'No setting matches that.', hidden:true });
+  add(wrap, h('div', { class:'wallbar' }, filter), empty);
+
   add(wrap,
     section('Units',
       field('Measurement system', select([
@@ -102,8 +119,25 @@ export function render(ctx, tab){
         onInput:(v) => set('bodyOpacity', v) }),
       note('Turn the bodywork up to solid for a finished car, or back down to see the chassis, suspension and drivetrain through it.')),
 
+    section('Handling parts',
+      para('Press and hold any part in the 3D view and it comes off in your hand. Drag it clear and let go and it stays where you put it, on the bench beside the machine, until you put it back.'),
+      slider({ label:'Press-and-hold time', min:150, max:1200, step:50, value:s.holdMs ?? 420,
+        format:(v) => (v/1000).toFixed(2) + ' s', onInput:(v) => setQuiet('holdMs', v) }),
+      note('Shorter is quicker once you know the app; longer stops a slow click from lifting something you only meant to look at.'),
+      toggle('Snap a part onto the bench when you drop it nearby', s.benchSnap ?? true,
+        (v) => set('benchSnap', v)),
+      toggle('Show a picture of each part in the lists', s.partPics ?? true, (v) => set('partPics', v)),
+      note('The pictures are rendered from the parts themselves. Turn them off on a slow machine.')),
+
+    section('Text and motion',
+      slider({ label:'Text size', min:90, max:135, step:5, value:s.textScale ?? 100,
+        format:(v) => v + '%', onInput:(v) => set('textScale', v) }),
+      toggle('Reduce motion (no camera glides, no spin-up animation)', s.reduceMotion ?? false,
+        (v) => set('reduceMotion', v)),
+      toggle('Sound', s.sound, (v) => set('sound', v))),
+
     section('Bring your own model',
-      para('Photoreal scanned and CAD models are licensed work, so none ship with MotorLab — and the ones that really are free to redistribute are stylised rather than real. If you have a model you are entitled to use, load it here: a <b>.glb</b> or <b>.gltf</b>. A CC0 download, a purchased asset, or a scan you made yourself with a phone all work.'),
+      para('MotorLab ships with real, licence-clean models for most of the catalogue — they are fetched when you pick the machine they belong to, and credited in <b>assets/models/CREDITS.md</b>. You can put your own over the top of any of them: a <b>.glb</b> or <b>.gltf</b>. A CC0 download, a purchased asset, or a scan you made yourself with a phone all work.'),
       para('A model is kept against the specific vehicle or engine you load it for, so a library builds up as you go. On a <b>vehicle</b> it replaces the generated bodywork, with the chassis, suspension, brakes and drivetrain still underneath where you can work on them. On an <b>engine</b> it goes on as a shell over the top: strip the shell off and the whole teardown works exactly as before.'),
       h('div', { class:'btnrow' },
         btn('Load a model for ' + v.name, { class:'btn--pri', onClick:() => importInto('veh', v.id, v.name) }),

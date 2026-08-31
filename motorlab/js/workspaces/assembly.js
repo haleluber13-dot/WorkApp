@@ -12,6 +12,7 @@ import { V_GROUP_BY_ID } from '../data/vehicleParts.js';
 import { addXp, unlock } from '../game.js';
 import { UPGRADE_BY_ID, availableFor } from '../data/upgrades.js';
 import { activeReference, setReference, uidFrom, creditFrom, embedUrl } from '../data/reference.js';
+import { partShot } from '../lib/partShot.js';
 
 /* ---------------------------------------------------------------------- */
 function model(kind){
@@ -492,18 +493,34 @@ function renderInspector(ctx, kind, wrap){
         btn(isTorqued(p.id) ? 'Re-torque this joint' : 'Torque this joint',
           { class:isTorqued(p.id) ? '' : 'btn--pri', onClick:() => openTorqueDrill(ctx, kind, p.id) }))));
   }
+  /* on the bench? then say so first, because it explains where it went */
+  const onBench = ctx.viewport?.bench?.has(p.id);
+  if (onBench) add(wrap, h('div', { class:'benchnote' },
+    h('span', { text:'This one is on the bench.' }),
+    btn('Put it back', { class:'btn--sm', onClick:() => { returnPart(ctx, kind, p.id); } })));
+
+  const shot = (id) => partPic(ctx, kind, id);
   const dep = p.deps.map(d => M.tree.byId[d]).filter(Boolean);
   const blk = p.blocks.map(b => M.tree.byId[b]).filter(Boolean);
-  if (dep.length) add(wrap, section('Goes on after', ...dep.map(d => kv(d.name, inst.has(d.id) ? '✓ fitted' : 'missing'))));
-  if (blk.length) add(wrap, section('Comes off before', ...blk.map(b => kv(b.name, inst.has(b.id) ? 'fitted — remove first' : '—'))));
+  const row = (q, state) => h('button', { class:'prow', type:'button',
+      onclick:() => { selected = q.id; ctx.viewport.select(q.id); ctx.viewport.focusPart(q.id); ctx.refresh(); } },
+    shot(q.id),
+    h('span', { class:'prow__t' }, h('b', { text:q.name }), h('i', { text:state })));
+  if (dep.length) add(wrap, section('Goes on after',
+    ...dep.map(d => row(d, inst.has(d.id) ? 'fitted' : 'not on yet'))));
+  if (blk.length) add(wrap, section('Comes off before',
+    ...blk.map(b => row(b, inst.has(b.id) ? 'on top — remove first' : 'already off'))));
 
   const ups = upgradesFor(kind, p.id);
-  if (ups.length) add(wrap, section(`Upgrades that fit here (${ups.length})`,
-    ...ups.slice(0, 4).map(u => h('div', { class:'card' },
-      h('div', { class:'card__h' }, h('div', null,
-        h('div', { class:'card__brand', text:u.brand }), h('div', { class:'card__t', text:u.name })),
-        chip('$' + u.cost.toLocaleString())),
-      h('div', { class:'card__b', text:u.teach.slice(0, 150) + (u.teach.length > 150 ? '…' : '') }))),
+  if (ups.length) add(wrap, section(`Better versions of this part (${ups.length})`,
+    note('Same job, different part. Fitting one replaces what is on the machine now.'),
+    ...ups.map(u => h('div', { class:'urow' },
+      shot(p.id),
+      h('div', { class:'urow__t' },
+        h('div', { class:'card__brand', text:u.brand }),
+        h('div', { class:'card__t', text:u.name }),
+        h('div', { class:'card__b', text:u.teach.slice(0, 160) + (u.teach.length > 160 ? '…' : '') })),
+      h('div', { class:'urow__c' }, chip('$' + u.cost.toLocaleString())))),
     btn('Open the Upgrade Shop', { class:'btn--wide', onClick:() => ctx.goto('upgrade') })));
 
   add(wrap, h('div', { class:'btnrow', style:{ marginTop:'12px' } },
@@ -511,6 +528,15 @@ function renderInspector(ctx, kind, wrap){
        : btn('Install', { class:'btn--pri', onClick:() => doInstall(ctx, kind, p.id), disabled:!canInstall(M.tree, inst, p.id) }),
     btn('Zoom to it', { onClick:() => ctx.viewport.focusPart(p.id) })));
   return wrap;
+}
+
+/** A small render of one part of the machine on screen right now. */
+function partPic(ctx, kind, partId){
+  if (state.settings.partPics === false) return null;
+  const key = kind === 'vehicle' ? 'v:' + state.vehicleId : 'e:' + state.engineId;
+  const url = ctx.viewport?.model ? partShot(ctx.viewport.model, partId, key, 96) : null;
+  return url ? h('img', { class:'pshot', src:url, alt:'', loading:'lazy' })
+             : h('span', { class:'pshot pshot--none' });
 }
 
 /* ---- step-by-step guide ---------------------------------------------- */
@@ -538,6 +564,73 @@ function renderGuide(ctx, kind, wrap){
 
 export function getSelected(){ return selected; }
 export function setSelected(id){ selected = id; }
+
+/* ---------------------------------------------------------------------- *
+ * The bench.
+ *
+ * Press and hold a part in the 3D view and it comes off in your hand. That is
+ * the same act as removing it — the build order still applies, so a part with
+ * something bolted on top of it will not come, and it says what is in the way
+ * — but instead of vanishing from the picture it stays in front of you, and
+ * can be put down beside the machine and read about.
+ * ---------------------------------------------------------------------- */
+const benchKey = (kind) => `${kind}:${kind === 'vehicle' ? state.vehicleId : state.engineId}`;
+
+/** Everything currently off the machine and set down, for this subject. */
+export function benchedIds(kind){
+  return Object.keys((state.ui.bench ||= {})[benchKey(kind)] || {});
+}
+
+/** Called by the viewport when a press-and-hold lands on a part. Returning
+ *  false leaves the part where it is. */
+export function liftPart(ctx, kind, partId){
+  const M = model(kind);
+  const p = M.tree.byId[partId];
+  if (!p) return false;
+  const inst = M.get();
+  if (inst.has(partId)){
+    if (p.removable === false){
+      toast('This is the foundation everything else bolts to — it never comes off.', 'bad');
+      return false;
+    }
+    if (!canRemove(M.tree, inst, partId)){
+      const b = blockers(M.tree, inst, partId);
+      toast(b.length ? `${b[0]} is on top of it — take that off first.` : 'This part cannot come off.', 'bad');
+      return false;
+    }
+    inst.delete(partId); M.set(inst);
+    setTorqued(partId, false);
+    ctx.viewport.applyInstalled(inst);
+    checkMilestones(ctx, kind);
+  }
+  selected = partId;
+  ctx.viewport.select(partId);
+  ctx.setTab('inspect');
+  return true;
+}
+
+/** Called when the part is let go: remember where it was put. */
+export function dropPart(ctx, kind){
+  const bag = (state.ui.bench ||= {});
+  bag[benchKey(kind)] = Object.fromEntries(ctx.viewport.benchEntries());
+  save();
+  ctx.refresh();
+}
+
+/** Put the saved bench back after a rebuild. */
+export function restoreBench(ctx, kind){
+  const saved = (state.ui.bench ||= {})[benchKey(kind)] || {};
+  ctx.viewport.setBench(Object.entries(saved));
+}
+
+export function returnPart(ctx, kind, partId){
+  ctx.viewport.clearBench(partId);
+  dropPart(ctx, kind);
+  const M = model(kind);
+  const inst = M.get();
+  if (!inst.has(partId) && canInstall(M.tree, inst, partId)) doInstall(ctx, kind, partId);
+  else ctx.refresh();
+}
 
 /* ----------------------------------------------------------------------
  * The real thing, beside the teachable one.

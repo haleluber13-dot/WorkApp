@@ -11,65 +11,107 @@ from https://sketchfab.com/settings/password (the "API token" box).
     python3 motorlab/tools/fetch-sketchfab.py                   # take all of it
     python3 motorlab/tools/fetch-sketchfab.py veh:bmw-m3-e46    # just these targets
     python3 motorlab/tools/fetch-sketchfab.py --search "rotary engine"
+    python3 motorlab/tools/fetch-sketchfab.py --into /tmp/raw   # keep the raw .glb
 
-What it does per target: searches downloadable models under the licences we are
-allowed to redistribute, picks the best candidate, downloads the glTF, converts
-it to a .glb with Blender, and hands it to import-model.mjs — which records the
-licence and the author in assets/models/CREDITS.md. Nothing is bundled without
-those two, and any licence outside the allow-list below is skipped rather than
-guessed at.
+Every catalogue entry names one model by its id. That is deliberate. Searching
+by title looked like it would do: it does not. A search for "bmw m3" returns
+an E30 above the E46 because the E30 is the more popular upload, "ferrari v12"
+returns a Formula One car, and "diesel engine" returns a locomotive. Titles do
+not say which generation a car is, popularity does not say which one is right,
+and no filter fixes that — someone has to look. So someone looked, and the id
+of the model that was actually the right car is written down here.
+
+`--search` is what the looking was done with, and is how a new entry gets its
+id: run it, read the candidates, pick one, paste it in.
+
+What it does per target: fetches the model's metadata, refuses anything whose
+licence does not permit redistribution, downloads the glTF, converts it to a
+.glb with Blender, and hands it to import-model.mjs — which records the licence
+and the author in assets/models/CREDITS.md.
 """
-import io, json, os, re, subprocess, sys, tempfile, urllib.parse, urllib.request, zipfile
+import io, json, os, subprocess, sys, tempfile, urllib.parse, urllib.request, zipfile
 
 ROOT  = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 API   = 'https://api.sketchfab.com/v3'
 TOKEN = os.environ.get('SKETCHFAB_TOKEN', '')
 
-# Only licences that permit redistribution, as the API's own filter values.
-# Anything else — non-commercial, no-derivatives, editorial — is never fetched,
-# because the search asks for these and nothing else.
+# Only licences that permit redistribution, by the API's own slug. Anything
+# else — Standard, non-commercial, no-derivatives, editorial — is refused, so a
+# model can only be bundled if its terms actually allow it.
 OK_LICENCES = {
     'cc0':   'CC0 1.0 (public domain)',
     'by':    'CC BY 4.0',
     'by-sa': 'CC BY-SA 4.0',
 }
 
-# What to look for, per catalogue entry. Queries are deliberately plain: the
-# search is over user-supplied titles, so an over-specific query finds nothing.
+# id in the app  ->  the Sketchfab model that is that thing.
 TARGETS = {
-    # id                     : (search query, words the title must contain)
-    'veh:bmw-m3-e46':          ('bmw m3',                  ['bmw', 'm3'], []),
-    'veh:bmw-m5':              ('bmw m5',                  ['bmw', 'm5'], []),
-    'veh:mazda-rx7':           ('mazda rx7',               ['rx-7', 'rx7'], []),
-    'veh:mazda-mx5':           ('mazda miata mx5',         ['miata', 'mx-5', 'mx5'], []),
-    'veh:audi-r8':             ('audi r8',                 ['r8'], []),
-    'veh:audi-rs3':            ('audi rs3',                ['rs3', 'rs 3'], []),
-    'veh:audi-quattro-s1':     ('audi quattro',            ['quattro'], []),
-    'veh:maserati-mc20':       ('maserati mc20',           ['mc20'], []),
-    'veh:maserati-granturismo':('maserati granturismo',    ['granturismo'], []),
-    'veh:toyota-supra-a80':    ('toyota supra',            ['supra'], []),
-    'veh:toyota-ae86':         ('toyota ae86 corolla',     ['ae86', 'trueno', 'corolla'], []),
-    'veh:toyota-lfa':          ('lexus lfa',               ['lfa'], []),
-    'veh:toyota-gr-yaris':     ('toyota gr yaris',         ['yaris'], []),
-    'veh:ford-mustang-gt':     ('ford mustang',            ['mustang'], []),
-    'veh:ford-gt':             ('ford gt',                 ['ford gt'], []),
-    'veh:ferrari-812':         ('ferrari v12',             ['ferrari'], []),
-    'veh:porsche-911-gt3':     ('porsche 911 gt3',         ['911', 'gt3'], []),
-    'veh:nissan-gtr-r35':      ('nissan gtr r35',          ['r35'], []),
-    'veh:nissan-skyline-r34':  ('nissan skyline r34',      ['r34'], []),
-    'veh:honda-nsx-na1':       ('honda nsx',               ['nsx'], []),
-    'veh:lambo-v12':           ('lamborghini aventador',   ['aventador', 'countach', 'murcielago'], []),
-    'veh:bugatti-w16':         ('bugatti chiron',          ['bugatti'], []),
-    'veh:subaru-wrx-sti':      ('subaru impreza wrx',      ['impreza', 'wrx'], []),
-    'eng:v8-57-sb':            ('v8 engine',               ['v8'], ['engine']),
-    'eng:i6-30-legend':        ('2jz engine',              ['2jz'], []),
-    'eng:rotary-13b-t':        ('rotary engine',           ['rotary', 'wankel', '13b'], ['engine']),
-    'eng:bmw-s54':             ('straight six engine',     ['inline', 'straight', 'i6', 'rb26', 'six', '6'], ['engine']),
-    'eng:f6-30-t':             ('boxer engine',            ['boxer', 'flat'], ['engine']),
-    'eng:m-vtwin-1200':        ('harley motorcycle engine',['harley', 'v-twin', 'vtwin', 'motorcycle', 'bike'], ['engine']),
-    'eng:d-i6-67':             ('truck diesel engine',     ['diesel'], ['engine']),
+    # ---- cars, by marque -------------------------------------------------
+    'veh:bmw-m3-e46':          'f1b00ff37d504629b10031da32bc7497',
+    'veh:bmw-m5':              '5478e978bd634337adc8e3dc413fbfa3',
+    'veh:mazda-rx7':           '8ac0df459f514950ab83ac37109a06ab',
+    'veh:mazda-mx5':           '25fc4c8bd4494fe0b9e456644b269c6f',
+    'veh:audi-r8':             'e17e438f076f4427a58d93aa779edaed',
+    'veh:audi-rs3':            '77d3dcacacb7413e9685a27f77f651f8',
+    'veh:audi-quattro-s1':     '2c3209a22a274cc389ce3b0c77caed6a',
+    'veh:maserati-mc20':       '013ce35092394d328dc2099fe2841ac0',
+    'veh:maserati-granturismo':'c4aa1cf6461048e3b75a77ff027f90c6',
+    'veh:toyota-supra-a80':    'eb9bb1eb41db431cb078088ae1ce45f8',
+    'veh:toyota-ae86':         'a5737bf3cc9b4179a6e5ebe173ff70d9',
+    'veh:toyota-lfa':          '05900382647c42d19ab925f23eabca62',
+    'veh:toyota-gr-yaris':     '44cb958908b94aa5aad0d856994f35a3',
+    'veh:ford-mustang-gt':     '0eaa7a16796540f29461ddae05ecdeb3',
+    'veh:ford-gt':             'dd6c3effdb1e43ecadace447ccbda68d',
+    'veh:ferrari-812':         'cd7dfc79a98244ca81d86d82ce2b49a7',
+    'veh:porsche-911-gt3':     '78d5c47ab2554c2592b7e499179a0792',
+    'veh:nissan-gtr-r35':      '7b142ea3376e4811a326256c59bbc7a2',
+    'veh:nissan-skyline-r34':  'ff8fb2251dfa4bb9979e7022c5a6666c',
+    'veh:honda-nsx-na1':       '1cc15628a00a4739a6b6c01128927c8d',
+    'veh:lambo-v12':           '36eb1fa54a0d4be695d4cd90c30f4ff1',
+    'veh:bugatti-w16':         '6da5092ee455446cb050e4c6b4a3ac05',
+    'veh:subaru-wrx-sti':      '08296bc950364621b6174a3078bb19e0',
+    'veh:koenigsegg':          'c657f51fb0db43e38fea172dfa385287',
+    'veh:super':               '3f22c626f5274455a90a14801e62527c',
+    'veh:concept':             'b5466f263aef4f8c8f370547f7a8a84e',
+    'veh:coupe':               '0fe7cb6fb9e047cd99284c5b4a7f7d5e',
+    'veh:hatch':               '2b741e9b9c3a48b1871b0531de331210',
+
+    # ---- cars by discipline ----------------------------------------------
+    'veh:formula':             'fefcd94bface4f2ebcd5750e6c408f6a',
+    'veh:awd-rally':           '1c2ce5ff548f4ab49d72183d1e0f2afe',
+    'veh:drift':               '67613c6c3f8941479fb38b2c3506d319',
+    'veh:nns':                 'e0ed6ec9fdfc4a1abdfa3e94d14a787d',
+    'veh:stockcar':            '9ec83315f04c4d219fcb5baf4b373486',
+    'veh:dragster':            '41256345adb74f9ca1525f35d4f0c9e6',
+    'veh:kart':                '35ed6acb8016410d9b2a32d41ef2ca54',
+
+    # ---- trucks -----------------------------------------------------------
+    'veh:pickup':              '365df0fbda074221aeed52a91a3f6d00',
+    'veh:semi':                '0f3db5c3b2d845a48ea101ddc2a6d5a6',
+
+    # ---- bikes ------------------------------------------------------------
+    'veh:sportbike':           '0ab38d6e39664b25bfaf9f5c3e0c767c',
+    'veh:harley':              'ea00cf627ec24dea828601b28b56548f',
+    'veh:cruiser':             'a38557914e324e418a407071eaedf6ec',
+    'veh:mx':                  'eb01f118459e4074b55034ec5907c4de',
+    'veh:adv':                 '58419276f8d3406cab5524b20124271e',
+
+    # ---- engines ----------------------------------------------------------
+    'eng:v8-57-sb':            'f20acef709b847eb98839b89c5ef916c',
+    'eng:v8-50-ohv':           '4ec40400a93546d4aa6b7dd24393e9a5',
+    'eng:i6-30-legend':        '7ebc9741434540c4831453066d7ae057',
+    'eng:rotary-13b-t':        'b4feef96666a4bc494caae6c98fb9b83',
+    'eng:f6-30-t':             '5700259eeb494b8f8a0b8f63486c59cc',
+    'eng:f4-25-t':             '55e22b0e48f440c8a00ea1385e2c09ab',
+    'eng:v12-65-na':           '16d4a2d9ee954bdd8ccf71fcf647b52b',
+    'eng:v6-35-na':            '7309cf5e6b07435c962f954513ca170e',
+    'eng:d-i6-67':             '8a08e2a4c2da49b69536f39d021c9ac7',
+    'eng:m-triple-765':        'ad2416e341cb4beca3f86b0b00e84749',
+    'eng:m-i4-1000':           '33db399c34ef4d61bd93d422b1c0c92e',
 }
 
+NEVER = ('locomotive', 'train', 'airplane', 'aircraft', 'plane', 'boat', 'ship',
+         'rocket', 'lego', 'minecraft', 'low poly', 'lowpoly', 'cartoon')
 
 
 def api(path, need_token=True, **params):
@@ -84,24 +126,24 @@ def api(path, need_token=True, **params):
     if TOKEN:
         headers['Authorization'] = 'Token ' + TOKEN
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=120) as r:
+    with urllib.request.urlopen(req, timeout=180) as r:
         return json.load(r)
 
 
-NEVER = ('locomotive', 'train', 'airplane', 'aircraft', 'plane', 'boat', 'ship',
-         'rocket', 'lego', 'minecraft', 'low poly', 'lowpoly', 'cartoon')
+def licence_of(model):
+    """The redistributable slug for a model, or None if we may not ship it."""
+    lic = model.get('license') or {}
+    slug = lic.get('slug') or lic.get('uid') or ''
+    return slug if slug in OK_LICENCES else None
 
 
-def best(query, want_licences, any_of=(), all_of=()):
-    """The most usable downloadable model for a query.
+def candidates(query):
+    """Search hits worth a human look, best first.
 
-    The licence is filtered server-side — the search is asked for one licence at
-    a time and nothing outside the allow-list is ever requested. Among the hits,
-    prefer real geometry that a browser can still carry: below about 20k
-    triangles a car is a block, above about 600k it is a download nobody waits
-    for."""
-    best_hit, best_score, best_lic = None, -1.0, None
-    for lic in want_licences:
+    Only for finding an id to paste into TARGETS — nothing downloads off the
+    back of a search, because a search cannot tell an E30 from an E46."""
+    out = []
+    for lic in OK_LICENCES:
         try:
             res = api('search', need_token=False, type='models', q=query,
                       downloadable='true', license=lic, count=24)
@@ -110,28 +152,12 @@ def best(query, want_licences, any_of=(), all_of=()):
             continue
         for m in res.get('results', []):
             tris = m.get('faceCount') or 0
-            if tris < 20_000 or tris > 6_000_000:
-                continue
-            # Search matches tags and descriptions as well as titles, so asking
-            # for a Ferrari happily returns a Countach. The title has to say
-            # what the thing is, or it is not what was asked for.
             title = (m.get('name') or '').lower()
-            if any_of and not any(w in title for w in any_of):
+            if tris < 15_000 or any(w in title for w in NEVER):
                 continue
-            if all_of and not all(w in title for w in all_of):
-                continue
-            # a search for a diesel engine returns locomotives and aeroplanes,
-            # and a search for a car returns brick versions of it
-            if any(w in title for w in NEVER):
-                continue
-            span = 1.0 if 40_000 <= tris <= 900_000 else 0.45
-            # public domain first where it is a close call, then popularity
-            score = span * (1.25 if lic == 'cc0' else 1.0) * (1 + (m.get('likeCount') or 0)) ** 0.5
-            if score > best_score:
-                best_hit, best_score, best_lic = m, score, lic
-    if best_hit is not None:
-        best_hit['_licence'] = best_lic
-    return best_hit
+            out.append((m.get('likeCount') or 0, lic, tris, m.get('name'), m['uid']))
+    out.sort(reverse=True)
+    return out
 
 
 def download_gltf(uid, into):
@@ -139,7 +165,7 @@ def download_gltf(uid, into):
     link = (urls.get('gltf') or {}).get('url')
     if not link:
         raise RuntimeError('no glTF download for this model')
-    with urllib.request.urlopen(link, timeout=600) as r:
+    with urllib.request.urlopen(link, timeout=900) as r:
         z = zipfile.ZipFile(io.BytesIO(r.read()))
     z.extractall(into)
     for name in z.namelist():
@@ -148,31 +174,11 @@ def download_gltf(uid, into):
     raise RuntimeError('no .gltf inside the archive')
 
 
-BUDGET = 320_000        # triangles a browser can carry alongside everything else
-
 BLENDER_CONVERT = r'''
 import bpy, sys
-src, dst, budget = sys.argv[-3], sys.argv[-2], int(sys.argv[-1])
+src, dst = sys.argv[-2], sys.argv[-1]
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
-
-meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.data]
-for o in meshes:
-    o.data.calc_loop_triangles()
-total = sum(len(o.data.loop_triangles) for o in meshes)
-
-# A model authored for a renderer can be millions of triangles. Decimating the
-# whole scene by one ratio keeps the proportions of the thing intact — shrinking
-# each object to its own budget would flatten the small parts and leave the big
-# ones untouched.
-if total > budget and total > 0:
-    ratio = max(0.05, budget / total)
-    for o in meshes:
-        m = o.modifiers.new('ml_decimate', 'DECIMATE')
-        m.ratio = ratio
-        m.use_collapse_triangulate = True
-    print('MLDECIMATE %d -> %d (%.3f)' % (total, budget, ratio))
-
 bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB',
                           export_draco_mesh_compression_enable=False,
                           export_apply=True, export_yup=True)
@@ -180,13 +186,19 @@ bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB',
 
 
 def to_glb(src, dst):
+    """glTF to GLB, at full size. Making it small is shrink-glb.py's job, and
+    keeping the two apart means the raw download can be re-shrunk to a
+    different budget without fetching it again."""
     if src.endswith('.glb'):
         os.replace(src, dst)
         return dst
     script = os.path.join(tempfile.gettempdir(), '_ml_convert.py')
-    open(script, 'w').write(BLENDER_CONVERT)
-    subprocess.run([sys.executable, script, src, dst, str(BUDGET)], check=True,
+    with open(script, 'w') as f:
+        f.write(BLENDER_CONVERT)
+    subprocess.run([sys.executable, script, src, dst],
                    stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    if not os.path.exists(dst):
+        raise RuntimeError('Blender produced no .glb')
     return dst
 
 
@@ -196,46 +208,59 @@ def bundle(target, glb, licence, credit, source):
                     '--source', source], check=True)
 
 
-def main(argv):
-    only = [a for a in argv if not a.startswith('--')]
-    dry  = '--list' in argv
-    search = None
-    if '--search' in argv:
-        search = argv[argv.index('--search') + 1]
-    want = list(OK_LICENCES)
-    if '--cc0-only' in argv:
-        want = ['cc0']
+VALUED = ('--into', '--search')       # options that swallow the word after them
 
-    if search:
-        hit = best(search, want)
-        print(json.dumps({k: hit.get(k) for k in ('name', 'uid', 'faceCount')} if hit
-                         else {'found': None}, indent=1))
-        if hit:
-            print('licence:', (hit.get('license') or {}).get('slug'))
-            print('by:', (hit.get('user') or {}).get('displayName'))
+
+def main(argv):
+    only, skip = [], False
+    for a in argv:
+        if skip:
+            skip = False
+        elif a in VALUED:
+            skip = True
+        elif not a.startswith('--'):
+            only.append(a)
+    dry  = '--list' in argv
+    into = argv[argv.index('--into') + 1] if '--into' in argv else None
+
+    if '--search' in argv:
+        query = argv[argv.index('--search') + 1]
+        for likes, lic, tris, name, uid in candidates(query)[:30]:
+            print(f'  [{lic:5s}] {tris:>9} tris {likes:>4} likes  {(name or "")[:56]:56s} {uid}')
         return
 
+    if into:
+        os.makedirs(into, exist_ok=True)
     todo = {k: v for k, v in TARGETS.items() if not only or k in only}
     taken = 0
-    for target, (query, any_of, all_of) in todo.items():
-        print(f'{target:28s} "{query}"')
-        hit = best(query, want, any_of, all_of)
-        if not hit:
-            print('    nothing usable under a redistributable licence')
+    for target, uid in todo.items():
+        try:
+            m = api(f'models/{uid}', need_token=False)
+        except Exception as err:
+            print(f'{target:28s} metadata failed: {err}')
             continue
-        slug = hit['_licence']
-        credit = (hit.get('user') or {}).get('displayName') or 'unknown'
-        name = hit.get('name') or ''
-        print(f'    -> {name[:50]}  [{slug}]  by {credit}  {hit.get("faceCount")} tris')
+        slug = licence_of(m)
+        credit = (m.get('user') or {}).get('displayName') or 'unknown'
+        name = m.get('name') or ''
+        if not slug:
+            lab = ((m.get('license') or {}).get('label') or 'unknown')
+            print(f'{target:28s} SKIPPED — "{name[:40]}" is {lab}, not redistributable')
+            continue
+        print(f'{target:28s} {name[:46]:46s} [{slug}] by {credit} {m.get("faceCount")} tris')
         if dry:
             continue
         with tempfile.TemporaryDirectory() as tmp:
             try:
-                src = download_gltf(hit['uid'], tmp)
+                src = download_gltf(uid, tmp)
                 glb = os.path.join(tmp, 'out.glb')
                 to_glb(src, glb)
-                bundle(target, glb, OK_LICENCES[slug],
-                       f'{credit} — "{name}"', hit.get('viewerUrl') or '')
+                if into:
+                    keep = os.path.join(into, target.replace(':', '-') + '.glb')
+                    with open(glb, 'rb') as a, open(keep, 'wb') as b:
+                        b.write(a.read())
+                    glb = keep
+                bundle(target, glb, OK_LICENCES[slug], f'{credit} — "{name}"',
+                       f'https://sketchfab.com/3d-models/{uid}')
                 taken += 1
             except Exception as err:
                 print(f'    failed: {err}')
