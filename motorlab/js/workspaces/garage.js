@@ -14,7 +14,7 @@ import { simulate, emptyMods } from '../sim/engineSim.js';
 import { defaultTune } from '../sim/ecu.js';
 import { applyUpgrades } from '../data/upgrades.js';
 import { liveriesFor, setLivery } from '../build/scannedVehicle.js';
-import { hasBundled } from '../lib/importModel.js';
+import { hasBundled, rawModelFor, preferGenerated } from '../lib/importModel.js';
 import { photo } from '../lib/photo.js';
 
 /* ---------------------------------------------------------------------- */
@@ -125,6 +125,14 @@ function renderEngines(ctx, wrap){
 
 const labelFor = (v) => v.class === 'bike' ? 'Motorcycle' : v.class === 'kart' ? 'Kart' : 'Car / truck';
 
+function setSource(ctx, kind, id, wantGenerated){
+  const bag = (state.ui.generated ||= {});
+  if (wantGenerated) bag[`${kind}:${id}`] = true; else delete bag[`${kind}:${id}`];
+  globalThis.__MOTORLAB_GENERATED = bag;
+  invalidateTrees(); save(); ctx.reloadModel(); ctx.refresh();
+  toast(wantGenerated ? 'Showing the generated model.' : 'Showing the 3D scan.');
+}
+
 function choose(ctx, kind, id){
   if (kind === 'veh'){
     state.vehicleId = id;
@@ -160,7 +168,24 @@ export function render(ctx, tab){
       h('span', { class:'nowcard__c', text:'Change →' })));
   add(wrap, heads);
 
+  /* Real or generated, per machine. Both are worth having: the scan is what
+     the thing looks like, the generated one is what you can take apart. */
+  const swap = (kind, id, name) => hasBundled(kind, id) || rawModelFor(kind, id)
+    ? h('div', { class:'tglrow' },
+        h('label', { text:`Show ${name} as` }),
+        h('div', { class:'btnrow', style:{ margin:0, flex:'0 0 auto' } },
+          btn('3D scan', { class: preferGenerated(kind, id) ? '' : 'btn--pri btn--sm',
+            onClick:() => setSource(ctx, kind, id, false) }),
+          btn('Generated', { class: preferGenerated(kind, id) ? 'btn--pri btn--sm' : '',
+            onClick:() => setSource(ctx, kind, id, true) })))
+    : null;
+
   add(wrap,
+    swap('veh', v.id, 'the vehicle'),
+    swap('eng', e.id, 'the engine'),
+    hasBundled('veh', v.id) || hasBundled('eng', e.id)
+      ? note('The scan is the real object, photographed in three dimensions. The generated one is built from the specification, so every part of it is a part you can take off — which is the only version the teardown works on.')
+      : null,
     field('Engine', select(engineOptions(v), e.id, (id) => choose(ctx, 'eng', id))),
     v.model && liveriesFor(v.model).length ? field('Livery', select(
       liveriesFor(v.model).map(l => ({ value:l.id, label:l.name })),

@@ -18,8 +18,28 @@ import { assetUrl, setAssetBase } from './assets.js';
 /* kind is 'veh' or 'eng'; the value is { group, name, triangles, meshes } */
 export const models = { veh:new Map(), eng:new Map() };
 
-/** The model for one subject, or null. */
-export function modelFor(kind, id){ return models[kind]?.get(id) || null; }
+/* Which subjects the user has asked to see generated rather than real. The
+ * real model is the better picture; the generated one is the better teacher,
+ * because every part of it is a part you can take off. Both are worth having,
+ * so the choice is theirs and it is remembered per machine.
+ *
+ * main.js keeps this in step with the saved settings — a global rather than an
+ * import because store.js already imports this module, and the builders that
+ * ask the question must not have to know about either. */
+const generated = () => globalThis.__MOTORLAB_GENERATED || {};
+
+export function preferGenerated(kind, id){ return !!generated()[`${kind}:${id}`]; }
+
+/** The model for one subject, or null — null also when the user has asked for
+ *  the generated one. */
+export function modelFor(kind, id){
+  if (preferGenerated(kind, id)) return null;
+  return models[kind]?.get(id) || null;
+}
+
+/** The model regardless of that preference, for anything that needs to know
+ *  whether one exists at all. */
+export function rawModelFor(kind, id){ return models[kind]?.get(id) || null; }
 export function hasModels(){ return models.veh.size + models.eng.size > 0; }
 export function listModels(){
   const out = [];

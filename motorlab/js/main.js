@@ -42,6 +42,7 @@ const ctx = {
 async function boot(){
   load();
   loadStoredUpdates();
+  globalThis.__MOTORLAB_GENERATED = state.ui.generated ||= {};
   invalidateTrees();
 
   /* the scanned part maps — real disc, caliper, tyre, carbon — load once, up
@@ -389,6 +390,8 @@ function applySettings(){
   if (viewport.quality !== s.quality) viewport.setQuality(s.quality);
   viewport.renderer.shadowMap.enabled = s.showShadows && s.quality !== 'fast';
   if (viewport.scene) viewport.scene.environmentIntensity = s.reflections ?? 0.85;
+  /* the builders read this when they decide whether to use a real model */
+  globalThis.__MOTORLAB_GENERATED = state.ui.generated ||= {};
   viewport.setGhost(s.autoGhost);
   viewport.holdMs = s.holdMs ?? 420;
   viewport.benchSnap = s.benchSnap !== false;
