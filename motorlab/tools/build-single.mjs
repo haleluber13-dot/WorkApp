@@ -79,9 +79,12 @@ function collect(dir, out = {}, base = dir){
     if (rel.startsWith('surfaces-lite/')) continue;          // reached via its full-tier twin
     if (rel.startsWith('models-lite/')) continue;            // ditto
     if (rel.startsWith('thumbs-lite/')) continue;            // ditto
+    if (rel.startsWith('parts-lite/')) continue;             // ditto
+    if (rel.startsWith('env-lite/')) continue;               // ditto
+    if (rel.startsWith('scans-lite/')) continue;             // ditto
     if (skip.some(s => rel === s || rel.startsWith(s + '/'))) continue;
     let src = full;
-    for (const folder of ['surfaces/', 'thumbs/']){
+    for (const folder of ['surfaces/', 'thumbs/', 'parts/', 'env/', 'scans/']){
       if (!liteTex || !rel.startsWith(folder)) continue;
       const lite = join(`${ROOT}/assets`, folder.slice(0, -1) + '-lite', rel.slice(folder.length));
       if (existsSync(lite)) src = lite;
@@ -160,7 +163,8 @@ const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
   .replace(/<script type="module"[\s\S]*?<\/script>/g, '')
   .trim();
 
-const out = `<title>MotorLab</title>
+const out = `<meta charset="utf-8">
+<title>MotorLab</title>
 <meta name="description" content="Strip an engine to the block in 3D and rebuild it with real torque sequences, build the chassis, wire it, tune the ECU and run it on the dyno.">
 <style>
 ${css}

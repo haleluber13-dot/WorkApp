@@ -92,13 +92,17 @@ function wall({ ctx, keyName, filters, items, render }){
   return h('div', null, h('div', { class:'wallbar' }, search, chips), grid);
 }
 
-/* The offline single file carries only the machines it has a real model for —
- * a catalogue of photographs is worth nothing if half the photographs are of
- * shapes derived from a specification. The hosted app shows everything,
- * because there a model is one fetch away. */
+/* The offline single file shows a car only if it has a real model of it: a
+ * catalogue of photographs is worth nothing if half the photographs are of
+ * shapes derived from a specification, and a body is a thing you recognise or
+ * you do not. An engine is not that. Its part tree, its torque figures and
+ * its tuning tables are the lesson, they are right whether or not somebody
+ * has scanned that block, and there are only a dozen engine scans against
+ * fifty-five engines — so every engine stays in the catalogue and the scan,
+ * where there is one, goes over the top of it. */
 const scansOnly = () => !!globalThis.__MOTORLAB_SCANS_ONLY;
 const shown = (items, kind) =>
-  scansOnly() ? items.filter(x => hasBundled(kind, x.id)) : items;
+  scansOnly() && kind === 'veh' ? items.filter(x => hasBundled(kind, x.id)) : items;
 
 function renderVehicles(ctx, wrap){
   add(wrap, para(scansOnly()
@@ -119,7 +123,7 @@ function renderVehicles(ctx, wrap){
 
 function renderEngines(ctx, wrap){
   add(wrap, para(scansOnly()
-    ? 'Every engine in this copy is a real 3D scan. Choosing one rebuilds its part tree, its torque specs and its tuning tables from the specification — take the scan off and the teachable engine is underneath it.'
+    ? 'Every engine in the catalogue. A dozen of them are real 3D scans, and choosing one of those puts the scan over the top of the engine the app builds — take the scan off and the teachable engine is underneath it, part tree, torque specs and tuning tables and all.'
     : 'Every engine in the catalogue. Choosing one rebuilds its 3D model, its part tree, its torque specs and its tuning tables from the specification.'));
   add(wrap, wall({
     ctx, keyName:'engWall', filters:ENGINE_FILTERS, items:shown(ENGINES, 'eng'),
