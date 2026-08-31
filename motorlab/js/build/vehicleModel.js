@@ -19,7 +19,12 @@ function buildCar(v, tree){
   const root = group('vehicle'); const nodes = new Map();
   const add = (id, obj) => { if (!obj) return; tag(obj, id); root.add(obj);
     if (!nodes.has(id)) nodes.set(id, []); nodes.get(id).push(obj); };
-  const has = (id) => !!tree.byId[id];
+  const modelled = modelFor('veh', v.id);
+  /* A kart is all frame and wheels with nothing to hide them behind, so a
+     model of one duplicates everything visibly. A car's generated wheels sit
+     inside its arches, where they are still worth having. */
+  const bare = modelled && v.class === 'kart';
+  const has = (id) => !!tree.byId[id] && !(bare && DUPLICATED_BY_MODEL.has(id));
   const anim = { wheels:[], steer:[], susp:[], fans:[], corners:[] };
 
   const wb = M(v.wheelbase), tf = M(v.trackF) || M(1200), tr = M(v.trackR) || M(1200);
@@ -304,7 +309,9 @@ function buildCar(v, tree){
     add('seats', st);
   }
   const imported = modelFor('veh', v.id);
-  if (has('body') && imported){
+  /* A kart has no bodywork in its part tree, so asking has('body') first would
+     throw its model away. If there is a model, it goes on. */
+  if (imported){
     /* an imported model replaces the generated shell; everything under it stays */
     const bd = group('body');
     bd.add(fitToLength(imported.group, len, { lift: floorY * 0.02 }));
@@ -949,11 +956,29 @@ function bodyGlazing(surf, len, hgt, glassMat){
 
 /* ====================================================================== */
 /* ====================================================================== */
+/* A real model of a motorcycle is the whole motorcycle — tank, seat, wheels,
+ * lights and all. Building the generated versions of those as well leaves two
+ * of everything in the same place, which on a bike is unmissable: a blue box
+ * of a fuel tank sitting inside a photographed one. So when there is a model,
+ * the parts it already contains are not built a second time. Everything under
+ * the skin — frame, forks, swingarm, brakes, engine — still is. */
+const DUPLICATED_BY_MODEL = new Set([
+  'body', 'tank', 'wheels', 'lights', 'exhaustsys', 'rad', 'subframe',
+  'forks', 'triple', 'shock', 'swingarm', 'discf', 'discr', 'final',
+  'seats', 'cage', 'chassis', 'engine',
+]);
+
 function buildBike(v, tree){
   const root = group('bike'); const nodes = new Map();
   const add = (id, obj) => { if (!obj) return; tag(obj, id); root.add(obj);
     if (!nodes.has(id)) nodes.set(id, []); nodes.get(id).push(obj); };
-  const has = (id) => !!tree.byId[id];
+  const imported = modelFor('veh', v.id);
+  /* the frame and the wiring live inside the bodywork, so they are still
+     worth building under a real model; everything on the outside is not, and
+     the engine has a whole workspace of its own */
+  const keep = new Set(['chassis', 'battery', 'harness']);
+  const has = (id) => !!tree.byId[id] &&
+    !(imported && DUPLICATED_BY_MODEL.has(id) && !keep.has(id));
   const anim = { wheels:[], steer:[], susp:[], fans:[], corners:[] };
 
   const wb = M(v.wheelbase);
@@ -1107,7 +1132,13 @@ function buildBike(v, tree){
     add('lights', at(roundBox(M(120), M(180), M(220), .04, MAT.glass()), headX + M(220), headY - M(120), 0));
     add('lights', at(roundBox(M(80), M(90), M(140), .02, MAT.red()), axR*1.05, rR + M(560), 0));
   }
-  if (has('body')){
+  if (imported){
+    /* the same rule cars follow: a real model stands in for the bodywork, and
+       the frame, forks, swingarm and brakes stay underneath it */
+    const bd = group('body');
+    bd.add(fitToLength(imported.group, M(v.lengthMm), { lift: 0 }));
+    add('body', bd);
+  } else if (has('body')){
     const bd = group('body');
     const paint = MAT.paint(v.colour, globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8);
     bd.add(at(roundBox(M(560), M(180), M(300), .07, paint), axR*0.55, rR + M(640), 0));

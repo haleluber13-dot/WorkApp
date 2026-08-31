@@ -74,7 +74,14 @@ export function invalidateTrees(){ treeCache.clear(); }
 
 export function installedSet(){
   const id = state.engineId;
-  if (!state.installed[id]) state.installed[id] = tree().parts.map(p => p.id);   // start assembled
+  const t = tree();
+  if (!state.installed[id]) state.installed[id] = t.parts.map(p => p.id);   // start assembled
+  /* The real model arrives after the first build, and it arrives as a part.
+     A part that was not in the tree when this engine was first assembled is
+     not in the saved list, so without this the scan turns up permanently "not
+     fitted" — the one thing you came to look at, switched off. */
+  else if (!state.installed[id].includes('shell') && t.byId.shell)
+    state.installed[id].push('shell');
   return new Set(state.installed[id]);
 }
 export function setInstalled(set){ state.installed[state.engineId] = [...set]; save(); }

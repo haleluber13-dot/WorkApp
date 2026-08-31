@@ -175,7 +175,19 @@ for (let qi = 0; qi < queue.length; qi++){
         return !!(await im.ensureModel(kind, id));
       }, [s.kind, s.id]).catch(() => false);
       if (got){
+        /* the model is in hand, but the app rebuilds around it asynchronously —
+           wait for the geometry to stop changing or the picture is still of
+           the generated machine */
+        await page.waitForFunction(() => {
+          const m = globalThis.__motorlab?.viewport?.model;
+          if (!m) return false;
+          let n = 0; m.root.traverse(o => { if (o.isMesh) n += (o.geometry?.index?.count || 0); });
+          const seen = (globalThis.__thumbSeen2 ||= {});
+          if (seen.n !== n){ seen.n = n; seen.at = performance.now(); return false; }
+          return performance.now() - seen.at > 1200;
+        }, null, { timeout: 60_000 }).catch(() => {});
         await page.evaluate(() => {
+          delete globalThis.__thumbSeen2;
           const vp = globalThis.__motorlab.viewport;
           vp.setGhost(false); vp.setWire(false); vp.setCutaway(false);
           vp.setExplode(0); vp.frame();
