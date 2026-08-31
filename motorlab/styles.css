@@ -168,6 +168,20 @@ body[data-layout="wide"] .mapwrap{height:min(48vh,520px) !important}
 .btn--danger{border-color:#4a2530;color:#ff9a9a}
 .btn--wide{width:100%}
 .btnrow{display:flex;gap:7px;flex-wrap:wrap}
+
+/* the reference panel: a real model, embedded from its author's account, shown
+   beside the generated one. 16:10 keeps a car or an engine in frame without
+   the viewer letterboxing it. */
+.refframe{
+  position:relative;width:100%;aspect-ratio:16/10;border:1px solid var(--line2);
+  border-radius:10px;overflow:hidden;background:#06080c;
+}
+.refframe>iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.inp{
+  width:100%;background:var(--bg3);color:var(--ink);border:1px solid var(--line2);
+  border-radius:8px;padding:9px 10px;font:12.5px/1.45 var(--mono);resize:vertical;
+}
+.inp:focus{outline:none;border-color:var(--acc)}
 .btnrow>.btn{flex:1 1 0;min-width:96px}
 
 .chip{

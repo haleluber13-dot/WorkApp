@@ -11,6 +11,7 @@ import { canInstall, canRemove, blockers, GROUP_BY_ID } from '../data/parts.js';
 import { V_GROUP_BY_ID } from '../data/vehicleParts.js';
 import { addXp, unlock } from '../game.js';
 import { UPGRADE_BY_ID, availableFor } from '../data/upgrades.js';
+import { activeReference, setReference, uidFrom, creditFrom, embedUrl } from '../data/reference.js';
 
 /* ---------------------------------------------------------------------- */
 function model(kind){
@@ -377,6 +378,7 @@ export function renderPanel(ctx, kind, tab){
 
   if (tab === 'inspect') return renderInspector(ctx, kind, wrap);
   if (tab === 'guide')   return renderGuide(ctx, kind, wrap);
+  if (tab === 'ref')     return renderReference(ctx, kind, wrap);
 
   /* --- parts list --- */
   const total = M.tree.parts.length, on = M.tree.parts.filter(p => inst.has(p.id)).length;
@@ -536,3 +538,65 @@ function renderGuide(ctx, kind, wrap){
 
 export function getSelected(){ return selected; }
 export function setSelected(id){ selected = id; }
+
+/* ----------------------------------------------------------------------
+ * The real thing, beside the teachable one.
+ *
+ * Plenty of excellent scanned and modelled engines are published under terms
+ * that do not allow anyone to redistribute them — and plenty more simply have
+ * downloads switched off by their author. None of that stops them being
+ * *shown*: an embed is what the embed code on the model's page is for. The
+ * model stays on its author's account, loads from their servers, and carries
+ * their name and a link back to them.
+ *
+ * So this is the reference panel: the real object to look at while you strip
+ * the generated one down. It needs a connection, and says so when there is
+ * none.
+ * -------------------------------------------------------------------- */
+function renderReference(ctx, kind, wrap){
+  const subject = kind === 'engine' ? engine() : vehicle();
+  const rk = kind === 'engine' ? 'eng' : 'veh';
+  const ref = activeReference(rk, subject.id);
+
+  const setFrom = (text) => {
+    const uid = uidFrom(text);
+    if (!uid){ toast('That does not look like a Sketchfab model link or embed.', 'bad'); return; }
+    const c = creditFrom(text);
+    setReference(rk, subject.id, { uid, title:c.title || 'Reference model', author:c.author || '' });
+    ctx.refresh();
+    toast('Reference set for ' + subject.name, 'good');
+  };
+
+  add(wrap, h('div', { class:'sec' },
+    h('div', { class:'sec__h' }, h('span', { text:'Reference' }),
+      chip(subject.name)),
+    ref
+      ? h('div', null,
+          h('div', { class:'refframe' },
+            h('iframe', { src:embedUrl(ref.uid), title:ref.title, loading:'lazy',
+              allow:'autoplay; fullscreen; xr-spatial-tracking',
+              allowfullscreen:'', frameborder:'0' })),
+          h('div', { class:'tiny muted', style:{ marginTop:'6px' } },
+            h('b', { text:ref.title }),
+            ref.author ? h('span', { text:' — by ' + ref.author }) : null,
+            h('span', { text:' · ' }),
+            h('a', { href:'https://sketchfab.com/3d-models/' + ref.uid, target:'_blank',
+                     rel:'noopener nofollow', text:'on Sketchfab' })),
+          ref.note ? note(ref.note) : null)
+      : note('No reference set for this one yet. Paste a Sketchfab model link or its embed code below and it will show here.'),
+    h('div', { class:'btnrow', style:{ marginTop:'10px' } },
+      btn('Paste a link or embed', { class:'btn--pri', onClick:() => {
+        const box = h('textarea', { class:'inp', rows:'5', spellcheck:'false',
+          placeholder:'https://sketchfab.com/3d-models/…  — or the whole <iframe> snippet' });
+        modal({ title:'Reference model', wide:false,
+          body:h('div', null,
+            para('Open the model on Sketchfab, press <b>Share</b>, and paste either the link or the whole embed snippet. Anything with the model id in it works.'),
+            box),
+          actions:[{ label:'Cancel' },
+                   { label:'Use it', primary:true, onClick:() => setFrom(box.value) }] });
+      } }),
+      ref ? btn('Clear it', { onClick:() => {
+        setReference(rk, subject.id, null); ctx.refresh(); toast('Reference cleared.'); } }) : null),
+    note('The model is shown from its author\'s account, not copied into MotorLab — which is what an embed is for, and why models that cannot be redistributed can still be studied here. It needs a connection; offline the frame stays blank.')));
+  return wrap;
+}

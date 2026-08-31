@@ -5,7 +5,8 @@ import { simulate, emptyMods } from '../sim/engineSim.js';
 import { applyUpgrades } from '../data/upgrades.js';
 import { summaryLine } from '../data/engines.js';
 
-const tabs = [{ id:'parts', name:'Parts' }, { id:'inspect', name:'Inspector' }, { id:'guide', name:'Build order' }];
+const tabs = [{ id:'parts', name:'Parts' }, { id:'inspect', name:'Inspector' },
+              { id:'guide', name:'Build order' }, { id:'ref', name:'Reference' }];
 
 export const engineWs = {
   id:'engine', name:'Engine Bay', short:'Engine', icon:'⚙', model:'engine', tools:{ explode:true, crank:true },
