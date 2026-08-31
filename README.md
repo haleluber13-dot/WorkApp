@@ -134,3 +134,12 @@ instead — both send CORS headers.
 Adding a country: write one `@source("name")` function returning `cam(...)`
 records, then re-run. Reprojection helpers are available for national grids
 (`_reproject("EPSG:3346")`); install `pyproj` for those sources.
+
+---
+
+## Also in this repo
+
+**[`/tlush/`](./tlush/) — תלוש כיס**, a standalone Hebrew shift-and-wage tracker
+for hourly workers: punch clock, Israeli overtime and Shabbat rates, expenses and
+a monthly payslip view. Same idea as GlobeWatch — one page, no install, data stays
+on the device. See [`tlush/README.md`](./tlush/README.md).
