@@ -75,6 +75,7 @@ TARGETS = {
     'veh:concept':             'b5466f263aef4f8c8f370547f7a8a84e',
     'veh:coupe':               '0fe7cb6fb9e047cd99284c5b4a7f7d5e',
     'veh:hatch':               '2b741e9b9c3a48b1871b0531de331210',
+    'veh:sedan':               '83be21e3c816418bb4f21be68f61c70c',
 
     # ---- cars by discipline ----------------------------------------------
     'veh:formula':             'fefcd94bface4f2ebcd5750e6c408f6a',

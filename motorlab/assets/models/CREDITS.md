@@ -50,6 +50,7 @@ redistribution.
 | `veh:nns` | veh-nns.glb | CC BY 4.0 | Ddiaz Design — "1993 NASCAR Chevrolet Monte Carlo F9" | https://sketchfab.com/3d-models/e0ed6ec9fdfc4a1abdfa3e94d14a787d |
 | `veh:pickup` | veh-pickup.glb | CC BY 4.0 | David_Holiday — "2018 Ford F150 Raptor-Stacked" | https://sketchfab.com/3d-models/365df0fbda074221aeed52a91a3f6d00 |
 | `veh:porsche-911-gt3` | veh-porsche-911-gt3.glb | CC BY 4.0 | ChevroletSS — "Porsche 911 GT3" | https://sketchfab.com/3d-models/78d5c47ab2554c2592b7e499179a0792 |
+| `veh:sedan` | veh-sedan.glb | CC BY 4.0 | Nieve5677 — "2011 Audi A6" | https://sketchfab.com/3d-models/83be21e3c816418bb4f21be68f61c70c |
 | `veh:semi` | veh-semi.glb | CC BY 4.0 | David_Holiday — "The Peterbilt 6x6" | https://sketchfab.com/3d-models/0f3db5c3b2d845a48ea101ddc2a6d5a6 |
 | `veh:sportbike` | veh-sportbike.glb | CC BY 4.0 | Anshuman dutta — "Kawasaki Ninja H2 [free]" | https://sketchfab.com/3d-models/0ab38d6e39664b25bfaf9f5c3e0c767c |
 | `veh:stockcar` | veh-stockcar.glb | CC BY 4.0 | damiandelange2014 — "Late model Stock Car" | https://sketchfab.com/3d-models/9ec83315f04c4d219fcb5baf4b373486 |
