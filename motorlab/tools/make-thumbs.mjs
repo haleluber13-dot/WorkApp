@@ -91,7 +91,7 @@ const wanted = list.filter(s =>
  * as it is designed to. The pictures came out looking fine and were of the
  * wrong thing. So: start the page again every few subjects, and check the
  * model really is in hand before taking the picture. */
-const PER_PAGE = 8;
+const PER_PAGE = 24;
 
 async function freshPage(){
   await page.goto(`http://127.0.0.1:${PORT}/motorlab/`, { waitUntil: 'domcontentloaded' });
@@ -100,7 +100,10 @@ async function freshPage(){
 }
 
 let done = 0, skipped = 0, since = 0;
-for (const s of wanted){
+const retried = new Set();
+const queue = [...wanted];
+for (let qi = 0; qi < queue.length; qi++){
+  const s = queue[qi];
   const file = join(OUT, `${s.kind}-${s.id}.jpg`);
   if (!force && existsSync(file)) { skipped++; continue; }
   if (since >= PER_PAGE){ await freshPage(); since = 0; }
@@ -164,8 +167,15 @@ for (const s of wanted){
       return !im.hasBundled(kind, id) || !!im.rawModelFor(kind, id);
     }, [s.kind, s.id]);
     if (!got){
-      errs.push(`${s.kind}:${s.id} model did not load — picture would be the generated one`);
-      await freshPage(); since = 0;
+      /* one more go on a clean page before giving up on it, rather than
+         quietly shipping a photo of the wrong car */
+      if (!retried.has(s.id)){
+        retried.add(s.id);
+        await freshPage(); since = 0;
+        queue.push(s);
+      } else {
+        errs.push(`${s.kind}:${s.id} model would not load — no picture rather than the wrong one`);
+      }
       continue;
     }
     const box = await page.locator('#gl').boundingBox();
