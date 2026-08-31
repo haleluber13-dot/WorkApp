@@ -260,10 +260,53 @@ export function loadGLB(kind, id, arrayBuffer, fileName = 'model.glb', opts = {}
       const g = gltf.scene || gltf.scenes?.[0];
       if (!g) return reject(new Error('That file has no scene in it.'));
       let meshes = 0, tris = 0;
+      /* A skinned mesh is positioned by its bones, and Object3D.clone(true) —
+         which fitting a model into a build relies on — keeps the clone rigged
+         to the ORIGINAL skeleton, which is not in the scene. The rally car's
+         wheels are skinned, and they fell to the floor around it. Nothing
+         here ever animates a model, so bake the skin's current pose into
+         plain geometry and drop the rig. */
+      g.updateMatrixWorld(true);
+      const skinned = [];
+      g.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); });
+      for (const o of skinned){
+        const geo = o.geometry.clone();
+        const pos = geo.attributes.position;
+        const nrm = geo.attributes.normal;
+        const v = new THREE.Vector3(), n = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++){
+          v.fromBufferAttribute(pos, i);
+          (o.applyBoneTransform || o.boneTransform).call(o, i, v);   // r151 renamed it
+          pos.setXYZ(i, v.x, v.y, v.z);
+          if (nrm){ n.fromBufferAttribute(nrm, i); n.normalize(); nrm.setXYZ(i, n.x, n.y, n.z); }
+        }
+        delete geo.attributes.skinIndex;
+        delete geo.attributes.skinWeight;
+        const still = new THREE.Mesh(geo, o.material);
+        still.name = o.name;
+        still.position.copy(o.position); still.quaternion.copy(o.quaternion); still.scale.copy(o.scale);
+        o.parent.add(still);
+        o.parent.remove(o);
+      }
       g.traverse(o => {
         if (!o.isMesh) return;
         meshes++;
         o.castShadow = o.receiveShadow = true;
+        /* Scans often ship every material in blend mode — one sedan arrived
+           with its paint, tyres and numberplates all at a quarter opacity, and
+           you could read the seats through the roof. Glass is glass; anything
+           else that is untextured and see-through was never meant to be, so it
+           goes back to solid. A textured translucent material (a decal, a
+           mesh grille) is left alone. */
+        const GLASSY = /glass|window|windshield|windscreen|lens|light|visor|bulb|crystal/i;
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])){
+          if (!m || !m.transparent) continue;
+          if (m.alphaMap || m.map) continue;
+          if (GLASSY.test(m.name || '')) continue;
+          m.transparent = false;
+          m.opacity = 1;
+          m.depthWrite = true;
+        }
         const idx = o.geometry?.index;
         tris += idx ? idx.count / 3 : (o.geometry?.attributes?.position?.count || 0) / 3;
       });

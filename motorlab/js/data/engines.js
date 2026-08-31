@@ -76,8 +76,8 @@ export const ENGINES = [
       fuel:'premium', dryWeight:180,
       blurb:'Hot-vee layout — turbos live in the valley between the banks, so the exhaust path is short and it spools like a much smaller engine.' }),
 
-  E({ id:'v8-50-ohv', name:'302 Windsor 5.0 HO', maker:'Ford', layout:'V', cyl:8, bankAngle:90,
-      displacement:4942, bore:101.6, stroke:76.2, cr:9.0, redline:6000, tqPeak:3200, hpPeak:4600,
+  E({ id:'v8-50-ohv', name:'LS3 6.2 Small Block', maker:'GM', layout:'V', cyl:8, bankAngle:90,
+      displacement:6162, bore:103.25, stroke:92, cr:10.7, redline:6600, tqPeak:3200, hpPeak:4600,
       cam:'OHV', valvesPerCyl:2, firing:'V8', dryWeight:200,
       blurb:'One cam in the block, pushrods and rockers up top. Physically tiny for its displacement, which is exactly why it ends up in everything.' }),
 
@@ -126,7 +126,7 @@ export const ENGINES = [
       blurb:'Two narrow-angle V8s on a common crank, four turbochargers and ten radiators. Included mostly so you can see what "too much" looks like in 3D.' }),
 
   /* ---------------- rotary ---------------- */
-  E({ id:'rotary-13b-t', name:'13B-REW Twin-Turbo Rotary', maker:'Mazda', kind:'rotary', layout:'rotary',
+  E({ id:'rotary-13b-t', name:'13B-REW Twin-Turbo Rotary', maker:'Mazda', kind:'rotary', layout:'rotary', modelFit:{ scale:0.62, lift:-0.06 },
       cyl:2, displacement:1308, chamberCc:654, cr:9.0, redline:8000, tqPeak:5000, hpPeak:6500,
       aspiration:'twinturbo', revsPerCycle:1, cam:'none', valvesPerCyl:0, boostTarget:0.7, spoolRpm:2800,
       fuel:'premium', dryWeight:125, idle:900, ports:'peripheral-exhaust, side-intake',
@@ -151,8 +151,8 @@ export const ENGINES = [
       firing:'I6', idle:700, glow:true, valvesPerCyl:2, cam:'OHV', dryWeight:450,
       blurb:'Cast-iron everything, six head bolts per cylinder, torque measured in four figures. This is the pickup/heavy-truck workhorse.' }),
 
-  E({ id:'d-v8-66', name:'Duramax L5P 6.6 V8', maker:'GM', layout:'V', cyl:8, bankAngle:90,
-      displacement:6599, bore:103, stroke:99, cr:16.0, redline:3600, tqPeak:1600, hpPeak:2800,
+  E({ id:'d-v8-66', name:'Power Stroke 7.3 V8', maker:'Ford', layout:'V', cyl:8, bankAngle:90,
+      displacement:7270, bore:104.4, stroke:106.2, cr:17.5, redline:3600, tqPeak:1600, hpPeak:2800,
       aspiration:'turbo', fuel:'diesel', injection:'common-rail', boostTarget:1.7, spoolRpm:1500,
       firing:'V8', idle:680, glow:true, valvesPerCyl:4, cam:'OHV', dryWeight:470,
       blurb:'Two banks, one enormous variable-geometry turbo in the valley, and enough low-end torque to bend driveshafts.' }),

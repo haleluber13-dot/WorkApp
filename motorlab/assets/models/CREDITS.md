@@ -6,15 +6,12 @@ redistribution.
 
 | Used for | File | Licence | Credit | Source |
 |---|---|---|---|---|
-| `eng:d-i6-67` | eng-d-i6-67.glb | CC BY 4.0 | ihdieselman — "7.3L powerstroke diesel engine" | https://sketchfab.com/3d-models/8a08e2a4c2da49b69536f39d021c9ac7 |
+| `eng:d-v8-66` | eng-d-v8-66.glb | CC BY 4.0 | ihdieselman — "7.3L powerstroke diesel engine" | https://sketchfab.com/3d-models/8a08e2a4c2da49b69536f39d021c9ac7 |
 | `eng:f4-25-t` | eng-f4-25-t.glb | CC BY 4.0 | ilvskf — "Subaru EJ257 Flat-Four Boxer Engine" | https://sketchfab.com/3d-models/55e22b0e48f440c8a00ea1385e2c09ab |
 | `eng:f6-30-t` | eng-f6-30-t.glb | CC BY 4.0 | Scuderia Morello — "F6 Boxer Engine" | https://sketchfab.com/3d-models/5700259eeb494b8f8a0b8f63486c59cc |
 | `eng:i6-30-legend` | eng-i6-30-legend.glb | CC BY 4.0 | autoNgraphic — "Toyota 2JZ GTE Engine [FREE]" | https://sketchfab.com/3d-models/7ebc9741434540c4831453066d7ae057 |
-| `eng:m-i4-1000` | eng-m-i4-1000.glb | CC BY 4.0 | lunea — "Motorbike Engine" | https://sketchfab.com/3d-models/33db399c34ef4d61bd93d422b1c0c92e |
 | `eng:m-triple-765` | eng-m-triple-765.glb | CC BY 4.0 | Jamie Hamel-Smith — "Three Cylinder Motorcycle Engine" | https://sketchfab.com/3d-models/ad2416e341cb4beca3f86b0b00e84749 |
 | `eng:rotary-13b-t` | eng-rotary-13b-t.glb | CC BY 4.0 | EZ-GAZI — "13B-REW / MAZDA RX7 CAR ENGINE" | https://sketchfab.com/3d-models/b4feef96666a4bc494caae6c98fb9b83 |
-| `eng:v12-65-na` | eng-v12-65-na.glb | CC BY 4.0 | SDC PERFORMANCE™️ — "Engine Lamborghini V12 6.5L/19L SDC ( FREE )" | https://sketchfab.com/3d-models/16d4a2d9ee954bdd8ccf71fcf647b52b |
-| `eng:v6-35-na` | eng-v6-35-na.glb | CC BY 4.0 | Blendoriano — "V6 car engine with engine [MoreThem]" | https://sketchfab.com/3d-models/7309cf5e6b07435c962f954513ca170e |
 | `eng:v8-50-ohv` | eng-v8-50-ohv.glb | CC BY 4.0 | inked3D — "GM LS small block engine" | https://sketchfab.com/3d-models/4ec40400a93546d4aa6b7dd24393e9a5 |
 | `eng:v8-57-sb` | eng-v8-57-sb.glb | CC BY 4.0 | ShotaB — "V8 Hot Rod Engine" | https://sketchfab.com/3d-models/f20acef709b847eb98839b89c5ef916c |
 | `veh:adv` | veh-adv.glb | CC BY 4.0 | KidBi-Gaming — "Honda Africa Twin Low Poly – Game Ready 3D Model" | https://sketchfab.com/3d-models/58419276f8d3406cab5524b20124271e |
@@ -22,7 +19,7 @@ redistribution.
 | `veh:audi-r8` | veh-audi-r8.glb | CC BY 4.0 | wallon — "Audi R8" | https://sketchfab.com/3d-models/e17e438f076f4427a58d93aa779edaed |
 | `veh:audi-rs3` | veh-audi-rs3.glb | CC BY 4.0 | Galaxy Car Showroom — "2018 Audi RS 3 Sportback" | https://sketchfab.com/3d-models/77d3dcacacb7413e9685a27f77f651f8 |
 | `veh:awd-rally` | veh-awd-rally.glb | CC BY 4.0 | vecarz — "Toyota GR Yaris Rally WRC | www.vecarz.com" | https://sketchfab.com/3d-models/1c2ce5ff548f4ab49d72183d1e0f2afe |
-| `veh:bmw-m3-e46` | veh-bmw-m3-e46.glb | CC BY 4.0 | MMC Works — "BMW M3 E46" | https://sketchfab.com/3d-models/f1b00ff37d504629b10031da32bc7497 |
+| `veh:bmw-m3-e46` | veh-bmw-m3-e46.glb | CC BY 4.0 | BaseOptimal — "BMW E46 M3 Sports Car Red" | https://sketchfab.com/3d-models/74916396475b414f8dbcb580621a5010 |
 | `veh:bmw-m5` | veh-bmw-m5.glb | CC BY 4.0 | Res1n — "Bmw M5 F90" | https://sketchfab.com/3d-models/5478e978bd634337adc8e3dc413fbfa3 |
 | `veh:bugatti-w16` | veh-bugatti-w16.glb | CC BY 4.0 | DisneyCars — "2023 Bugatti Chiron Profilee" | https://sketchfab.com/3d-models/6da5092ee455446cb050e4c6b4a3ac05 |
 | `veh:concept` | veh-concept.glb | CC BY 4.0 | Mona x Supercars — "Nissan Z Proto Concept" | https://sketchfab.com/3d-models/b5466f263aef4f8c8f370547f7a8a84e |
@@ -34,7 +31,7 @@ redistribution.
 | `veh:ford-gt` | veh-ford-gt.glb | CC BY 4.0 | kevin (ケビン) — "2006 | Ford GT LM Spec ll Test Car" | https://sketchfab.com/3d-models/dd6c3effdb1e43ecadace447ccbda68d |
 | `veh:ford-mustang-gt` | veh-ford-mustang-gt.glb | CC BY 4.0 | Jiaxing — "Ford Mustang Shelby GT500" | https://sketchfab.com/3d-models/0eaa7a16796540f29461ddae05ecdeb3 |
 | `veh:formula` | veh-formula.glb | CC BY 4.0 | vecarz — "Ferrari F1 2019 | www.vecarz.com" | https://sketchfab.com/3d-models/fefcd94bface4f2ebcd5750e6c408f6a |
-| `veh:harley` | veh-harley.glb | CC BY 4.0 | RusikMDLR — "Harley Davidson Sportster" | https://sketchfab.com/3d-models/ea00cf627ec24dea828601b28b56548f |
+| `veh:harley` | veh-harley.glb | CC BY 4.0 | e-restrepo1114 — "Harley Davidson Iron 883 2018" | https://sketchfab.com/3d-models/94c9d48a23a1407190e973001da63e50 |
 | `veh:hatch` | veh-hatch.glb | CC BY 4.0 | DR1KING100K — "Volkswagen Golf GTI 2001" | https://sketchfab.com/3d-models/2b741e9b9c3a48b1871b0531de331210 |
 | `veh:honda-nsx-na1` | veh-honda-nsx-na1.glb | CC BY 4.0 | Lexyc16 — "Honda NSX 1990" | https://sketchfab.com/3d-models/1cc15628a00a4739a6b6c01128927c8d |
 | `veh:kart` | veh-kart.glb | CC BY 4.0 | Jungle Jim — "Modular Go-kart" | https://sketchfab.com/3d-models/35ed6acb8016410d9b2a32d41ef2ca54 |
@@ -51,7 +48,7 @@ redistribution.
 | `veh:pickup` | veh-pickup.glb | CC BY 4.0 | David_Holiday — "2018 Ford F150 Raptor-Stacked" | https://sketchfab.com/3d-models/365df0fbda074221aeed52a91a3f6d00 |
 | `veh:porsche-911-gt3` | veh-porsche-911-gt3.glb | CC BY 4.0 | ChevroletSS — "Porsche 911 GT3" | https://sketchfab.com/3d-models/78d5c47ab2554c2592b7e499179a0792 |
 | `veh:sedan` | veh-sedan.glb | CC BY 4.0 | Nieve5677 — "2011 Audi A6" | https://sketchfab.com/3d-models/83be21e3c816418bb4f21be68f61c70c |
-| `veh:semi` | veh-semi.glb | CC BY 4.0 | David_Holiday — "The Peterbilt 6x6" | https://sketchfab.com/3d-models/0f3db5c3b2d845a48ea101ddc2a6d5a6 |
+| `veh:semi` | veh-semi.glb | CC BY 4.0 | hans1240 — "1978 Peterbilt 359 Standard" | https://sketchfab.com/3d-models/0599b3d7f9a5437fa905b20674d16d17 |
 | `veh:sportbike` | veh-sportbike.glb | CC BY 4.0 | Anshuman dutta — "Kawasaki Ninja H2 [free]" | https://sketchfab.com/3d-models/0ab38d6e39664b25bfaf9f5c3e0c767c |
 | `veh:stockcar` | veh-stockcar.glb | CC BY 4.0 | damiandelange2014 — "Late model Stock Car" | https://sketchfab.com/3d-models/9ec83315f04c4d219fcb5baf4b373486 |
 | `veh:subaru-wrx-sti` | veh-subaru-wrx-sti.glb | CC BY 4.0 | MAC ULT ARTS — "Subaru Impreza WRX STi 2004 Custom" | https://sketchfab.com/3d-models/08296bc950364621b6174a3078bb19e0 |

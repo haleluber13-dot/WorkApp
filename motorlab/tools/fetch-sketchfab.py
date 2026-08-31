@@ -47,7 +47,7 @@ OK_LICENCES = {
 # id in the app  ->  the Sketchfab model that is that thing.
 TARGETS = {
     # ---- cars, by marque -------------------------------------------------
-    'veh:bmw-m3-e46':          'f1b00ff37d504629b10031da32bc7497',
+    'veh:bmw-m3-e46':          '74916396475b414f8dbcb580621a5010',
     'veh:bmw-m5':              '5478e978bd634337adc8e3dc413fbfa3',
     'veh:mazda-rx7':           '8ac0df459f514950ab83ac37109a06ab',
     'veh:mazda-mx5':           '25fc4c8bd4494fe0b9e456644b269c6f',
@@ -88,11 +88,11 @@ TARGETS = {
 
     # ---- trucks -----------------------------------------------------------
     'veh:pickup':              '365df0fbda074221aeed52a91a3f6d00',
-    'veh:semi':                '0f3db5c3b2d845a48ea101ddc2a6d5a6',
+    'veh:semi':                '0599b3d7f9a5437fa905b20674d16d17',
 
     # ---- bikes ------------------------------------------------------------
     'veh:sportbike':           '0ab38d6e39664b25bfaf9f5c3e0c767c',
-    'veh:harley':              'ea00cf627ec24dea828601b28b56548f',
+    'veh:harley':              '94c9d48a23a1407190e973001da63e50',
     'veh:cruiser':             'a38557914e324e418a407071eaedf6ec',
     'veh:mx':                  'eb01f118459e4074b55034ec5907c4de',
     'veh:adv':                 '58419276f8d3406cab5524b20124271e',

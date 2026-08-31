@@ -31,13 +31,18 @@ export function buildEngine(e, tree){
 /* ====================================================================== */
 function layout(e){
   const bore = M(e.bore), stroke = M(e.stroke);
-  const pitch = bore * 1.32;                                  // bore spacing
-  const banks = (e.layout === 'V' || e.layout === 'F') ? 2 : (e.layout === 'W' ? 4 : 1);
+  /* A W is two narrow-angle vees sharing a crank. Drawing it as four separate
+     banks left the outer two without heads — cylinders poking through open
+     arches with their valve gear floating alongside. Drawn as one wide vee
+     with the bores interleaved VR-style (tighter pitch, eight a side), it has
+     the two broad cam covers and the stumpy block the real engine is famous
+     for, and every part generator that knows how to dress a vee just works. */
+  const pitch = bore * 1.32 * (e.layout === 'W' ? 0.62 : 1);  // bore spacing
+  const banks = (e.layout === 'V' || e.layout === 'F' || e.layout === 'W') ? 2 : 1;
   const perBank = Math.ceil(e.cyl / banks);
   const half = deg(e.bankAngle) / 2;
   const bankAngles = e.layout === 'I' ? [0]
     : e.layout === 'F' ? [deg(90), deg(-90)]
-    : e.layout === 'W' ? [half*0.35, -half*0.35, half*1.5, -half*1.5].slice(0,4)
     : [ -half, half ];
   const rodLen = stroke * 1.75;
   const crankR = stroke / 2;
@@ -49,7 +54,6 @@ function layout(e){
 /** Which bank a cylinder sits in, and its index along that bank. */
 function cylSlot(e, i, L){
   if (L.banks === 1) return { bank:0, idx:i };
-  if (e.layout === 'W') return { bank: i % 4, idx: Math.floor(i / 4) };
   return { bank: i % 2, idx: Math.floor(i / 2) };
 }
 
@@ -1944,8 +1948,9 @@ function finalize(e, root, nodes, anim, L){
   if (imported){
     const b = boundsOf(root);
     const shell = group('shell');
-    shell.add(fitToLength(imported.group, b.size?.x || b.radius * 1.6,
-                          { ground:false, lift:b.center.y }));
+    const fit = e.modelFit || {};
+    shell.add(fitToLength(imported.group, (b.size?.x || b.radius * 1.6) * (fit.scale ?? 1),
+                          { ground:false, lift:b.center.y + (fit.lift ?? 0) }));
     tag(shell, 'shell');
     root.add(shell);
     if (!nodes.has('shell')) nodes.set('shell', []);

@@ -20,6 +20,43 @@ import os, subprocess, sys, tempfile
 
 BLENDER = r'''
 import bpy, sys
+
+def _ml_split_uv_seams(me):
+    """Cut the mesh along its UV island boundaries before decimating.
+
+    The collapse decimator happily merges vertices that sit on opposite sides
+    of a UV seam, and on a car whose paint, badges and scratches share one
+    atlas that drags fragments of the atlas across the bodywork - one silver
+    M3 came out wearing black static. An edge split along every seam turns
+    the islands into separate shells, and the decimator cannot smear across
+    a boundary that is no longer connected."""
+    import bmesh as _bm
+    bm = _bm.new()
+    bm.from_mesh(me)
+    uv = bm.loops.layers.uv.active
+    if not uv:
+        bm.free()
+        return
+    cut = []
+    for e in bm.edges:
+        ll = e.link_loops
+        if len(ll) < 2:
+            continue
+        l0, l1 = ll[0], ll[1]
+        a = { l0.vert.index: l0[uv].uv, l0.link_loop_next.vert.index: l0.link_loop_next[uv].uv }
+        b = { l1.vert.index: l1[uv].uv, l1.link_loop_next.vert.index: l1.link_loop_next[uv].uv }
+        for vi, auv in a.items():
+            buv = b.get(vi)
+            if buv is not None and (auv - buv).length > 1e-4:
+                cut.append(e)
+                break
+    print('MLSEAMS cut %d of %d edges' % (len(cut), len(bm.edges)))
+    if cut:
+        _bm.ops.split_edges(bm, edges=cut)
+    bm.to_mesh(me)
+    bm.free()
+
+
 src, dst, tex, tris = sys.argv[-4], sys.argv[-3], int(sys.argv[-2]), int(sys.argv[-1])
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
@@ -46,13 +83,36 @@ if total > tris and total > 0:
     # one ratio across the whole scene, so the proportions of the thing survive
     ratio = max(0.03, tris / total)
     for o in meshes:
+        _ml_split_uv_seams(o.data)
+        # Decimating under custom split normals leaves the normals pointing
+        # where the old triangles were: black shards scattered over the paint.
+        # Let the mesh shade from its own geometry instead.
+        try:
+            o.data.free_normals_split()
+        except Exception:
+            pass
+        try:
+            o.data.shade_smooth()
+        except Exception:
+            pass
+    for o in meshes:
         mod = o.modifiers.new('ml_dec', 'DECIMATE')
         mod.ratio = ratio
         mod.use_collapse_triangulate = True
 
+# JPEG has no alpha channel. A car's decal atlas - badges, scratches, the
+# tint band on a windscreen - is painted over the body in a texture that is
+# mostly transparent, and flattening it to JPEG turns everywhere transparent
+# into opaque black: one silver M3 shipped wearing black static. Images that
+# carry alpha stay PNG; everything else still goes to JPEG for the size.
+for im in bpy.data.images:
+    try:
+        im.file_format = 'PNG' if im.depth == 32 else 'JPEG'
+    except Exception:
+        pass
 bpy.ops.export_scene.gltf(
     filepath=dst, export_format='GLB', export_apply=True, export_yup=True,
-    export_image_format='JPEG', export_jpeg_quality=72,
+    export_image_format='AUTO', export_jpeg_quality=72,
     export_draco_mesh_compression_enable=False)
 print('MLSHRINK tris %d -> %d' % (total, min(total, tris)))
 '''

@@ -34,6 +34,12 @@ src, dst = sys.argv[1], sys.argv[2]
 tex = int(sys.argv[3]) if len(sys.argv) > 3 else 128
 tris = int(sys.argv[4]) if len(sys.argv) > 4 else 9000
 quality = int(sys.argv[5]) if len(sys.argv) > 5 else 60
+# A CAD-authored car is built double-walled: paint outside, a dark interior
+# shell a few millimetres inside it. Decimated hard, the outer wall sinks
+# into the inner one and the car comes out wearing black static. For a tier
+# this small the interior is unreadable anyway, so a caller can name the
+# materials to leave out (a regex), and the walls stop fighting.
+drop_mats = sys.argv[6] if len(sys.argv) > 6 else ''
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
@@ -68,6 +74,17 @@ bpy.context.view_layer.update()
 objs = meshes()
 if not objs:
     raise SystemExit('no meshes')
+
+if drop_mats:
+    import re as _re
+    rx = _re.compile(drop_mats, _re.I)
+    for o in list(objs):
+        names = [m.name for m in o.data.materials if m] or ['']
+        if names and all(rx.search(n) for n in names):
+            bpy.data.objects.remove(o, do_unlink=True)
+    objs = meshes()
+    if not objs:
+        raise SystemExit('drop-mats removed everything')
 
 before = sum(len(o.data.vertices) for o in objs)
 total = count(objs)
@@ -223,9 +240,16 @@ for rank, (_, im) in enumerate(imgs):
     except Exception:
         pass
 
+# JPEG flattens alpha to opaque black, and decal atlases are mostly alpha -
+# see shrink-glb.py. Alpha images stay PNG here too.
+for im in bpy.data.images:
+    try:
+        im.file_format = 'PNG' if im.depth == 32 else 'JPEG'
+    except Exception:
+        pass
 bpy.ops.export_scene.gltf(
     filepath=dst, export_format='GLB', export_apply=True, export_yup=True,
-    export_image_format='JPEG', export_jpeg_quality=quality,
+    export_image_format='AUTO', export_jpeg_quality=quality,
     export_normals=True, export_tangents=False,
     # Geometry is nearly all of what is left once the textures are small, and
     # float32 positions are a wasteful way to say where a bumper is to the

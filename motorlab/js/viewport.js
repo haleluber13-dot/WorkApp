@@ -584,13 +584,15 @@ export class Viewport {
        exactly as it was. */
     const shellId = this.model.shellId;
     const shelled = !!shellId && this.installed.has(shellId);
+    /* parts the model is known not to cover stay out in the open */
+    const keep = this.model.keepIds || new Set();
 
     for (const [id, objs] of this.model.nodes){
       /* A part on the bench is off the machine but very much still in the
          room: it has to stay solid and visible, or picking one up would look
          like destroying it. */
       const inst = this.installed.has(id) || this.bench.has(id);
-      const under = shelled && id !== shellId && !this.bench.has(id);
+      const under = shelled && id !== shellId && !keep.has(id) && !this.bench.has(id);
       const sel  = this.selected === id;
       const hov  = this.hovered === id;
       const hl   = this.highlight.has(id);

@@ -312,10 +312,15 @@ function buildCar(v, tree){
   /* A kart has no bodywork in its part tree, so asking has('body') first would
      throw its model away. If there is a model, it goes on. */
   if (imported){
-    /* an imported model replaces the generated shell; everything under it stays */
+    /* an imported model replaces the generated shell; everything under it stays.
+       A kart has no 'body' in its part tree, and a node that is not a part is
+       never in the installed set, so the viewport would quietly ghost the whole
+       model out — the go-kart shipped as a bare frame with its scan invisible.
+       Hang the model off the chassis instead, which always exists and is
+       always fitted. */
     const bd = group('body');
     bd.add(fitToLength(imported.group, len, { lift: floorY * 0.02 }));
-    add('body', bd);
+    add(tree.byId.body ? 'body' : 'chassis', bd);
   } else if (has('body') && !open){
     const bd = group('body');
     const opacity = globalThis.__MOTORLAB_BODY_OPACITY ?? 0.8;
@@ -1163,6 +1168,10 @@ function finalize(root, nodes, anim, v, shellId = null){
        While it is fitted it is what you see; take it off and the teachable
        version underneath is all still there. */
     shellId,
+    /* parts the model does NOT cover, so they stay visible alongside it —
+       the Mustang's scan is a bodyshell with empty arches, and hiding the
+       generated wheels under it shipped a car standing on its splitter */
+    keepIds: new Set(v.modelKeeps || []),
     partIds:[...nodes.keys()],
     setExplode(f){
       for (const [, objs] of nodes) for (const o of objs){

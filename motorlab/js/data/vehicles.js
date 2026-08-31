@@ -25,7 +25,7 @@ const CATALOG = [
       brakeF:380, brakeR:360, cd:0.29, area:2.25, fuelL:65,
       blurb:'Longitudinal engine, gearbox behind it, propshaft to a limited-slip differential. Double wishbones front, multilink rear — the classic recipe for a car that steers with the throttle.' }),
 
-  V({ id:'coupe', name:'Nissan 200SX (S14)', maker:'Nissan', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'coupe', name:'Nissan 180SX (S13)', maker:'Nissan', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'doublewishbone', suspR:'multilink', engines:['i6-30-legend','f4-25-t','v8-50-ohv','i4-20-vtec','rotary-13b-t'],
       massKg:1380, wheelbase:2570, trackF:1520, trackR:1550, lengthMm:4380, widthMm:1790, heightMm:1290,
       gears:[3.63,2.19,1.54,1.21,1.00,0.79], final:3.73, tyreF:235, tyreR:265, rimF:18, rimR:18,
@@ -55,7 +55,7 @@ const CATALOG = [
       brakeF:380, brakeR:380, cd:0.42, area:3.6, fuelL:130, driveLoss:0.19,
       blurb:'Body-on-frame: a ladder chassis carrying a live rear axle on leaf springs. Everything is sized for towing loads, not for corner speed.' }),
 
-  V({ id:'semi', name:'Peterbilt 6x6', maker:'Peterbilt', body:'semi', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'semi', name:'Peterbilt 359', maker:'Peterbilt', body:'semi', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'liveaxle', suspR:'airbag', chassis:'ladder frame', engines:['d-i6-67','d-v8-66'],
       massKg:8200, wheelbase:4300, trackF:2050, trackR:1850, lengthMm:6800, widthMm:2550, heightMm:3900,
       gears:[12.8,8.9,6.5,4.7,3.4,2.5,1.8,1.35,1.0,0.74], final:3.42, tyreF:315, tyreR:295, rimF:22, rimR:22,
@@ -135,14 +135,14 @@ const CATALOG = [
       brakeF:395, brakeR:380, cd:0.32, area:2.32, fuelL:68, seats:5, colour:0x2b3a4a,
       blurb:'Four doors, four driven wheels and a switch that disconnects the front axle entirely. Everything that makes it fast — the diff, the dampers, the torque split — is a map, which makes it the best car here for learning what those maps actually do.' }),
 
-  V({ id:'mazda-rx7', name:'Mazda RX-7 (FD)', maker:'Mazda', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'mazda-rx7', name:'Mazda RX-7 (FC)', maker:'Mazda', body:'coupe', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'doublewishbone', suspR:'doublewishbone', engines:['rotary-13b-t','rotary-20b','mazda-r26b'],
       massKg:1260, wheelbase:2425, trackF:1460, trackR:1460, lengthMm:4295, widthMm:1760, heightMm:1230,
       gears:[3.48,2.02,1.39,1.00,0.72], final:4.10, tyreF:225, tyreR:255, rimF:17, rimR:17,
       brakeF:294, brakeR:292, cd:0.31, area:1.90, fuelL:76, seats:4, colour:0xd8dde3,
       blurb:'Double wishbones at all four corners, a 50:50 weight split and an engine with no reciprocating parts at all. The sequential twin turbos hand over at about 4,500 rpm — a system of six vacuum-actuated valves that is the single most misunderstood thing on the car.' }),
 
-  V({ id:'mazda-mx5', name:'Mazda MX-5 (NA)', maker:'Mazda', body:'roadster', drivetrain:'RWD', bay:'front-longitudinal',
+  V({ id:'mazda-mx5', name:'Mazda MX-5 (NB)', maker:'Mazda', body:'roadster', drivetrain:'RWD', bay:'front-longitudinal',
       suspF:'doublewishbone', suspR:'doublewishbone', engines:['mazda-bp','i4-16-na','rotary-13b-t'],
       massKg:960, wheelbase:2265, trackF:1405, trackR:1425, lengthMm:3970, widthMm:1675, heightMm:1235,
       gears:[3.14,1.89,1.33,1.00,0.81], final:4.10, tyreF:185, tyreR:185, rimF:14, rimR:14,
@@ -224,7 +224,7 @@ const CATALOG = [
       brakeF:356, brakeR:297, cd:0.34, area:2.10, fuelL:50, seats:4, colour:0xd6d8da,
       blurb:'A three-cylinder turbo, a lower roof than the car it is named after, and a centre coupling you can bias 70:30 either way from a dial. Homologated for rallying first and made road-legal second, which is why the rear suspension is double wishbones on a hatchback.' }),
 
-  V({ id:'ford-mustang-gt', name:'Ford Mustang GT', maker:'Ford', body:'muscle', drivetrain:'RWD',
+  V({ id:'ford-mustang-gt', name:'Mustang Shelby GT500', maker:'Ford', modelKeeps:['wheels'], body:'muscle', drivetrain:'RWD',
       bay:'front-longitudinal', suspF:'macpherson', suspR:'multilink',
       engines:['ford-coyote','v8-52-flat','v8-50-ohv','v8-70-bb'],
       massKg:1705, wheelbase:2720, trackF:1582, trackR:1648, lengthMm:4789, widthMm:1916, heightMm:1381,
@@ -338,7 +338,7 @@ const CATALOG = [
       cd:0.7, area:0.8, fuelL:18, seats:2, driveLoss:0.11, rakeDeg:30, trailMm:145,
       blurb:'Long wheelbase, 30° of rake, low seat. Belt final drive and an air-cooled 45° V-twin bolted rigidly into a steel backbone frame.' }),
 
-  V({ id:'harley', name:'Harley-Davidson Sportster', maker:'Harley-Davidson', class:'bike', body:'cruiser',
+  V({ id:'harley', name:'Harley Iron 883', maker:'Harley-Davidson', class:'bike', body:'cruiser',
       drivetrain:'belt', bay:'longitudinal-v', suspF:'tele-fork', suspR:'twin-shock',
       chassis:'steel backbone', engines:['m-vtwin-1200','m-ptwin-900'],
       massKg:310, wheelbase:1690, lengthMm:2500, widthMm:900, heightMm:1040,
