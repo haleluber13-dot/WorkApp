@@ -1,0 +1,428 @@
+{
+  "models": {
+    "veh:bmw-m3-e46": {
+      "file": "veh-bmw-m3-e46.glb",
+      "licence": "CC BY 4.0",
+      "credit": "MMC Works \u2014 \"BMW M3 E46\"",
+      "source": "https://sketchfab.com/3d-models/f1b00ff37d504629b10031da32bc7497",
+      "bytes": 3906600,
+      "added": "2026-08-31"
+    },
+    "veh:bmw-m5": {
+      "file": "veh-bmw-m5.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Res1n \u2014 \"Bmw M5 F90\"",
+      "source": "https://sketchfab.com/3d-models/5478e978bd634337adc8e3dc413fbfa3",
+      "bytes": 10753400,
+      "added": "2026-08-31"
+    },
+    "veh:mazda-rx7": {
+      "file": "veh-mazda-rx7.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Lexyc16 \u2014 \"Mazda RX-7 FC\"",
+      "source": "https://sketchfab.com/3d-models/8ac0df459f514950ab83ac37109a06ab",
+      "bytes": 2002824,
+      "added": "2026-08-31"
+    },
+    "veh:mazda-mx5": {
+      "file": "veh-mazda-mx5.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Res1n \u2014 \"1998 Mazda MX 5 (Nb)\"",
+      "source": "https://sketchfab.com/3d-models/25fc4c8bd4494fe0b9e456644b269c6f",
+      "bytes": 3129996,
+      "added": "2026-08-31"
+    },
+    "veh:audi-r8": {
+      "file": "veh-audi-r8.glb",
+      "licence": "CC BY 4.0",
+      "credit": "wallon \u2014 \"Audi R8\"",
+      "source": "https://sketchfab.com/3d-models/e17e438f076f4427a58d93aa779edaed",
+      "bytes": 3172652,
+      "added": "2026-08-31"
+    },
+    "veh:audi-rs3": {
+      "file": "veh-audi-rs3.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Galaxy Car Showroom \u2014 \"2018 Audi RS 3 Sportback\"",
+      "source": "https://sketchfab.com/3d-models/77d3dcacacb7413e9685a27f77f651f8",
+      "bytes": 4941184,
+      "added": "2026-08-31"
+    },
+    "veh:audi-quattro-s1": {
+      "file": "veh-audi-quattro-s1.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Mona x Supercars \u2014 \"Audi Sport Quattro S1 Group B\"",
+      "source": "https://sketchfab.com/3d-models/2c3209a22a274cc389ce3b0c77caed6a",
+      "bytes": 5093244,
+      "added": "2026-08-31"
+    },
+    "veh:maserati-mc20": {
+      "file": "veh-maserati-mc20.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Mona x Supercars \u2014 \"Maserati MC20\"",
+      "source": "https://sketchfab.com/3d-models/013ce35092394d328dc2099fe2841ac0",
+      "bytes": 6158064,
+      "added": "2026-08-31"
+    },
+    "veh:maserati-granturismo": {
+      "file": "veh-maserati-granturismo.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Marcos Gigena \u2014 \"Maserati Granturismo Mc Stradale\"",
+      "source": "https://sketchfab.com/3d-models/c4aa1cf6461048e3b75a77ff027f90c6",
+      "bytes": 3265808,
+      "added": "2026-08-31"
+    },
+    "veh:toyota-supra-a80": {
+      "file": "veh-toyota-supra-a80.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Martin Trafas \u2014 \"Toyota Supra MK IV (1994)\"",
+      "source": "https://sketchfab.com/3d-models/eb9bb1eb41db431cb078088ae1ce45f8",
+      "bytes": 3516008,
+      "added": "2026-08-31"
+    },
+    "veh:toyota-ae86": {
+      "file": "veh-toyota-ae86.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Martin Trafas \u2014 \"Toyota AE86 Sprinter Trueno Zenki\"",
+      "source": "https://sketchfab.com/3d-models/a5737bf3cc9b4179a6e5ebe173ff70d9",
+      "bytes": 4987948,
+      "added": "2026-08-31"
+    },
+    "veh:toyota-lfa": {
+      "file": "veh-toyota-lfa.glb",
+      "licence": "CC BY 4.0",
+      "credit": "DisneyCars \u2014 \"2010 Lexus LFA\"",
+      "source": "https://sketchfab.com/3d-models/05900382647c42d19ab925f23eabca62",
+      "bytes": 4748580,
+      "added": "2026-08-31"
+    },
+    "veh:toyota-gr-yaris": {
+      "file": "veh-toyota-gr-yaris.glb",
+      "licence": "CC BY 4.0",
+      "credit": "DisneyCars \u2014 \"2020 Toyota GR Yaris\"",
+      "source": "https://sketchfab.com/3d-models/44cb958908b94aa5aad0d856994f35a3",
+      "bytes": 1611628,
+      "added": "2026-08-31"
+    },
+    "veh:ford-mustang-gt": {
+      "file": "veh-ford-mustang-gt.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Jiaxing \u2014 \"Ford Mustang Shelby GT500\"",
+      "source": "https://sketchfab.com/3d-models/0eaa7a16796540f29461ddae05ecdeb3",
+      "bytes": 5616900,
+      "added": "2026-08-31"
+    },
+    "veh:ford-gt": {
+      "file": "veh-ford-gt.glb",
+      "licence": "CC BY 4.0",
+      "credit": "kevin (\u30b1\u30d3\u30f3) \u2014 \"2006 | Ford GT LM Spec ll Test Car\"",
+      "source": "https://sketchfab.com/3d-models/dd6c3effdb1e43ecadace447ccbda68d",
+      "bytes": 4974224,
+      "added": "2026-08-31"
+    },
+    "veh:ferrari-812": {
+      "file": "veh-ferrari-812.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Merc_TV \u2014 \"Ferrari 812 SuperFast 2017-2024\"",
+      "source": "https://sketchfab.com/3d-models/cd7dfc79a98244ca81d86d82ce2b49a7",
+      "bytes": 6971980,
+      "added": "2026-08-31"
+    },
+    "veh:porsche-911-gt3": {
+      "file": "veh-porsche-911-gt3.glb",
+      "licence": "CC BY 4.0",
+      "credit": "ChevroletSS \u2014 \"Porsche 911 GT3\"",
+      "source": "https://sketchfab.com/3d-models/78d5c47ab2554c2592b7e499179a0792",
+      "bytes": 3157324,
+      "added": "2026-08-31"
+    },
+    "veh:nissan-gtr-r35": {
+      "file": "veh-nissan-gtr-r35.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Black Snow \u2014 \"Nissan Skyline GTR r35\"",
+      "source": "https://sketchfab.com/3d-models/7b142ea3376e4811a326256c59bbc7a2",
+      "bytes": 5748964,
+      "added": "2026-08-31"
+    },
+    "veh:nissan-skyline-r34": {
+      "file": "veh-nissan-skyline-r34.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Lexyc16 \u2014 \"Nissan Skyline R34 GT-R\"",
+      "source": "https://sketchfab.com/3d-models/ff8fb2251dfa4bb9979e7022c5a6666c",
+      "bytes": 2278148,
+      "added": "2026-08-31"
+    },
+    "veh:honda-nsx-na1": {
+      "file": "veh-honda-nsx-na1.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Lexyc16 \u2014 \"Honda NSX 1990\"",
+      "source": "https://sketchfab.com/3d-models/1cc15628a00a4739a6b6c01128927c8d",
+      "bytes": 2924264,
+      "added": "2026-08-31"
+    },
+    "veh:lambo-v12": {
+      "file": "veh-lambo-v12.glb",
+      "licence": "CC BY 4.0",
+      "credit": "BlackCube \u2014 \"Lamborghini Aventador with Interior\"",
+      "source": "https://sketchfab.com/3d-models/36eb1fa54a0d4be695d4cd90c30f4ff1",
+      "bytes": 7591908,
+      "added": "2026-08-31"
+    },
+    "veh:bugatti-w16": {
+      "file": "veh-bugatti-w16.glb",
+      "licence": "CC BY 4.0",
+      "credit": "DisneyCars \u2014 \"2023 Bugatti Chiron Profilee\"",
+      "source": "https://sketchfab.com/3d-models/6da5092ee455446cb050e4c6b4a3ac05",
+      "bytes": 4426716,
+      "added": "2026-08-31"
+    },
+    "veh:subaru-wrx-sti": {
+      "file": "veh-subaru-wrx-sti.glb",
+      "licence": "CC BY 4.0",
+      "credit": "MAC ULT ARTS \u2014 \"Subaru Impreza WRX STi 2004 Custom\"",
+      "source": "https://sketchfab.com/3d-models/08296bc950364621b6174a3078bb19e0",
+      "bytes": 3120960,
+      "added": "2026-08-31"
+    },
+    "eng:v8-57-sb": {
+      "file": "eng-v8-57-sb.glb",
+      "licence": "CC BY 4.0",
+      "credit": "ShotaB \u2014 \"V8 Hot Rod Engine\"",
+      "source": "https://sketchfab.com/3d-models/f20acef709b847eb98839b89c5ef916c",
+      "bytes": 2950908,
+      "added": "2026-08-31"
+    },
+    "eng:i6-30-legend": {
+      "file": "eng-i6-30-legend.glb",
+      "licence": "CC BY 4.0",
+      "credit": "autoNgraphic \u2014 \"Toyota 2JZ GTE Engine [FREE]\"",
+      "source": "https://sketchfab.com/3d-models/7ebc9741434540c4831453066d7ae057",
+      "bytes": 3801344,
+      "added": "2026-08-31"
+    },
+    "eng:rotary-13b-t": {
+      "file": "eng-rotary-13b-t.glb",
+      "licence": "CC BY 4.0",
+      "credit": "EZ-GAZI \u2014 \"13B-REW / MAZDA RX7 CAR ENGINE\"",
+      "source": "https://sketchfab.com/3d-models/b4feef96666a4bc494caae6c98fb9b83",
+      "bytes": 3399824,
+      "added": "2026-08-31"
+    },
+    "eng:f6-30-t": {
+      "file": "eng-f6-30-t.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Scuderia Morello \u2014 \"F6 Boxer Engine\"",
+      "source": "https://sketchfab.com/3d-models/5700259eeb494b8f8a0b8f63486c59cc",
+      "bytes": 3599600,
+      "added": "2026-08-31"
+    },
+    "eng:d-i6-67": {
+      "file": "eng-d-i6-67.glb",
+      "licence": "CC BY 4.0",
+      "credit": "ihdieselman \u2014 \"7.3L powerstroke diesel engine\"",
+      "source": "https://sketchfab.com/3d-models/8a08e2a4c2da49b69536f39d021c9ac7",
+      "bytes": 3062768,
+      "added": "2026-08-31"
+    },
+    "veh:koenigsegg": {
+      "file": "veh-koenigsegg.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Ddiaz Design \u2014 \"2020 Koenigsegg Jesko\"",
+      "source": "https://sketchfab.com/3d-models/c657f51fb0db43e38fea172dfa385287",
+      "bytes": 3688388,
+      "added": "2026-08-31"
+    },
+    "veh:super": {
+      "file": "veh-super.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Mona x Supercars \u2014 \"Mercedes AMG One\"",
+      "source": "https://sketchfab.com/3d-models/3f22c626f5274455a90a14801e62527c",
+      "bytes": 5396956,
+      "added": "2026-08-31"
+    },
+    "veh:concept": {
+      "file": "veh-concept.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Mona x Supercars \u2014 \"Nissan Z Proto Concept\"",
+      "source": "https://sketchfab.com/3d-models/b5466f263aef4f8c8f370547f7a8a84e",
+      "bytes": 1666764,
+      "added": "2026-08-31"
+    },
+    "veh:coupe": {
+      "file": "veh-coupe.glb",
+      "licence": "CC BY 4.0",
+      "credit": "the 86 guy \u2014 \"Nissan 200sx\"",
+      "source": "https://sketchfab.com/3d-models/0fe7cb6fb9e047cd99284c5b4a7f7d5e",
+      "bytes": 2881320,
+      "added": "2026-08-31"
+    },
+    "veh:hatch": {
+      "file": "veh-hatch.glb",
+      "licence": "CC BY 4.0",
+      "credit": "DR1KING100K \u2014 \"Volkswagen Golf GTI 2001\"",
+      "source": "https://sketchfab.com/3d-models/2b741e9b9c3a48b1871b0531de331210",
+      "bytes": 4132572,
+      "added": "2026-08-31"
+    },
+    "veh:formula": {
+      "file": "veh-formula.glb",
+      "licence": "CC BY 4.0",
+      "credit": "vecarz \u2014 \"Ferrari F1 2019 | www.vecarz.com\"",
+      "source": "https://sketchfab.com/3d-models/fefcd94bface4f2ebcd5750e6c408f6a",
+      "bytes": 7040412,
+      "added": "2026-08-31"
+    },
+    "veh:awd-rally": {
+      "file": "veh-awd-rally.glb",
+      "licence": "CC BY 4.0",
+      "credit": "vecarz \u2014 \"Toyota GR Yaris Rally WRC | www.vecarz.com\"",
+      "source": "https://sketchfab.com/3d-models/1c2ce5ff548f4ab49d72183d1e0f2afe",
+      "bytes": 7217072,
+      "added": "2026-08-31"
+    },
+    "veh:drift": {
+      "file": "veh-drift.glb",
+      "licence": "CC BY 4.0",
+      "credit": "SpatialNeglect \u2014 \"JDM style Drift Car\"",
+      "source": "https://sketchfab.com/3d-models/67613c6c3f8941479fb38b2c3506d319",
+      "bytes": 6605040,
+      "added": "2026-08-31"
+    },
+    "veh:nns": {
+      "file": "veh-nns.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Ddiaz Design \u2014 \"1993 NASCAR Chevrolet Monte Carlo F9\"",
+      "source": "https://sketchfab.com/3d-models/e0ed6ec9fdfc4a1abdfa3e94d14a787d",
+      "bytes": 4029912,
+      "added": "2026-08-31"
+    },
+    "veh:stockcar": {
+      "file": "veh-stockcar.glb",
+      "licence": "CC BY 4.0",
+      "credit": "damiandelange2014 \u2014 \"Late model Stock Car\"",
+      "source": "https://sketchfab.com/3d-models/9ec83315f04c4d219fcb5baf4b373486",
+      "bytes": 3413868,
+      "added": "2026-08-31"
+    },
+    "veh:dragster": {
+      "file": "veh-dragster.glb",
+      "licence": "CC BY 4.0",
+      "credit": "rhinoart \u2014 \"Top Fuel Dragster\"",
+      "source": "https://sketchfab.com/3d-models/41256345adb74f9ca1525f35d4f0c9e6",
+      "bytes": 2882556,
+      "added": "2026-08-31"
+    },
+    "veh:kart": {
+      "file": "veh-kart.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Jungle Jim \u2014 \"Modular Go-kart\"",
+      "source": "https://sketchfab.com/3d-models/35ed6acb8016410d9b2a32d41ef2ca54",
+      "bytes": 3469432,
+      "added": "2026-08-31"
+    },
+    "veh:pickup": {
+      "file": "veh-pickup.glb",
+      "licence": "CC BY 4.0",
+      "credit": "David_Holiday \u2014 \"2018 Ford F150 Raptor-Stacked\"",
+      "source": "https://sketchfab.com/3d-models/365df0fbda074221aeed52a91a3f6d00",
+      "bytes": 4175840,
+      "added": "2026-08-31"
+    },
+    "veh:semi": {
+      "file": "veh-semi.glb",
+      "licence": "CC BY 4.0",
+      "credit": "David_Holiday \u2014 \"The Peterbilt 6x6\"",
+      "source": "https://sketchfab.com/3d-models/0f3db5c3b2d845a48ea101ddc2a6d5a6",
+      "bytes": 6416088,
+      "added": "2026-08-31"
+    },
+    "veh:sportbike": {
+      "file": "veh-sportbike.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Anshuman dutta \u2014 \"Kawasaki Ninja H2 [free]\"",
+      "source": "https://sketchfab.com/3d-models/0ab38d6e39664b25bfaf9f5c3e0c767c",
+      "bytes": 3548548,
+      "added": "2026-08-31"
+    },
+    "veh:harley": {
+      "file": "veh-harley.glb",
+      "licence": "CC BY 4.0",
+      "credit": "RusikMDLR \u2014 \"Harley Davidson Sportster\"",
+      "source": "https://sketchfab.com/3d-models/ea00cf627ec24dea828601b28b56548f",
+      "bytes": 3234860,
+      "added": "2026-08-31"
+    },
+    "veh:cruiser": {
+      "file": "veh-cruiser.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Alpha One \u2014 \"1990 Fatboy inspired Cruiser Motorcycle\"",
+      "source": "https://sketchfab.com/3d-models/a38557914e324e418a407071eaedf6ec",
+      "bytes": 3351028,
+      "added": "2026-08-31"
+    },
+    "veh:mx": {
+      "file": "veh-mx.glb",
+      "licence": "CC BY 4.0",
+      "credit": "JJDYT \u2014 \"Honda 450R Dirt bike\"",
+      "source": "https://sketchfab.com/3d-models/eb01f118459e4074b55034ec5907c4de",
+      "bytes": 3604464,
+      "added": "2026-08-31"
+    },
+    "veh:adv": {
+      "file": "veh-adv.glb",
+      "licence": "CC BY 4.0",
+      "credit": "KidBi-Gaming \u2014 \"Honda Africa Twin Low Poly \u2013 Game Ready 3D Model\"",
+      "source": "https://sketchfab.com/3d-models/58419276f8d3406cab5524b20124271e",
+      "bytes": 4117668,
+      "added": "2026-08-31"
+    },
+    "eng:v8-50-ohv": {
+      "file": "eng-v8-50-ohv.glb",
+      "licence": "CC BY 4.0",
+      "credit": "inked3D \u2014 \"GM LS small block engine\"",
+      "source": "https://sketchfab.com/3d-models/4ec40400a93546d4aa6b7dd24393e9a5",
+      "bytes": 5992372,
+      "added": "2026-08-31"
+    },
+    "eng:f4-25-t": {
+      "file": "eng-f4-25-t.glb",
+      "licence": "CC BY 4.0",
+      "credit": "ilvskf \u2014 \"Subaru EJ257 Flat-Four Boxer Engine\"",
+      "source": "https://sketchfab.com/3d-models/55e22b0e48f440c8a00ea1385e2c09ab",
+      "bytes": 3980088,
+      "added": "2026-08-31"
+    },
+    "eng:v12-65-na": {
+      "file": "eng-v12-65-na.glb",
+      "licence": "CC BY 4.0",
+      "credit": "SDC PERFORMANCE\u2122\ufe0f \u2014 \"Engine Lamborghini V12 6.5L/19L SDC ( FREE )\"",
+      "source": "https://sketchfab.com/3d-models/16d4a2d9ee954bdd8ccf71fcf647b52b",
+      "bytes": 3035776,
+      "added": "2026-08-31"
+    },
+    "eng:v6-35-na": {
+      "file": "eng-v6-35-na.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Blendoriano \u2014 \"V6 car engine with engine [MoreThem]\"",
+      "source": "https://sketchfab.com/3d-models/7309cf5e6b07435c962f954513ca170e",
+      "bytes": 8680588,
+      "added": "2026-08-31"
+    },
+    "eng:m-triple-765": {
+      "file": "eng-m-triple-765.glb",
+      "licence": "CC BY 4.0",
+      "credit": "Jamie Hamel-Smith \u2014 \"Three Cylinder Motorcycle Engine\"",
+      "source": "https://sketchfab.com/3d-models/ad2416e341cb4beca3f86b0b00e84749",
+      "bytes": 2331396,
+      "added": "2026-08-31"
+    },
+    "eng:m-i4-1000": {
+      "file": "eng-m-i4-1000.glb",
+      "licence": "CC BY 4.0",
+      "credit": "lunea \u2014 \"Motorbike Engine\"",
+      "source": "https://sketchfab.com/3d-models/33db399c34ef4d61bd93d422b1c0c92e",
+      "bytes": 6329700,
+      "added": "2026-08-31"
+    }
+  }
+}
