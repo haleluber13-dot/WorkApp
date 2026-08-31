@@ -516,16 +516,25 @@ function renderInspector(ctx, kind, wrap){
     ...blk.map(b => row(b, inst.has(b.id) ? 'on top — remove first' : 'already off'))));
 
   const ups = upgradesFor(kind, p.id);
-  if (ups.length) add(wrap, section(`Better versions of this part (${ups.length})`,
-    note('Same job, different part. Fitting one replaces what is on the machine now.'),
-    ...ups.map(u => h('div', { class:'urow' },
-      shot(p.id),
-      h('div', { class:'urow__t' },
-        h('div', { class:'card__brand', text:u.brand }),
-        h('div', { class:'card__t', text:u.name }),
-        h('div', { class:'card__b', text:u.teach.slice(0, 160) + (u.teach.length > 160 ? '…' : '') })),
-      h('div', { class:'urow__c' }, chip('$' + u.cost.toLocaleString())))),
-    btn('Open the Upgrade Shop', { class:'btn--wide', onClick:() => ctx.goto('upgrade') })));
+  if (ups.length){
+    const fittedIds = new Set(state.fitted[engine().id] || []);
+    add(wrap, section(`Better versions of this part (${ups.length})`,
+      /* the picture is of what is on the machine now — every one of these
+         replaces exactly this, which is the thing worth showing once */
+      h('div', { class:'urow urow--head' }, shot(p.id),
+        h('div', { class:'urow__t' },
+          h('div', { class:'card__brand', text:'Fitted now' }),
+          h('div', { class:'card__t', text:p.name }))),
+      ...ups.map(u => h('div', { class:'urow' },
+        h('span', { class:'upico', text:upgradeIcon(u) }),
+        h('div', { class:'urow__t' },
+          h('div', { class:'card__brand', text:u.brand }),
+          h('div', { class:'card__t', text:u.name }),
+          h('div', { class:'card__b', text:u.teach.slice(0, 160) + (u.teach.length > 160 ? '…' : '') })),
+        h('div', { class:'urow__c' },
+          fittedIds.has(u.id) ? chip('fitted', 'ok') : chip('$' + u.cost.toLocaleString())))),
+      btn('Open the Upgrade Shop', { class:'btn--wide', onClick:() => ctx.goto('upgrade') })));
+  }
 
   add(wrap, h('div', { class:'btnrow', style:{ marginTop:'12px' } },
     on ? btn('Remove', { onClick:() => doRemove(ctx, kind, p.id), disabled:!canRemove(M.tree, inst, p.id) })
@@ -560,6 +569,28 @@ function renderBench(ctx, kind, wrap){
       for (const id of ids) returnPart(ctx, kind, id);
     } })));
   return wrap;
+}
+
+/* Upgrades have no geometry of their own — they are a change to the part that
+ * is already there — so they get a mark that says what kind of change it is
+ * rather than a picture of something that does not exist. */
+const UP_ICON = [
+  [/turbo|boost|antilag|twinscroll|mgu/i, '🌀'],
+  [/super|blower|sc-/i, '🌪'],
+  [/cool|ic-|meth|rad/i, '❄'],
+  [/cam|vvt|spring|valve|head/i, '⚙'],
+  [/rod|piston|crank|balance|girdle|stud|seal/i, '🔩'],
+  [/inj|fuel|pump|e85|flex|hpfp/i, '⛽'],
+  [/exh|header|cat/i, '🎺'],
+  [/intake|itb|cai|throttle/i, '💨'],
+  [/ecu|knock|egt|log/i, '💻'],
+  [/clutch|flywheel|gear|diff/i, '🛞'],
+  [/coil|susp|damper|arb|bush|brake|tyre/i, '🧰'],
+];
+function upgradeIcon(u){
+  const hay = `${u.id} ${u.name}`;
+  for (const [re, ico] of UP_ICON) if (re.test(hay)) return ico;
+  return '⭐';
 }
 
 /** A small render of one part of the machine on screen right now. */

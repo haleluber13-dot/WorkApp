@@ -54,7 +54,7 @@ await new Promise(r => srv.listen(PORT, r));
 const browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'] });
-const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
+const page = await browser.newPage({ viewport: { width: 760, height: 760 } });
 await page.addInitScript(() => { try { localStorage.setItem('motorlab.seen', '1'); } catch {} });
 
 const errs = [];
@@ -64,12 +64,13 @@ await page.waitForFunction(() => !!globalThis.__motorlab, null, { timeout: 90_00
 
 /* Nothing but the model: no panel, no HUD, no toolbar, and a plain ground so
    the picture reads as a photograph of the thing rather than a screenshot. */
-await page.addStyleTag({ content: `
+const STRIP = `
   .panel, .topbar, #labels, .toast, .statusbar, .vp__tools, .vp__hud,
   .vp__slider, .vp__crank, .vp__empty { display: none !important; }
   .stage { grid-template-columns: 1fr !important; }
   #gl { width: 100% !important; height: 100% !important; }
-` });
+`;
+await page.addStyleTag({ content: STRIP });
 
 const list = await page.evaluate(async () => {
   const v = await import('./js/data/vehicles.js');
@@ -84,10 +85,26 @@ const wanted = list.filter(s =>
   (!only.length || only.includes(`${s.kind}:${s.id}`)) &&
   (!kindOnly || s.kind === kindOnly));
 
-let done = 0, skipped = 0;
+/* Every model loaded stays in memory for the life of the page, and after a
+ * couple of dozen of them the next glTF fails to parse — out of texture
+ * memory, quietly, with the app falling back to the generated machine exactly
+ * as it is designed to. The pictures came out looking fine and were of the
+ * wrong thing. So: start the page again every few subjects, and check the
+ * model really is in hand before taking the picture. */
+const PER_PAGE = 8;
+
+async function freshPage(){
+  await page.goto(`http://127.0.0.1:${PORT}/motorlab/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => !!globalThis.__motorlab, null, { timeout: 90_000 });
+  await page.addStyleTag({ content: STRIP });
+}
+
+let done = 0, skipped = 0, since = 0;
 for (const s of wanted){
   const file = join(OUT, `${s.kind}-${s.id}.jpg`);
   if (!force && existsSync(file)) { skipped++; continue; }
+  if (since >= PER_PAGE){ await freshPage(); since = 0; }
+  since++;
   try {
     await page.evaluate(async ([kind, id]) => {
       const st = await import('./js/store.js');
@@ -129,11 +146,28 @@ for (const s of wanted){
       const vp = globalThis.__motorlab.viewport;
       vp.setGhost(false); vp.setWire(false); vp.setCutaway(false);
       vp.setExplode(0); vp.frame();
+      /* frame() leaves room for a part to be dragged out of the machine. A
+         catalogue picture wants none of that: fill the card with the car. */
+      vp.camera.position.lerpVectors(vp.controls.target, vp.camera.position, 0.70);
+      vp.camera.updateProjectionMatrix();
+      vp.controls.update();
     });
     await page.waitForTimeout(700);
     /* clip on the page rather than screenshotting the canvas element: an
        element shot waits for the element to stop changing, and a canvas that
        renders every frame never does. */
+    /* Did the real model actually arrive? If it did not, the app quietly draws
+       the generated machine, which is right for the app and wrong for a
+       catalogue picture — so say so rather than shipping the wrong photo. */
+    const got = await page.evaluate(async ([kind, id]) => {
+      const im = await import('./js/lib/importModel.js');
+      return !im.hasBundled(kind, id) || !!im.rawModelFor(kind, id);
+    }, [s.kind, s.id]);
+    if (!got){
+      errs.push(`${s.kind}:${s.id} model did not load — picture would be the generated one`);
+      await freshPage(); since = 0;
+      continue;
+    }
     const box = await page.locator('#gl').boundingBox();
     const side = Math.min(box.width, box.height);
     await page.screenshot({ path: file, type: 'jpeg', quality: 84,

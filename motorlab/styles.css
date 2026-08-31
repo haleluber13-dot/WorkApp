@@ -432,6 +432,10 @@ body.calm *{animation-duration:.001s !important;transition-duration:.001s !impor
 .tglrow .btn{flex:0 0 auto;min-width:52px;text-align:center}
 .slrow label{flex:0 0 148px}
 
+.urow--head{border-top:0;padding-top:0}
+.upico{flex:0 0 auto;width:44px;height:44px;border-radius:8px;background:#141a26;
+  border:1px solid var(--line);display:grid;place-items:center;font-size:19px}
+
 /* responsive */
 @media (max-width:1080px){ .stage{grid-template-columns:1fr 330px} }
 @media (max-width:820px){
