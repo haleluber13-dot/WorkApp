@@ -4,6 +4,7 @@ import { ENGINE_BY_ID } from './data/engines.js';
 import { VEHICLE_BY_ID } from './data/vehicles.js';
 import { defaultTune } from './sim/ecu.js';
 import { buildPartTree } from './data/parts.js';
+import { modelFor } from './lib/importModel.js';
 import { buildVehicleTree } from './data/vehicleParts.js';
 
 const KEY = 'motorlab.state.v1';
@@ -49,9 +50,15 @@ export function vehicle(){ return VEHICLE_BY_ID[state.vehicleId] || VEHICLE_BY_I
 
 export function tree(){
   const e = engine();
-  const k = 'e:' + e.id;
-  if (!treeCache.has(k)) treeCache.set(k, buildPartTree(e));
+  const shell = !!modelFor('eng', e.id);
+  const k = 'e:' + e.id + (shell ? ':shell' : '');
+  if (!treeCache.has(k)) treeCache.set(k, buildPartTree(e, { shell }));
   return treeCache.get(k);
+}
+/** Drop cached trees for one subject — an import or removal changes its parts. */
+export function invalidateTree(kind, id){
+  for (const k of [...treeCache.keys()])
+    if (k.startsWith((kind === 'eng' ? 'e:' : 'v:') + id)) treeCache.delete(k);
 }
 export function vTree(){
   const v = vehicle();

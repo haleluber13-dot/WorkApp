@@ -1,13 +1,30 @@
 /* Settings — everything in the app is adjustable from here. */
 import { h, section, kv, note, para, chip, btn, toast, field, select, slider, toggle,
          download, pickFile, pickBinaryFile, confirmDialog, modal, add } from '../ui.js';
-import { loadGLB, clearCustom, custom } from '../lib/importModel.js';
-import { state, save, DEFAULT_SETTINGS, resetAll, resetProject, exportSave, importSave, invalidateTrees } from '../store.js';
+import { loadGLB, clearModel, modelFor, listModels } from '../lib/importModel.js';
+import { state, save, DEFAULT_SETTINGS, resetAll, resetProject, exportSave, importSave,
+         invalidateTrees, invalidateTree, engine, vehicle } from '../store.js';
 import { checkForUpdates, updateState, DEFAULT_FEED } from '../updates.js';
 import { progressSummary } from '../game.js';
 
 export function render(ctx, tab){
   const s = state.settings;
+  const v = vehicle(), e = engine();
+  const importInto = (kind, id, label) =>
+    pickBinaryFile('.glb,.gltf,model/gltf-binary,model/gltf+json', async (buf, name, size) => {
+      if (size > 80 * 1024 * 1024){ toast('That file is over 80 MB — too big to hold in the browser.', 'bad'); return; }
+      try {
+        const r = await loadGLB(kind, id, buf, name);
+        invalidateTree(kind, id);
+        ctx.reloadModel(); ctx.refresh();
+        toast(`${r.name} loaded onto ${label} — ${r.meshes} meshes, ${r.triangles.toLocaleString()} triangles.`, 'good');
+      } catch (err){ toast(String(err.message || err), 'bad'); }
+    });
+  const dropModel = (kind, id, back) => {
+    clearModel(kind, id); invalidateTree(kind, id);
+    ctx.reloadModel(); ctx.refresh(); toast('Back to the ' + back + '.');
+  };
+
   const wrap = h('div');
   const set = (k, v) => { s[k] = v; save(); ctx.applySettings(); ctx.refresh(); };
   const setQuiet = (k, v) => { s[k] = v; save(); ctx.applySettings(); };
@@ -86,22 +103,23 @@ export function render(ctx, tab){
       note('Turn the bodywork up to solid for a finished car, or back down to see the chassis, suspension and drivetrain through it.')),
 
     section('Bring your own model',
-      para('Scanned and CAD-derived vehicle models are licensed work, so none ship with MotorLab. If you have one you are entitled to use, load it here — a <b>.glb</b> or <b>.gltf</b> file. It is scaled to this vehicle\'s real length and used as the shell, with the generated chassis, suspension, brakes and drivetrain still underneath it where you can work on them.'),
-      custom.name ? kv('Loaded', custom.name) : null,
+      para('Photoreal scanned and CAD models are licensed work, so none ship with MotorLab — and the ones that really are free to redistribute are stylised rather than real. If you have a model you are entitled to use, load it here: a <b>.glb</b> or <b>.gltf</b>. A CC0 download, a purchased asset, or a scan you made yourself with a phone all work.'),
+      para('A model is kept against the specific vehicle or engine you load it for, so a library builds up as you go. On a <b>vehicle</b> it replaces the generated bodywork, with the chassis, suspension, brakes and drivetrain still underneath where you can work on them. On an <b>engine</b> it goes on as a shell over the top: strip the shell off and the whole teardown works exactly as before.'),
       h('div', { class:'btnrow' },
-        btn(custom.name ? 'Load a different model' : 'Load a .glb / .gltf', { class:'btn--pri', onClick:() =>
-          pickBinaryFile('.glb,.gltf,model/gltf-binary,model/gltf+json', async (buf, name, size) => {
-            if (size > 80 * 1024 * 1024){ toast('That file is over 80 MB — too big to hold in the browser.', 'bad'); return; }
-            try {
-              const r = await loadGLB(buf, name);
-              ctx.reloadModel(); ctx.refresh();
-              toast(`${r.name} loaded — ${r.meshes} meshes, ${r.triangles.toLocaleString()} triangles.`, 'good');
-            } catch (err){ toast(String(err.message || err), 'bad'); }
-          }) }),
-        custom.name ? btn('Remove it', { onClick:() => {
-          clearCustom(); ctx.reloadModel(); ctx.refresh(); toast('Back to the generated bodywork.');
-        } }) : null),
-      note('The model is held for this session only — it is far too large for the browser\'s save storage, so load it again next time. Nothing is uploaded anywhere.')),
+        btn('Load a model for ' + v.name, { class:'btn--pri', onClick:() => importInto('veh', v.id, v.name) }),
+        modelFor('veh', v.id) ? btn('Remove it', { onClick:() => dropModel('veh', v.id, 'generated bodywork') }) : null),
+      modelFor('veh', v.id) ? kv(v.name, modelFor('veh', v.id).name + ' · '
+        + modelFor('veh', v.id).triangles.toLocaleString() + ' triangles') : null,
+      h('div', { class:'btnrow' },
+        btn('Load a model for ' + e.name, { class:'btn--pri', onClick:() => importInto('eng', e.id, e.name) }),
+        modelFor('eng', e.id) ? btn('Remove it', { onClick:() => dropModel('eng', e.id, 'generated engine') }) : null),
+      modelFor('eng', e.id) ? kv(e.name, modelFor('eng', e.id).name + ' · '
+        + modelFor('eng', e.id).triangles.toLocaleString() + ' triangles') : null,
+      listModels().length
+        ? h('div', { class:'kvs' }, ...listModels().map(m =>
+            kv((m.kind === 'veh' ? 'Vehicle' : 'Engine') + ' · ' + m.id, m.name)))
+        : note('Nothing imported yet.'),
+      note('Models are stored in this browser and survive a reload. Nothing is uploaded anywhere. Sources worth knowing: Sketchfab has a large collection of public-domain (CC0) vehicles that are free to use for anything; Kenney and Quaternius publish CC0 vehicle kits; and a phone scan of a real engine or car imports the same way.')),
 
     section('Appearance',
       field('Accent colour', h('div', { style:{ display:'flex', gap:'6px', flexWrap:'wrap' } },

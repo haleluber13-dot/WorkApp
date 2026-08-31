@@ -1,17 +1,34 @@
 /* MotorLab — bring your own model.
- * Real scanned or CAD-derived vehicles cannot be shipped with this app: the
- * good ones are licensed, and redistributing them is not ours to do. What the
- * app can do is take one you already have the right to use. Drop in a .glb or
- * .gltf and it is scaled to the vehicle's real wheelbase and used as the shell,
- * with the procedural chassis, suspension and drivetrain still underneath it.
+ *
+ * Photoreal scanned and CAD-derived vehicles cannot be shipped with this app.
+ * The good ones are licensed work and redistributing them is not ours to do;
+ * the ones that are genuinely free to redistribute are stylised rather than
+ * real. What the app can do is take a model you already have the right to use
+ * — a CC0 download, a purchased asset, or a scan you made yourself with a
+ * phone — and use it in place of the generated one.
+ *
+ * A model is stored against the vehicle or engine it belongs to, so a library
+ * builds up over time rather than one import replacing everything. Nothing
+ * leaves the device: the files live in this browser's IndexedDB.
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-export const custom = { group:null, name:null, scale:1, lift:0, spin:0 };
+/* kind is 'veh' or 'eng'; the value is { group, name, triangles, meshes } */
+export const models = { veh:new Map(), eng:new Map() };
+
+/** The model for one subject, or null. */
+export function modelFor(kind, id){ return models[kind]?.get(id) || null; }
+export function hasModels(){ return models.veh.size + models.eng.size > 0; }
+export function listModels(){
+  const out = [];
+  for (const kind of ['veh', 'eng'])
+    for (const [id, m] of models[kind]) out.push({ kind, id, ...m });
+  return out;
+}
 
 /* Imported models are far too large for localStorage, so they live in IndexedDB
- * and survive a reload. Nothing ever leaves the device. */
+ * and survive a reload. */
 const DB = 'motorlab', STORE = 'models';
 function idb(){
   return new Promise((res, rej) => {
@@ -21,44 +38,87 @@ function idb(){
     r.onerror = () => rej(r.error);
   });
 }
-async function idbPut(key, value){
-  const db = await idb();
-  return new Promise((res, rej) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).put(value, key);
-    tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error);
-  });
+function tx(mode, fn){
+  return idb().then(db => new Promise((res, rej) => {
+    const t = db.transaction(STORE, mode);
+    const out = fn(t.objectStore(STORE));
+    t.oncomplete = () => res(out?.result);
+    t.onerror = () => rej(t.error);
+  }));
 }
-async function idbGet(key){
-  const db = await idb();
-  return new Promise((res, rej) => {
-    const tx = db.transaction(STORE, 'readonly');
-    const q = tx.objectStore(STORE).get(key);
-    q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
-  });
-}
-async function idbDel(key){
-  const db = await idb();
-  return new Promise((res) => {
-    const tx = db.transaction(STORE, 'readwrite');
-    tx.objectStore(STORE).delete(key);
-    tx.oncomplete = () => res(); tx.onerror = () => res();
-  });
-}
+const idbPut  = (k, v) => tx('readwrite', s => s.put(v, k));
+const idbGet  = (k)    => tx('readonly',  s => s.get(k));
+const idbDel  = (k)    => tx('readwrite', s => s.delete(k));
+const idbKeys = ()     => tx('readonly',  s => s.getAllKeys());
 
-/** Re-load whatever was imported last time. Call once at start-up. */
-export async function restoreCustom(){
+const key = (kind, id) => `${kind}:${id}`;
+
+/** Re-load everything imported in earlier sessions. Call once at start-up. */
+export async function restoreModels(){
+  let n = 0;
   try {
-    const saved = await idbGet('body');
-    if (!saved?.buffer) return null;
-    return await loadGLB(saved.buffer, saved.name, { persist:false });
-  } catch { return null; }
+    const keys = await idbKeys() || [];
+    for (const k of keys){
+      /* 'body' is the single-slot key this used before models were kept per
+         vehicle. Anything imported back then belongs to no particular car, so
+         it is dropped rather than guessed at. */
+      if (typeof k !== 'string' || !k.includes(':')) { idbDel(k).catch(() => {}); continue; }
+      const [kind, id] = [k.slice(0, k.indexOf(':')), k.slice(k.indexOf(':') + 1)];
+      if (!models[kind]) continue;
+      const saved = await idbGet(k);
+      if (!saved?.buffer) continue;
+      try { await loadGLB(kind, id, saved.buffer, saved.name, { persist:false }); n++; }
+      catch { /* a file that no longer parses is not worth failing start-up over */ }
+    }
+  } catch { /* no IndexedDB, private window, quota — carry on generated */ }
+  return n;
 }
 
-export function loadGLB(arrayBuffer, fileName = 'model.glb', opts = {}){
+/** Load the models that ship with the app.
+ *
+ *  These are declared in assets/models/manifest.json by the import-model tool,
+ *  which refuses to bundle anything without a recorded licence and credit. They
+ *  load before the browser's own imports, so a model you bring yourself always
+ *  wins over a bundled one for the same vehicle or engine.
+ */
+export async function loadBundledModels(base = ''){
+  let n = 0;
+  /* A model is several megabytes, so its fetch is the one most likely to be cut
+     off — a reload part-way through start-up will do it. One retry costs
+     nothing and turns a silently missing model into a loaded one. */
+  const grab = async (u) => {
+    for (let i = 0; i < 2; i++){
+      try { const r = await fetch(u); if (r.ok) return r; }
+      catch { /* retry once */ }
+    }
+    return null;
+  };
+  try {
+    const inlined = globalThis.__MOTORLAB_ASSETS;
+    const url = (p) => inlined?.['./assets/' + p] || `${base}./assets/${p}`;
+    const res = await grab(url('models/manifest.json'));
+    if (!res) return 0;
+    const man = await res.json();
+    for (const [target, rec] of Object.entries(man.models || {})){
+      const i = target.indexOf(':');
+      const kind = target.slice(0, i), id = target.slice(i + 1);
+      if (!models[kind] || models[kind].has(id)) continue;
+      try {
+        const r = await grab(url('models/' + rec.file));
+        if (!r) continue;
+        await loadGLB(kind, id, await r.arrayBuffer(), rec.file, { persist:false });
+        n++;
+      } catch { /* one bad model must not stop the rest */ }
+    }
+  } catch { /* no manifest is the normal case */ }
+  return n;
+}
+
+/** Parse a .glb/.gltf ArrayBuffer and file it against one vehicle or engine. */
+export function loadGLB(kind, id, arrayBuffer, fileName = 'model.glb', opts = {}){
   return new Promise((resolve, reject) => {
-    const loader = new GLTFLoader();
-    loader.parse(arrayBuffer, '', (gltf) => {
+    if (!models[kind]) return reject(new Error('Unknown model kind: ' + kind));
+    new GLTFLoader().parse(arrayBuffer, '', (gltf) => {
       const g = gltf.scene || gltf.scenes?.[0];
       if (!g) return reject(new Error('That file has no scene in it.'));
       let meshes = 0, tris = 0;
@@ -70,31 +130,39 @@ export function loadGLB(arrayBuffer, fileName = 'model.glb', opts = {}){
         tris += idx ? idx.count / 3 : (o.geometry?.attributes?.position?.count || 0) / 3;
       });
       if (!meshes) return reject(new Error('That file has no meshes in it.'));
-      custom.group = g;
-      custom.name = fileName;
+      const rec = { group:g, name:fileName, meshes, triangles:Math.round(tris) };
+      models[kind].set(id, rec);
       if (opts.persist !== false)
-        idbPut('body', { name:fileName, buffer:arrayBuffer }).catch(() => {});
-      resolve({ group:g, name:fileName, meshes, triangles:Math.round(tris) });
+        idbPut(key(kind, id), { name:fileName, buffer:arrayBuffer }).catch(() => {});
+      resolve(rec);
     }, (err) => reject(new Error(err?.message || 'Could not read that file as glTF.')));
   });
 }
 
-export function clearCustom(){ custom.group = null; custom.name = null; idbDel('body').catch(() => {}); }
+export function clearModel(kind, id){
+  models[kind]?.delete(id);
+  idbDel(key(kind, id)).catch(() => {});
+}
 
-/** Fit an imported model to a vehicle: match its length, sit it on the ground. */
-export function fitToVehicle(source, lengthM, opts = {}){
+/** Fit an imported model to a real size: match its length, sit it on the ground.
+ *
+ *  `lengthM` is the real overall length the model should end up, so a car that
+ *  was authored at 1 unit long and one authored at 4,500 units both come out
+ *  at the size the spec says they are.
+ */
+export function fitToLength(source, lengthM, opts = {}){
   const g = source.clone(true);
   g.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(g);
   const size = box.getSize(new THREE.Vector3());
   const centre = box.getCenter(new THREE.Vector3());
-  /* the longest horizontal axis is the car's length, whatever axis it was authored on */
+  /* the longest horizontal axis is the length, whatever axis it was authored on */
   const longest = Math.max(size.x, size.z);
   if (!isFinite(longest) || longest <= 0) return g;
   const k = (lengthM / longest) * (opts.scale ?? 1);
   const wrap = new THREE.Group();
   g.position.sub(centre);                       // centre it on its own bounding box
-  g.position.y += size.y / 2;                   // then sit it on the ground
+  if (opts.ground !== false) g.position.y += size.y / 2;   // then sit it on the ground
   g.scale.setScalar(k);
   g.position.multiplyScalar(k);
   /* models authored nose-along-Z need a quarter turn to match our nose-along-X */
@@ -103,3 +171,6 @@ export function fitToVehicle(source, lengthM, opts = {}){
   wrap.add(g);
   return wrap;
 }
+
+/* the old name, kept so nothing that still calls it breaks */
+export const fitToVehicle = fitToLength;

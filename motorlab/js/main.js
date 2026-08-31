@@ -9,7 +9,7 @@ import { buildVehicle } from './build/vehicleModel.js';
 import { buildScannedVehicle, setLivery, liveriesFor } from './build/scannedVehicle.js';
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
-import { restoreCustom } from './lib/importModel.js';
+import { restoreModels, loadBundledModels } from './lib/importModel.js';
 import { loadTextures } from './lib/textures.js';
 import { loadPartModels, partCredits } from './lib/partModels.js';
 
@@ -39,7 +39,7 @@ const ctx = {
 };
 
 /* ---------------------------------------------------------------------- */
-function boot(){
+async function boot(){
   load();
   loadStoredUpdates();
   invalidateTrees();
@@ -65,15 +65,16 @@ function boot(){
   applySettings();
   wireGameEvents();
 
+  /* Models come in before anything is built, not alongside it. A model changes
+     what the builders produce — an imported car replaces its bodywork, an
+     imported engine adds a shell part — so building first and swapping later
+     means the first thing on screen is wrong and the part list is too. */
+  let loaded = 0;
+  try { loaded = await loadBundledModels() + await restoreModels(); } catch { /* generated is fine */ }
+
   if (!WS_BY_ID[state.workspace]) state.workspace = 'garage';
   goto(state.workspace, { silent:true });
-
-  /* bring back any vehicle model imported in a previous session */
-  restoreCustom().then(r => {
-    if (!r) return;
-    if (currentModel?.kind === 'vehicle'){ currentModel = null; reloadModel(); }
-    toast(`${r.name} restored — ${r.triangles.toLocaleString()} triangles.`);
-  }).catch(() => {});
+  if (loaded) toast(`${loaded} model${loaded > 1 ? 's' : ''} loaded.`);
 
   if (state.settings.autoCheckUpdates)
     checkForUpdates(state.settings.feedUrl).then(r => {

@@ -44,8 +44,20 @@ const P = (o) => Object.assign({ group:'block', qty:1, deps:[], removable:true }
 /** Bolt pattern used for the torque mini-game. */
 function pattern(kind, count){ return { kind, count }; }
 
-export function buildPartTree(e){
-  return e.kind === 'rotary' ? rotaryTree(e) : pistonTree(e);
+export function buildPartTree(e, opts = {}){
+  const tree = e.kind === 'rotary' ? rotaryTree(e) : pistonTree(e);
+  /* An imported model is fitted over the finished engine as a shell. It is the
+     last thing on and the first thing off, so you can look at the real object
+     and then lift it away to work on the one underneath. */
+  if (opts.shell && !tree.byId.shell){
+    const p = { id:'shell', name:'Imported model shell', group:'accessory', qty:1,
+      deps:[], blocks:[], mesh:'body', step:tree.order.length,
+      teach:'Your own model, sized to this engine and laid over it. Everything beneath it is the generated engine with every part still where it belongs — take the shell off and the whole teardown works exactly as before.' };
+    tree.parts.push(p); tree.byId.shell = p; tree.order.push('shell');
+    if (!tree.groups.some(g => g.id === 'accessory'))
+      tree.groups = GROUPS.filter(g => tree.parts.some(q => q.group === g.id));
+  }
+  return tree;
 }
 
 /* ====================================================================== */

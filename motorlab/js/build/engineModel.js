@@ -18,6 +18,7 @@ import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, ta
          engineMount } from '../lib/geo.js';
 import { firingOrder } from '../data/engines.js';
 import { partMesh } from '../lib/partModels.js';
+import { modelFor, fitToLength } from '../lib/importModel.js';
 
 const M = (mm) => mm / 1000;   // spec is in millimetres, scene is in metres
 
@@ -1872,6 +1873,21 @@ function addPuffs(root, anim, at3, scale){
 
 /* ====================================================================== */
 function finalize(e, root, nodes, anim, L){
+  /* An imported model goes on as a shell over the generated engine: you get the
+     real thing to look at, and stripping the shell off leaves the teachable one
+     underneath with every part still where it belongs. It is sized to the
+     engine's own bounding length so a model authored at any scale lands right. */
+  const imported = modelFor('eng', e.id);
+  if (imported){
+    const b = boundsOf(root);
+    const shell = group('shell');
+    shell.add(fitToLength(imported.group, b.size?.x || b.radius * 1.6,
+                          { ground:false, lift:b.center.y }));
+    tag(shell, 'shell');
+    root.add(shell);
+    if (!nodes.has('shell')) nodes.set('shell', []);
+    nodes.get('shell').push(shell);
+  }
   /* remember home transforms + choose an explode direction per part */
   const home = new Map();
   for (const [id, objs] of nodes){
@@ -1904,6 +1920,7 @@ function explodeDir(id, obj, L){
   const back = new THREE.Vector3(1, 0, 0);
   const outZ = new THREE.Vector3(0, 0.15, -1).normalize();
   const map = {
+    shell:up.clone().multiplyScalar(2.6),
     valvecover:up.clone().multiplyScalar(1.55), camcaps:up.clone().multiplyScalar(1.25),
     vcgasket:up.clone().multiplyScalar(1.42), intgasket:new THREE.Vector3(0,1.0,-0.42),
     exgasket:new THREE.Vector3(0,0.1,1.10), pangasket:down.clone().multiplyScalar(0.95),

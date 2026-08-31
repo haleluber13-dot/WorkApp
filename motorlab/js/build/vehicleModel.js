@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, group, tag, at, rot,
          boundsOf, deg, TAU, lathe, wheelMesh, brakeDisc, caliper, coreMesh } from '../lib/geo.js';
 import { wheelRadius, weightDistribution } from '../data/vehicles.js';
-import { custom, fitToVehicle } from '../lib/importModel.js';
+import { modelFor, fitToLength } from '../lib/importModel.js';
 import { partMesh } from '../lib/partModels.js';
 
 const M = (mm) => mm / 1000;
@@ -303,10 +303,11 @@ function buildCar(v, tree){
     st.add(at(box(M(140), M(220), wid*0.72, MAT.plastic()), axF*0.12, floorY + M(590), 0));
     add('seats', st);
   }
-  if (has('body') && custom.group){
+  const imported = modelFor('veh', v.id);
+  if (has('body') && imported){
     /* an imported model replaces the generated shell; everything under it stays */
     const bd = group('body');
-    bd.add(fitToVehicle(custom.group, len, { lift: floorY * 0.02 }));
+    bd.add(fitToLength(imported.group, len, { lift: floorY * 0.02 }));
     add('body', bd);
   } else if (has('body') && !open){
     const bd = group('body');
@@ -347,7 +348,7 @@ function buildCar(v, tree){
   /* Lamps normally come out of the body-detail pass, set into the real skin.
      A vehicle built from an imported model, or an open-wheeler with no shell to
      set them into, falls back to a pair on the nose and tail. */
-  if (has('lights') && !detailLamps) for (const s of [-1,1]){
+  if (has('lights') && !detailLamps && !imported) for (const s of [-1,1]){
     add('lights', at(roundBox(M(55), M(105), M(230), .02, MAT.glass()), len*0.425, floorY + hgt*0.33, s*wid*0.27));
     add('lights', at(roundBox(M(50), M(95), M(210), .02, MAT.red()), -len*0.425, floorY + hgt*0.35, s*wid*0.27));
   }
