@@ -30,6 +30,26 @@ being left out.
 import bpy, bmesh, sys
 from mathutils import Vector
 
+
+def _ml_clear_custom_normals(me):
+    """Blender 4.1 removed Mesh.free_normals_split; in 5.x custom split
+    normals live in a mesh attribute called 'custom_normal'. The old call was
+    wrapped in try/except, which meant it silently did nothing here — and
+    decimating under stale custom normals is what scatters black shards over
+    the paint. Clear them whichever way this Blender spells it."""
+    try:
+        me.free_normals_split()
+        return
+    except AttributeError:
+        pass
+    try:
+        a = me.attributes.get('custom_normal')
+        if a is not None:
+            me.attributes.remove(a)
+    except Exception:
+        pass
+
+
 src, dst = sys.argv[1], sys.argv[2]
 tex = int(sys.argv[3]) if len(sys.argv) > 3 else 128
 tris = int(sys.argv[4]) if len(sys.argv) > 4 else 9000
@@ -93,6 +113,7 @@ total = count(objs)
 if total > tris:
     ratio = tris / total
     for o in objs:
+        _ml_clear_custom_normals(o.data)   # decimating under stale ones shards the shading
         o.data.calc_loop_triangles()
         n = len(o.data.loop_triangles)
         if n < 24:
@@ -167,10 +188,7 @@ for o in objs:
         me.uv_layers.remove(me.uv_layers[-1])
     while len(me.color_attributes):
         me.color_attributes.remove(me.color_attributes[0])
-    try:
-        me.free_normals_split()
-    except Exception:
-        pass
+    _ml_clear_custom_normals(me)
 
 after = count(objs)
 

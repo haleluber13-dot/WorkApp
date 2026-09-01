@@ -21,6 +21,25 @@ import os, subprocess, sys, tempfile
 BLENDER = r'''
 import bpy, sys
 
+def _ml_clear_custom_normals(me):
+    """Blender 4.1 removed Mesh.free_normals_split; in 5.x custom split
+    normals live in a mesh attribute called 'custom_normal'. The old call was
+    wrapped in try/except, which meant it silently did nothing here — and
+    decimating under stale custom normals is what scatters black shards over
+    the paint. Clear them whichever way this Blender spells it."""
+    try:
+        me.free_normals_split()
+        return
+    except AttributeError:
+        pass
+    try:
+        a = me.attributes.get('custom_normal')
+        if a is not None:
+            me.attributes.remove(a)
+    except Exception:
+        pass
+
+
 def _ml_split_uv_seams(me):
     """Cut the mesh along its UV island boundaries before decimating.
 
@@ -84,13 +103,7 @@ if total > tris and total > 0:
     ratio = max(0.03, tris / total)
     for o in meshes:
         _ml_split_uv_seams(o.data)
-        # Decimating under custom split normals leaves the normals pointing
-        # where the old triangles were: black shards scattered over the paint.
-        # Let the mesh shade from its own geometry instead.
-        try:
-            o.data.free_normals_split()
-        except Exception:
-            pass
+        _ml_clear_custom_normals(o.data)
         try:
             o.data.shade_smooth()
         except Exception:
