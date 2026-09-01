@@ -229,6 +229,12 @@ export function hasBundled(kind, id){
   return !!(manifest && manifest[`${kind}:${id}`]);
 }
 
+/** The manifest's whole record for one subject — file name, bytes, credit,
+ *  licence, source — for anywhere that shows or hands over the file itself. */
+export function bundledRecord(kind, id){
+  return (manifest && manifest[`${kind}:${id}`]) || null;
+}
+
 /* A fetch that failed — offline, a truncated response, a file that no longer
  * parses — must not be retried on every rebuild, or the app spins on it
  * instead of falling back to the generated model. One attempt per session. */

@@ -14,7 +14,7 @@ import { simulate, emptyMods } from '../sim/engineSim.js';
 import { defaultTune } from '../sim/ecu.js';
 import { applyUpgrades } from '../data/upgrades.js';
 import { liveriesFor, setLivery } from '../build/scannedVehicle.js';
-import { hasBundled, rawModelFor, preferGenerated } from '../lib/importModel.js';
+import { hasBundled, bundledRecord, rawModelFor, preferGenerated } from '../lib/importModel.js';
 import { photo } from '../lib/photo.js';
 
 /* ---------------------------------------------------------------------- */
@@ -175,6 +175,7 @@ export function render(ctx, tab){
   if (tab === 'vehicles') return renderVehicles(ctx, wrap);
   if (tab === 'engines') return renderEngines(ctx, wrap);
   if (tab === 'compare') return renderCompare(ctx, wrap);
+  if (tab === 'files') return renderFiles(ctx, wrap);
 
   /* ---- the project tab: what is on the ramp right now ---- */
   const heads = h('div', { class:'grid2' },
@@ -307,10 +308,60 @@ function renderCompare(ctx, wrap){
   return wrap;
 }
 
+
+/* ---- the files tab: every scan as the file it actually is ------------- */
+/* Where the full-quality copies live for anyone to download. The hosted app
+   serves its own files; the single offline file cannot hand over what it has
+   inlined, so there the links go to the same bytes in the project repo. */
+const REPO = 'https://github.com/haleluber13-dot/WorkApp';
+const REPO_BRANCH = 'claude/3d-vehicle-learning-app-mxjyav';
+const REPO_RAW = `https://raw.githubusercontent.com/haleluber13-dot/WorkApp/${REPO_BRANCH}/motorlab/assets/models/`;
+
+function renderFiles(ctx, wrap){
+  const offline = !!globalThis.__MOTORLAB_ASSETS;
+  add(wrap, para('Every real 3D scan in this garage as a standard .glb file — full quality, '
+    + 'textures baked in, the exact bytes the viewer renders. Download one and open it in any '
+    + '3D tool: in Blender it is File → Import → glTF 2.0 (.glb/.gltf). Each file is '
+    + 'redistributed under the licence on its row; keep the credit with it if you share it.'));
+  const mb = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+  const list = h('div', { class:'filelist' });
+  const subjects = [
+    ...VEHICLES.map(v => ({ kind:'veh', id:v.id, name:v.name })),
+    ...ENGINES.map(e => ({ kind:'eng', id:e.id, name:e.name })),
+  ];
+  let n = 0;
+  for (const s of subjects){
+    const rec = bundledRecord(s.kind, s.id);
+    if (!rec) continue;
+    n++;
+    const href = offline ? REPO_RAW + rec.file : './assets/models/' + rec.file;
+    list.append(h('div', { class:'filerow' },
+      photo(s.kind, s.id, s.name),
+      h('div', { class:'filerow__t' },
+        h('span', { class:'filerow__n', text:s.name }),
+        h('span', { class:'filerow__c', text:`${rec.credit} · ${rec.licence}` })),
+      h('span', { class:'filerow__s', text: mb(rec.bytes || 0) }),
+      h('a', { class:'btn btn--pri btn--sm', text:'Download', href,
+               ...(offline ? { target:'_blank', rel:'noopener' } : { download: rec.file }) })));
+  }
+  add(wrap, list);
+  add(wrap, para(`${n} files. The engines not listed here are built to spec by the app itself — `
+    + 'they exist as live geometry, not as scan files.'));
+  add(wrap, h('p', { class:'p' },
+    h('a', { href:`${REPO}/archive/refs/heads/${REPO_BRANCH}.zip`, target:'_blank', rel:'noopener',
+             text:'Download the whole project as one ZIP (~300 MB)' }),
+    h('span', { text:' — models inside motorlab/assets/models/, full record in ' }),
+    h('a', { href:`${REPO}/blob/${REPO_BRANCH}/motorlab/assets/models/CREDITS.md`,
+             target:'_blank', rel:'noopener', text:'CREDITS.md' }),
+    h('span', { text:'.' })));
+  return wrap;
+}
+
 export default {
   id:'garage', name:'Garage', icon:'🏠', model:'vehicle',
   tabs:() => [{ id:'vehicles', name:'Vehicles' }, { id:'engines', name:'Engines' },
-              { id:'project', name:'Project' }, { id:'compare', name:'Compare' }],
+              { id:'project', name:'Project' }, { id:'compare', name:'Compare' },
+              { id:'files', name:'Files' }],
   render,
   hud:() => ({ title: vehicle().name, sub: engine().name }),
 };
