@@ -107,6 +107,9 @@ export function render(ctx, tab){
       note('Reflections come from an environment map, not a texture. Turning them down makes metal look like painted plastic — which is exactly why a part with nothing to reflect never looks real.'),
       slider({ label:'Field of view', min:25, max:70, step:1, value:s.fov, format:(v)=>v+'°',
         onInput:(v) => setQuiet('fov', v) }),
+      slider({ label:'Exposure', min:50, max:160, step:2, value:s.exposure ?? 100, format:(v)=>v+'%',
+        onInput:(v) => setQuiet('exposure', v) }),
+      note('Exposure is the camera, not the lights: turn it up for a bright showroom read, down for a moody garage.'),
       toggle('Ground grid', s.showGrid, (v) => set('showGrid', v)),
       toggle('Shadows', s.showShadows, (v) => set('showShadows', v)),
       toggle('Ghost the parts that are not fitted', s.autoGhost, (v) => set('autoGhost', v)),
@@ -118,6 +121,18 @@ export function render(ctx, tab){
         format:(v) => v >= 0.99 ? 'solid' : Math.round(v*100)+'%',
         onInput:(v) => set('bodyOpacity', v) }),
       note('Turn the bodywork up to solid for a finished car, or back down to see the chassis, suspension and drivetrain through it.')),
+
+    section("The driver's seat",
+      slider({ label:'Engine volume', min:0, max:100, step:5, value:s.engineVolume ?? 70,
+        format:(v)=>v+'%', onInput:(v) => setQuiet('engineVolume', v) }),
+      note('The sound is synthesised from the live simulation — the firing frequency of this exact engine at this exact rpm — so every layout has its own voice.'),
+      field('Steering wheel side', select([
+        { value:'left',  label:'Left-hand drive' },
+        { value:'right', label:'Right-hand drive' },
+      ], s.seatSide ?? 'left', (v) => set('seatSide', v))),
+      slider({ label:'In-car field of view', min:50, max:90, step:1, value:s.driveFov ?? 66,
+        format:(v)=>v+'°', onInput:(v) => setQuiet('driveFov', v) }),
+      note('A wider in-car view shows more of the dashboard and the door; a narrower one is more like looking down the road.')),
 
     section('Handling parts',
       para('Press and hold any part in the 3D view and it comes off in your hand. Drag it clear and let go and it stays where you put it, on the bench beside the machine, until you put it back.'),

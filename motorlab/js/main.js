@@ -15,6 +15,7 @@ import { loadPartModels, partCredits } from './lib/partModels.js';
 
 import garage   from './workspaces/garage.js';
 import { engineWs, chassisWs } from './workspaces/engine.js';
+import driveWs  from './workspaces/drive.js';
 import tuneWs   from './workspaces/tune.js';
 import dynoWs   from './workspaces/dyno.js';
 import upgradeWs from './workspaces/upgrade.js';
@@ -25,7 +26,7 @@ import racesWs  from './workspaces/races.js';
 import newsWs   from './workspaces/news.js';
 import settingsWs from './workspaces/settings.js';
 
-const WORKSPACES = [garage, engineWs, chassisWs, tuneWs, dynoWs, upgradeWs,
+const WORKSPACES = [garage, engineWs, chassisWs, driveWs, tuneWs, dynoWs, upgradeWs,
                     wiringWs, audioWs, learnWs, racesWs, newsWs, settingsWs];
 const WS_BY_ID = Object.fromEntries(WORKSPACES.map(w => [w.id, w]));
 
@@ -119,6 +120,10 @@ function buildNav(){
 function goto(id, opts = {}){
   if (!WS_BY_ID[id]) return;
   closeMenu();
+  /* a workspace that runs something continuous — the drive loop, the engine
+     sound — gets told when the user walks away from it */
+  const from = WS_BY_ID[state.workspace];
+  if (from && from.id !== id) from.leave?.(ctx);
   state.workspace = id;
   if (opts.tab) state.ui.panelTab[id] = opts.tab;
   if (opts.highlight) state.ui.upgradeHighlight = opts.highlight;
@@ -377,6 +382,7 @@ function applySettings(){
   }
   if (!viewport) return;
   viewport.camera.fov = s.fov; viewport.camera.updateProjectionMatrix();
+  viewport.renderer.toneMappingExposure = 1.02 * ((s.exposure ?? 100) / 100);
   viewport.setBackdrop(s.backdrop);
   viewport.setEnvironment(s.environment).then(ok => {
     if (!ok && s.environment !== 'neutral'){

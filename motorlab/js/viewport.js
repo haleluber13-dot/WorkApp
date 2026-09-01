@@ -363,6 +363,9 @@ export class Viewport {
   }
 
   frame(){
+    /* seated in the car: the model reloading behind us must not yank the
+       camera back out to the orbit framing */
+    if (this.interior) return;
     if (!this.model) return;
     const b = new THREE.Box3().setFromObject(this.model.root);
     const size = b.getSize(new THREE.Vector3());
@@ -799,6 +802,53 @@ export class Viewport {
 
   /** Weight transfer for the vehicle view: +1 squats the rear, −1 dives the nose. */
   setAttitude(pitch, roll = 0){ this.state.pitch = pitch; this.state.roll = roll; }
+
+  /** Sit in the driver's seat: near clip in, camera at eye height, looking
+   *  down the bonnet. The saved orbit comes back exactly on exit. */
+  enterInterior(dims = {}, opts = {}){
+    if (this._intSaved) this.exitInterior();
+    const cam = this.camera, ct = this.controls;
+    this._intSaved = { pos: cam.position.clone(), target: ct.target.clone(),
+                       near: cam.near, fov: cam.fov, min: ct.minDistance };
+    const wb = (dims.wheelbase || 2600) / 1000;
+    const bike = dims.class === 'bike' || dims.class === 'kart' && false;
+    const w = (dims.widthMm || 1800) / 1000;
+    const hgt = (dims.heightMm || 1350) / 1000;
+    const side = opts.side === 'right' ? 1 : -1;
+    const seat = bike
+      ? new THREE.Vector3(-wb * 0.20, hgt * 0.95 + 0.30, 0)
+      : new THREE.Vector3(wb * 0.03, hgt * 0.78, side * w * 0.17);
+    cam.near = 0.04;
+    /* a scan's cabin is lit only by what leaks through the glass; give the
+       seated view the soft dome light every real interior shot gets */
+    this._cabinLight = new THREE.PointLight(0xfff1dd, 28, 3.4, 1.6);
+    this._cabinLight.position.set(0.15, 0.42, 0);
+    cam.add(this._cabinLight);
+    if (!cam.parent) this.scene.add(cam);
+    if (opts.fov) cam.fov = opts.fov;
+    cam.updateProjectionMatrix();
+    cam.position.copy(seat);
+    ct.target.copy(seat).add(new THREE.Vector3(1.7, -0.16, 0));
+    ct.minDistance = 0.01;
+    ct.update();
+    this.interior = true;
+    this.needsRender = true;
+  }
+
+  exitInterior(){
+    const sv = this._intSaved;
+    if (!sv) return;
+    this._intSaved = null;
+    if (this._cabinLight){ this._cabinLight.parent?.remove(this._cabinLight); this._cabinLight = null; }
+    this.camera.near = sv.near; this.camera.fov = sv.fov;
+    this.camera.updateProjectionMatrix();
+    this.camera.position.copy(sv.pos);
+    this.controls.target.copy(sv.target);
+    this.controls.minDistance = sv.min;
+    this.controls.update();
+    this.interior = false;
+    this.needsRender = true;
+  }
 
   /** Turn it over: the starter, then it catches. */
   startEngine(idleRpm, opts = {}){
