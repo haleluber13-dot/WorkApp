@@ -23,7 +23,7 @@ export const FUELS = {
 const E = (o) => Object.assign({
   kind:'piston', layout:'I', bankAngle:0, valvesPerCyl:4, cam:'DOHC', revsPerCycle:2,
   aspiration:'na', fuel:'gasoline', class:'car', idle:750, coolant:'water',
-  ignition:'coil-on-plug', injection:'port', dryWeight:140,
+  ignition:'coil-on-plug', injection:'port', dryWeight:140, camDrive:'chain',
 }, o);
 
 /* firing orders for the common layouts (used by the animator + wiring lesson) */
@@ -61,6 +61,7 @@ export const ENGINES = [
       blurb:'Perfectly balanced by geometry — an inline-6 cancels its own primary and secondary forces, which is why it feels turbine-smooth without balance shafts.' }),
 
   E({ id:'i6-30-legend', name:'2JZ-GTE 3.0 Twin-Turbo', maker:'Toyota', layout:'I', cyl:6,
+      camDrive:'belt', vvt:false, pistonJets:true, throttleType:'cable', sequential:true, interference:true,
       displacement:2997, bore:86, stroke:86, cr:8.5, redline:7200, tqPeak:3600, hpPeak:6200,
       aspiration:'twinturbo', boostTarget:0.7, spoolRpm:2600, firing:'I6', dryWeight:230, fuel:'premium',
       blurb:'Closed-deck iron block, forged crank, sequential turbos. Famous because the bottom end will hold roughly triple its factory power before it complains.' }),

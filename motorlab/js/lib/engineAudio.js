@@ -131,6 +131,21 @@ export class EngineAudio {
 
   setVolume(v){ this.volume = Math.max(0, Math.min(1, v)); }
 
+  /** A short tyre chirp — the handbrake doing its job. */
+  chirp(){
+    const ac = AC(), t = ac.currentTime;
+    const src = ac.createBufferSource(); src.buffer = noise();
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 4;
+    bp.frequency.setValueAtTime(1900, t);
+    bp.frequency.exponentialRampToValueAtTime(900, t + 0.28);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5 * this.volume + 0.001, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+    src.connect(bp).connect(g).connect(ac.destination);
+    src.start(t); src.stop(t + 0.4);
+  }
+
   stop(){
     if (!this.on) return;
     const t = AC().currentTime;

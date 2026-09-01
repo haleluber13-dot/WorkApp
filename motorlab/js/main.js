@@ -5,11 +5,13 @@ import { state, load, save, engine, vehicle, tree, vTree, installedSet, vInstall
          invalidateTrees, U } from './store.js';
 import { loadStoredUpdates, checkForUpdates, updateState } from './updates.js';
 import { buildEngine } from './build/engineModel.js';
+import { ENGINE_BY_ID } from './data/engines.js';
 import { buildVehicle } from './build/vehicleModel.js';
 import { buildScannedVehicle, setLivery, liveriesFor } from './build/scannedVehicle.js';
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
 import { restoreModels, loadManifest, ensureModel, modelPending, modelError } from './lib/importModel.js';
+import { engineAudio } from './lib/engineAudio.js';
 import { loadTextures } from './lib/textures.js';
 import { loadPartModels, partCredits } from './lib/partModels.js';
 
@@ -67,6 +69,24 @@ async function boot(){
   viewport.onLift = (id) => current().onLift?.(ctx, id) === true;
   viewport.onDrop = (id) => current().onDrop?.(ctx, id);
   viewport.setLabelSource((id) => current().labelFor?.(id) || null);
+
+  /* The engine is audible wherever it is running — the drive seat, a dyno
+     pull, the crank bar — because the sound follows the one simulation state
+     everything else follows. Volume zero is the off switch. */
+  viewport.onTick = (st) => {
+    const vol = (state.settings.engineVolume ?? 70) / 100;
+    const live = (st.running || st.cranking > 0) && vol > 0;
+    if (live && !engineAudio.on){
+      const e = ENGINE_BY_ID[state.engineId];
+      if (e) engineAudio.start({ cyl: e.cyl || 4, displacement: e.displacement,
+        vee: e.layout === 'V' || e.layout === 'W' || e.layout === 'F' });
+    }
+    if (!live && engineAudio.on) engineAudio.stop();
+    if (engineAudio.on){
+      engineAudio.setVolume(vol);
+      engineAudio.set(st.rpm, st.demand ?? Math.max(0, Math.min(1, (st.rpm - st.idleRpm) / Math.max(1, st.redline - st.idleRpm))), st.cranking);
+    }
+  };
 
   buildNav();
   bindTools();

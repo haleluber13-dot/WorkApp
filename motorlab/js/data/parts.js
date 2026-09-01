@@ -77,6 +77,8 @@ function pistonTree(e){
   const diesel = e.fuel === 'diesel';
   const boosted = e.aspiration !== 'na';
   const turbos = { turbo:1, twinturbo:2, quadturbo:4 }[e.aspiration] || 0;
+  const belt = e.camDrive === 'belt';
+  const jets = e.pistonJets !== false && (boosted || e.class === 'race');
   const blown  = e.aspiration === 'supercharged';
 
   const parts = [];
@@ -98,13 +100,23 @@ function pistonTree(e){
     teach:`${e.crank==='flat'?'Flat-plane crank: rod journals at 180°, so each bank fires evenly. Lighter and faster-revving, but the secondary imbalance shakes.':e.crank==='270'?'A 270° crankpin offset makes this parallel-twin fire like a 90° V-twin.':'Forged or cast steel, counterweighted so the rotating and half the reciprocating mass is balanced.'} Rod throw is exactly half the stroke — ${(e.stroke/2).toFixed(1)} mm here.`,
     spec:{ 'Throw':`${(e.stroke/2).toFixed(1)} mm`, 'Main journals':nMains, 'End float':'0.10–0.30 mm' } });
 
+  add({ id:'thrust', name:'Crank thrust washers', group:'block', qty:2, deps:['mainbearings'], mesh:'mainbearing',
+    teach:'Two half-moon washers either side of one main journal — the centre main here — take every bit of fore-and-aft load the crank sees. That load comes from you: it is the clutch pedal pushing the crank forward through the release bearing. Ride the clutch at a set of lights for a decade and this is the part that wears, which is why end float is the first thing you measure on a used bottom end.',
+    spec:{ 'End float':'0.10-0.30 mm', 'Wear limit':'0.35 mm', 'Location':'centre main journal' } });
+
   add({ id:'maincaps', name:'Main caps', group:'block', qty:nMains, deps:['crank'], mesh:'maincap',
     torque:{ nm:B.main.nm, angle:B.main.angle, size:B.main.size, count:nMains*2,
              pattern:pattern('centre-out', nMains*2), stages:['30 Nm seat', `${B.main.nm} Nm`, `+${B.main.angle}°`],
              lube:'engine oil on threads & under head' },
     teach:'Caps are line-bored with the block — they are not interchangeable and they only fit one way round. Torque from the centre outwards in stages, then check the crank still turns freely by hand before you go any further.' });
 
-  add({ id:'pistons', name:'Pistons, rings & pins', group:'rotating', qty:e.cyl, deps:['maincaps'], mesh:'piston',
+  if (jets)
+    add({ id:'oilsquirters', name:'Piston cooling jets', group:'lube', qty:e.cyl, deps:['maincaps'], mesh:'pickup',
+      torque:{ nm:B.small.nm*2, size:'M8 banjo', count:e.cyl, pattern:pattern('sequence', e.cyl), stages:[`${B.small.nm*2} Nm`], lube:'new crush washers' },
+      teach:'A small jet in the bottom of each bore sprays oil at the underside of the piston crown. There is a check valve in it that only opens above about 2 bar, so the engine builds pressure for the bearings first and cools pistons second. On a boosted engine these jets are doing more piston cooling than the coolant is, and blocking one is how a piston melts on the dyno.',
+      spec:{ 'Jets':e.cyl, 'Opens at':'~2.0 bar', 'Target':'underside of the crown and the pin boss' } });
+
+  add({ id:'pistons', name:'Pistons, rings & pins', group:'rotating', qty:e.cyl, deps:[jets ? 'oilsquirters' : 'maincaps'], mesh:'piston',
     teach:`Ring pack from the top: compression ring (seals combustion), second ring (scrapes and seals), oil control ring with expander. Stagger the ring gaps ~120° apart. This engine's ${e.bore} mm piston runs about ${(e.bore*0.0006).toFixed(2)} mm of cold wall clearance${e.cr>12?' — and the high compression means valve reliefs in the crown are shallow, so cam timing errors bend valves.':'.'}`,
     spec:{ 'Bore':`${e.bore} mm`, 'Compression':`${e.cr}:1`, 'Ring gap (top)':`${(e.bore*0.0045).toFixed(2)} mm`,
            'Type': e.class==='race'||boosted ? 'forged 2618/4032' : 'hypereutectic cast' } });
@@ -137,6 +149,23 @@ function pistonTree(e){
     teach:`Multi-layer steel today. It seals ${e.cr}:1 compression${boosted?' plus boost':''}, plus coolant and oil galleries, across a joint that grows and shrinks every heat cycle. ${boosted?'Boosted engines lift heads before they blow gaskets — clamp load is the real fix.':''}`,
     spec:{ 'Type': boosted||e.class==='race' ? 'MLS, 3–5 layer' : 'MLS', 'Surface finish':'<0.8 µm Ra', 'Deck warp limit':'0.05 mm' } });
 
+  add({ id:'pcv', name:'PCV valve & breather hoses', group:'lube', deps:['valvecover','intake'], mesh:'valvecover',
+    teach:'Combustion pressure leaks past the rings into the crankcase — blowby — and it has to go somewhere or it pushes oil out of every seal you own. Manifold vacuum pulls it out through the PCV valve and burns it. The valve is a one-way restrictor: under boost the manifold goes positive, the valve slams shut, and the crankcase breathes out of its second hose instead. That is why a boosted engine wants a catch can on that second line — what comes out is oil mist, and it lands on your intercooler core and your intake valves.',
+    spec:{ 'Valve':'spring-loaded one-way, flows on vacuum', 'Second breather':'valve cover to turbo inlet', 'Symptom of failure':'oil at the intake, seals weeping' } });
+
+  add({ id:'dipstick', name:'Dipstick & tube', group:'lube', deps:['oilpan'], mesh:'oilpan',
+    teach:'The tube presses into the block on an O-ring — which is both an oil leak and, on some engines, an unmetered air leak if it is missing. Read the stick with the engine level and stopped for a few minutes: check it straight after shutdown and half the oil is still up in the head, so you overfill it, and an overfilled sump gets whipped into froth by the crank.',
+    spec:{ 'Seal':'O-ring at the block', 'Read':'engine level, 5 min after shutdown' } });
+
+  if (boosted || e.class === 'race')
+    add({ id:'oilcooler', name:'Oil cooler & lines', group:'lube', deps:['oilfilter'], mesh:'oilfilter',
+      teach:'A sandwich plate under the filter taps hot oil out to a core in the airstream and back. The thermostat in that plate matters as much as the core: bypass it and the engine takes forever to get oil up to temperature, and cold oil is thick oil that never gets a proper film to the bearings.',
+      spec:{ 'Type':'sandwich plate, thermostatic', 'Opens at':'80-90 °C', 'Lines':'AN-10 braided, torque the fittings — do not overtighten' } });
+
+  add({ id:'oilpsensor', name:'Oil pressure switch / sender', group:'sensors', deps:['oilfilter'], mesh:'sensor',
+    teach:'A cheap switch closes a lamp circuit below about 0.3 bar; a sender reports actual pressure to a gauge. The lamp is not an oil pressure gauge — by the time it lights, pressure is already at a level no bearing survives. Fit a real sender if you care about the engine.',
+    spec:{ 'Switch trips':'0.3-0.5 bar', 'Thread':'M12 or 1/8 NPT', 'Sealant':'thread sealant, never PTFE tape near an oil galley' } });
+
   add({ id:'head', name: heads>1 ? 'Cylinder heads' : 'Cylinder head', group:'head', qty:heads, deps:['headgasket'], mesh:'head',
     torque:{ nm:B.head.nm, angle:B.head.angle, size:B.head.size, count:headBoltsPerHead*heads,
              pattern:pattern('inside-out', headBoltsPerHead), tty:true,
@@ -168,7 +197,13 @@ function pistonTree(e){
       torque:{ nm:B.med.nm, size:'M8', count:e.cyl*2, pattern:pattern('sequence', e.cyl*2), stages:[`${B.med.nm} Nm`] },
       teach:`Rocker ratio multiplies cam lift — a 1.6 rocker turns 8 mm of lobe into 12.8 mm at the valve. Set lash with the lobe on its base circle.` });
   } else {
-    add({ id:'cam', name: cams>1 ? `Camshafts (${cams})` : 'Camshaft', group:'valvetrain', qty:cams, deps:['head','valves'], mesh:'cam',
+    add({ id:'stemseals', name:'Valve guides & stem seals', group:'head', qty:e.cyl*e.valvesPerCyl, deps:['head'], mesh:'valve',
+      teach:'The guide holds the valve square to its seat; the umbrella seal on top of it meters how much oil gets down the stem. Not zero — the stem needs a film. Too much and you get the puff of blue smoke on the overrun when manifold vacuum sucks oil past the seal, which is the one exhaust-smoke symptom you can diagnose from the driver\'s seat.',
+      spec:{ 'Material':'viton, PTFE lip', 'Stem-to-guide':'0.025-0.060 mm', 'Wear limit':'0.08 mm' } });
+    add({ id:'buckets', name:'Bucket tappets & shims', group:'valvetrain', qty:e.cyl*e.valvesPerCyl, deps:['head','valves'], mesh:'lifter',
+      teach:'The cam does not touch the valve — it presses on a steel bucket over the spring, with a hardened shim between the two. The shim thickness is the valve clearance: measure the gap cold with a feeler, work out the shim you need, and swap it. On a shim-over-bucket head that means the camshafts come out to do it, which is why lash is checked every 100,000 km and not every service.',
+      spec:{ 'Buckets':e.cyl*e.valvesPerCyl, 'Type':'shim-over-bucket', 'Intake lash':'0.15-0.25 mm cold', 'Exhaust lash':'0.25-0.35 mm cold', 'Shim steps':'0.020 mm' } });
+    add({ id:'cam', name: cams>1 ? `Camshafts (${cams})` : 'Camshaft', group:'valvetrain', qty:cams, deps:['head','valves','buckets'], mesh:'cam',
       teach:`${e.cam} — ${cams} camshaft${cams>1?'s':''} running directly in the head. ${e.camProfile==='aggressive'?'This one has a second, wilder lobe set that a rocker switches onto above about 5,800 rpm.':''} Duration decides where the torque peak lands; lift decides how much air gets through once it is open.`,
       spec:{ 'Lobes':e.cyl*e.valvesPerCyl, 'Lift': e.class==='race'?'12–14 mm':e.camProfile==='aggressive'?'11.5 mm':'9–10.5 mm',
              'Duration @1 mm': e.class==='race'?'270–290°':e.camProfile==='aggressive'?'250°':'220–235°',
@@ -184,22 +219,61 @@ function pistonTree(e){
       teach:'Oil-pressure vane phasers rotate the cam relative to its sprocket, typically 40–50° of crank. Advancing the intake cam builds low-end torque; retarding it chases top end. The ECU commands it with a duty-cycle solenoid.' });
 
   /* ---- timing ---- */
-  const timingDeps = ohv ? ['cam','crank'] : ['camcaps'];
+  add({ id:'crksprocket', name:'Crank timing sprocket & key', group:'timing', deps:['crank'], mesh:'timing',
+    teach:'A toothed sprocket on the crank nose located by a woodruff key. That little half-moon key is the only thing holding crank position against the whole load of driving two camshafts — shear it and every timing mark in the engine is telling you a lie while the engine sits there refusing to run.',
+    spec:{ 'Teeth':'crank : cam = 1 : 2', 'Key':'woodruff, single use if bruised' } });
+
+  const timingDeps = ohv ? ['cam','crank'] : ['camcaps','crksprocket'];
   add({ id:'timing', name: e.class==='race' ? 'Gear/chain timing drive' : (e.cam==='OHV' ? 'Timing chain & gears' : 'Timing chain / belt'),
     group:'timing', deps:timingDeps, mesh:'timing',
     teach:`Cam turns at exactly half crank speed on a four-stroke — that is the whole reason a four-stroke needs 720° for one cycle. Line up every timing mark before the tensioner goes in, then turn it over two full crank revolutions by hand and check the marks come back.${e.cr>11?' On an interference engine like this one, getting it wrong bends valves on the first crank.':''}`,
-    spec:{ 'Ratio':'2:1 crank:cam', 'Interference': e.cr>10.5?'yes — valves hit pistons':'non-interference' } });
+    spec:{ 'Ratio':'2:1 crank:cam', 'Interference': (e.interference ?? (e.cr>10.5 || boosted)) ? 'yes — valves hit pistons' : 'non-interference' } });
   add({ id:'tensioner', name:'Tensioner & guides', group:'timing', deps:['timing'], mesh:'tensioner',
     teach:'Hydraulic tensioners need oil pressure, so they are slack when the engine is off — always pin or compress them during assembly and release only after everything is timed.' });
-  add({ id:'frontcover', name:'Front / timing cover', group:'timing', deps:['tensioner'], mesh:'frontcover',
+  if (belt && !ohv){
+    add({ id:'camseals', name:'Camshaft front oil seals', group:'timing', qty:cams, deps:['camcaps'], mesh:'headgasket',
+      teach:'One lip seal at the nose of each camshaft, behind the sprocket. They cost almost nothing and they are behind the belt, so they get replaced with the belt every time — a weeping cam seal drips oil onto the belt, and oil is what turns a rubber belt into a handful of rubber.',
+      spec:{ 'Type':'nitrile lip seal', 'Count':cams, 'Fit':'square, with a driver, lip wetted with oil' } });
+    add({ id:'camsprockets', name:'Camshaft sprockets', group:'timing', qty:cams, deps:['camseals'], mesh:'timing',
+      torque:{ nm:80, size:'M12', count:cams, pattern:pattern('sequence', cams), stages:['40 Nm','80 Nm'], lube:'clean dry threads' },
+      teach:'Each sprocket is pinned or keyed to its cam so it can only go on one way, and each carries a timing mark that must line up with a mark on the head or a cover. Hold the camshaft with a spanner on its cast flats when you torque the bolt — never let the belt or the valvetrain take that load.',
+      spec:{ 'Count':cams, 'Location':'dowel pin or key', 'Marks':'align at TDC No.1 compression' } });
+    add({ id:'idlers', name:'Timing belt idler pulleys', group:'timing', qty:2, deps:['timing'], mesh:'tensioner',
+      torque:{ nm:35, size:'M10', count:2, pattern:pattern('sequence',2), stages:['35 Nm'] },
+      teach:'Two smooth pulleys steer the belt round the front of the engine and keep the unsupported spans short. They are sealed ball bearings and they are the part that actually fails: spin each one by hand before it goes back in, and if it rumbles or has any play, it is scrap. A seized idler shreds a belt in seconds.',
+      spec:{ 'Count':2, 'Test':'spin by hand — silent, no radial play', 'Life':'replace with every belt' } });
+    add({ id:'timingcovers', name:'Timing belt covers', group:'timing', qty:2, deps:['tensioner','idlers'], mesh:'frontcover',
+      torque:{ nm:B.small.nm, size:'M6', count:10, pattern:pattern('perimeter',10), stages:[`${B.small.nm} Nm`] },
+      teach:'Two plastic covers, upper and lower, sealed to the head and the front case with soft rubber strips. They keep road grit and oil mist off the belt and nothing else — but a belt run without them picks up a stone and jumps a tooth. The lower one has to be on before the crank pulley goes back over it.',
+      spec:{ 'Pieces':2, 'Seals':'moulded rubber strip, re-usable if supple', 'Order':'lower cover, then crank pulley' } });
+  }
+  add({ id:'frontcover', name:'Front / timing cover', group:'timing', deps:[belt && !ohv ? 'timingcovers' : 'tensioner'], mesh:'frontcover',
     torque:{ nm:B.small.nm, size:'M6', count:12, pattern:pattern('perimeter',12), stages:[`${B.small.nm} Nm`] },
     teach:'Carries the front crank seal. Fit the seal to the cover, not the crank, and lubricate the lip — a dry lip tears on the first start.' });
   add({ id:'seals', name:'Front & rear crank seals', group:'timing', qty:2, deps:['frontcover'], mesh:'headgasket',
     teach:'Two lip seals ride on the crank itself: one in the timing cover, one in the block behind the flywheel. Fit them square with a driver, not a hammer and screwdriver, and wet the lip with oil — a dry lip tears on the first start and you are back in there with the gearbox out. The rear one is the reason a clutch job and a rear main seal are always the same job.',
     spec:{ 'Type':'PTFE or nitrile lip seal', 'Front':'in the timing cover', 'Rear':'behind the flywheel', 'Runout limit':'0.05 mm on the sealing land' } });
+
+  add({ id:'coreplugs', name:'Core plugs & galley plugs', group:'block', qty:Math.max(4, e.cyl), deps:['block'], mesh:'block',
+    torque:{ nm:B.med.nm*1.4|0, size:'M16 galley', count:4, pattern:pattern('sequence',4), stages:[`${B.med.nm*1.4|0} Nm`], lube:'thread sealant, not tape' },
+    teach:'The cups in the side of the block are not "freeze plugs" — they are the holes the casting sand came out of, and they only pop out in a freeze by luck. They rust from the inside, and the one you cannot see behind the exhaust manifold is the one that goes. Drive a new one in square with a socket the same size as the plug rim, sealant on the edge.',
+    spec:{ 'Type':'pressed steel cup / brass', 'Sealant':'anaerobic flange sealant', 'Galley plugs':'NPT or metric taper' } });
+
+  add({ id:'rearhousing', name:'Rear main seal retainer', group:'block', deps:['maincaps'], mesh:'frontcover',
+    torque:{ nm:B.small.nm, size:'M6', count:6, pattern:pattern('perimeter',6), stages:[`${B.small.nm} Nm`] },
+    teach:'The rear lip seal does not sit in the block — it sits in a small alloy plate bolted over the back of the crank, on a gasket or a bead of RTV. Fit the plate first and the seal into the plate afterwards, square to the crank, or you will have a leak you can only reach with the gearbox out.' });
+
   add({ id:'vcgasket', name:'Head cover gasket & grommets', group:'timing', qty:heads, deps:[ohv?'rockers':'camcaps'], mesh:'headgasket',
     teach:'The rubber gasket runs the whole perimeter, and each cover bolt pulls down through a rubber grommet with a metal crush limiter inside it. The limiter is what stops you squashing the gasket flat — it is also why this joint has a torque figure at all when it only holds oil mist.',
     spec:{ 'Gasket':'moulded rubber, re-usable if unsplit', 'Grommets':e.cyl*2+4, 'Limiter':'steel, sets the crush' } });
+
+  if (!ohv){
+    add({ id:'plugtubes', name:'Spark plug tubes & seals', group:'head', qty:e.cyl, deps:['head'], mesh:'valve',
+      teach:'The plugs sit down deep wells in the middle of the head, and each well is a tube pressed into the casting with a seal where the cam cover meets it. When that seal hardens, oil fills the well and sits around the plug and the coil boot. It shorts the spark to earth, you get a misfire on one cylinder, and the coil you replace to fix it fails again in a month — because the oil is still there.',
+      spec:{ 'Tubes':e.cyl, 'Seal':'rubber, in the cam cover', 'Symptom':'oil in the plug wells, single-cylinder misfire' } });
+    add({ id:'halfmoon', name:'Half-moon cam-end seals', group:'timing', qty:cams, deps:['head'], mesh:'headgasket',
+      teach:'Semicircular rubber plugs that fill the arc at the end of the head where the camshaft passes under the cam cover. The cover gasket runs into them at each end, and that junction is where the oil finds its way out. Set them dry in a clean recess with a dab of RTV at the two corners only — sealant all the way round just squeezes out and blocks a drain.' });
+  }
   add({ id:'valvecover', name: airCooled ? 'Rocker covers' : 'Valve cover(s)', group:'timing', qty:heads, deps:['vcgasket'], mesh:'valvecover',
     torque:{ nm:9, size:'M6', count:heads*10, pattern:pattern('inside-out',10), stages:['9 Nm'] },
     teach:'Almost every "oil leak" is this gasket. Torque is tiny and it is a spiral from the centre out — crushing the seal is the classic first-timer mistake.' });
@@ -207,13 +281,43 @@ function pistonTree(e){
   /* ---- induction ---- */
   if (turbos){
     add({ id:'turbo', name: turbos>1 ? `Turbochargers (×${turbos})` : 'Turbocharger', group:'induction',
-      qty:turbos, deps:['head'], mesh:'turbo',
+      qty:turbos, deps:['exmanifold'], mesh:'turbo',
       torque:{ nm:32, size:'M10 stud', count:turbos*4, pattern:pattern('sequence',4), stages:['16 Nm','32 Nm'], lube:'nickel anti-seize' },
       teach:`Exhaust energy spins the turbine; the compressor on the other end of the shaft squeezes intake air. Boost is not free — it is bought with exhaust backpressure. ${e.aspiration==='twinturbo'?'Two smaller turbos halve the rotating inertia each one has to accelerate, so it spools sooner.':''} That shaft floats on a film of oil at ${e.class==='race'?'150,000+':'120,000–180,000'} rpm; never shut it down hot.`,
       spec:{ 'Count':turbos, 'Target boost':`${(e.boostTarget||1).toFixed(1)} bar`, 'Spool':`~${e.spoolRpm||2200} rpm`,
              'Bearing': e.class==='race'?'ball bearing':'journal, oil + water cooled' } });
-    add({ id:'wastegate', name:'Wastegate & actuator', group:'induction', qty:turbos, deps:['turbo'], mesh:'wastegate',
+    add({ id:'wastegate', name:'Wastegate & actuator', group:'induction', qty:e.sequential ? 1 : turbos, deps:['turbo'], mesh:'wastegate',
       teach:'The wastegate bleeds exhaust *around* the turbine to cap boost. Spring pressure sets the minimum; the boost-control solenoid lies to the actuator to hold anything above it.' });
+
+    if (turbos === 2 && e.sequential){
+      add({ id:'egcv', name:'Exhaust gas control valve', group:'induction', deps:['exmanifold','turbo'], mesh:'wastegate',
+        teach:'A butterfly in the exhaust manifold that keeps all the gas going to turbo number one at low rpm, so one small turbine gets everything and spools immediately. At around 4,000 rpm an actuator swings it open and the second turbine gets its share. That handover is the whole trick: the response of a small turbo down low and the flow of two up top.',
+        spec:{ 'Opens at':'~4,000 rpm', 'Actuator':'pressure diaphragm, VSV-controlled', 'Failure mode':'seized shut — car never makes full boost' } });
+      add({ id:'ebv', name:'Exhaust bypass valve', group:'induction', deps:['egcv'], mesh:'wastegate',
+        teach:'A smaller valve that bleeds a trickle of exhaust into turbo number two a moment before the main handover, to get it already spinning. Without it the second turbine goes from stopped to full flow in one step and you feel a hole in the torque curve — the notorious mid-range dip when this valve is not working.' });
+      add({ id:'iacv', name:'Intake air control valve', group:'induction', deps:['turbo'], mesh:'bov',
+        teach:'The intake-side half of the handover. While turbo number two is still slow, this valve blocks its compressor outlet so the pressure turbo number one is making cannot simply blow backwards through the idle compressor. It opens only once the second turbo is up to speed and can hold its own against the plenum.',
+        spec:{ 'Position':'compressor #2 outlet', 'Control':'vacuum diaphragm via VSV' } });
+      add({ id:'vsv', name:'Boost-control VSVs & vacuum harness', group:'induction', qty:4, deps:['egcv','ebv','iacv'], mesh:'bov',
+        teach:'Four solenoids and a loom of small vacuum hoses are what actually sequence all of the above — the ECU switches a solenoid, the solenoid ports pressure or vacuum to an actuator, the actuator moves a valve. Every hose is a different length for a reason and none of them are labelled. A single perished hose here leaves the engine stuck on one turbo, and it will still drive, which is why it goes unnoticed for years.',
+        spec:{ 'Solenoids':4, 'Media':'manifold vacuum and boost pressure', 'First check':'every hose, by hand, cold' } });
+    }
+
+    add({ id:'turbolines', name:'Turbo oil & coolant lines', group:'lube', qty:turbos, deps:['turbo'], mesh:'turbo',
+      torque:{ nm:25, size:'M12 banjo', count:turbos*4, pattern:pattern('sequence', turbos*4), stages:['25 Nm'], lube:'new copper crush washers, both sides' },
+      teach:'Four lines per turbo: oil in under pressure, oil out by gravity, and coolant through and back. The oil feed is what floats the shaft; the coolant is what carries heat out of the bearing housing after you switch off, by thermosiphon, with no pump running. That is the real reason you idle a turbo car before shutdown — stop it hot and the oil sitting in that housing cooks into carbon and blocks the feed. Every banjo gets new crush washers and the drain must fall the whole way.',
+      spec:{ 'Feed':'restrictor fitting, oil galley to bearing housing', 'Drain':'gravity — never below the oil level', 'Coolant':'thermosiphon after shutdown' } });
+
+    add({ id:'heatshields', name:'Turbo heat shields', group:'exhaust', qty:turbos, deps:['turbo'], mesh:'exmanifold',
+      torque:{ nm:B.small.nm, size:'M6', count:turbos*3, pattern:pattern('sequence', turbos*3), stages:[`${B.small.nm} Nm`], lube:'copper anti-seize' },
+      teach:'Thin stainless covers over the turbine housing. They are not there for the turbo — they are there for everything near it: the wiring loom, the brake lines, the paint on the bonnet. A turbine housing glows at night under load, and heat radiating off a bare one is how a nearby vacuum hose becomes a puddle.' });
+
+    add({ id:'chargepipes', name:'Charge pipes & couplers', group:'induction', deps:['intercooler'], mesh:'intercooler',
+      teach:'Alloy pipe joined with silicone couplers and worm clamps, carrying compressed air from compressor to intercooler to throttle. Every joint is a leak waiting to happen: the pipe wants to push itself out of the coupler under boost, so it needs a bead rolled on the end for the clamp to bite behind. A blown coupler feels exactly like a broken turbo and costs three pounds.',
+      spec:{ 'Couplers':'4-ply silicone', 'Clamps':'T-bolt, not worm drive, above 1.5 bar', 'Bead':'rolled lip on every pipe end' } });
+
+    add({ id:'airbox', name:'Air filter box & turbo inlets', group:'induction', deps:['turbo'], mesh:'intake',
+      teach:'The filter and the pipes that get air to the compressor inlets. Inlet restriction is a pressure drop the turbo has to make up by spinning faster and hotter, so a clogged filter costs boost, intake temperature and turbo life all at once. On a boosted engine the crankcase breather also feeds into these pipes, which is why they end up oily inside.' });
     add({ id:'bov', name:'Blow-off / recirculation valve', group:'induction', deps:['turbo'], mesh:'bov',
       teach:'Close the throttle at boost and the column of air has nowhere to go — it slams back into the compressor wheel. That is surge, and it kills thrust bearings. This valve vents it.' });
     add({ id:'intercooler', name:'Intercooler & charge pipes', group:'induction', deps:['turbo'], mesh:'intercooler',
@@ -253,6 +357,14 @@ function pistonTree(e){
              'Pressure': e.injection==='direct'?'200–350 bar':e.injection==='common-rail'?'400–2000 bar':'3.5–4.0 bar' } });
     add({ id:'fuelrail', name:'Fuel rail & regulator', group:'fuel', deps:['injectors'], mesh:'fuelrail',
       teach:'The rail is a pressure reservoir that damps the pulse each injector makes. A returnless system regulates at the tank; a return system regulates here and references manifold pressure so the pressure *drop* across the injector stays constant.' });
+
+    add({ id:'fpr', name:'Fuel pressure regulator & damper', group:'fuel', deps:['fuelrail'], mesh:'fuelrail',
+      teach:'A spring-loaded diaphragm holding rail pressure a fixed amount above whatever is in the manifold — vacuum at idle, boost under load. The point is that the pressure DROP across the injector never changes, so a given pulse width always means the same amount of fuel. The little can next to it is a pulsation damper, not a second regulator: it just absorbs the pressure spike each injector makes when it slams shut.',
+      spec:{ 'Base pressure':'3.0 bar above manifold', 'Reference':'plenum vacuum/boost line', 'Damper':'passive, no adjustment' } });
+    add({ id:'fuellines', name:'Fuel lines, filter & banjo washers', group:'fuel', deps:['fpr'], mesh:'fuelrail',
+      torque:{ nm:30, size:'M12 banjo', count:4, pattern:pattern('sequence',4), stages:['30 Nm'], lube:'new crush washers, both faces' },
+      teach:'Feed and return, a filter in the feed, and banjo bolts at every joint. The crush washer is the seal — two per banjo, new every time — and the thread is only holding the clamp load. Depressurise the rail before you crack any of it: a hot rail at three bar will spray fuel across an exhaust manifold and light it.',
+      spec:{ 'Filter':'inline, direction-marked', 'Washers':'copper or aluminium, one use', 'Before opening':'depressurise and disconnect the battery' } });
     if (e.injection === 'direct' || e.injection === 'common-rail')
       add({ id:'hpfp', name:'High-pressure fuel pump', group:'fuel', deps:[ohv?'cam':'camcaps'], mesh:'hpfp',
         teach:'Driven by a lobe on the camshaft. It is the reason a direct-injection engine cannot simply be "turned up" on fuel — the pump caps how much you can flow, long before the injectors do.' });
@@ -286,10 +398,25 @@ function pistonTree(e){
 
   /* ---- cooling ---- */
   if (!airCooled){
-    add({ id:'wpgasket', name:'Water pump gasket', group:'cooling', deps:['frontcover'], mesh:'headgasket',
+    add({ id:'wpgasket', name:'Water pump gasket', group:'cooling', deps:[belt && !ohv ? 'timing' : 'frontcover'], mesh:'headgasket',
       teach:'Paper, rubber-coated steel, or a plain O-ring depending on the engine. The weep hole below the pump is deliberate: when the shaft seal starts to go, coolant drips out of that hole instead of into the bearing, and that drip is your warning to change the pump before it seizes and throws the belt.',
       spec:{ 'Type':'paper / rubber-coated steel / O-ring', 'Sealant': 'none — fit dry unless the manual says otherwise' } });
-    add({ id:'waterpump', name:'Water pump & thermostat', group:'cooling', deps:['wpgasket'], mesh:'waterpump',
+    add({ id:'thermostat', name:'Thermostat & housing', group:'cooling', deps:['block'], mesh:'waterpump',
+      torque:{ nm:B.med.nm*0.8|0, size:'M8', count:2, pattern:pattern('sequence',2), stages:[`${B.med.nm*0.8|0} Nm`] },
+      teach:'A wax pellet expands as it warms and pushes the valve open at about 82 °C, so the engine gets hot fast and then holds temperature. Fit it with the jiggle valve at the top — that pinhole is how air escapes when you fill the system, and a thermostat in upside down gives you an airlock and a boiled engine on the first drive. Failed open means it never warms up and bores wear; failed shut means it boils in about a minute.',
+      spec:{ 'Opens':'82 °C', 'Fully open':'95 °C', 'Jiggle valve':'to 12 o\'clock', 'Gasket':'rubber ring, one use' } });
+    add({ id:'bypasspipe', name:'Water bypass & heater pipe', group:'cooling', deps:['thermostat'], mesh:'waterpump',
+      teach:'A long steel pipe running the length of the block underneath the intake manifold, carrying coolant to the heater and round the thermostat when it is shut. Every one of its O-rings is buried under the manifold. It costs almost nothing and takes five minutes with the manifold off, and a full day with the manifold on — so it gets replaced whenever you are already in there, not when it leaks.',
+      spec:{ 'Seals':'O-ring at each end', 'Access':'intake manifold off', 'Rule':'replace on sight, never on failure' } });
+    add({ id:'ect', name:'Coolant temperature sensor', group:'sensors', deps:['thermostat'], mesh:'sensor',
+      teach:'A thermistor in the water jacket — resistance falls as it warms. It is the single input the ECU uses to decide warm-up enrichment, fan trigger and how much timing it dares run, so a sensor reading permanently cold makes the engine run rich forever and foul its plugs. Note that the gauge sender and the ECU sensor are usually two different parts in two different holes.',
+      spec:{ 'Type':'NTC thermistor', 'At 20 °C':'~2.5 kΩ', 'At 90 °C':'~250 Ω' } });
+    if (e.class !== 'bike' && e.class !== 'race')
+      add({ id:'fanclutch', name:'Cooling fan & viscous clutch', group:'cooling', qty:1, deps:['waterpump'], mesh:'waterpump',
+        torque:{ nm:B.small.nm*2, size:'M6', count:4, pattern:pattern('star',4), stages:[`${B.small.nm*2} Nm`] },
+        teach:'A belt-driven fan with a silicone-filled coupling on the front. A bimetallic coil on its face feels the air coming through the radiator and lets the fan lock up to the pulley when it is hot. Cold, it slips and costs almost nothing to turn; seized, it roars and eats power all day; dead, it freewheels and the engine boils the moment you stop moving.',
+        spec:{ 'Drive':'accessory belt', 'Locks at':'~70 °C air off the core', 'Test':'stop it cold with a rolled newspaper' } });
+    add({ id:'waterpump', name:'Water pump', group:'cooling', deps:['wpgasket'], mesh:'waterpump',
       teach:'A closed 1.1 bar system raises the boiling point to about 125 °C. The thermostat stays shut until the block is warm so the engine reaches operating temperature quickly — cold running is what wears bores.' });
     add({ id:'radiator', name:'Radiator, fans & hoses', group:'cooling', deps:['waterpump'], mesh:'radiator',
       teach:`Coolant carries roughly a third of the fuel's energy straight out to the air. ${boosted?'Under sustained boost the cooling system, not the engine, is usually what ends the run.':''}` });
@@ -313,12 +440,58 @@ function pistonTree(e){
   add({ id:'alternator', name:'Alternator & belt drive', group:'accessory', deps:['crankpulley'], mesh:'alternator',
     teach:`A three-phase alternator rectified to DC, regulated to about 14.2 V. Everything electrical on the vehicle is really running off this, not the battery.`,
     spec:{ 'Output': e.class==='bike'?'350–500 W':'110–180 A', 'Regulated':'14.0–14.6 V' } });
+
+  add({ id:'mounts', name:'Engine mounts & brackets', group:'accessory', qty:2, deps:['block'], mesh:'block',
+    torque:{ nm:Math.round(B.main.nm*0.9), size:'M12', count:6, pattern:pattern('sequence',6), stages:[`${Math.round(B.main.nm*0.45)} Nm`, `${Math.round(B.main.nm*0.9)} Nm`] },
+    teach:'Rubber bonded between two steel plates, working in shear. They are not just holding the weight up — they are absorbing the torque reaction of the engine trying to roll over in its bay every time you open the throttle. Stiffer mounts sharpen the way a car responds and pipe every bit of engine vibration straight into the cabin, which is the whole trade.',
+    spec:{ 'Type':'bonded rubber, hydraulic on some', 'Failure':'cracked bond, engine knocks on gear changes' } });
+
+  if (e.class !== 'bike' && e.class !== 'race'){
+    add({ id:'pspump', name:'Power steering pump & reservoir', group:'accessory', deps:['crankpulley'], mesh:'alternator',
+      torque:{ nm:B.med.nm*1.6|0, size:'M10', count:3, pattern:pattern('sequence',3), stages:[`${B.med.nm*1.6|0} Nm`] },
+      teach:'A vane pump on the accessory belt, making around 70 bar on demand. It is the single biggest parasitic load on the belt at full lock, which is why an engine dips its idle when you saw at the wheel while parking. Bleed it by turning the wheel lock to lock with the front off the ground before you start — running it dry for a few seconds ruins the vanes.',
+      spec:{ 'Pressure':'60-80 bar at relief', 'Drive':'accessory belt', 'Fluid':'ATF or dedicated PSF — they are not interchangeable' } });
+    add({ id:'accomp', name:'A/C compressor & bracket', group:'accessory', deps:['crankpulley'], mesh:'alternator',
+      torque:{ nm:B.med.nm*1.6|0, size:'M10', count:4, pattern:pattern('sequence',4), stages:[`${B.med.nm*1.6|0} Nm`] },
+      teach:'An engine-driven gas pump with an electric clutch on the nose, so it only turns when the system asks for it. When you take the engine out you unbolt the compressor and hang it aside with the hoses still attached — crack a refrigerant line and you have vented the system, which is illegal in most places and needs a vacuum pump and a recharge to put right.',
+      spec:{ 'Clutch':'electromagnetic, 12 V coil', 'Draw':'3-5 hp engaged', 'Rule':'never open the refrigerant circuit' } });
+    add({ id:'accbelt', name:'Accessory belt, tensioner & idlers', group:'accessory', deps:['alternator','pspump','accomp'], mesh:'pulley',
+      torque:{ nm:B.med.nm*1.8|0, size:'M10', count:2, pattern:pattern('sequence',2), stages:[`${B.med.nm*1.8|0} Nm`] },
+      teach:'One long ribbed belt round the crank, alternator, water pump, steering pump and air conditioning, kept tight by a spring-loaded arm. The ribs must sit in the grooves — run it one rib off the edge of a pulley and it will look fine and shred in a week. Photograph the routing before it comes off, because the diagram sticker under the bonnet is always missing.',
+      spec:{ 'Type':'6- or 7-rib serpentine', 'Tension':'automatic spring arm', 'Check':'the arm\'s wear marks, not the belt\'s look' } });
+    add({ id:'adapterplate', name:'Bellhousing adapter plate', group:'accessory', deps:['rearhousing'], mesh:'flywheel',
+      teach:'A thin steel plate sandwiched between the block and the gearbox that closes off the bottom of the bellhousing and locates the starter. It weighs nothing, it does nothing you can see, and if you forget it the gearbox will still bolt up — the starter pinion will just be out of position and chew the ring gear. Fit it before the flywheel goes on.' });
+    add({ id:'pilotbearing', name:'Pilot bearing / spigot bush', group:'accessory', deps:['flywheel'], mesh:'flywheel',
+      teach:'A small bearing or bronze bush in the end of the crank that carries the nose of the gearbox input shaft. It is the only thing centring that shaft once the clutch is released, and it is invisible with the flywheel on. Forget it during a clutch job and the gearbox comes back out — which is why it is on the list with the clutch, not with the crank.',
+      spec:{ 'Type':'needle roller or oilite bush', 'Fit':'press in square, flush or slightly below the face' } });
+    add({ id:'releasebearing', name:'Release bearing & fork', group:'accessory', deps:['clutch'], mesh:'clutch',
+      teach:'The bearing rides on the gearbox front cover and pushes the middle of the diaphragm spring to let the clutch go. It only spins while your foot is on the pedal, which is exactly why resting your foot there kills it — and its noise, a rumble that appears when you dip the clutch and vanishes when you lift off, is the clearest diagnosis in the whole car.',
+      spec:{ 'Type':'sealed ball, or concentric hydraulic', 'Grease':'the guide sleeve only, sparingly', 'Rule':'replaced with every clutch' } });
+  }
+
+  add({ id:'camsensor', name:'Camshaft position sensor', group:'sensors', deps:[ohv ? 'cam' : (belt ? 'camsprockets' : 'cam')], mesh:'sensor',
+    teach:'The crank sensor tells the ECU where the pistons are, but the crank turns twice per cycle, so it cannot tell compression stroke from exhaust. This sensor, driven off a camshaft, breaks the tie. Lose it and a wasted-spark engine limps on while a sequential-injection, coil-on-plug engine simply will not start.',
+    spec:{ 'Type':'hall or variable reluctance', 'Location':'driven off the intake cam', 'Signal':'one pulse per cam revolution' } });
   add({ id:'starter', name:'Starter motor', group:'accessory', deps:['flywheel'], mesh:'starter',
     teach:`A series-wound DC motor pulling ${diesel?'400–800':'120–250'} A for a second or two — the single biggest electrical load on the vehicle, which is why starter and battery cables are so thick.` });
 
   /* ---- sensors / management ---- */
   add({ id:'crksensor', name:'Crank & cam position sensors', group:'sensors', deps:['frontcover'], mesh:'sensor',
     teach:'The crank sensor reads a toothed wheel with a gap (60-2 is the classic). The gap tells the ECU where TDC is; the cam sensor tells it which of the two revolutions of the four-stroke cycle it is on. Lose either and the engine will not fire at all.' });
+
+  if (e.throttleType === 'cable'){
+    add({ id:'tps', name:'Throttle position sensor', group:'sensors', deps:['throttle'], mesh:'sensor',
+      teach:'A potentiometer on the throttle shaft telling the ECU how far open the blade is. It is not how the engine decides fuelling — that is the airflow meter — but it is how the ECU knows you have lifted off, so it can cut fuel on the overrun, and how it knows you have floored it, so it can enrich. Its closed-throttle switch or voltage is set with a feeler gauge under the stop screw.',
+      spec:{ 'Output':'0.5 V closed → 4.5 V wide open', 'Adjustment':'slotted mounting, set at closed throttle' } });
+    add({ id:'iscv', name:'Idle speed control valve', group:'sensors', deps:['throttle'], mesh:'sensor',
+      teach:'With a cable throttle the blade is fully shut at idle, so the engine has to breathe through a bypass around it — and this valve is what meters that bypass. The ECU winds it open to hold idle when the air conditioning loads the engine, when the alternator does, and when it is cold. A gummed-up one is why an old engine idles high, hunts, or dies at every junction.',
+      spec:{ 'Type':'rotary solenoid or stepper', 'Bypass':'around the closed throttle blade', 'Service':'clean with carb cleaner, do not soak the coil' } });
+  }
+
+  add({ id:'grounds', name:'Engine ground straps', group:'sensors', deps:['block'], mesh:'ecu',
+    torque:{ nm:B.med.nm*0.5|0, size:'M8', count:3, pattern:pattern('sequence',3), stages:[`${B.med.nm*0.5|0} Nm`] },
+    teach:'Every sensor reading the ECU takes is a voltage measured against engine ground, so a corroded strap does not just dim a lamp — it shifts every sensor reading at once and produces faults that make no sense together. The engine sits on rubber mounts, so these braided straps are the only path back to the body and the battery.',
+    spec:{ 'Straps':'block to body, head to firewall, gearbox to chassis', 'Test':'voltage drop under cranking, not resistance' } });
   add({ id:'mapsensor', name: boosted ? 'MAP / MAF & IAT sensors' : 'MAP / MAF sensor', group:'sensors', deps:['intake'], mesh:'sensor',
     teach:'Load measurement. Speed-density reads manifold pressure and infers airflow from rpm and VE; a MAF measures mass directly with a heated wire. Everything the fuel table does depends on getting this number right.' });
   if (!diesel)

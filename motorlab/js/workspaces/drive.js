@@ -8,11 +8,11 @@
  * ratios and final drive.
  */
 import { h, section, para, btn, toast, add } from '../ui.js';
-import { state, engine, vehicle, save } from '../store.js';
+import { state, engine, vehicle, fitted, save } from '../store.js';
 import { engineAudio } from '../lib/engineAudio.js';
 
 const drive = {
-  running: false, gear: 0, throttle: 0, keys: false,
+  running: false, gear: 0, throttle: 0, steer: 0, steerTo: 0, hand: false, keys: false,
   raf: 0, refs: null, active: false,
 };
 
@@ -94,12 +94,17 @@ function tick(ctx){
     vp.revTo(target);
   }
   /* wheels turn with the revs through the gearbox, so the exterior view
-     shows the car "rolling" while it sits on the road */
-  const kmh = drive.running ? speedKmh(v, s.rpm, drive.gear) : 0;
+     shows the car "rolling" while it sits on the road; the handbrake locks
+     them while the revs flare free */
+  const kmh = drive.running && !drive.hand ? speedKmh(v, s.rpm, drive.gear) : 0;
   s.speed = kmh / 3.6 / Math.max(0.05, wheelRadius(v));
+  /* steering eases toward where the hands are, and centres itself */
+  drive.steer += (drive.steerTo - drive.steer) * Math.min(1, (s.dt || 0.016) * 6);
+  /* the angle kit does what it says: the same input turns the wheels further */
+  s.steer = drive.steer * (fitted().includes('angle-kit') ? 1.7 : 1);
 
-  engineAudio.set(s.rpm, drive.throttle, s.cranking);
-  engineAudio.setVolume((state.settings.engineVolume ?? 70) / 100);
+  /* the global sound follows the sim; tell it how hard the pedal is down */
+  s.demand = drive.throttle;
 
   if (r){
     r.needle.setAttribute('transform', `rotate(${needleAngle(e, s.rpm)})`);
@@ -125,16 +130,14 @@ function ignition(ctx){
   const vp = ctx.viewport, e = engine();
   if (!drive.running){
     drive.running = true;
-    engineAudio.start({ cyl: e.cyl || 4, vee: (e.layout === 'V' || e.layout === 'W' || e.layout === 'F'),
-                        displacement: e.displacement });
     vp.startEngine(e.idle || 850, { redline: e.redline || 7000, spoolRpm: e.spoolRpm || 2200,
                                     inertia: (e.dryWeight || 150) / 150 });
     toast(`${e.name} — running.`);
   } else {
     drive.running = false;
     drive.throttle = 0;
+    vp.state.demand = 0;
     vp.stopEngine();
-    engineAudio.stop();
     toast('Engine off.');
   }
 }
@@ -157,8 +160,13 @@ function enterDrive(ctx){
     if (ev.code === 'ArrowRight') shift(1);
     if (ev.code === 'ArrowLeft') shift(-1);
     if (ev.code === 'KeyI') ignition(ctx);
+    if (ev.code === 'KeyA') drive.steerTo = -1;
+    if (ev.code === 'KeyD') drive.steerTo = 1;
+    if (ev.code === 'KeyH' && drive.running){ drive.hand = true; engineAudio.chirp(); }
   };
   drive._up = (ev) => {
+    if (ev.code === 'KeyA' || ev.code === 'KeyD') drive.steerTo = 0;
+    if (ev.code === 'KeyH') drive.hand = false;
     if (ev.code === 'Space' || ev.code === 'KeyW' || ev.code === 'ArrowUp'){
       drive.throttle = 0;
       /* Space on keyup also "clicks" whichever button still has focus —
@@ -181,7 +189,7 @@ export function leaveDrive(ctx){
   ctx.viewport.stopEngine();
   ctx.viewport.exitInterior();
   ctx.viewport.state.speed = 0;
-  engineAudio.stop();
+  ctx.viewport.state.demand = 0;
 }
 
 /* ---- panel ------------------------------------------------------------ */
@@ -210,6 +218,17 @@ export function render(ctx, tab){
   const throttle = h('button', { class:'dash__pedal', type:'button', text:'THROTTLE — hold' });
   for (const [ev, on] of [['pointerdown', 1], ['pointerup', 0], ['pointercancel', 0], ['pointerleave', 0]])
     throttle.addEventListener(ev, (x) => { drive.throttle = on; x.preventDefault(); });
+  const steer = h('input', { type:'range', min:-100, max:100, step:1, value:0, class:'dash__steer',
+    'aria-label':'Steering' });
+  steer.addEventListener('input', () => { drive.steerTo = steer.value / 100; });
+  for (const ev of ['pointerup', 'pointercancel'])
+    steer.addEventListener(ev, () => { steer.value = 0; drive.steerTo = 0; });
+  const hand = h('button', { class:'dash__pedal dash__hand', type:'button', text:'HANDBRAKE — hold' });
+  for (const [ev, on] of [['pointerdown', 1], ['pointerup', 0], ['pointercancel', 0], ['pointerleave', 0]])
+    hand.addEventListener(ev, (x) => {
+      if (on && !drive.hand && drive.running) engineAudio.chirp();
+      drive.hand = !!on; x.preventDefault();
+    });
   const down = btn('‹ Gear', { onClick:() => shift(-1) });
   const up = btn('Gear ›', { onClick:() => shift(1) });
   const view = btn('Inside / outside', { onClick:() => {
@@ -226,10 +245,11 @@ export function render(ctx, tab){
     h('div', { class:'dash__mid' }, gearBadge, rpmTxt, h('span', { class:'dash__lbl', text:'rpm' })),
     boostRow,
     h('div', { class:'btnrow', style:{ marginTop:'10px' } }, start, throttle),
+    h('div', { class:'btnrow' }, hand, steer),
     h('div', { class:'btnrow' }, down, up, view),
     para('Hold the throttle and it revs; the tach, the sound, the crank and the turbos all follow '
       + 'the same simulation. Gears map the revs to road speed through this car\'s real ratios. '
-      + 'Keys: <b>Space</b> throttle · <b>←/→</b> shift · <b>I</b> ignition.'));
+      + 'Keys: <b>Space</b> throttle · <b>←/→</b> shift · <b>A/D</b> steer · <b>H</b> handbrake · <b>I</b> ignition.'));
 
   drive.refs = {
     needle: dash.querySelector('[data-needle]'),

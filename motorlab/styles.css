@@ -487,3 +487,5 @@ body.calm *{animation-duration:.001s !important;transition-duration:.001s !impor
   color:var(--ink2);font-size:12px;letter-spacing:.08em;padding:10px;cursor:pointer;
   touch-action:none;user-select:none}
 .dash__pedal:active{background:var(--acc);color:#111;border-color:var(--acc)}
+.dash__steer{flex:1;accent-color:var(--acc);cursor:grab}
+.dash__hand{flex:0 0 auto;max-width:46%}

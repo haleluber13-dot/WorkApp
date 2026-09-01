@@ -1,6 +1,7 @@
 /* Engine Bay & Chassis — both are the same teardown workspace on different trees. */
 import { renderPanel, openMenu, getSelected, setSelected, nextStep,
          liftPart, dropPart, restoreBench } from './assembly.js';
+import { h, btn, add } from '../ui.js';
 import { engine, vehicle, installedSet, vInstalledSet, tree, vTree, tune, fitted, U, state } from '../store.js';
 import { simulate, emptyMods } from '../sim/engineSim.js';
 import { applyUpgrades } from '../data/upgrades.js';
@@ -38,10 +39,30 @@ export const engineWs = {
   },
 };
 
+/* The service strip: where the car stands while you work on it. On the lift
+   the whole underside — subframes, wishbones, dampers, exhaust, driveline —
+   comes out from under the scan; with the front clip off, the engine sits in
+   an open bay the way it does in a workshop. */
+function serviceStrip(ctx){
+  const vp = ctx.viewport, v = vehicle();
+  const mode = vp.service || 'ground';
+  const mk = (id, label) => btn(label, {
+    class: mode === id ? 'btn--pri btn--sm' : 'btn--sm',
+    onClick: () => { vp.setService(id, v); ctx.refresh(); },
+  });
+  return h('div', { class:'btnrow', style:{ marginBottom:'8px' } },
+    mk('ground', 'On the ground'), mk('lift', 'On the lift'), mk('bay', 'Front clip off'));
+}
+
 export const chassisWs = {
   id:'chassis', name:'Chassis & Suspension', short:'Chassis', icon:'🛞', model:'vehicle', tools:{ explode:true },
   tabs:() => tabs,
-  render:(ctx, tab) => renderPanel(ctx, 'vehicle', tab),
+  render:(ctx, tab) => {
+    const wrap = h('div');
+    add(wrap, serviceStrip(ctx), renderPanel(ctx, 'vehicle', tab));
+    return wrap;
+  },
+  leave:(ctx) => ctx.viewport.setService('ground', vehicle()),
   onPick:(ctx, id, hit, ev) => { if (!id) return; setSelected(id); ctx.viewport.select(id);
     if (ev?.detail !== 0) openMenu(ctx, 'vehicle', id, ev); ctx.setTab('inspect'); },
   onContext:(ctx, id, hit, ev) => id && openMenu(ctx, 'vehicle', id, ev),

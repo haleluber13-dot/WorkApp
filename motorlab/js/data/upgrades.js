@@ -8,6 +8,7 @@
 import { isBoosted } from './engines.js';
 
 export const CATS = [
+  { id:'drift',     name:'Drift & rally' },
   { id:'induction', name:'Turbo & supercharger' },
   { id:'charge',    name:'Charge cooling & piping' },
   { id:'breathing', name:'Head, cams & valvetrain' },
@@ -32,7 +33,27 @@ const car = (e) => e.class !== 'bike';
 
 const U = (o) => Object.assign({ cat:'induction', fits:any, cost:0, effects:{}, requires:[], conflicts:[], tier:1 }, o);
 
+const rwd = (e, v) => true;   // the shop sells it; the sim charges the grip either way
+
 export const UPGRADES = [
+  /* ---------------- drift & rally ---------------- */
+  U({ id:'angle-kit', name:'Steering angle kit (knuckles & extended LCAs)', brand:'Wisefab', cat:'drift', tier:2,
+      fits:car, cost:2800, effects:{ steerLockMul:1.7, grip:-0.02 },
+      teach:'Re-shaped knuckles move the steering arm pickup so the same rack travel turns the wheel much further, and corrected Ackermann keeps both fronts working at full lock. More lock means holding a steeper angle without spinning — the whole point of a drift front end.' }),
+  U({ id:'hydro', name:'Hydraulic handbrake', brand:'ASD / Chase Bays', cat:'drift', tier:1,
+      fits:car, cost:520, effects:{},
+      teach:'A vertical lever with its own master cylinder plumbed straight into the rear calipers. Pull it and the rears lock instantly regardless of pad temperature — it is a drift initiation tool, not a parking brake.' }),
+  U({ id:'lsd-2way', name:'2-way clutch limited-slip differential', brand:'Kaaz / OS Giken', cat:'drift', tier:2,
+      fits:car, cost:1650, effects:{ grip:0.03 },
+      teach:'Locks the rear axle on power AND off power, so both tyres drive — and both keep spinning together mid-drift. An open diff ends a drift the moment the inside tyre lights up alone.' }),
+  U({ id:'bucket-harness', name:'Bucket seat & 6-point harness', brand:'Recaro / Takata', cat:'drift', tier:1,
+      fits:car, cost:1400, effects:{ weightKg:-12 },
+      teach:'At full lock and full throttle you steer with your hands, not with whatever muscles are keeping you in the chair. The seat holds you; the harness holds the seat\'s promise in a crash.' }),
+  U({ id:'gravel-setup', name:'Gravel rally setup (raised, long-travel)', brand:'Proflex / EXE-TC', cat:'drift', tier:3,
+      fits:car, cost:6800, effects:{ grip:-0.01, weightKg:8 },
+      conflicts:['coilovers','susp-race'],
+      teach:'Softer springs, huge damper travel and raised ride height keep the tyres on a surface that keeps moving. On gravel, grip comes from letting the wheel follow the ground, not from holding the body flat.' }),
+
   /* ---------------- induction ---------------- */
   U({ id:'turbo-stage1', name:'Hybrid turbocharger (billet compressor)', brand:'Garrett', cat:'induction', tier:1,
       fits:turbo, cost:2400, effects:{ boostMul:1.25, spoolMul:0.94, turbineTopEnd:1.06 },

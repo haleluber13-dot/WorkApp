@@ -353,6 +353,10 @@ export class Viewport {
     this.dragging = null; this.controls.enabled = true;
     this.model = model;
     this.scene.add(model.root);
+    if (this.service && this.service !== 'ground'){
+      model.root.position.y = this.service === 'lift' ? this._liftY() : 0;
+      this._applyBayClip(this.service === 'bay');
+    }
     this._origMats = new Map();
     model.root.traverse(o => { if (o.isMesh) this._origMats.set(o, o.material); });
     this.selected = null; this.hovered = null;
@@ -579,7 +583,11 @@ export class Viewport {
     'intake','rotorhousing','stationary','clutch','flywheel','radiator','intercooler',
     'exmanifold','exhaust','turbo','blower','body','chassis','cage','tank','gearbox','diff']);
   planesFor(id){
-    return (this.cutaway && Viewport.CASTINGS.has(id)) ? [this.clipPlane] : [];
+    const planes = [];
+    if (this.cutaway && Viewport.CASTINGS.has(id)) planes.push(this.clipPlane);
+    /* front clip off: the shell alone is cut open ahead of the firewall */
+    if (this._bayPlane && id === this.model?.shellId) planes.push(this._bayPlane);
+    return planes;
   }
   setCutaway(on){
     this.cutaway = on;
@@ -594,6 +602,75 @@ export class Viewport {
       });
     }
   }
+
+  /* ---- service states: on the ground, on the lift, front clip off ------ */
+  static LIFT_IDS = new Set(['chassis','subfront','subrear','mounts','exhaustsys','prop','diff',
+    'axles','final','lcaf','lcar','ucaf','ucar','dampf','dampr','strutf','strutr','arbf','arbr',
+    'uprf','uprr','discf','discr','calf','calr','rack','tank','hbrake','abs','mcyl','gearbox',
+    'transfer','wheels']);
+  static BAY_IDS = new Set(['engine','gearbox','rad','intake','battery','mcyl','abs','subfront',
+    'mounts','fusebox','harness']);
+
+  /** 'ground' | 'lift' | 'bay'. The lift raises the whole car on a two-post
+   *  rig and shows the underside running gear the scan is hiding; 'bay' takes
+   *  the front clip off the shell so the engine sits in the open. */
+  setService(mode = 'ground', dims = {}){
+    this.service = mode;
+    this._serviceDims = dims;
+    /* the rig */
+    if (mode === 'lift' && !this._liftRig){
+      const rig = new THREE.Group();
+      const steel = new THREE.MeshStandardMaterial({ color: 0x9aa2ab, metalness: 0.6, roughness: 0.5 });
+      const post = new THREE.BoxGeometry(0.28, 2.6, 0.20);
+      const w = (dims.widthMm || 1800) / 1000;
+      for (const zs of [-1, 1]){
+        const pMesh = new THREE.Mesh(post, steel);
+        pMesh.position.set(0, 1.3, zs * (w / 2 + 0.55));
+        rig.add(pMesh);
+        for (const xs of [-1, 1]){
+          const arm = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.07, 0.12), steel);
+          arm.position.set(xs * 0.55, this._liftY() - 0.10, zs * (w / 2 + 0.18));
+          arm.rotation.y = zs * xs * -0.5;
+          rig.add(arm);
+        }
+      }
+      this._liftRig = rig;
+      this.scene.add(rig);
+    } else if (mode !== 'lift' && this._liftRig){
+      this.scene.remove(this._liftRig);
+      this._liftRig = null;
+    }
+    this._applyBayClip(mode === 'bay');
+    this.liftReveal = mode === 'lift' ? Viewport.LIFT_IDS
+                    : mode === 'bay' ? Viewport.BAY_IDS : null;
+    this._animateRootY(mode === 'lift' ? this._liftY() : 0);
+    this._applyMaterials();
+    this.needsRender = true;
+  }
+
+  _liftY(){ return 1.35; }
+
+  _animateRootY(to){
+    const root = this.model?.root;
+    if (!root) return;
+    const from = root.position.y, t0 = performance.now(), ms = 900;
+    const step = () => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      root.position.y = from + (to - from) * (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+      this.needsRender = true;
+      if (k < 1 && this.service !== undefined) requestAnimationFrame(step);
+    };
+    step();
+  }
+
+  _applyBayClip(on){
+    /* the plane itself lives here; planesFor() hands it to every material
+       pass, so nothing can quietly wipe it off again */
+    const wb = (this._serviceDims?.wheelbase || 2600) / 1000;
+    this._bayPlane = on ? new THREE.Plane(new THREE.Vector3(-1, 0, 0), wb * 0.22) : null;
+    if (this.model) this.setCutaway(this.cutaway);   // re-walk materials with the new plane set
+  }
+
   setLabels(on){ this.showLabels = on; if (!on) this._clearLabels(); }
   select(id){ this.selected = id; this._applyMaterials(); }
   setHighlight(ids){ this.highlight = new Set(ids || []); this._applyMaterials(); }
@@ -609,15 +686,18 @@ export class Viewport {
        exactly as it was. */
     const shellId = this.model.shellId;
     const shelled = !!shellId && this.installed.has(shellId);
-    /* parts the model is known not to cover stay out in the open */
+    /* parts the model is known not to cover stay out in the open — and so
+       does the running gear a service state is there to show */
     const keep = this.model.keepIds || new Set();
+    const reveal = this.liftReveal;
 
     for (const [id, objs] of this.model.nodes){
       /* A part on the bench is off the machine but very much still in the
          room: it has to stay solid and visible, or picking one up would look
          like destroying it. */
       const inst = this.installed.has(id) || this.bench.has(id);
-      const under = shelled && id !== shellId && !keep.has(id) && !this.bench.has(id);
+      const under = shelled && id !== shellId && !keep.has(id) && !reveal?.has(id)
+                 && !this.bench.has(id);
       const sel  = this.selected === id;
       const hov  = this.hovered === id;
       const hl   = this.highlight.has(id);
@@ -729,6 +809,7 @@ export class Viewport {
       const s = this.state;
       s.time += dt; s.dt = dt;
       this._engineDynamics(dt, s);
+      this.onTick?.(s);
       if (s.rpm > 0) s.crankAngle = (s.crankAngle + (s.rpm/60) * Math.PI * 2 * dt) % (Math.PI*2*2);
       if (s.speed) s.wheelAngle = (s.wheelAngle + s.speed * dt) % (Math.PI*2);
       this.model?.update?.(s);

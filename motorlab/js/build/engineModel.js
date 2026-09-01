@@ -1358,13 +1358,13 @@ function buildPiston(e, tree){
     const grp = group(id, idl, arm);
     at(grp, beltX, y, z);
     anim.pulleys.push({ node:idl, ratio:2.0 });
-    add('crankpulley', grp);
+    add(tree.byId['accbelt'] ? 'accbelt' : 'crankpulley', grp);
     beltRun.push({ y, z, r });
   }
 
   /* and the belt itself, run round the outside of the whole set */
   const belt = serpentineBelt(beltRun, beltX, M(26), MAT.rubber());
-  if (belt) add('crankpulley', belt);
+  if (belt) add(tree.byId['accbelt'] ? 'accbelt' : 'crankpulley', belt);
 
   add('starter', at(starterMesh(L.bore * 1.6), L.len * 0.42, -L.crankR * 0.1, L.bore * 0.85));
 
@@ -1595,7 +1595,7 @@ function buildPiston(e, tree){
     st.rotation.y = Math.PI;                            // the neck faces forward
     at(st, frontX + M(14), L.deckH * 0.86, -L.bore * 0.16);
     statOut = st.userData.outlet.clone().applyEuler(st.rotation).add(st.position);
-    add('waterpump', st);
+    add(tree.byId['thermostat'] ? 'thermostat' : 'waterpump', st);
     const pumpIn = V3(beltX + L.bore * 0.30, L.deckH * 0.36, -L.bore * 0.82);
     if (has('radiator')){
       const radX = frontX - L.bore * 3.10;      // where the core actually is
@@ -1622,7 +1622,7 @@ function buildPiston(e, tree){
     /* heater feed and return, off the back of the head and into the pump */
     const [hy, hz] = portAt(0, L.deckH + L.bore * 0.18, -bankSign(0) * L.bore * 0.40);
     for (const [i, dz] of [[0, -M(34)], [1, M(34)]])
-      add('waterpump', hoseRun([V3(L.len * 0.40, hy - i * M(46), hz + dz),
+      add(tree.byId['bypasspipe'] ? 'bypasspipe' : 'waterpump', hoseRun([V3(L.len * 0.40, hy - i * M(46), hz + dz),
                                 V3(L.len * 0.24, L.deckH * 0.72, hz * 0.6 + dz * 2),
                                 V3(beltX + L.bore * 0.42, L.deckH * 0.50 - i * M(30), -L.bore * 0.62)],
                                L.bore * 0.055));
@@ -1642,22 +1642,22 @@ function buildPiston(e, tree){
          a short drop — one per turbo, not two lines reaching across the log
          from the same spot like rigging */
       const feedAt = V3(tb.pos.x + L.bore * 0.30, L.crankR * 0.55, tb.side * caseZ);
-      add('turbo', at(rot(cyl(M(11), M(11), M(20), MAT.plated(), 12), 0, 0, Math.PI / 2),
+      add('turbolines', at(rot(cyl(M(11), M(11), M(20), MAT.plated(), 12), 0, 0, Math.PI / 2),
                       feedAt.x, feedAt.y, feedAt.z + tb.side * M(9)));
-      add('turbo', braidedLine([feedAt,
+      add('turbolines', braidedLine([feedAt,
                                 V3((feedAt.x + tb.oilIn.x) / 2, (feedAt.y + tb.oilIn.y) / 2,
                                    tb.side * (caseZ + L.bore * 0.45)),
                                 tb.oilIn], M(5)));
-      add('turbo', at(hexPrism(M(13), M(11), MAT.plated()), tb.oilIn.x, tb.oilIn.y, tb.oilIn.z));
+      add('turbolines', at(hexPrism(M(13), M(11), MAT.plated()), tb.oilIn.x, tb.oilIn.y, tb.oilIn.z));
 
       /* the drain flange, on the sump wall below and inboard of the turbo */
       const drainAt = V3(tb.oilOut.x - L.len * 0.06, -L.crankR * 1.42, tb.side * L.bore * 0.58);
-      add('turbo', hoseRun([tb.oilOut,
+      add('turbolines', hoseRun([tb.oilOut,
                             V3((tb.oilOut.x + drainAt.x) / 2,
                                (tb.oilOut.y + drainAt.y) / 2,
                                (tb.oilOut.z + drainAt.z) / 2 + tb.side * L.bore * 0.06),
                             drainAt], L.bore * 0.075));
-      add('turbo', at(rot(cyl(L.bore * 0.13, L.bore * 0.13, M(10), MAT.alloyDark(), 16),
+      add('turbolines', at(rot(cyl(L.bore * 0.13, L.bore * 0.13, M(10), MAT.alloyDark(), 16),
                           Math.PI / 2, 0, 0),
                       drainAt.x, drainAt.y, drainAt.z));
     }
@@ -1667,7 +1667,7 @@ function buildPiston(e, tree){
                                M(4)));
   }
   if (has('oilpan'))
-    add('oilpan', dipstickMesh([V3(-L.len * 0.30, L.deckH * 0.62, -caseZ - M(26)),
+    add('dipstick', dipstickMesh([V3(-L.len * 0.30, L.deckH * 0.62, -caseZ - M(26)),
                                 V3(-L.len * 0.26, L.crankR * 0.40, -caseZ - M(16)),
                                 V3(-L.len * 0.20, -L.crankR * 1.55, -L.bore * 0.55)], M(7)));
   if (has('oilfilter')){
@@ -1676,12 +1676,12 @@ function buildPiston(e, tree){
        been calling "filter & cooler" without ever drawing the cooler */
     const cool = coreMesh(L.bore * 1.30, L.bore * 0.72, M(52), { body:MAT.alloyDark() }, 14);
     const coolZ = outerZ + L.bore * 0.55;
-    add('oilfilter', at(cool, L.len * 0.06, -L.crankR * 0.75, coolZ));
-    add('oilfilter', hoseRun([V3(L.len * 0.20, -L.crankR * 0.90, outerZ + M(20)),
+    add('oilcooler', at(cool, L.len * 0.06, -L.crankR * 0.75, coolZ));
+    add('oilcooler', hoseRun([V3(L.len * 0.20, -L.crankR * 0.90, outerZ + M(20)),
                               V3(L.len * 0.16, -L.crankR * 0.72, coolZ),
                               V3(L.len * 0.06 + L.bore * 0.55, -L.crankR * 0.62, coolZ)],
                              L.bore * 0.055));
-    add('oilfilter', hoseRun([V3(L.len * 0.06 - L.bore * 0.55, -L.crankR * 0.62, coolZ),
+    add('oilcooler', hoseRun([V3(L.len * 0.06 - L.bore * 0.55, -L.crankR * 0.62, coolZ),
                               V3(L.len * 0.00, -L.crankR * 0.20, coolZ * 0.92),
                               V3(L.len * 0.06, L.crankR * 0.45, caseZ + M(4))], L.bore * 0.055));
   }
@@ -1692,12 +1692,12 @@ function buildPiston(e, tree){
     add('valvecover', at(standOn(fillerCap(L.bore * 0.22), bankUp(0)), -L.len * 0.34, cy, cz));
     const [vy, vz] = portAt(0, L.deckH + L.bore * 1.52, -bankSign(0) * L.bore * 0.10);
     const pcvAt = V3(L.len * 0.26, vy, vz);
-    add('valvecover', at(standOn(pcvValve(L.bore * 0.20), bankUp(0)), pcvAt.x, pcvAt.y, pcvAt.z));
+    add('pcv', at(standOn(pcvValve(L.bore * 0.20), bankUp(0)), pcvAt.x, pcvAt.y, pcvAt.z));
     if (has('intake')){
       /* the breather hose goes back into the inlet tract, which on a hot-V is
          the plenum on that same bank rather than something in the middle */
       const [my, mz] = [inducY, thrZone + L.bore * (L.banks >= 2 ? 0.70 : 0.34)];
-      add('valvecover', hoseRun([pcvAt.clone().add(bankUp(0).multiplyScalar(L.bore * 0.24)),
+      add('pcv', hoseRun([pcvAt.clone().add(bankUp(0).multiplyScalar(L.bore * 0.24)),
                                  V3(L.len * 0.14, (pcvAt.y + my) / 2 + L.bore * 0.20, (pcvAt.z + mz) / 2),
                                  V3(-L.len * 0.02, my, mz)], L.bore * 0.055));
     }
