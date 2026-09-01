@@ -1,0 +1,53 @@
+# Publish the site: GlobeWatch from main at the root, MotorLab from this
+# branch at /motorlab/. Runs on every push to the MotorLab branch, so the
+# public link always serves the latest build.
+name: Publish site to GitHub Pages
+
+on:
+  push:
+    branches: [ "claude/3d-vehicle-learning-app-mxjyav" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the site root (main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site-root
+      - name: Check out MotorLab (this branch)
+        uses: actions/checkout@v4
+        with:
+          path: motorlab-src
+      - name: Stage the site
+        run: |
+          mkdir -p _site
+          cp -r site-root/. _site/
+          rm -rf _site/motorlab _site/.git
+          cp -r motorlab-src/motorlab _site/motorlab
+          rm -rf _site/.git
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
