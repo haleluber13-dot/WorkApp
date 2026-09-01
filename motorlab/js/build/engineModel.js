@@ -779,7 +779,7 @@ function buildPiston(e, tree){
              : sideTurbo ? L.len * 0.06
              : L.banks >= 2 ? L.len * 0.30 : L.len * 0.35;
   const colY = frontTurbo ? L.crankR * 0.95
-             : sideTurbo ? L.deckH * 0.92
+             : sideTurbo ? L.deckH + L.bore * 0.02
              : L.crankR * 0.5;
   /* on a vee the exhaust ports are a long way outboard, because the head is
      tilted away from the crank — so the collector has to be out there too */
@@ -893,7 +893,7 @@ function buildPiston(e, tree){
        housing about 130 mm in diameter, so size ≈ 65 mm — three quarters of an
        86 mm bore, not one and a quarter of it. It was drawing a turbo half the
        height of the engine it was bolted to. */
-    const size = L.bore * (n === 1 ? 0.72 : n === 2 ? 0.56 : 0.43)
+    const size = L.bore * (n === 1 ? 0.72 : n === 2 ? 0.62 : 0.43)
                * (1 + (e.boostTarget || 0) * 0.08);
     /* One turbo per front corner, turned out at forty-five degrees so the
        compressor looks forward into the air and the turbine looks back down
@@ -916,9 +916,15 @@ function buildPiston(e, tree){
                             L.crankR * 0.95,
                             side * clearZ)
         : sideTurbo
-        ? new THREE.Vector3(colX + rank * size * 1.35,
-                            L.deckH * 0.86 + size * 0.20,
-                            clearZ)
+        /* An inline engine's turbo bolts to the log manifold: hung just below
+           it, tight against the head. One turbo sits mid-engine; twins sit at
+           the quarter points, a quarter of the engine's length apart — spacing
+           taken off the ENGINE, not off the turbo, because spacing twins by
+           their own diameter is how two of them ended up drawn through each
+           other as one double-decked lump. */
+        ? new THREE.Vector3(n === 1 ? L.len * 0.02 : rank * L.len * 0.46,
+                            colY - size * 0.62,
+                            colZ + size * 0.85)
         : new THREE.Vector3(colX + L.len * 0.10 + rank * size * 1.55,
                             colY + size * 0.52,
                             side * clearZ);
@@ -959,19 +965,28 @@ function buildPiston(e, tree){
     }
     add('turbo', tg);
 
-    /* the external wastegate: a valve body teed off the manifold ahead of the
-       turbine, its actuator canister above it, and the dump pipe back in past
-       the turbine wheel */
+    /* The wastegate: the actuator canister every road turbo actually wears,
+       bolted to the compressor housing with one short rod across to the arm
+       on the turbine housing. The old external gate hung a valve body out on
+       a pipe in mid-air with its plumbing radiating off it — which from a
+       step back read as the engine's own connecting rods fallen out of it. */
     const wgG = group('wg');
-    const wt = turbos[0];
-    const gate = wt.hotIn.clone().lerp(wt.pos, -0.55);
-    wgG.add(pipe([wt.hotIn, gate], M(15), MAT.hot(), 8));
-    wgG.add(at(lathe([[0, -M(26)], [M(34), -M(26)], [M(38), -M(14)], [M(38), M(14)],
-                      [M(34), M(26)], [0, M(26)]], MAT.steel(), 24),
-               gate.x, gate.y + L.bore * 0.30, gate.z));
-    wgG.add(at(cyl(M(7), M(7), M(46), MAT.plated(), 10), gate.x, gate.y + L.bore * 0.20, gate.z));
-    wgG.add(pipe([gate, gate.clone().lerp(wt.hotOut, 0.55).add(V3(0, -L.bore * 0.20, 0)),
-                  wt.hotOut], M(12), MAT.hot(), 8));
+    for (const wt of turbos){
+      /* canister on the compressor housing's shoulder, rod across the
+         cartridge to the little arm on the turbine housing — the whole thing
+         lives within the turbo's own silhouette */
+      const can = wt.pos.clone().add(V3(0, wt.size * 0.62, wt.size * 0.42));
+      const arm = wt.pos.clone().add(V3(0, wt.size * 0.52, -wt.size * 0.30));
+      wgG.add(at(lathe([[0, -M(11)], [M(15), -M(11)], [M(17), -M(4)], [M(17), M(5)],
+                        [M(12), M(11)], [0, M(11)]], MAT.steel(), 20),
+                 can.x, can.y, can.z));
+      const rod = new THREE.Vector3().subVectors(arm, can);
+      const rm = cyl(M(3), M(3), rod.length(), MAT.plated(), 8);
+      rm.position.copy(can).addScaledVector(rod, 0.5);
+      rm.quaternion.setFromUnitVectors(V3(0, 1, 0), rod.clone().normalize());
+      wgG.add(rm);
+      wgG.add(at(box(M(14), M(5), M(6), MAT.steel()), arm.x, arm.y, arm.z));
+    }
     add('wastegate', wgG);
 
     /* The charge-air path, as the bi-turbo diagrams draw it: both compressors
@@ -991,6 +1006,25 @@ function buildPiston(e, tree){
     const outTank = V3(icX + L.bore * 0.05,  icY + L.bore * 0.34, -icZ * 0.86);
     for (const tb of turbos){
       const sgn = Math.sign(tb.pos.z) || 1;
+      if (sideTurbo){
+        /* down at the turbo, forward low along the block, into the core — a
+           charge pipe is plumbing that hugs the engine, not a brace across it */
+        const lowY = L.crankR * 0.45;
+        const runZ = Math.abs(tb.pos.z) + tb.size * 0.35;
+        const stub2 = tubeMesh(tb.axialTube * 1.16, tb.axialTube * 0.98,
+                               tb.size * 0.34, MAT.alloy(), 20);
+        const axis2 = tb.coldIn.clone().sub(tb.pos).normalize();
+        stub2.quaternion.setFromUnitVectors(V3(0, 1, 0), axis2);
+        icG.add(at(stub2, tb.coldIn.x, tb.coldIn.y, tb.coldIn.z));
+        icG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
+                      [tb.coldOut.x - L.bore * 0.50, lowY + L.bore * 0.35, runZ],
+                      [tb.coldOut.x - L.bore * 1.10, lowY, runZ],
+                      [frontX - L.bore * 0.40, lowY, runZ],
+                      [icX + L.bore * 0.70, (lowY + icY) / 2, icZ * 0.9],
+                      [inTank.x, inTank.y, Math.abs(inTank.z)]],
+                     tb.coldTube * 1.05, MAT.alloy(), 12));
+        continue;
+      }
       /* The compressor draws through a hose from the airbox, so what is on its
          mouth is an inlet stub and a hose clamp — not a trumpet. A bellmouth
          the size of the housing reads as an air filter, and an engine with a
@@ -1062,10 +1096,10 @@ function buildPiston(e, tree){
          first thing on the engine you can reach. */
       exG.add(pipe([
         [p.x, py, pz],
-        [p.x, py - L.bore * 0.12, pz + side * L.bore * 0.28],
-        [p.x, colY + L.bore * 0.12, side * colZ * 0.92],
+        [p.x, py - L.bore * 0.06, pz + side * L.bore * 0.30],
+        [p.x, colY + L.bore * 0.06, side * colZ * 0.94],
         [p.x, colY, side * colZ],
-      ], M(15), MAT.hot(), 8));
+      ], M(19), MAT.hot(), 8));
       continue;
     }
     const outZ = pz + side * L.bore * 0.34;
@@ -1083,13 +1117,15 @@ function buildPiston(e, tree){
     ], M(16), MAT.hot(), 8));
   }
   if (sideTurbo && turbos.length){
-    /* the log, and the pipe out of it into the turbine */
-    const tb = turbos[0];
+    /* the log, and one short pipe out of it into each turbine — dropped
+       straight down from the log above the turbo, not reached across from
+       somewhere else on the engine */
     exG.add(at(rot(cyl(M(32), M(32), L.len * 0.88, MAT.hot(), 18), 0, 0, Math.PI / 2),
                0, colY, colZ));
-    exG.add(pipe([[colX, colY, colZ],
-                  [(colX + tb.hotIn.x) / 2, (colY + tb.hotIn.y) / 2, colZ * 1.14],
-                  [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.94, MAT.hot(), 10));
+    for (const tb of turbos)
+      exG.add(pipe([[tb.pos.x, colY, colZ],
+                    [(tb.pos.x + tb.hotIn.x) / 2, (colY + tb.hotIn.y) / 2, (colZ + tb.hotIn.z) / 2],
+                    [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.94, MAT.hot(), 10));
   }
   /* the collector itself: a cone that gathers the primaries and hands them on */
   if (!frontTurbo && !sideTurbo)
@@ -1602,12 +1638,15 @@ function buildPiston(e, tree){
          to fall the whole way — a turbo drains by gravity, so a drain that
          loops up anywhere is a turbo that smokes. Both ends land on something:
          a boss on the block, a flange on the pan. */
-      const feedAt = V3(L.len * 0.22, L.crankR * 0.30, tb.side * caseZ);
+      /* the feed boss sits on the block beside its own turbo, so the line is
+         a short drop — one per turbo, not two lines reaching across the log
+         from the same spot like rigging */
+      const feedAt = V3(tb.pos.x + L.bore * 0.30, L.crankR * 0.55, tb.side * caseZ);
       add('turbo', at(rot(cyl(M(11), M(11), M(20), MAT.plated(), 12), 0, 0, Math.PI / 2),
                       feedAt.x, feedAt.y, feedAt.z + tb.side * M(9)));
       add('turbo', braidedLine([feedAt,
-                                V3(L.len * 0.30, tb.oilIn.y + L.bore * 0.35,
-                                   tb.side * (caseZ + L.bore * 0.30)),
+                                V3((feedAt.x + tb.oilIn.x) / 2, (feedAt.y + tb.oilIn.y) / 2,
+                                   tb.side * (caseZ + L.bore * 0.45)),
                                 tb.oilIn], M(5)));
       add('turbo', at(hexPrism(M(13), M(11), MAT.plated()), tb.oilIn.x, tb.oilIn.y, tb.oilIn.z));
 
@@ -1624,8 +1663,7 @@ function buildPiston(e, tree){
     }
     if (has('wastegate'))
       add('wastegate', hoseRun([tb.wgSignal,
-                                V3(tb.wgSignal.x - L.len * 0.10, tb.wgSignal.y + L.bore * 0.40, tb.wgSignal.z),
-                                V3(tb.coldOut.x, tb.coldOut.y + L.bore * 0.10, tb.coldOut.z)],
+                                tb.pos.clone().add(V3(0, tb.size * 0.62, tb.size * 0.42))],
                                M(4)));
   }
   if (has('oilpan'))
