@@ -1,6 +1,7 @@
 /* MotorLab — the 3D workspace: scene, camera, picking, ghosting, exploded
  * view, cutaway sectioning, floating labels and the animation loop. */
 import * as THREE from 'three';
+import { assetBytes } from './lib/assets.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
@@ -135,6 +136,34 @@ export class Viewport {
     };
     if (cached) return Promise.resolve(apply(cached));
 
+    const finish = (hdr, res) => {
+      const pm = new THREE.PMREMGenerator(this.renderer);
+      pm.compileEquirectangularShader();
+      const tex = pm.fromEquirectangular(hdr).texture;
+      pm.dispose();
+      hdr.dispose();
+      this._envCache.set(id, tex);
+      res(apply(tex));
+    };
+    /* In the single-file build the map is inlined: decode it here rather than
+       fetch()ing a data: URI, which a sandboxed host may refuse — and losing
+       the light is losing what makes the paint read as paint. */
+    const local = assetBytes(`env/${id}.hdr`);
+    if (local !== null){
+      return new Promise((res) => {
+        try {
+          const rl = new RGBELoader();
+          const d = rl.parse(local);
+          if (!d) return res(fall());
+          const hdr = new THREE.DataTexture(d.data, d.width, d.height, d.format, d.type);
+          hdr.colorSpace = THREE.LinearSRGBColorSpace;
+          hdr.flipY = true;
+          hdr.magFilter = THREE.LinearFilter;
+          hdr.needsUpdate = true;
+          finish(hdr, res);
+        } catch { res(fall()); }
+      });
+    }
     const mgr = new THREE.LoadingManager();
     const inlined = globalThis.__MOTORLAB_ASSETS;
     if (inlined) mgr.setURLModifier((url) => {
@@ -142,15 +171,8 @@ export class Viewport {
       return inlined[key] || url;
     });
     return new Promise((res) => {
-      new RGBELoader(mgr).load(`${base}./assets/env/${id}.hdr`, (hdr) => {
-        const pm = new THREE.PMREMGenerator(this.renderer);
-        pm.compileEquirectangularShader();
-        const tex = pm.fromEquirectangular(hdr).texture;
-        pm.dispose();
-        hdr.dispose();
-        this._envCache.set(id, tex);
-        res(apply(tex));
-      }, undefined, () => res(fall()));
+      new RGBELoader(mgr).load(`${base}./assets/env/${id}.hdr`, (hdr) => finish(hdr, res),
+                               undefined, () => res(fall()));
     });
   }
 

@@ -101,8 +101,14 @@ function wall({ ctx, keyName, filters, items, render }){
  * fifty-five engines — so every engine stays in the catalogue and the scan,
  * where there is one, goes over the top of it. */
 const scansOnly = () => !!globalThis.__MOTORLAB_SCANS_ONLY;
-const shown = (items, kind) =>
-  scansOnly() && kind === 'veh' ? items.filter(x => hasBundled(kind, x.id)) : items;
+const shown = (items, kind) => {
+  if (!scansOnly() || kind !== 'veh') return items;
+  const real = items.filter(x => hasBundled(kind, x.id));
+  /* If the manifest failed to load, nothing reads as bundled — and an empty
+     garage is strictly worse than one whose scans arrive a beat later. Show
+     the full catalogue rather than none of it. */
+  return real.length ? real : items;
+};
 
 function renderVehicles(ctx, wrap){
   add(wrap, para(scansOnly()

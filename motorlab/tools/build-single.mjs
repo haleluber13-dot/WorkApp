@@ -81,6 +81,10 @@ function collect(dir, out = {}, base = dir){
     if (rel.startsWith('thumbs-lite/')) continue;            // ditto
     if (rel.startsWith('parts-lite/')) continue;             // ditto
     if (rel.startsWith('env-lite/')) continue;               // ditto
+    /* the single file decodes Draco with the plain-JS decoder inlined as a
+       script tag below; the wasm decoder and its worker wrapper would just be
+       333 KB of base64 the sandbox may refuse to run anyway */
+    if (rel.startsWith('draco/')) continue;
     if (rel.startsWith('scans-lite/')) continue;             // ditto
     if (skip.some(s => rel === s || rel.startsWith(s + '/'))) continue;
     let src = full;
@@ -163,6 +167,13 @@ const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('</body>'))
   .replace(/<script type="module"[\s\S]*?<\/script>/g, '')
   .trim();
 
+/* The plain-JS Draco decoder rides along as an ordinary inline script: the
+   models are Draco-compressed, and everything fancier than an inline script —
+   fetch of a data: URI, a worker from a blob:, wasm compilation — is a thing
+   a sandboxed host can refuse. window.DracoDecoderModule being defined is
+   what switches the app onto its main-thread decoder. */
+const dracoJs = readFileSync(`${ROOT}/vendor/draco/draco_decoder.min.js`, 'utf8');
+
 const out = `<meta charset="utf-8">
 <title>MotorLab</title>
 <meta name="description" content="Strip an engine to the block in 3D and rebuild it with real torque sequences, build the chassis, wire it, tune the ECU and run it on the dyno.">
@@ -170,6 +181,18 @@ const out = `<meta charset="utf-8">
 ${css}
 </style>
 ${body}
+<script>
+${dracoJs}
+</script>
+<script>
+/* GLTFLoader uploads textures through ImageBitmapLoader when it can, and that
+   loader fetch()es the blob: URLs it makes from a model's embedded images — a
+   fetch a sandboxed host can refuse, which strips the glass, the tyres and
+   the headlights off every car while the paint survives. With this undefined
+   it falls back to TextureLoader, which loads through <img> and is allowed
+   everywhere pictures are. */
+window.createImageBitmap = undefined;
+</script>
 <script>window.__MOTORLAB_OMIT=${JSON.stringify(omit)};window.__MOTORLAB_SCANS_ONLY=${JSON.stringify(!process.argv.includes('--keep-all'))};window.__MOTORLAB_LAND=${land};window.__MOTORLAB_FEED=${feed};window.__MOTORLAB_ASSETS=${JSON.stringify(assets)};</script>
 <script>
 ${js}

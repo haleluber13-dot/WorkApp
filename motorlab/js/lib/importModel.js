@@ -14,7 +14,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { assetUrl, setAssetBase } from './assets.js';
+import { assetUrl, setAssetBase, assetBytes, assetText } from './assets.js';
+import { MainThreadDRACOLoader } from './dracoMain.js';
 
 /* Every bundled model is Draco-compressed, because geometry is nearly all of
  * a model's weight and Draco takes it to about an eighth. That is what lets
@@ -28,8 +29,19 @@ import { assetUrl, setAssetBase } from './assets.js';
 let draco = null;
 function dracoLoader(){
   if (draco) return draco;
+  /* The offline build inlines the plain-JS decoder as an ordinary script tag
+     and decodes on the main thread — no fetch, no worker, no wasm, nothing a
+     sandboxed host's security policy can take away. The hosted app keeps the
+     worker pool and the wasm decoder, which are faster and allowed there. */
+  if (globalThis.DracoDecoderModule){
+    draco = new MainThreadDRACOLoader();
+    return draco;
+  }
   draco = new DRACOLoader();
   draco._loadLibrary = (name, responseType) => new Promise((res, rej) => {
+    const bytes = assetBytes('draco/' + name);
+    if (bytes !== null)
+      return res(responseType === 'arraybuffer' ? bytes : new TextDecoder().decode(bytes));
     const f = new THREE.FileLoader();
     f.setResponseType(responseType === 'arraybuffer' ? 'arraybuffer' : 'text');
     f.load(assetUrl('draco/' + name), res, undefined, rej);
@@ -180,20 +192,34 @@ export async function restoreModels(){
  */
 let manifest = null;
 
-const grab = async (u) => {
+/* The bytes of assets/<path>: decoded straight out of the single-file build
+ * when this copy is one, fetched over the network when it is hosted. Only the
+ * hosted path touches fetch(); a sandboxed page hosting the single file may
+ * refuse fetch entirely, and every model in the catalogue used to vanish with
+ * it. */
+const grabBytes = async (path) => {
+  const local = assetBytes(path);
+  if (local !== null) return local;
   /* a multi-megabyte fetch is the one most likely to be cut off — a reload
      part-way through will do it — and losing it silently is worse than a retry */
   for (let i = 0; i < 2; i++){
-    try { const r = await fetch(u); if (r.ok) return r; }
-    catch { /* retry once */ }
+    try {
+      const r = await fetch(assetUrl(path));
+      if (r.ok) return await r.arrayBuffer();
+    } catch { /* retry once */ }
   }
   return null;
 };
 export async function loadManifest(base = ''){
   setAssetBase(base);
   try {
-    const res = await grab(assetUrl('models/manifest.json'));
-    manifest = res ? (await res.json()).models || {} : {};
+    const local = assetText('models/manifest.json');
+    if (local !== null){
+      manifest = JSON.parse(local).models || {};
+    } else {
+      const bytes = await grabBytes('models/manifest.json');
+      manifest = bytes ? JSON.parse(new TextDecoder().decode(bytes)).models || {} : {};
+    }
   } catch { manifest = {}; }
   return Object.keys(manifest).length;
 }
@@ -230,9 +256,9 @@ export function ensureModel(kind, id){
   if (inFlight.has(k)) return inFlight.get(k);
   const job = (async () => {
     try {
-      const r = await grab(assetUrl('models/' + rec.file));
-      if (!r) throw new Error('could not be fetched');
-      const out = await loadGLB(kind, id, await r.arrayBuffer(), rec.file, { persist:false });
+      const bytes = await grabBytes('models/' + rec.file);
+      if (!bytes) throw new Error('could not be fetched');
+      const out = await loadGLB(kind, id, bytes, rec.file, { persist:false });
       bundled.add(k);
       touch(kind, id);
       return out;

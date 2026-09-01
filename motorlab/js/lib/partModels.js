@@ -12,6 +12,7 @@
  */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { assetBundled, assetBytes } from './assets.js';
 
 const DIR = './assets/scans/';
 const CREDIT = 'Scanned by Artec 3D (artec3d.com), CC BY 3.0, decimated for the web';
@@ -105,8 +106,17 @@ export function loadPartModels(base = ''){
     return inlined[key] || url;
   });
   const loader = new GLTFLoader(mgr);
-  readyPromise = Promise.all(Object.entries(PARTS).map(([id, spec]) =>
-    loader.loadAsync(base + DIR + spec.file).then((gltf) => {
+  readyPromise = Promise.all(Object.entries(PARTS).map(([id, spec]) => {
+    /* The single-file build leaves this folder out to fit its size cap, and a
+       sandboxed host may refuse the doomed fetch loudly. Nothing to load is a
+       state this module already handles — take it quietly. */
+    if (!assetBundled('scans/' + spec.file)) return Promise.resolve();
+    /* inlined copies decode locally, so no fetch is ever issued for them */
+    const local = assetBytes('scans/' + spec.file);
+    const job = local !== null
+      ? new Promise((res, rej) => loader.parse(local, '', res, rej))
+      : loader.loadAsync(base + DIR + spec.file);
+    return job.then((gltf) => {
       let found = null;
       gltf.scene.traverse(o => { if (o.isMesh && !found) found = o; });
       if (!found) return;
@@ -115,7 +125,7 @@ export function loadPartModels(base = ''){
       found.geometry.computeVertexNormals();
       found.geometry.center();
       loaded.set(id, found);
-    }).catch(() => {})
-  )).then(() => { loaded.set('__done', true); return loaded; });
+    }).catch(() => {});
+  })).then(() => { loaded.set('__done', true); return loaded; });
   return readyPromise;
 }

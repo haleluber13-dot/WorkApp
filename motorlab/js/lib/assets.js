@@ -24,3 +24,27 @@ export function assetBundled(path){
   const inlined = globalThis.__MOTORLAB_ASSETS;
   return !inlined || Object.prototype.hasOwnProperty.call(inlined, './assets/' + path);
 }
+
+/* The bytes of an inlined asset, decoded here rather than fetched.
+ *
+ * The single-file build carries its assets as data: URIs, and the obvious way
+ * to read one back is fetch() — which is exactly the API a sandboxed host's
+ * security policy is most likely to refuse. An <img> may show data: URIs all
+ * day while fetch of the same string is denied, which is how the catalogue
+ * photos survived on a page where every model quietly failed. Base64 needs no
+ * network API at all, so the models stop depending on one.
+ */
+export function assetBytes(path){
+  const v = globalThis.__MOTORLAB_ASSETS?.['./assets/' + path];
+  if (!v || !v.startsWith('data:')) return null;
+  const b64 = v.slice(v.indexOf(',') + 1);
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out.buffer;
+}
+
+export function assetText(path){
+  const b = assetBytes(path);
+  return b === null ? null : new TextDecoder().decode(b);
+}
