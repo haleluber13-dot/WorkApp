@@ -121,18 +121,25 @@
       (url?'<a class="btn" target="_blank" rel="noopener" href="'+attr(url)+'">Open source ↗</a>':'')+'</div>';
   }
 
-  /* -------- Live wall -------- */
+  /* -------- Live wall (self-refreshing mosaic) -------- */
+  // tiles rendered at once; the dense grid view fits many more on screen.
+  function wallLimit(){ return document.body.dataset.view === "grid" ? 320 : 140; }
+  let liveTimer = null, liveObserver = null;
+  const liveVisible = new Set();
+  function isLiveTile(cam){ return cam.source && cam.source.type === "image" && cam.source.url; }
+  function bust(url){ return url + (url.indexOf("?") >= 0 ? "&" : "?") + "t=" + Date.now(); }
+
   function tile(cam){
-    const c = catOf(cam.category); const p = poster(cam);
-    const fav = Store.favorites.has(cam.id);
-    return '<article class="tile" data-id="'+attr(cam.id)+'" tabindex="0" '+
-        'style="--cat:'+c.color+'">'+
-      '<div class="tile__media">'+
-        (p ? '<img loading="lazy" src="'+attr(p)+'" alt="'+attr(cam.name)+'" '+
-             'onerror="this.style.display=\'none\'">' : '') +
-        '<span class="tile__live">● LIVE</span>'+
-        '<button class="tile__fav'+(fav?" on":"")+'" data-fav="'+attr(cam.id)+'" '+
-          'title="Favorite" aria-label="Favorite">'+(fav?"★":"☆")+'</button>'+
+    const c = catOf(cam.category); const fav = Store.favorites.has(cam.id);
+    const live = isLiveTile(cam); const p = poster(cam);
+    const media = live
+      ? '<img class="tile__img live" data-live="'+attr(cam.source.url)+'" loading="lazy" alt="'+attr(cam.name)+'">'
+      : (p ? '<img class="tile__img" loading="lazy" src="'+attr(p)+'" alt="'+attr(cam.name)+'">' : '');
+    return '<article class="tile'+(live?" is-live":"")+'" data-id="'+attr(cam.id)+'" tabindex="0" style="--cat:'+c.color+'">'+
+      '<div class="tile__media">'+ media +
+        '<span class="tile__spin" aria-hidden="true"></span>'+
+        '<span class="tile__live">LIVE</span>'+
+        '<button class="tile__fav'+(fav?" on":"")+'" data-fav="'+attr(cam.id)+'" title="Favorite" aria-label="Favorite">'+(fav?"★":"☆")+'</button>'+
         '<span class="tile__cat">'+c.icon+'</span>'+
       '</div>'+
       '<div class="tile__meta"><b>'+esc(cam.name)+'</b>'+
@@ -140,11 +147,65 @@
     '</article>';
   }
 
-  function renderWall(cams){
+  function renderWall(cams, opts){
+    opts = opts || {};
     const wall = $("#wall");
-    $("#wallCount").textContent = cams.length + " live";
-    if (!cams.length){ wall.innerHTML = '<p class="empty">No cameras match. Try clearing filters or add a location.</p>'; return; }
-    wall.innerHTML = cams.map(tile).join("");
+    const total = cams.length, WALL_LIMIT = wallLimit() * Math.max(1, opts.page || 1);
+    $("#wallCount").textContent = total > WALL_LIMIT ? (WALL_LIMIT.toLocaleString() + " / " + total.toLocaleString()) : (total.toLocaleString() + " live");
+    if (!total){ teardownLive(); wall.innerHTML = '<p class="empty">No live cameras yet. Try clearing filters, or open ⚙ Settings to load a provider.</p>'; return; }
+    // Show self-refreshing live feeds first, then favorites, so working cameras
+    // lead. When the caller already sorted (e.g. nearest-first), keep that order.
+    const ordered = opts.nearFirst ? cams : cams.slice().sort((a, b) => {
+      const la = isLiveTile(a) ? 1 : 0, lb = isLiveTile(b) ? 1 : 0;
+      if (la !== lb) return lb - la;
+      return (Store.favorites.has(b.id) ? 1 : 0) - (Store.favorites.has(a.id) ? 1 : 0);
+    });
+    const shown = ordered.slice(0, WALL_LIMIT);
+    wall.innerHTML = shown.map(tile).join("") +
+      (total > WALL_LIMIT ? '<div class="wallmore"><button class="btn btn--primary" id="btnMore">'+
+        'Load more cameras</button><p>Showing '+WALL_LIMIT.toLocaleString()+' of '+total.toLocaleString()+
+        ' live feeds</p></div>' : '');
+    setupLive(wall);
+  }
+
+  function setupLive(wall){
+    teardownLive();
+    const imgs = $$(".tile__img", wall);
+    imgs.forEach((im) => {
+      const t = im.closest(".tile");
+      im.addEventListener("load", () => {
+        // a camera that went dark since the dataset was built often returns a
+        // tiny "no signal" graphic; treat those as offline too
+        if (im.naturalWidth <= 32 || im.naturalHeight <= 32) { markDead(t); return; }
+        t.classList.remove("is-offline"); t.classList.add("is-loaded");
+      });
+      im.addEventListener("error", () => markDead(t));
+      if (im.classList.contains("live")) im.src = bust(im.dataset.live);   // first frame now
+    });
+    const live = imgs.filter((im) => im.classList.contains("live"));
+    liveObserver = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) liveVisible.add(e.target); else liveVisible.delete(e.target); });
+    }, { root: wall, rootMargin: "150px" });
+    live.forEach((im) => liveObserver.observe(im));
+    liveTimer = setInterval(() => {
+      if (document.hidden) return;                                   // don't burn data in the background
+      liveVisible.forEach((im) => { if (im.isConnected) im.src = bust(im.dataset.live); });
+    }, 5000);                                                        // refresh only what's on screen
+  }
+  /** A camera that fails twice in a row is hidden from the wall for this session,
+   *  so dead feeds don't sit in the grid taking up space. */
+  const deadStrikes = Object.create(null);
+  function markDead(t){
+    t.classList.add("is-offline"); t.classList.remove("is-loaded");
+    const id = t.dataset.id;
+    deadStrikes[id] = (deadStrikes[id] || 0) + 1;
+    if (deadStrikes[id] >= 2) t.classList.add("is-hidden");
+  }
+
+  function teardownLive(){
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    if (liveObserver) { liveObserver.disconnect(); liveObserver = null; }
+    liveVisible.clear();
   }
 
   /* -------- Focus overlay -------- */
@@ -177,7 +238,9 @@
             '<span>'+esc(n.name)+'</span></button>').join("")+'</div></div>':'')+
       '</div>';
     ov.classList.add("open");
-    focusCleanup = mountPlayer($("#focusPlayer"), cam, { muted:true });
+    // If the camera also has a short video clip (e.g. TfL JamCams), play it looping for motion
+    const fcam = cam.clip ? Object.assign({}, cam, { source: { type: "video", url: cam.clip } }) : cam;
+    focusCleanup = mountPlayer($("#focusPlayer"), fcam, { muted:true });
     if (window.GlobeView) GlobeView.focus(cam);
   }
   function closeFocus(){
@@ -266,8 +329,9 @@
         '<label class="check"><input type="checkbox" id="setRotate"'+(s.autoRotate?" checked":"")+'> Auto-rotate globe</label>'+
         '<hr>'+
         '<h3>Load live cameras from providers</h3>'+
-        '<p class="muted">London traffic cameras (Transport for London) load instantly — no key needed.</p>'+
-        '<button class="btn btn--primary" id="btnTfl">🚦 Load London traffic cams (no key)</button>'+
+        '<p class="muted">These load automatically when the app opens — tap to reload. No key needed.</p>'+
+        '<div class="row2"><button class="btn btn--primary" id="btnTfl">🚦 London traffic (890)</button>'+
+        '<button class="btn btn--primary" id="btnNyc">🗽 New York traffic (970)</button></div>'+
         '<p class="muted" style="margin-top:10px">A free key from <a href="https://api.windy.com/keys" target="_blank" rel="noopener">api.windy.com/keys</a> pulls thousands of public webcams worldwide onto the globe.</p>'+
         '<label>Windy Webcams API key<input id="setWindy" value="'+attr(s.windyKey)+'" placeholder="paste key"></label>'+
         '<div class="row2"><button class="btn btn--primary" id="btnWindy">🌍 Load Windy webcams</button>'+
@@ -304,6 +368,12 @@
     $("#btnTfl").addEventListener("click", async (e)=>{
       const btn=e.currentTarget; btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";
       try{ const n=await Store.loadTfL(); toast("Loaded "+n+" London traffic cams"); }
+      catch(err){ toast(err.message, true); }
+      finally{ btn.disabled=false; btn.textContent=old; }
+    });
+    $("#btnNyc").addEventListener("click", async (e)=>{
+      const btn=e.currentTarget; btn.disabled=true; const old=btn.textContent; btn.textContent="Loading…";
+      try{ const n=await Store.loadNYC(); toast("Loaded "+n+" New York traffic cams"); }
       catch(err){ toast(err.message, true); }
       finally{ btn.disabled=false; btn.textContent=old; }
     });

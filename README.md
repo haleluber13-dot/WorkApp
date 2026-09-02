@@ -120,3 +120,25 @@ This is a static site, so GitHub Pages can host it for free:
 Because the app embeds third‑party live players (YouTube, Twitch, etc.), host it
 on a real web server like Pages — a sandboxed preview that blocks cross‑site
 embeds will show the shell but not the feeds.
+
+## Camera data pipeline
+
+`tools/harvest.py` fetches public, keyless camera directories from many countries
+and writes one static `data/cameras.json` that the app loads same-origin.
+
+This design exists because **most government camera APIs send no CORS header**, so
+a browser cannot fetch their camera lists at all. Harvesting server-side sidesteps
+that: the browser only loads the **images**, and images never require CORS.
+
+```bash
+python3 tools/harvest.py            # all sources
+python3 tools/harvest.py finland    # one source
+```
+
+Sources whose image URLs expire (Singapore's per-refresh UUIDs, Estonia's
+timestamped paths) are marked `bundle=False` and fetched live in the browser
+instead — both send CORS headers.
+
+Adding a country: write one `@source("name")` function returning `cam(...)`
+records, then re-run. Reprojection helpers are available for national grids
+(`_reproject("EPSG:3346")`); install `pyproj` for those sources.
