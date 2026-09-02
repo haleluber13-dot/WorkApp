@@ -1988,7 +1988,8 @@ function finalize(e, root, nodes, anim, L){
     const shell = group('shell');
     const fit = e.modelFit || {};
     shell.add(fitToLength(imported.group, (b.size?.x || b.radius * 1.6) * (fit.scale ?? 1),
-                          { ground:false, lift:b.center.y + (fit.lift ?? 0) }));
+                          { ground:false, lift:b.center.y + (fit.lift ?? 0),
+                            rotX:fit.rotX, rotZ:fit.rotZ, spin:fit.spin }));
     tag(shell, 'shell');
     root.add(shell);
     if (!nodes.has('shell')) nodes.set('shell', []);

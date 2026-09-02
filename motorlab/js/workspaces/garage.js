@@ -347,6 +347,26 @@ function renderFiles(ctx, wrap){
   add(wrap, list);
   add(wrap, para(`${n} files. The engines not listed here are built to spec by the app itself — `
     + 'they exist as live geometry, not as scan files.'));
+  /* the recorded engine sounds, credited clip by clip — filled in once the
+     manifest (if this copy carries one) has been read */
+  const sndWrap = h('div');
+  add(wrap, sndWrap);
+  import('../lib/engineAudio.js').then(m => m.soundCredits()).then((clips) => {
+    if (!clips.length) return;
+    sndWrap.append(h('h3', { class:'h3', text:'The recordings' }),
+      para('The engine sound is built on real recordings of the real machines, '
+        + 'pitch-tracked to the tachometer. Each one is used under its stated licence:'));
+    const sl = h('div', { class:'filelist' });
+    for (const c of clips){
+      sl.append(h('div', { class:'filerow' },
+        h('div', { class:'filerow__t' },
+          h('span', { class:'filerow__n', text:`${c.archetype} — ${c.kind}` }),
+          h('span', { class:'filerow__c', text:`${c.title} · ${c.author} · ${c.licence}` })),
+        c.source ? h('a', { class:'btn btn--sm', text:'Source', href:c.source,
+                            target:'_blank', rel:'noopener' }) : h('span')));
+    }
+    sndWrap.append(sl);
+  }).catch(() => {});
   add(wrap, h('p', { class:'p' },
     h('a', { href:`${REPO}/archive/refs/heads/${REPO_BRANCH}.zip`, target:'_blank', rel:'noopener',
              text:'Download the whole project as one ZIP (~300 MB)' }),

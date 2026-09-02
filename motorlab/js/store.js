@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   holdMs:420, benchSnap:true, partPics:true, textScale:100, reduceMotion:false,
   /* drive & sound */
   engineVolume:70, seatSide:'left', driveFov:66, exposure:100, dashCluster:true,
+  realSound:true,
   /* simulation */
   ambientC:25, altitudeM:0, dynoSmoothing:1, difficulty:'apprentice',
   autoTuneAggression:0.5, damageEnabled:true,

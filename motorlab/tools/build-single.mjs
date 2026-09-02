@@ -48,6 +48,8 @@ const liteTex = !process.argv.includes('--full-tex');
 /* inline every runtime asset so the single file needs no server at all */
 const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
                '.glb':'model/gltf-binary', '.hdr':'image/vnd.radiance',
+               /* the recorded engine loops */
+               '.mp3':'audio/mpeg',
                /* the Draco decoder every bundled model needs */
                '.wasm':'application/wasm', '.js':'text/javascript',
                /* and the manifest that says which models exist at all: without
@@ -86,9 +88,10 @@ function collect(dir, out = {}, base = dir){
        333 KB of base64 the sandbox may refuse to run anyway */
     if (rel.startsWith('draco/')) continue;
     if (rel.startsWith('scans-lite/')) continue;             // ditto
+    if (rel.startsWith('sounds-lite/')) continue;            // ditto
     if (skip.some(s => rel === s || rel.startsWith(s + '/'))) continue;
     let src = full;
-    for (const folder of ['surfaces/', 'thumbs/', 'parts/', 'env/', 'scans/']){
+    for (const folder of ['surfaces/', 'thumbs/', 'parts/', 'env/', 'scans/', 'sounds/']){
       if (!liteTex || !rel.startsWith(folder)) continue;
       const lite = join(`${ROOT}/assets`, folder.slice(0, -1) + '-lite', rel.slice(folder.length));
       if (existsSync(lite)) src = lite;

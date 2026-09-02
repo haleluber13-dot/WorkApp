@@ -125,7 +125,9 @@ export function render(ctx, tab){
     section("The driver's seat",
       slider({ label:'Engine volume', min:0, max:100, step:5, value:s.engineVolume ?? 70,
         format:(v)=>v+'%', onInput:(v) => setQuiet('engineVolume', v) }),
-      note('The sound is synthesised from the live simulation — the firing frequency of this exact engine at this exact rpm — so every layout has its own voice.'),
+      toggle('Real recorded engine sound (when a recording exists)', s.realSound ?? true,
+        (v) => set('realSound', v)),
+      note('Where a licence-clean recording of the real machine exists — a cross-plane V8, a rotary, a Harley twin — it plays pitch-tracked to the tachometer, layered over a synth built from this exact engine’s firing frequency. Turn the recordings off to hear the pure simulation. Every recording’s author is credited in the Files tab.'),
       field('Steering wheel side', select([
         { value:'left',  label:'Left-hand drive' },
         { value:'right', label:'Right-hand drive' },

@@ -371,6 +371,10 @@ export function clearModel(kind, id){
  */
 export function fitToLength(source, lengthM, opts = {}){
   const g = source.clone(true);
+  /* an axis fix is applied before measuring, so a Z-up or tipped model is
+     sized and centred as it will actually sit */
+  if (opts.rotX) g.rotateX(opts.rotX);
+  if (opts.rotZ) g.rotateZ(opts.rotZ);
   g.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(g);
   const size = box.getSize(new THREE.Vector3());
@@ -384,8 +388,9 @@ export function fitToLength(source, lengthM, opts = {}){
   if (opts.ground !== false) g.position.y += size.y / 2;   // then sit it on the ground
   g.scale.setScalar(k);
   g.position.multiplyScalar(k);
-  /* models authored nose-along-Z need a quarter turn to match our nose-along-X */
-  wrap.rotation.y = (size.z > size.x ? Math.PI/2 : 0) + (opts.spin ?? 0);
+  /* models authored nose-along-Z need a quarter turn to match our nose-along-X;
+     an explicit spin overrides the guess when a model needs a specific facing */
+  wrap.rotation.y = opts.spin != null ? opts.spin : (size.z > size.x ? Math.PI/2 : 0);
   wrap.position.y = opts.lift ?? 0;
   wrap.add(g);
   return wrap;

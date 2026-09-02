@@ -1,14 +1,20 @@
-/* MotorLab — the sound of the engine, synthesised.
+/* MotorLab — the sound of the engine.
  *
- * No recordings: a recording is one engine at one rpm, and this garage holds
- * fifty-five engines that rev. The sound is built the way the noise itself is
- * built — combustion pulses at the firing frequency — so a V8 rumbles, a
- * four buzzes, a twin lopes, and everything follows the tachometer exactly.
+ * Two layers. The first is real: recordings of the actual machines — a
+ * cross-plane V8 at idle, a rotary's brap, a Harley's potato-potato — looped
+ * and pitch-tracked to the tachometer, crossfading from the idle recording to
+ * the high-rpm one as the engine climbs. Which recording plays is decided by
+ * assets/sounds/sounds.json, and every file in it is a licence-clean
+ * recording with its author credited in assets/sounds/CREDITS.md.
  *
- * Everything here is plain Web Audio maths: oscillators, a noise buffer, a
- * shaper and filters. Nothing is fetched and no worklet is loaded, so it
- * runs identically in the hosted app and inside the sandboxed single file.
+ * The second layer is synthesised from the physics — combustion pulses at the
+ * firing frequency — and does two jobs: it is the fallback when a copy of the
+ * app carries no recordings (or the archetype has none), and under the
+ * recordings it supplies the exact-rpm fundamental so the note never detunes
+ * from the tachometer even when a loop is pitched far from where it was
+ * recorded.
  */
+import { assetBytes, assetText, assetUrl, assetBundled } from './assets.js';
 
 let ctx = null;
 const AC = () => (ctx ||= new (globalThis.AudioContext || globalThis.webkitAudioContext)());
@@ -32,6 +38,127 @@ function shaperCurve(k = 2.4){
     c[i] = Math.tanh(k * x) / Math.tanh(k);
   }
   return c;
+}
+
+/* ---- the recordings ----------------------------------------------------- */
+
+/** Which family of recordings speaks for an engine. Derived from the same
+ *  spec fields the simulation runs on, with a small override map for engines
+ *  whose voice their layout alone does not predict. */
+export function soundArchetype(e){
+  if (!e) return null;
+  if (e.sound) return e.sound;
+  if (e.kind === 'rotary') return 'rotary';
+  const diesel = e.fuel === 'diesel' || /^d-/.test(e.id || '');
+  if (diesel) return e.layout === 'V' ? 'diesel-v8' : 'diesel-i6';
+  if (e.class === 'bike'){
+    if (e.cyl === 1) return 'single';
+    if (e.cyl === 2) return e.layout === 'V' && (e.bankAngle || 90) <= 60 ? 'vtwin' : 'twin';
+    if (e.cyl === 3) return 'twin';
+    return 'bike-i4';
+  }
+  if (e.layout === 'F') return e.cyl >= 6 ? 'flat6' : 'flat4';
+  if (e.cyl === 12) return 'v12';
+  if (e.cyl === 10) return 'v10';
+  if (e.cyl === 16) return 'v12';
+  if (e.cyl === 8) return e.firing === 'V8f' ? 'v8-flat' : 'v8-cross';
+  if (e.cyl === 5) return 'i5';
+  if (e.cyl === 6 && e.layout === 'I') return 'i6-turbo';
+  if (e.cyl === 6) return e.aspiration !== 'na' ? 'v6-turbo' : 'i4-sport';
+  return 'i4-sport';
+}
+
+let soundManifest;           // sounds.json, parsed once
+const sampleBank = new Map(); // archetype -> promise of {idle:{buffer,rpm}, rev:{buffer,rpm}} | null
+
+async function soundBytes(path){
+  const local = assetBytes(path);
+  if (local !== null) return local;
+  if (!assetBundled(path)) return null;   // sandboxed single file without sounds: no fetch
+  try {
+    const r = await fetch(assetUrl(path));
+    if (r.ok) return await r.arrayBuffer();
+  } catch {}
+  return null;
+}
+
+/* Decode compressed audio to a buffer. The callback form is used and the
+   result is bounced into the live playback context: decoding directly on a
+   context that is already running its oscillators can stall in some engines,
+   so the decode happens on its own short-lived context. */
+function decode(bytes){
+  return new Promise((resolve, reject) => {
+    const tmp = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+    let done = false;
+    const finish = (fn, v) => { if (done) return; done = true; try { tmp.close(); } catch {} fn(v); };
+    Promise.resolve(tmp.state === 'suspended' ? tmp.resume() : null).catch(() => {}).then(() => {
+      try {
+        const p = tmp.decodeAudioData(bytes, b => finish(resolve, b), e => finish(reject, e));
+        if (p && p.then) p.then(b => finish(resolve, b), e => finish(reject, e));
+      } catch (e) { finish(reject, e); }
+    });
+    setTimeout(() => finish(reject, new Error('decode timeout')), 8000);
+  });
+}
+
+async function loadSoundManifest(){
+  if (soundManifest !== undefined) return soundManifest;
+  try {
+    const local = assetText('sounds/sounds.json');
+    if (local !== null) return (soundManifest = JSON.parse(local));
+    const bytes = await soundBytes('sounds/sounds.json');
+    return (soundManifest = bytes ? JSON.parse(new TextDecoder().decode(bytes)) : null);
+  } catch { return (soundManifest = null); }
+}
+
+/** Every recording this copy of the app can play, with its author and licence
+ *  — the Files tab renders these so credit travels with the sound. */
+export async function soundCredits(){
+  const man = await loadSoundManifest();
+  if (!man) return [];
+  const out = [];
+  for (const [key, rec] of Object.entries(man)){
+    const clips = rec?.file ? [[key.replace(/^_/, ''), rec]]
+      : ['idle', 'rev', 'crank'].filter(k => rec?.[k]?.file).map(k => [k, rec[k]]);
+    for (const [kind, m] of clips)
+      out.push({ archetype: key.replace(/^_/, ''), kind, file: m.file,
+                 title: m.title || m.file, author: m.author || 'unknown',
+                 licence: m.licence || '', source: m.source || '' });
+  }
+  return out;
+}
+
+async function buildSamples(archetype){
+  const man = await loadSoundManifest();
+  const rec = man?.[archetype];
+  if (!rec) return { set: null, firm: true };   // genuinely no recording: cache it
+  const out = {};
+  let softFail = false;
+  for (const kind of ['idle', 'rev', 'crank']){
+    const meta = rec[kind] || (kind === 'crank' ? man?._crank : null);
+    if (!meta?.file) continue;
+    const bytes = await soundBytes('sounds/' + meta.file);
+    if (!bytes){ softFail = true; continue; }        // a transient fetch miss
+    try {
+      out[kind] = { buffer: await decode(bytes), rpm: meta.rpm || 900,
+                    loopStart: meta.loopStart || 0, loopEnd: meta.loopEnd || 0 };
+    } catch { softFail = true; }                      // a stalled/refused decode
+  }
+  /* only remember the answer when it is real: a fetch or decode that timed out
+     under load must be retried next time, not cached as "this engine is silent" */
+  return { set: out.idle ? out : null, firm: !!out.idle || !softFail };
+}
+
+function loadSamples(archetype){
+  if (!archetype) return Promise.resolve(null);
+  if (!sampleBank.has(archetype)){
+    const p = buildSamples(archetype).then((r) => {
+      if (!r.firm) sampleBank.delete(archetype);     // let the next call try again
+      return r.set;
+    }, () => { sampleBank.delete(archetype); return null; });
+    sampleBank.set(archetype, p);
+  }
+  return sampleBank.get(archetype);
 }
 
 export class EngineAudio {
@@ -59,7 +186,10 @@ export class EngineAudio {
     this.shaper.curve = shaperCurve(this._spec.big ? 3.2 : 2.2);
     this.lp = ac.createBiquadFilter();
     this.lp.type = 'lowpass'; this.lp.frequency.value = 900; this.lp.Q.value = 0.8;
-    this.shaper.connect(this.lp).connect(g);
+    /* the synth's own bus: full voice alone, an under-layer once a recording
+       of the real engine is playing on top of it */
+    this.synthBus = ac.createGain(); this.synthBus.gain.value = 1;
+    this.shaper.connect(this.lp).connect(this.synthBus).connect(g);
 
     const mk = (mult, gain, type = 'sawtooth') => {
       const o = ac.createOscillator(); o.type = type; o.frequency.value = 30;
@@ -92,7 +222,67 @@ export class EngineAudio {
     this.noiseSrc.start();
 
     this.on = true;
+    this._epoch = (this._epoch || 0) + 1;
+    this.samples = null;
+    this.soundId = spec.soundId ?? null;
+    this._armSamples(spec.soundId, this._epoch);
     return this;
+  }
+
+  /** Fetch and stand up the recorded layer; harmless no-op when this copy of
+   *  the app carries no recording for the archetype. */
+  async _armSamples(archetype, epoch){
+    const set = await loadSamples(archetype);
+    if (!set || !this.on || epoch !== this._epoch) return;
+    const ac = AC();
+    const mkLoop = (s) => {
+      const src = ac.createBufferSource();
+      src.buffer = s.buffer; src.loop = true;
+      /* the loop markers skip the guard audio around the seamless body, so the
+         mp3 encoder's delay padding never lands inside the loop */
+      if (s.loopEnd > s.loopStart){ src.loopStart = s.loopStart; src.loopEnd = s.loopEnd; }
+      const gn = ac.createGain(); gn.gain.value = 0;
+      src.connect(gn).connect(this.master);
+      src.start(ac.currentTime, s.loopStart || 0);
+      return { src, gn, rpm: s.rpm };
+    };
+    this.samples = {
+      idle: mkLoop(set.idle),
+      rev:  set.rev ? mkLoop(set.rev) : null,
+      crank: set.crank ? mkLoop(set.crank) : null,
+    };
+    /* the real thing carries the voice now; the synth drops to a supporting
+       fundamental that keeps the note glued to the tachometer */
+    this.synthBus.gain.setTargetAtTime(0.22, ac.currentTime, 0.4);
+  }
+
+  _setSamples(rpm, throttle, cranking, t){
+    const s = this.samples;
+    if (!s) return;
+    const open = 0.35 + 0.65 * throttle;
+    if (cranking > 0){
+      s.idle.gn.gain.setTargetAtTime(s.crank ? 0 : 0.06, t, 0.05);
+      s.rev?.gn.gain.setTargetAtTime(0, t, 0.05);
+      s.crank?.gn.gain.setTargetAtTime(0.65, t, 0.04);
+      s.crank?.src.playbackRate.setTargetAtTime(1, t, 0.1);
+      return;
+    }
+    s.crank?.gn.gain.setTargetAtTime(0, t, 0.03);
+    if (rpm < 40){
+      s.idle.gn.gain.setTargetAtTime(0, t, 0.1);
+      s.rev?.gn.gain.setTargetAtTime(0, t, 0.1);
+      return;
+    }
+    const lo = s.idle.rpm, hi = s.rev?.rpm || lo * 4;
+    /* equal-power fade from the idle recording to the high-rpm one */
+    const x = Math.max(0, Math.min(1, (rpm - lo * 1.1) / Math.max(1, hi * 0.9 - lo * 1.1)));
+    const level = 0.34 + 0.42 * open;
+    s.idle.gn.gain.setTargetAtTime(level * Math.cos(x * Math.PI / 2), t, 0.07);
+    s.idle.src.playbackRate.setTargetAtTime(Math.max(0.55, Math.min(3.2, rpm / lo)), t, 0.05);
+    if (s.rev){
+      s.rev.gn.gain.setTargetAtTime(level * Math.sin(x * Math.PI / 2), t, 0.07);
+      s.rev.src.playbackRate.setTargetAtTime(Math.max(0.45, Math.min(2.4, rpm / hi)), t, 0.05);
+    }
   }
 
   /** Drive it from the running sim. rpm 0 = silence; cranking = the starter. */
@@ -102,6 +292,7 @@ export class EngineAudio {
     if (!Number.isFinite(throttle)) throttle = 0;
     const ac = AC(), t = ac.currentTime;
     const { cyl, stroke4 } = this._spec;
+    this._setSamples(rpm, throttle, cranking, t);
     if (cranking > 0){
       /* the starter: slow, flat, laboured — the note of the crank order only */
       const f = Math.max(8, (rpm / 60) * (cyl / (stroke4 ? 2 : 1)));
@@ -150,7 +341,11 @@ export class EngineAudio {
     if (!this.on) return;
     const t = AC().currentTime;
     try { this.master.gain.setTargetAtTime(0, t, 0.08); } catch {}
-    const dead = [this.oscs?.map(x => x.o), this.lopeOsc, this.noiseSrc].flat().filter(Boolean);
+    const s = this.samples;
+    const dead = [this.oscs?.map(x => x.o), this.lopeOsc, this.noiseSrc,
+                  s?.idle.src, s?.rev?.src, s?.crank?.src].flat().filter(Boolean);
+    this.samples = null;
+    this._epoch = (this._epoch || 0) + 1;
     setTimeout(() => { for (const n of dead){ try { n.stop(); } catch {} } }, 350);
     this.on = false;
   }

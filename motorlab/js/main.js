@@ -11,7 +11,7 @@ import { buildScannedVehicle, setLivery, liveriesFor } from './build/scannedVehi
 import { onGameEvent, progressSummary, levelFor } from './game.js';
 import { closeMenu, getSelected } from './workspaces/assembly.js';
 import { restoreModels, loadManifest, ensureModel, modelPending, modelError } from './lib/importModel.js';
-import { engineAudio } from './lib/engineAudio.js';
+import { engineAudio, soundArchetype } from './lib/engineAudio.js';
 import { loadTextures } from './lib/textures.js';
 import { loadPartModels, partCredits } from './lib/partModels.js';
 
@@ -57,7 +57,7 @@ async function boot(){
   /* a handle for tooling and tests — the single-file build has no module URLs
      to import, so anything that wants to look inside it has to come through
      here */
-  globalThis.__motorlab = { viewport, ctx, state,
+  globalThis.__motorlab = { viewport, ctx, state, engineAudio,
     models: { ensureModel, modelPending, loadManifest, modelError } };
   viewport.onPick = (id, hit, ev) => {
     const ws = current();
@@ -76,10 +76,14 @@ async function boot(){
   viewport.onTick = (st) => {
     const vol = (state.settings.engineVolume ?? 70) / 100;
     const live = (st.running || st.cranking > 0) && vol > 0;
+    const wantSound = state.settings.realSound === false
+      ? null : soundArchetype(ENGINE_BY_ID[state.engineId]);
+    if (live && engineAudio.on && engineAudio.soundId !== wantSound) engineAudio.stop();
     if (live && !engineAudio.on){
       const e = ENGINE_BY_ID[state.engineId];
       if (e) engineAudio.start({ cyl: e.cyl || 4, displacement: e.displacement,
-        vee: e.layout === 'V' || e.layout === 'W' || e.layout === 'F' });
+        vee: e.layout === 'V' || e.layout === 'W' || e.layout === 'F',
+        soundId: wantSound });
     }
     if (!live && engineAudio.on) engineAudio.stop();
     if (engineAudio.on){
