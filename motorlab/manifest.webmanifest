@@ -1,0 +1,16 @@
+{
+  "name": "MotorLab — Virtual Engine & Vehicle Build Lab",
+  "short_name": "MotorLab",
+  "description": "Strip and rebuild engines bolt by bolt in 3D, build chassis, suspension, wiring and audio, tune the ECU and run it on the dyno.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "icons": [
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
