@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TruckWay — truck-legal GPS navigation</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="description" content="Truck navigation that routes around low bridges and weight limits, then shows the diesel prices and truck stops along the way.">
+<meta name="theme-color" content="#0b0f17">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TruckWay">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-mode="plan">
+
+<div id="map" class="map"></div>
+
+<!-- ---------- planning header ---------- -->
+<header class="topbar" id="topbar">
+  <button class="iconbtn iconbtn--flat" id="btnMenu" title="Settings" aria-label="Settings">☰</button>
+  <div class="trip">
+    <div class="trip__row">
+      <span class="dot dot--a" aria-hidden="true"></span>
+      <input id="fromInput" type="search" placeholder="My location" autocomplete="off" spellcheck="false" aria-label="Start">
+      <button class="minibtn" id="btnUseGps" title="Use my location">◎</button>
+    </div>
+    <div class="trip__row">
+      <span class="dot dot--b" aria-hidden="true"></span>
+      <input id="toInput" type="search" placeholder="Where to?" autocomplete="off" spellcheck="false" aria-label="Destination">
+      <button class="minibtn" id="btnSwap" title="Swap">⇅</button>
+    </div>
+  </div>
+  <button class="gobtn" id="btnGo">Route</button>
+</header>
+
+<div class="suggest" id="suggest" hidden></div>
+
+<button class="truckchip" id="truckChip" title="Edit your truck">
+  <span class="truckchip__icon">🚛</span><span id="truckChipText">13&#39;6&quot; · 80,000 lb</span>
+</button>
+
+<!-- ---------- navigation header ---------- -->
+<div class="navbanner" id="navBanner" hidden>
+  <div class="navbanner__main">
+    <div class="navbanner__arrow" id="navArrow">↑</div>
+    <div class="navbanner__text">
+      <div class="navbanner__dist" id="navDist">—</div>
+      <div class="navbanner__road" id="navRoad">Getting a fix…</div>
+    </div>
+    <button class="iconbtn iconbtn--flat" id="btnExitNav" title="End navigation">✕</button>
+  </div>
+  <div class="navbanner__then" id="navThen" hidden></div>
+</div>
+
+<div class="alertstrip" id="alertStrip" hidden></div>
+
+<!-- ---------- map controls ---------- -->
+<div class="mapctl">
+  <button class="iconbtn" id="btnLocate" title="Centre on me">◎</button>
+  <button class="iconbtn" id="btnBasemap" title="Day / night map">🌓</button>
+  <button class="iconbtn" id="btnFit" title="Fit route">⤢</button>
+</div>
+
+<!-- ---------- bottom sheet ---------- -->
+<section class="sheet" id="sheet" data-state="peek">
+  <button class="sheet__grab" id="sheetGrab" aria-label="Expand panel"></button>
+  <nav class="tabs" id="tabs" role="tablist">
+    <button class="tab on" data-tab="route" role="tab">Route</button>
+    <button class="tab" data-tab="warnings" role="tab">Warnings <span class="tab__badge" id="badgeWarn" hidden>0</span></button>
+    <button class="tab" data-tab="fuel" role="tab">Fuel</button>
+    <button class="tab" data-tab="stops" role="tab">Stops</button>
+  </nav>
+  <div class="sheet__body" id="sheetBody">
+    <div class="empty">
+      <h2>Where are you headed?</h2>
+      <p>Enter a destination and TruckWay will compare truck routes from several
+         engines, then check every bridge, weight limit and truck ban along the
+         way against <b id="emptyTruck">your truck</b>.</p>
+      <p class="empty__hint">Tap the truck chip above to set your height, weight and axles first — everything depends on it.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- navigation footer ---------- -->
+<div class="navbar" id="navBar" hidden>
+  <div class="navbar__stat"><b id="navEta">—</b><small>arrive</small></div>
+  <div class="navbar__stat"><b id="navRemain">—</b><small>left</small></div>
+  <div class="navbar__stat"><b id="navTime">—</b><small>to go</small></div>
+  <div class="navbar__stat"><b id="navSpeed">—</b><small>speed</small></div>
+  <button class="iconbtn" id="btnFollow" title="Follow me">🧭</button>
+</div>
+
+<div class="modal" id="modal" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="js/util.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/services.js"></script>
+<script src="js/restrict.js"></script>
+<script src="js/poi.js"></script>
+<script src="js/fuel.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/map.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

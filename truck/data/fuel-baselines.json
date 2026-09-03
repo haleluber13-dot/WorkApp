@@ -1,0 +1,638 @@
+{
+ "as_of": "2026-01",
+ "note": "Reference diesel prices used to ESTIMATE what a station is likely to charge. These are regional averages, not live quotes from any station. Prices at the pump move weekly and vary between neighbouring stations. Update these figures in Settings, and record what you actually paid with 'Report price' - a reported price always replaces the estimate.",
+ "source": "Regional average diesel figures, rounded. Intended as an editable starting point, not an authoritative feed.",
+ "unit": "local currency per litre",
+ "default": {
+  "label": "Unknown region",
+  "currency": "USD",
+  "display": "gal",
+  "perLitre": 1.0171
+ },
+ "regions": {
+  "US-CA": {
+   "label": "California",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.3737
+  },
+  "US-HI": {
+   "label": "Hawaii",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.4001
+  },
+  "US-WA": {
+   "label": "Washington",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.2152
+  },
+  "US-OR": {
+   "label": "Oregon",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.1624
+  },
+  "US-NV": {
+   "label": "Nevada",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.1624
+  },
+  "US-PA": {
+   "label": "Pennsylvania",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.202
+  },
+  "US-NY": {
+   "label": "New York",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.1491
+  },
+  "US-CT": {
+   "label": "Connecticut",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.1227
+  },
+  "US-VT": {
+   "label": "Vermont",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.1095
+  },
+  "US-DC": {
+   "label": "District of Columbia",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.1095
+  },
+  "US-ID": {
+   "label": "Idaho",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0963
+  },
+  "US-MA": {
+   "label": "Massachusetts",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0963
+  },
+  "US-RI": {
+   "label": "Rhode Island",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0831
+  },
+  "US-ME": {
+   "label": "Maine",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0831
+  },
+  "US-IL": {
+   "label": "Illinois",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0831
+  },
+  "US-UT": {
+   "label": "Utah",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0699
+  },
+  "US-MI": {
+   "label": "Michigan",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0435
+  },
+  "US-NJ": {
+   "label": "New Jersey",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0435
+  },
+  "US-NH": {
+   "label": "New Hampshire",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0435
+  },
+  "US-MD": {
+   "label": "Maryland",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0435
+  },
+  "US-MT": {
+   "label": "Montana",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0435
+  },
+  "US-AZ": {
+   "label": "Arizona",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0435
+  },
+  "US-DE": {
+   "label": "Delaware",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0303
+  },
+  "US-WV": {
+   "label": "West Virginia",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0171
+  },
+  "US-IN": {
+   "label": "Indiana",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0171
+  },
+  "US-MN": {
+   "label": "Minnesota",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0171
+  },
+  "US-WY": {
+   "label": "Wyoming",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0171
+  },
+  "US-CO": {
+   "label": "Colorado",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0171
+  },
+  "US-FL": {
+   "label": "Florida",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0171
+  },
+  "US-ND": {
+   "label": "North Dakota",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0039
+  },
+  "US-WI": {
+   "label": "Wisconsin",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0039
+  },
+  "US-NC": {
+   "label": "North Carolina",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9906
+  },
+  "US-VA": {
+   "label": "Virginia",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9906
+  },
+  "US-OH": {
+   "label": "Ohio",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9906
+  },
+  "US-IA": {
+   "label": "Iowa",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9906
+  },
+  "US-SD": {
+   "label": "South Dakota",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9906
+  },
+  "US-NM": {
+   "label": "New Mexico",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9906
+  },
+  "US-NE": {
+   "label": "Nebraska",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9774
+  },
+  "US-KY": {
+   "label": "Kentucky",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9642
+  },
+  "US-GA": {
+   "label": "Georgia",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9642
+  },
+  "US-SC": {
+   "label": "South Carolina",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.951
+  },
+  "US-TN": {
+   "label": "Tennessee",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.951
+  },
+  "US-LA": {
+   "label": "Louisiana",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.951
+  },
+  "US-KS": {
+   "label": "Kansas",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.951
+  },
+  "US-AR": {
+   "label": "Arkansas",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9378
+  },
+  "US-AL": {
+   "label": "Alabama",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9378
+  },
+  "US-TX": {
+   "label": "Texas",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9378
+  },
+  "US-MO": {
+   "label": "Missouri",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9246
+  },
+  "US-MS": {
+   "label": "Mississippi",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9246
+  },
+  "US-OK": {
+   "label": "Oklahoma",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 0.9246
+  },
+  "US-AK": {
+   "label": "Alaska",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.1359
+  },
+  "US": {
+   "label": "United States",
+   "currency": "USD",
+   "display": "gal",
+   "perLitre": 1.0171
+  },
+  "CA-BC": {
+   "label": "British Columbia",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.95
+  },
+  "CA-AB": {
+   "label": "Alberta",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.65
+  },
+  "CA-SK": {
+   "label": "Saskatchewan",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.72
+  },
+  "CA-MB": {
+   "label": "Manitoba",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.7
+  },
+  "CA-ON": {
+   "label": "Ontario",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.78
+  },
+  "CA-QC": {
+   "label": "Quebec",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.85
+  },
+  "CA-NB": {
+   "label": "New Brunswick",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.82
+  },
+  "CA-NS": {
+   "label": "Nova Scotia",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.86
+  },
+  "CA-PE": {
+   "label": "Prince Edward Island",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.85
+  },
+  "CA-NL": {
+   "label": "Newfoundland & Labrador",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.9
+  },
+  "CA-YT": {
+   "label": "Yukon",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.9
+  },
+  "CA-NT": {
+   "label": "Northwest Territories",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.95
+  },
+  "CA-NU": {
+   "label": "Nunavut",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 2.1
+  },
+  "CA": {
+   "label": "Canada",
+   "currency": "CAD",
+   "display": "L",
+   "perLitre": 1.78
+  },
+  "DE": {
+   "label": "Germany",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.72
+  },
+  "FR": {
+   "label": "France",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.76
+  },
+  "ES": {
+   "label": "Spain",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.52
+  },
+  "IT": {
+   "label": "Italy",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.76
+  },
+  "NL": {
+   "label": "Netherlands",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.82
+  },
+  "BE": {
+   "label": "Belgium",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.8
+  },
+  "AT": {
+   "label": "Austria",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.62
+  },
+  "PT": {
+   "label": "Portugal",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.65
+  },
+  "IE": {
+   "label": "Ireland",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.7
+  },
+  "LU": {
+   "label": "Luxembourg",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.48
+  },
+  "FI": {
+   "label": "Finland",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.78
+  },
+  "GR": {
+   "label": "Greece",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.65
+  },
+  "SK": {
+   "label": "Slovakia",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.55
+  },
+  "SI": {
+   "label": "Slovenia",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.52
+  },
+  "LT": {
+   "label": "Lithuania",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.48
+  },
+  "LV": {
+   "label": "Latvia",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.55
+  },
+  "EE": {
+   "label": "Estonia",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.58
+  },
+  "HR": {
+   "label": "Croatia",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.5
+  },
+  "CY": {
+   "label": "Cyprus",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.5
+  },
+  "MT": {
+   "label": "Malta",
+   "currency": "EUR",
+   "display": "L",
+   "perLitre": 1.38
+  },
+  "GB": {
+   "label": "United Kingdom",
+   "currency": "GBP",
+   "display": "L",
+   "perLitre": 1.55
+  },
+  "PL": {
+   "label": "Poland",
+   "currency": "PLN",
+   "display": "L",
+   "perLitre": 6.35
+  },
+  "CZ": {
+   "label": "Czechia",
+   "currency": "CZK",
+   "display": "L",
+   "perLitre": 37.5
+  },
+  "HU": {
+   "label": "Hungary",
+   "currency": "HUF",
+   "display": "L",
+   "perLitre": 620.0
+  },
+  "RO": {
+   "label": "Romania",
+   "currency": "RON",
+   "display": "L",
+   "perLitre": 7.45
+  },
+  "BG": {
+   "label": "Bulgaria",
+   "currency": "BGN",
+   "display": "L",
+   "perLitre": 2.65
+  },
+  "SE": {
+   "label": "Sweden",
+   "currency": "SEK",
+   "display": "L",
+   "perLitre": 19.5
+  },
+  "NO": {
+   "label": "Norway",
+   "currency": "NOK",
+   "display": "L",
+   "perLitre": 21.0
+  },
+  "DK": {
+   "label": "Denmark",
+   "currency": "DKK",
+   "display": "L",
+   "perLitre": 12.9
+  },
+  "CH": {
+   "label": "Switzerland",
+   "currency": "CHF",
+   "display": "L",
+   "perLitre": 1.85
+  },
+  "TR": {
+   "label": "Turkey",
+   "currency": "TRY",
+   "display": "L",
+   "perLitre": 47.0
+  },
+  "MX": {
+   "label": "Mexico",
+   "currency": "MXN",
+   "display": "L",
+   "perLitre": 26.5
+  },
+  "AU": {
+   "label": "Australia",
+   "currency": "AUD",
+   "display": "L",
+   "perLitre": 2.0
+  },
+  "NZ": {
+   "label": "New Zealand",
+   "currency": "NZD",
+   "display": "L",
+   "perLitre": 2.2
+  },
+  "ZA": {
+   "label": "South Africa",
+   "currency": "ZAR",
+   "display": "L",
+   "perLitre": 23.5
+  },
+  "IN": {
+   "label": "India",
+   "currency": "INR",
+   "display": "L",
+   "perLitre": 90.0
+  },
+  "BR": {
+   "label": "Brazil",
+   "currency": "BRL",
+   "display": "L",
+   "perLitre": 6.2
+  },
+  "JP": {
+   "label": "Japan",
+   "currency": "JPY",
+   "display": "L",
+   "perLitre": 160.0
+  }
+ }
+}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TruckWay">
+  <rect width="512" height="512" rx="112" fill="#0b0f17"/>
+  <path d="M96 372c0-88 60-132 160-132s160-44 160-132" fill="none" stroke="#2f81f7"
+        stroke-width="30" stroke-linecap="round" stroke-dasharray="4 46"/>
+  <g fill="#e8edf6">
+    <path d="M104 300h150v66H104a14 14 0 0 1-14-14v-38a14 14 0 0 1 14-14z"/>
+    <path d="M268 258h68l50 52v42a14 14 0 0 1-14 14h-104z"/>
+  </g>
+  <circle cx="160" cy="372" r="30" fill="#0b0f17" stroke="#e8edf6" stroke-width="16"/>
+  <circle cx="342" cy="372" r="30" fill="#0b0f17" stroke="#e8edf6" stroke-width="16"/>
+  <path d="M186 196h140" stroke="#f5a524" stroke-width="22" stroke-linecap="round"/>
+  <path d="M212 156v40M300 156v40" stroke="#f5a524" stroke-width="18" stroke-linecap="round"/>
+</svg>
