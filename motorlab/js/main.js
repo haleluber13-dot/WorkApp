@@ -437,7 +437,7 @@ function applySettings(){
 /* ---- keyboard --------------------------------------------------------- */
 function bindKeys(){
   addEventListener('keydown', (e) => {
-    if (e.target.matches('input, select, textarea')) return;
+    if (e.target?.matches?.('input, select, textarea')) return;
     const k = e.key.toLowerCase();
     const tool = { x:'explode', c:'cutaway', g:'ghost', l:'labels', w:'wire', f:'fit' }[k];
     if (tool){ document.querySelector(`.tool[data-tool="${tool}"]`)?.click(); return; }

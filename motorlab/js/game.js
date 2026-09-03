@@ -139,6 +139,7 @@ export function evaluateChallenges(ctx){
 
 export function spend(amount){
   if (!state.settings.gameMode) return true;
+  if (state.settings.unlimitedMoney) return true;   // money never runs out
   if (state.game.credits < amount) return false;
   state.game.credits -= amount; save(); return true;
 }

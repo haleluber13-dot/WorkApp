@@ -809,6 +809,7 @@ export class Viewport {
       const s = this.state;
       s.time += dt; s.dt = dt;
       this._engineDynamics(dt, s);
+      this._trackStep?.(dt);                 // drive the car around the circuit
       this.onTick?.(s);
       if (s.rpm > 0) s.crankAngle = (s.crankAngle + (s.rpm/60) * Math.PI * 2 * dt) % (Math.PI*2*2);
       if (s.speed) s.wheelAngle = (s.wheelAngle + s.speed * dt) % (Math.PI*2);

@@ -58,6 +58,18 @@ export function render(ctx, tab){
         toggle('Show XP in the status bar', s.showXp, (v) => set('showXp', v)),
         note(s.gameMode ? 'Parts cost credits, which you earn from lessons, challenges and dyno runs.'
                         : 'Game mode is off — every part in the catalog is free to fit and nothing is locked.')),
+
+      section('Money',
+        toggle('Unlimited money', s.unlimitedMoney ?? false, (v) => { set('unlimitedMoney', v); ctx.refresh?.(); }),
+        note('Turn this on and money never runs out — fit anything you like, as much as you like.'),
+        field('Set your balance', h('div', { class:'btnrow', style:{ margin:0 } },
+          h('input', { class:'ml-money', type:'number', min:0, step:1000,
+            value: state.game.credits,
+            onchange:(e) => { const v = Math.max(0, Math.floor(+e.target.value || 0));
+              state.game.credits = v; save(); toast('Balance set to $' + v.toLocaleString(), 'good'); ctx.refresh?.(); } }),
+          btn('+$100k', { class:'btn--sm', onClick:() => { state.game.credits += 100000; save(); toast('+$100,000', 'good'); ctx.refresh(); } }),
+          btn('Max', { class:'btn--sm', onClick:() => { state.game.credits = 999999999; save(); toast('Balance maxed', 'good'); ctx.refresh(); } }))),
+        note('Type any amount and press enter, or tap a button. It is your garage — spend how you want.')),
     );
     return wrap;
   }

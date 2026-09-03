@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS = {
   ambientC:25, altitudeM:0, dynoSmoothing:1, difficulty:'apprentice',
   autoTuneAggression:0.5, damageEnabled:true,
   /* game */
-  gameMode:true, showXp:true, credits:12000,
+  gameMode:true, showXp:true, credits:12000, unlimitedMoney:false,
   /* updates */
   feedUrl:'./data/updates.json', autoCheckUpdates:true,
 };

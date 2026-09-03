@@ -489,3 +489,11 @@ body.calm *{animation-duration:.001s !important;transition-duration:.001s !impor
 .dash__pedal:active{background:var(--acc);color:#111;border-color:var(--acc)}
 .dash__steer{flex:1;accent-color:var(--acc);cursor:grab}
 .dash__hand{flex:0 0 auto;max-width:46%}
+
+/* editable money field */
+.ml-money{background:var(--bg3);border:1px solid var(--line2);color:var(--ink);
+  border-radius:8px;padding:7px 10px;font:inherit;width:150px;font-variant-numeric:tabular-nums}
+.ml-money:focus{outline:none;border-color:var(--acc)}
+
+.dash__brake{background:linear-gradient(180deg,#3a1414,#2a0e0e);border-color:#5a2020}
+.dash__brake:active{background:#4a1a1a}

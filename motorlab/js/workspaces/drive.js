@@ -10,10 +10,13 @@
 import { h, section, para, btn, toast, add } from '../ui.js';
 import { state, engine, vehicle, fitted, save } from '../store.js';
 import { engineAudio } from '../lib/engineAudio.js';
+import { TrackDrive } from '../lib/track.js';
 
 const drive = {
-  running: false, gear: 0, throttle: 0, steer: 0, steerTo: 0, hand: false, keys: false,
+  running: false, gear: 0, throttle: 0, brake: 0, steer: 0, steerTo: 0, hand: false, keys: false,
   raf: 0, refs: null, active: false,
+  mode: 'track',        // 'track' = drive the circuit, 'cockpit' = rolling road
+  td: null,             // the TrackDrive instance when on the circuit
 };
 
 const wheelRadius = (v) => {
@@ -84,20 +87,26 @@ function tick(ctx){
   if (!drive.active) return;
   const vp = ctx.viewport, s = vp.state, e = engine(), v = vehicle();
   const r = drive.refs;
+  let kmh;
 
-  /* throttle → target revs; the limiter cuts on the last few hundred rpm */
-  if (drive.running && !s.cranking){
-    const idle = e.idle || 850, red = e.redline || 7000;
-    let target = idle + drive.throttle * (red - idle);
-    if (s.rpm > red * 0.985 && drive.throttle > 0.9)
-      target = red * 0.92;                                  // the bounce
-    vp.revTo(target);
+  if (drive.mode === 'track' && drive.td?.on){
+    /* the circuit drives the engine state; feed it the pedals and wheel */
+    drive.td.setInput({ throttle: drive.throttle, brake: drive.brake,
+                        steer: drive.steer, hand: drive.hand });
+    kmh = Math.abs(drive.td.speed) * 3.6;
+    drive.gear = drive.td.gear;
+    /* the sound layer wants a running engine + demand, which td already sets */
+  } else {
+    /* rolling-road cockpit: throttle → target revs, gears map to a road speed */
+    if (drive.running && !s.cranking){
+      const idle = e.idle || 850, red = e.redline || 7000;
+      let target = idle + drive.throttle * (red - idle);
+      if (s.rpm > red * 0.985 && drive.throttle > 0.9) target = red * 0.92;   // the bounce
+      vp.revTo(target);
+    }
+    kmh = drive.running && !drive.hand ? speedKmh(v, s.rpm, drive.gear) : 0;
+    s.speed = kmh / 3.6 / Math.max(0.05, wheelRadius(v));
   }
-  /* wheels turn with the revs through the gearbox, so the exterior view
-     shows the car "rolling" while it sits on the road; the handbrake locks
-     them while the revs flare free */
-  const kmh = drive.running && !drive.hand ? speedKmh(v, s.rpm, drive.gear) : 0;
-  s.speed = kmh / 3.6 / Math.max(0.05, wheelRadius(v));
   /* steering eases toward where the hands are, and centres itself */
   drive.steer += (drive.steerTo - drive.steer) * Math.min(1, (s.dt || 0.016) * 6);
   /* the angle kit does what it says: the same input turns the wheels further */
@@ -147,32 +156,67 @@ function shift(dir){
   drive.gear = Math.max(0, Math.min(ratios(v).length, drive.gear + dir));
 }
 
+function startTrack(ctx){
+  const vp = ctx.viewport;
+  vp.exitInterior();
+  drive.td = new TrackDrive(vp);
+  drive.td.enter(vehicle(), engine());
+  drive.running = true; drive.gear = 1;
+  toast('On the circuit — W/S drive, A/D steer, Space drift.');
+}
+function stopTrack(ctx){
+  drive.td?.exit(); drive.td = null;
+}
+
+function setMode(ctx, mode){
+  if (drive.mode === mode) return;
+  drive.mode = mode;
+  drive.throttle = drive.brake = 0; drive.steer = drive.steerTo = 0; drive.hand = false;
+  if (mode === 'track'){ ctx.viewport.stopEngine(); drive.running = false; startTrack(ctx); }
+  else { stopTrack(ctx); ctx.viewport.stopEngine(); drive.running = false;
+         ctx.viewport.enterInterior(vehicle(), { side: state.settings.seatSide, fov: state.settings.driveFov }); }
+  ctx.refresh();
+}
+
+function resetCar(){
+  const td = drive.td; if (!td) return;
+  td.pos.set(td._start.x, td._start.z); td.yaw = td._startYaw; td.velDir = td._startYaw;
+  td.speed = 0; td.gear = 1; td.auto = true; td._camReady = false;
+  toast('Back to the start line.');
+}
+
 function enterDrive(ctx){
   if (drive.active) return;
   drive.active = true;
   const vp = ctx.viewport;
   vp.setGhost(false); vp.setExplode(0);
-  vp.enterInterior(vehicle(), { side: state.settings.seatSide, fov: state.settings.driveFov });
-  /* pedals on the keyboard while the workspace is open */
+  if (drive.mode === 'track') startTrack(ctx);
+  else vp.enterInterior(vehicle(), { side: state.settings.seatSide, fov: state.settings.driveFov });
+
   drive._down = (ev) => {
     if (ev.repeat) return;
-    if (ev.code === 'Space' || ev.code === 'KeyW' || ev.code === 'ArrowUp'){ drive.throttle = 1; ev.preventDefault(); }
-    if (ev.code === 'ArrowRight') shift(1);
-    if (ev.code === 'ArrowLeft') shift(-1);
-    if (ev.code === 'KeyI') ignition(ctx);
-    if (ev.code === 'KeyA') drive.steerTo = -1;
-    if (ev.code === 'KeyD') drive.steerTo = 1;
-    if (ev.code === 'KeyH' && drive.running){ drive.hand = true; engineAudio.chirp(); }
-  };
-  drive._up = (ev) => {
-    if (ev.code === 'KeyA' || ev.code === 'KeyD') drive.steerTo = 0;
-    if (ev.code === 'KeyH') drive.hand = false;
-    if (ev.code === 'Space' || ev.code === 'KeyW' || ev.code === 'ArrowUp'){
-      drive.throttle = 0;
-      /* Space on keyup also "clicks" whichever button still has focus —
-         which was the starter, so revving the engine kept switching it off */
+    const track = drive.mode === 'track';
+    if (ev.code === 'KeyW' || ev.code === 'ArrowUp'){ drive.throttle = 1; ev.preventDefault(); }
+    else if (ev.code === 'KeyS' || ev.code === 'ArrowDown'){ drive.brake = 1; ev.preventDefault(); }
+    else if (ev.code === 'KeyA' || ev.code === 'ArrowLeft'){ drive.steerTo = -1; ev.preventDefault(); }
+    else if (ev.code === 'KeyD' || ev.code === 'ArrowRight'){ drive.steerTo = 1; ev.preventDefault(); }
+    else if (ev.code === 'Space'){                    // handbrake / drift
+      if (track){ drive.hand = true; if (Math.abs(drive.td?.speed||0) > 3) engineAudio.chirp(); }
+      else if (drive.running){ drive.throttle = 1; }  // cockpit: space still revs
       ev.preventDefault();
     }
+    else if (ev.code === 'KeyE' || ev.code === 'BracketRight') { track ? drive.td?.shift(1) : shift(1); }
+    else if (ev.code === 'KeyQ' || ev.code === 'BracketLeft') { track ? drive.td?.shift(-1) : shift(-1); }
+    else if (ev.code === 'KeyR' && track) resetCar();
+    else if (ev.code === 'KeyI' && !track) ignition(ctx);
+    else if (ev.code === 'KeyH' && drive.running){ drive.hand = true; engineAudio.chirp(); }
+  };
+  drive._up = (ev) => {
+    if (ev.code === 'KeyA' || ev.code === 'KeyD' || ev.code === 'ArrowLeft' || ev.code === 'ArrowRight') drive.steerTo = 0;
+    if (ev.code === 'KeyS' || ev.code === 'ArrowDown') drive.brake = 0;
+    if (ev.code === 'KeyH') drive.hand = false;
+    if (ev.code === 'Space'){ if (drive.mode === 'track') drive.hand = false; else drive.throttle = 0; ev.preventDefault(); }
+    if (ev.code === 'KeyW' || ev.code === 'ArrowUp'){ drive.throttle = 0; ev.preventDefault(); }
   };
   addEventListener('keydown', drive._down);
   addEventListener('keyup', drive._up);
@@ -185,7 +229,8 @@ export function leaveDrive(ctx){
   cancelAnimationFrame(drive.raf);
   removeEventListener('keydown', drive._down);
   removeEventListener('keyup', drive._up);
-  drive.running = false; drive.throttle = 0;
+  stopTrack(ctx);
+  drive.running = false; drive.throttle = 0; drive.brake = 0;
   ctx.viewport.stopEngine();
   ctx.viewport.exitInterior();
   ctx.viewport.state.speed = 0;
@@ -213,11 +258,21 @@ export function render(ctx, tab){
   const gearBadge = h('div', { class:'dash__gear', text:'N' });
   const rpmTxt = h('div', { class:'dash__rpm mono', text:'0' });
 
-  const start = h('button', { class:'dash__start', type:'button', text:'● START',
-    onclick:(ev) => { ignition(ctx); ev.currentTarget.blur(); } });
-  const throttle = h('button', { class:'dash__pedal', type:'button', text:'THROTTLE — hold' });
+  const track = drive.mode === 'track';
+  const modeRow = h('div', { class:'btnrow', style:{ marginTop:'6px' } },
+    btn(track ? '🏁 Track (driving)' : '🏁 Drive the track', { class: track ? 'btn--pri btn--sm' : 'btn--sm',
+      onClick:() => setMode(ctx, 'track') }),
+    btn(track ? '🪑 Cockpit' : '🪑 Cockpit (rolling road)', { class: !track ? 'btn--pri btn--sm' : 'btn--sm',
+      onClick:() => setMode(ctx, 'cockpit') }));
+
+  const start = h('button', { class:'dash__start', type:'button', text: track ? '↺ RESET' : '● START',
+    onclick:(ev) => { track ? resetCar() : ignition(ctx); ev.currentTarget.blur(); } });
+  const throttle = h('button', { class:'dash__pedal', type:'button', text: track ? 'GAS — hold' : 'THROTTLE — hold' });
   for (const [ev, on] of [['pointerdown', 1], ['pointerup', 0], ['pointercancel', 0], ['pointerleave', 0]])
     throttle.addEventListener(ev, (x) => { drive.throttle = on; x.preventDefault(); });
+  const brake = h('button', { class:'dash__pedal dash__brake', type:'button', text:'BRAKE / REVERSE — hold' });
+  for (const [ev, on] of [['pointerdown', 1], ['pointerup', 0], ['pointercancel', 0], ['pointerleave', 0]])
+    brake.addEventListener(ev, (x) => { drive.brake = on; x.preventDefault(); });
   const steer = h('input', { type:'range', min:-100, max:100, step:1, value:0, class:'dash__steer',
     'aria-label':'Steering' });
   steer.addEventListener('input', () => { drive.steerTo = steer.value / 100; });
@@ -241,15 +296,21 @@ export function render(ctx, tab){
     h('div', { class:'dash__head' },
       h('div', null, h('b', { text: v.name }), h('div', { class:'dash__sub', text: e.name })),
       lights),
+    modeRow,
     dash,
     h('div', { class:'dash__mid' }, gearBadge, rpmTxt, h('span', { class:'dash__lbl', text:'rpm' })),
     boostRow,
-    h('div', { class:'btnrow', style:{ marginTop:'10px' } }, start, throttle),
+    h('div', { class:'btnrow', style:{ marginTop:'10px' } }, start, throttle, track ? brake : null),
     h('div', { class:'btnrow' }, hand, steer),
     h('div', { class:'btnrow' }, down, up, view),
-    para('Hold the throttle and it revs; the tach, the sound, the crank and the turbos all follow '
-      + 'the same simulation. Gears map the revs to road speed through this car\'s real ratios. '
-      + 'Keys: <b>Space</b> throttle · <b>←/→</b> shift · <b>A/D</b> steer · <b>H</b> handbrake · <b>I</b> ignition.'));
+    track
+      ? para('You are driving. <b>W</b>/<b>↑</b> gas · <b>S</b>/<b>↓</b> brake & reverse · '
+          + '<b>A</b>/<b>D</b> or <b>←</b>/<b>→</b> steer · <b>Space</b> handbrake to drift · '
+          + '<b>Q</b>/<b>E</b> shift down/up · <b>R</b> reset to the start line. Gears shift automatically '
+          + 'until you change one by hand. The tach and the real engine sound follow the car.')
+      : para('Rolling road: hold the throttle and it revs; the tach, the sound, the crank and the turbos '
+          + 'all follow the same simulation. Keys: <b>Space</b>/<b>W</b> throttle · <b>Q</b>/<b>E</b> shift · '
+          + '<b>A/D</b> steer · <b>H</b> handbrake · <b>I</b> ignition.'));
 
   drive.refs = {
     needle: dash.querySelector('[data-needle]'),
