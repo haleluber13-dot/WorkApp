@@ -13,6 +13,14 @@ desktop.
 > without authorization is illegal and a real privacy harm. Add feeds you have the
 > right to view.
 
+## Other apps in this repository
+
+- **[OlaKai](./olakai/)** — surf and beach live cameras.
+- **[MotorLab](./motorlab/)** — a virtual build and tuning bay for engines, cars,
+  motorcycles and karts: strip an engine to the block in 3D and rebuild it with real
+  torque sequences, build the chassis, wire it, tune the ECU and run it on the dyno.
+  See [motorlab/README.md](./motorlab/README.md).
+
 ## Features
 
 - **3D globe** (globe.gl / three.js) with category‑colored, glowing camera points.
