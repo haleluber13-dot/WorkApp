@@ -73,6 +73,7 @@
     <button class="tab" data-tab="warnings" role="tab">Warnings <span class="tab__badge" id="badgeWarn" hidden>0</span></button>
     <button class="tab" data-tab="fuel" role="tab">Fuel</button>
     <button class="tab" data-tab="stops" role="tab">Stops</button>
+    <button class="tab" data-tab="hours" role="tab">Hours <span class="tab__badge" id="badgeHos" hidden></span></button>
   </nav>
   <div class="sheet__body" id="sheetBody">
     <div class="empty">
@@ -91,6 +92,7 @@
   <div class="navbar__stat"><b id="navRemain">—</b><small>left</small></div>
   <div class="navbar__stat"><b id="navTime">—</b><small>to go</small></div>
   <div class="navbar__stat"><b id="navSpeed">—</b><small>speed</small></div>
+  <div class="navbar__stat" id="navHosWrap" hidden><b id="navHos">—</b><small id="navHosLabel">driving</small></div>
   <button class="iconbtn" id="btnFollow" title="Follow me">🧭</button>
 </div>
 
@@ -104,6 +106,9 @@
 <script src="js/restrict.js"></script>
 <script src="js/poi.js"></script>
 <script src="js/fuel.js"></script>
+<script src="js/hos.js"></script>
+<script src="js/weather.js"></script>
+<script src="js/places.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/map.js"></script>
 <script src="js/ui.js"></script>

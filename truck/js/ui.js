@@ -6,6 +6,7 @@
   var H = global.TW.H, F = global.TW.F, U = global.TW.U;
   var Profile = global.TW.Profile, POI = global.TW.POI, Fuel = global.TW.Fuel;
   var Restrict = global.TW.Restrict;
+  var Hos = global.TW.Hos, Weather = global.TW.Weather, Places = global.TW.Places;
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = H.escape;
@@ -83,6 +84,11 @@
              '<h2 style="margin-top:12px">Comparing truck routes…</h2>' +
              '<p>' + esc(state.routingNote || "Asking every routing engine that knows about trucks.") + "</p></div>";
     }
+    if (!state.routes.length && (Places.saved().length || Places.recents().length) && !state.error) {
+      return '<div class="empty" style="padding-bottom:16px"><h2>Where are you headed?</h2>' +
+             '<p class="tiny">Pick one you have been to before, or type a destination above.</p></div>' +
+             renderPlacesPanel();
+    }
     if (!state.routes.length) {
       return $("sheetBody") && state.error
         ? '<div class="card card--bad"><b>Could not build a route</b><p class="muted tiny" style="margin:6px 0 0">' +
@@ -131,11 +137,45 @@
         html +=   '<button class="btn btn--go" data-act="start">▶ Start navigation</button>';
         html +=   '<button class="btn" data-act="steps">Directions</button>';
         html += "</div>";
+        html += '<div class="btnrow">';
+        html +=   '<button class="btn" data-act="savedest">' +
+                  (state.to && Places.isSaved(state.to) ? "★ Saved" : "☆ Save destination") + "</button>";
+        html +=   '<button class="btn" data-act="miles">State miles</button>';
+        html += "</div>";
+        html += renderMileage(state, p);
         if (state.showSteps) html += renderSteps(r, p);
       }
       html += "</div>";
     });
     return html;
+  }
+
+  /* Per-jurisdiction mileage, for the quarterly fuel-tax return. */
+  function renderMileage(state, p) {
+    if (state.milesLoading) {
+      return '<div class="card" style="margin-top:10px"><span class="spinner"></span> ' +
+             "Working out the state lines" +
+             (state.milesProgress ? " (" + Math.round(state.milesProgress * 100) + "%)" : "") +
+             "…<p class=\"tiny faint\" style=\"margin:8px 0 0\">Paced to stay within the map " +
+             "service's usage limits, so it takes a minute.</p></div>";
+    }
+    var m = state.miles;
+    if (!m) return "";
+    if (!m.ok) {
+      return '<div class="card" style="margin-top:10px"><span class="tiny muted">' +
+             esc(m.reason || "Could not work out the regions.") + "</span></div>";
+    }
+    var html = '<div class="card" style="margin-top:10px">' +
+               '<div class="sectionhead" style="margin:0 0 8px"><span>Miles by region</span>' +
+               "<span>approximate</span></div>";
+    m.rows.forEach(function (row) {
+      html += '<div class="row row--between" style="padding:5px 0">' +
+              "<span>" + esc(row.label) + ' <span class="faint tiny">' + esc(row.code) + "</span></span>" +
+              "<b>" + F.dist(row.metres, p.imperial) + "</b></div>";
+    });
+    html += '<p class="tiny faint" style="margin:8px 0 0">Estimated from the planned route by locating ' +
+            "each border crossing to within about a mile. It is not a record of where the truck went.</p>";
+    return html + "</div>";
   }
 
   function renderSteps(route, p) {
@@ -230,6 +270,56 @@
     html += '<p class="tiny faint" style="margin:14px 2px">Restrictions come from OpenStreetMap. ' +
             "Coverage is good on main roads in most countries and patchy on minor ones. " +
             "It is a second pair of eyes, not a substitute for the sign at the bridge.</p>";
+    return html + renderWeather(state, p);
+  }
+
+  /* Weather sits below the restrictions rather than mixed in with them: both
+     can stop you, but a low bridge is a fact and a forecast is a forecast. */
+  function renderWeather(state, p) {
+    var wx = state.weather;
+    if (state.weatherLoading) {
+      return '<div class="sectionhead" style="margin-top:18px"><span>Weather on the way</span></div>' +
+             '<div class="card"><span class="spinner"></span> Checking the forecast along the route…</div>';
+    }
+    if (!wx) return "";
+    if (!wx.ok) {
+      return '<div class="sectionhead" style="margin-top:18px"><span>Weather on the way</span></div>' +
+             '<div class="card"><span class="muted tiny">Forecast unavailable right now.</span></div>';
+    }
+
+    var html = '<div class="sectionhead" style="margin-top:18px"><span>Weather on the way</span>' +
+               "<span>at your arrival time</span></div>";
+
+    if (wx.alerts.length) {
+      wx.alerts.forEach(function (a) {
+        var critical = a.severity === "critical";
+        html += '<div class="card ' + (critical ? "card--bad" : "card--warn") + '">' +
+                  '<div class="haz"><div class="haz__mark haz__mark--' + a.severity + '">' +
+                  (a.kind === "wind" ? "💨" : critical ? "!" : "▲") + "</div>" +
+                  '<div class="spread"><div class="haz__line">' + esc(a.text) + "</div>" +
+                  '<div class="haz__meta">' + alongText(a.along, p.imperial) +
+                  (a.endAlong > a.along + 1000 ? " to " + F.dist(a.endAlong, p.imperial) : "") +
+                  " · around " + new Date(a.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
+                  "</div></div></div></div>";
+      });
+    } else {
+      html += '<div class="card"><span class="muted tiny">Nothing rough in the forecast along this route.</span></div>';
+    }
+
+    html += '<div class="wxstrip">';
+    wx.points.forEach(function (pt) {
+      var tone = pt.severity === "critical" ? " wxcell--bad" : (pt.severity ? " wxcell--warn" : "");
+      html += '<div class="wxcell' + tone + '">' +
+                '<div class="wxcell__icon">' + pt.icon + "</div>" +
+                '<div class="wxcell__temp">' + (pt.temp === null ? "—" :
+                  (p.imperial ? Math.round(pt.temp * 9 / 5 + 32) + "°F" : Math.round(pt.temp) + "°C")) + "</div>" +
+                '<div class="wxcell__gust">' + (pt.gust === null ? "" : F.speed(pt.gust, p.imperial)) + "</div>" +
+                '<div class="wxcell__at">' + F.dist(pt.along, p.imperial) + "</div>" +
+              "</div>";
+    });
+    html += "</div>";
+    html += '<p class="tiny faint" style="margin:10px 2px">Forecast from Open-Meteo for the hour you are ' +
+            "predicted to reach each point. Wind thresholds are set for your vehicle height and weight.</p>";
     return html;
   }
 
@@ -429,6 +519,183 @@
                 "</div>";
       html += "</div>";
     });
+    return html;
+  }
+
+  /* ---------- hours tab ---------- */
+
+  function renderHours(state) {
+    var p = Profile.get();
+    var st = Hos.live();
+    var rules = st.rules;
+    var html = "";
+
+    html += '<div class="chips">';
+    Object.keys(Hos.RULESETS).forEach(function (id) {
+      html += '<button class="chip' + (rules.id === id ? " on" : "") +
+              '" data-ruleset="' + id + '">' + esc(Hos.RULESETS[id].label) + "</button>";
+    });
+    html += "</div>";
+
+    if (rules.id === "off") {
+      return html + '<div class="empty"><h2>Hours not tracked</h2>' +
+             "<p>Pick a rule set above and TruckWay will keep the clocks, and — more to the " +
+             "point — work out which truck stop you can still reach before they run out.</p></div>";
+    }
+
+    var b = Hos.binding();
+    var rem = b.remaining;
+
+    html += '<div class="card ' + (b.first.seconds < 1800 ? "card--bad" : (b.first.seconds < 3600 ? "card--warn" : "")) + '">';
+    html +=   '<div class="row row--between"><div>';
+    html +=     '<div class="huge">' + F.clock(b.first.seconds) + "</div>";
+    html +=     '<div class="muted tiny">until your ' + esc(b.first.label) + "</div>";
+    html +=   "</div>";
+    html +=   '<button class="btn ' + (st.running ? "btn--danger" : "btn--go") + '" data-act="hostoggle">' +
+              (st.running ? "❚❚ Pause" : "▶ Driving") + "</button>";
+    html +=   "</div>";
+    html += "</div>";
+
+    html += '<div class="fuelhead">' +
+      clockBox("Driving", rem.drive, rules.drive) +
+      clockBox("Duty", rem.duty, rules.duty) +
+    "</div>";
+    html += '<div class="fuelhead" style="margin-top:10px">' +
+      clockBox("To break", rem.untilBreak, rules.breakAfter) +
+      clockBox("Cycle", rem.cycle, rules.cycle) +
+    "</div>";
+
+    html += '<div class="btnrow">' +
+            '<button class="btn" data-act="hosbreak">Took a ' + Math.round(rules.breakLength / 60) + "-min break</button>" +
+            '<button class="btn" data-act="hosreset">' + Math.round(rules.reset / 3600) + "-hour reset</button>" +
+            "</div>";
+    html += '<div class="btnrow"><button class="btn" data-act="hosedit">Adjust hours already used</button></div>';
+
+    html += renderHosPlan(state, p);
+
+    html += '<p class="tiny faint" style="margin:14px 2px">These are the everyday limits, kept on this ' +
+            "device only. Split sleeper berth, adverse-conditions extensions and short-haul exemptions " +
+            "are not modelled — your log book is the record, not this.</p>";
+    return html;
+  }
+
+  function clockBox(label, remaining, limit) {
+    var pct = limit > 0 ? Math.max(0, Math.min(1, remaining / limit)) : 0;
+    var tone = pct < 0.12 ? "var(--bad)" : (pct < 0.3 ? "var(--warn)" : "var(--ok)");
+    return '<div class="fuelhead__box"><b class="big">' + F.clock(remaining) + "</b>" +
+           "<small>" + esc(label) + " left</small>" +
+           '<div class="progress" style="margin-top:7px"><i style="width:' +
+           Math.round(pct * 100) + "%;background:" + tone + '"></i></div></div>';
+  }
+
+  /* The part that earns the tab: where to stop. */
+  function renderHosPlan(state, p) {
+    var route = state.selected();
+    if (!route) {
+      return '<div class="empty" style="padding-top:20px"><p class="tiny">' +
+             "Plan a route and this will show which truck stop you can reach before the clock stops you.</p></div>";
+    }
+    if (state.poiLoading || !state.pois.length) {
+      return '<div class="sectionhead" style="margin-top:18px"><span>Where to stop</span></div>' +
+             '<div class="card"><span class="spinner"></span> Looking for parking along the route…</div>';
+    }
+
+    var plan = Hos.plan(route, state.pois, { from: state.progressAlong || 0 });
+    if (!plan) return "";
+
+    var html = '<div class="sectionhead" style="margin-top:18px"><span>Where to stop</span></div>';
+
+    if (plan.finishesOnThisShift) {
+      html += '<div class="card"><div class="row"><span class="pill pill--ok">✓</span>' +
+              '<div class="spread" style="margin-left:8px"><b>This trip fits in your remaining hours</b>' +
+              '<div class="tiny muted" style="margin-top:3px">' +
+              F.dist(route.distance - (state.progressAlong || 0), p.imperial) + " to run, " +
+              F.clock(plan.remaining.drive) + " driving left.</div></div></div></div>";
+    } else {
+      html += '<div class="card card--warn"><b>You will run out before you arrive</b>' +
+              '<p class="tiny muted" style="margin:6px 0 0">Your driving time ends around ' +
+              F.dist(plan.stopAt, p.imperial) + " in. Plan a night out.</p></div>";
+    }
+
+    if (plan.breakSeparate) {
+      html += stopCard("30-minute break", plan.breakStop, plan.breakAt, p);
+    }
+    /* No point planning a night stop for a trip that ends before the clock. */
+    if (!plan.finishesOnThisShift) {
+      html += stopCard("End of driving", plan.restStop, plan.stopAt, p);
+    }
+    return html;
+  }
+
+  function stopCard(title, stop, limitAlong, p) {
+    var poi = stop && stop.poi;
+    var html = '<div class="card' + (stop && stop.tight ? " card--warn" : "") +
+               (!poi ? " card--bad" : "") + '">';
+    html +=   '<div class="row row--between"><b>' + esc(title) + "</b>" +
+              '<span class="pill">by ' + F.dist(limitAlong, p.imperial) + "</span></div>";
+
+    if (!poi) {
+      html += '<p class="tiny muted" style="margin:8px 0 0">No suitable stop on the route before ' +
+              "this limit.";
+      if (stop && stop.beyond) {
+        html += " The next one is <b>" + esc(stop.beyond.name) + "</b> at " +
+                F.dist(stop.beyond.along, p.imperial) + " — " +
+                F.dist(stop.beyondBy, p.imperial) + " past your limit.";
+      } else {
+        html += " Widen the search in Settings, or plan to come off the route.";
+      }
+      return html + "</p></div>";
+    }
+    var cat = POI.BY_ID[poi.cat];
+    html += '<div class="row" style="margin-top:9px"><div class="spread">' +
+              "<b>" + cat.icon + " " + esc(poi.name) + "</b>" +
+              '<div class="tiny muted" style="margin-top:3px">' +
+              alongText(poi.along, p.imperial) + " · " +
+              (poi.detour < 120 ? "on the route" : F.dist(poi.detour, p.imperial) + " off route") +
+              " · " + F.dist(stop.slack, p.imperial) + " of slack</div></div></div>";
+    if (poi.facilities.length) {
+      html += '<div class="pills">';
+      poi.facilities.slice(0, 6).forEach(function (f) { html += '<span class="pill">' + esc(f) + "</span>"; });
+      html += "</div>";
+    }
+    if (stop.tight) {
+      html += '<p class="tiny" style="margin:8px 0 0;color:#e3b341">Cutting it fine — the last one ' +
+              "before the limit, with " + F.dist(stop.slack, p.imperial) + " to spare.</p>";
+    } else if (stop.early) {
+      html += '<p class="tiny muted" style="margin:8px 0 0">Well before your limit, but it is the last ' +
+              "suitable stop on the route" +
+              (stop.beyond ? " — the next is " + esc(stop.beyond.name) + " at " +
+               F.dist(stop.beyond.along, p.imperial) + ", past your limit." : ".") + "</p>";
+    }
+    html += '<div class="btnrow" data-poi="' + esc(poi.id) + '">' +
+              '<button class="btn" data-act="show">Show</button>' +
+              '<button class="btn" data-act="via">Route via here</button></div>';
+    return html + "</div>";
+  }
+
+  /* ---------- saved places and recent trips ---------- */
+
+  function renderPlacesPanel() {
+    var savedList = Places.saved();
+    var recent = Places.recents();
+    if (!savedList.length && !recent.length) return "";
+    var html = "";
+    if (savedList.length) {
+      html += '<div class="sectionhead"><span>Saved</span></div><div class="chips" style="flex-wrap:wrap">';
+      savedList.slice(0, 10).forEach(function (s, i) {
+        html += '<button class="chip" data-saved="' + i + '">★ ' + esc(s.name) + "</button>";
+      });
+      html += "</div>";
+    }
+    if (recent.length) {
+      html += '<div class="sectionhead"><span>Recent trips</span></div>';
+      recent.slice(0, 6).forEach(function (t, i) {
+        html += '<button class="card" style="width:100%;text-align:left" data-recent="' + i + '">' +
+                "<b>" + esc(t.to.name) + "</b>" +
+                '<div class="tiny muted" style="margin-top:3px">from ' + esc(t.from.name) +
+                (t.distance ? " · " + F.dist(t.distance, Profile.get().imperial) : "") + "</div></button>";
+      });
+    }
     return html;
   }
 
@@ -661,6 +928,8 @@
     renderWarnings: renderWarnings,
     renderFuel: renderFuel,
     renderStops: renderStops,
+    renderHours: renderHours,
+    renderPlacesPanel: renderPlacesPanel,
     truckModalHTML: truckModalHTML,
     readTruckForm: readTruckForm,
     settingsHTML: settingsHTML,

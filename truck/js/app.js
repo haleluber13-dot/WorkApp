@@ -6,6 +6,7 @@
   var H = global.TW.H, F = global.TW.F, G = global.TW.G, U = global.TW.U;
   var Profile = global.TW.Profile, Services = global.TW.Services;
   var Restrict = global.TW.Restrict, POI = global.TW.POI, Fuel = global.TW.Fuel;
+  var Hos = global.TW.Hos, Weather = global.TW.Weather, Places = global.TW.Places;
   var UI = global.TW.UI, $ = UI.$;
 
   var SETTINGS_KEY = "truckway.settings.v1";
@@ -34,6 +35,13 @@
     truckFuelOnly: true,
     maxDetour: 5000,
     myPosition: null,
+    weather: null,
+    weatherLoading: false,
+    miles: null,
+    milesLoading: false,
+    milesProgress: 0,
+    progressAlong: 0,
+    hosTimer: null,
     selected: function () {
       for (var i = 0; i < this.routes.length; i++) {
         if (this.routes[i].id === this.selectedId) return this.routes[i];
@@ -69,6 +77,8 @@
     Fuel.load();
     wire();
     updateTruckChip();
+    updateHosBadge();
+    startHosTicker();
     locateSilently();
     registerServiceWorker();
   }
@@ -336,8 +346,24 @@
           UI.toast(audit.critical + " restriction" + (audit.critical > 1 ? "s" : "") +
                    " your truck cannot pass — see Warnings.", "bad", 7000);
         }
+        loadWeather();
+        Places.remember(state.from, state.to, best);
         return loadPOIs();
       });
+    });
+  }
+
+  function loadWeather() {
+    var route = state.selected();
+    if (!route) return;
+    state.weatherLoading = true;
+    state.weather = null;
+    render();
+    Weather.forRoute(route, Profile.get()).then(function (wx) {
+      state.weather = wx;
+      state.weatherLoading = false;
+      updateWarnBadge();
+      render();
     });
   }
 
@@ -365,13 +391,36 @@
   function updateWarnBadge() {
     var r = state.selected();
     var badge = $("badgeWarn");
-    if (!r || !r.audit || (!r.audit.critical && !r.audit.tight)) {
+    var wxCritical = 0, wxTight = 0;
+    if (state.weather && state.weather.alerts) {
+      state.weather.alerts.forEach(function (a) {
+        if (a.severity === "critical") wxCritical++; else wxTight++;
+      });
+    }
+    var critical = (r && r.audit ? r.audit.critical : 0) + wxCritical;
+    var tight = (r && r.audit ? r.audit.tight : 0) + wxTight;
+    if (!critical && !tight) {
       badge.hidden = true;
       return;
     }
-    var n = r.audit.critical || r.audit.tight;
-    badge.textContent = n;
-    badge.setAttribute("data-tone", r.audit.critical ? "critical" : "caution");
+    badge.textContent = critical || tight;
+    badge.setAttribute("data-tone", critical ? "critical" : "caution");
+    badge.hidden = false;
+    updateHosBadge();
+  }
+
+  /* The Hours tab flags itself when a clock is close, so the driver does not
+     have to go looking for the bad news. */
+  function updateHosBadge() {
+    var badge = $("badgeHos");
+    if (!badge) return;
+    var b = Hos.binding();
+    if (!b) { badge.hidden = true; return; }
+    if (b.first.seconds > 3600) { badge.hidden = true; return; }
+    /* A tab badge has room for two or three characters, not "48 min". */
+    var mins = Math.round(b.first.seconds / 60);
+    badge.textContent = mins <= 0 ? "0" : mins + "m";
+    badge.setAttribute("data-tone", b.first.seconds < 1800 ? "critical" : "caution");
     badge.hidden = false;
   }
 
@@ -435,6 +484,35 @@
   /* ---------- sheet interactions ---------- */
 
   function onSheetClick(e) {
+    var rulesetBtn = e.target.closest("[data-ruleset]");
+    if (rulesetBtn) {
+      Hos.setRuleset(rulesetBtn.getAttribute("data-ruleset"));
+      updateHosBadge();
+      render();
+      return;
+    }
+
+    var savedBtn = e.target.closest("[data-saved]");
+    if (savedBtn) {
+      var place = Places.saved()[parseInt(savedBtn.getAttribute("data-saved"), 10)];
+      if (place) setEnd("to", place);
+      return;
+    }
+
+    var recentBtn = e.target.closest("[data-recent]");
+    if (recentBtn) {
+      var trip = Places.recents()[parseInt(recentBtn.getAttribute("data-recent"), 10)];
+      if (trip) {
+        state.from = trip.from;
+        state.to = trip.to;
+        $("fromInput").value = trip.from.name;
+        $("toInput").value = trip.to.name;
+        drawStops();
+        planRoute();
+      }
+      return;
+    }
+
     var catBtn = e.target.closest("[data-cat]");
     if (catBtn) {
       var cat = catBtn.getAttribute("data-cat");
@@ -462,6 +540,36 @@
         render();
         return;
       }
+      if (act === "hostoggle") {
+        var live = Hos.live();
+        if (live.running) Hos.pause(); else Hos.start();
+        startHosTicker();
+        render();
+        return;
+      }
+      if (act === "hosbreak") {
+        Hos.rest(Hos.live().rules.breakLength);
+        UI.toast("Break recorded.", "ok");
+        updateHosBadge();
+        render();
+        return;
+      }
+      if (act === "hosreset") {
+        Hos.rest(Hos.live().rules.reset);
+        UI.toast("Reset recorded — clocks cleared.", "ok");
+        updateHosBadge();
+        render();
+        return;
+      }
+      if (act === "hosedit") { openHosEditor(); return; }
+      if (act === "savedest") {
+        if (!state.to) return;
+        var nowSaved = Places.toggleSave(state.to);
+        UI.toast(nowSaved ? "Destination saved." : "Removed from saved.", "ok");
+        render();
+        return;
+      }
+      if (act === "miles") { loadMileage(); return; }
       if (act === "recheck") {
         var again = state.selected();
         if (again) {
@@ -514,6 +622,96 @@
     drawStops();
     UI.toast("Added " + poi.name + " as a stop.", "ok");
     planRoute();
+  }
+
+  /* ---------- per-region mileage ---------- */
+
+  function loadMileage() {
+    var route = state.selected();
+    if (!route || state.milesLoading) return;
+    state.milesLoading = true;
+    state.milesProgress = 0;
+    state.miles = null;
+    render();
+    Places.mileage(route, {
+      onProgress: function (done, total) {
+        state.milesProgress = Math.min(1, done / Math.max(1, total));
+        if (state.tab === "route") render();
+      }
+    }).then(function (res) {
+      state.miles = res;
+      state.milesLoading = false;
+      render();
+    }).catch(function (err) {
+      state.miles = { ok: false, reason: (err && err.message) || "Lookup failed." };
+      state.milesLoading = false;
+      render();
+    });
+  }
+
+  /* ---------- hours of service ---------- */
+
+  /* The displayed clocks are derived from a timestamp, so this only exists to
+     repaint them; it does no accounting of its own. */
+  function startHosTicker() {
+    if (state.hosTimer) clearInterval(state.hosTimer);
+    state.hosTimer = setInterval(function () {
+      updateHosBadge();
+      if (state.tab === "hours") render();
+      if (document.body.getAttribute("data-mode") === "nav") updateNavHos();
+    }, 30000);
+  }
+
+  function updateNavHos() {
+    var wrap = $("navHosWrap");
+    if (!wrap) return;
+    var short = Hos.shortRemaining();
+    if (!short) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    wrap.className = "navbar__stat navbar__stat--hos";
+    wrap.setAttribute("data-tone", short.seconds < 1800 ? "bad" : "");
+    $("navHos").textContent = short.text;
+    $("navHosLabel").textContent = short.label.replace("30-minute ", "");
+  }
+
+  function openHosEditor() {
+    var st = Hos.live();
+    var hours = function (sec) { return (sec / 3600).toFixed(2); };
+    UI.openModal("Hours already used", '<p class="tiny muted" style="margin:0 0 14px">' +
+      "Starting mid-shift? Enter what you have already used today so the planner works from " +
+      "the real numbers.</p>" +
+      '<div class="grid2">' +
+        '<div class="field"><label>Driving (h)</label><input type="number" step="0.25" min="0" ' +
+        'id="hDrive" value="' + hours(st.driveUsed) + '"></div>' +
+        '<div class="field"><label>On duty (h)</label><input type="number" step="0.25" min="0" ' +
+        'id="hDuty" value="' + hours(st.dutyUsed) + '"></div>' +
+      "</div>" +
+      '<div class="grid2">' +
+        '<div class="field"><label>Since last break (h)</label><input type="number" step="0.25" min="0" ' +
+        'id="hBreak" value="' + hours(st.sinceBreak) + '"></div>' +
+        '<div class="field"><label>Cycle used (h)</label><input type="number" step="0.5" min="0" ' +
+        'id="hCycle" value="' + hours(st.cycleUsed) + '"></div>' +
+      "</div>" +
+      '<div class="btnrow"><button class="btn btn--primary" data-act="save">Save</button>' +
+      '<button class="btn btn--danger" data-act="clear">Clear all</button></div>',
+      function (root) {
+        root.querySelector('[data-act="save"]').onclick = function () {
+          var val = function (id) { return parseFloat(root.querySelector(id).value) * 3600; };
+          Hos.setUsed({
+            driveUsed: val("#hDrive"), dutyUsed: val("#hDuty"),
+            sinceBreak: val("#hBreak"), cycleUsed: val("#hCycle")
+          });
+          UI.closeModal();
+          updateHosBadge();
+          render();
+        };
+        root.querySelector('[data-act="clear"]').onclick = function () {
+          Hos.reset();
+          UI.closeModal();
+          updateHosBadge();
+          render();
+        };
+      });
   }
 
   /* ---------- price reporting ---------- */
@@ -755,11 +953,17 @@
     $("navBar").hidden = false;
     map.setFollow(true);
     map.invalidate();
+    /* Rolling means on the clock. Nobody remembers to press start. */
+    if (Hos.live().rules.id !== "off") Hos.start();
+    startHosTicker();
+    updateNavHos();
     nav.start(route, p);
   }
 
   function stopNavigation() {
     nav.stop();
+    if (Hos.live().running) Hos.pause();
+    updateHosBadge();
     document.body.setAttribute("data-mode", "plan");
     $("navBanner").hidden = true;
     $("navBar").hidden = true;
@@ -773,6 +977,7 @@
     var icons = global.TW.MANEUVER_ICON;
 
     if (s.snapped) map.setVehicle(s.snapped, s.heading || 0);
+    state.progressAlong = s.along;
 
     $("navArrow").textContent = s.next ? (icons[s.next.type] || "↑") : "◉";
     $("navDist").textContent = s.toManeuver === null ? "—" : F.near(s.toManeuver, p.imperial);
@@ -791,6 +996,7 @@
     $("navRemain").textContent = F.dist(s.remaining, p.imperial);
     $("navTime").textContent = F.clock(s.eta);
     $("navSpeed").textContent = F.speed(s.speed, p.imperial);
+    updateNavHos();
 
     renderAlert(s, p);
   }
@@ -799,24 +1005,65 @@
      do something about it. */
   function renderAlert(s, p) {
     var strip = $("alertStrip");
-    var next = null;
-    for (var i = 0; i < s.hazards.length; i++) {
-      var h = s.hazards[i];
-      var window = h.flag.severity === "critical" ? 10000 : 2500;
-      if (h.distance <= window) { next = h; break; }
-    }
     if (s.offRoute) {
       strip.hidden = false;
       strip.setAttribute("data-tone", "info");
       strip.innerHTML = '<span class="spinner"></span> Off route — recalculating…';
       return;
     }
+
+    /* A physical restriction outranks a forecast, and both outrank the clock. */
+    var next = null;
+    for (var i = 0; i < s.hazards.length; i++) {
+      var h = s.hazards[i];
+      var reach = h.flag.severity === "critical" ? 10000 : 2500;
+      if (h.distance <= reach) {
+        next = {
+          tone: h.flag.severity,
+          icon: h.flag.severity === "critical" ? "⛔" : "⚠️",
+          text: F.near(h.distance, p.imperial) + " — " + h.flag.text[0]
+        };
+        break;
+      }
+    }
+
+    if (!next) next = weatherAlertAt(s.along, p);
+    if (!next) next = hosAlert();
+
     if (!next) { strip.hidden = true; return; }
     strip.hidden = false;
-    strip.setAttribute("data-tone", next.flag.severity);
-    strip.innerHTML = "<span>" + (next.flag.severity === "critical" ? "⛔" : "⚠️") + "</span>" +
-                      "<span>" + F.near(next.distance, p.imperial) + " — " +
-                      H.escape(next.flag.text[0]) + "</span>";
+    strip.setAttribute("data-tone", next.tone);
+    strip.innerHTML = "<span>" + next.icon + "</span><span>" + H.escape(next.text) + "</span>";
+  }
+
+  function weatherAlertAt(along, p) {
+    var wx = state.weather;
+    if (!wx || !wx.alerts) return null;
+    for (var i = 0; i < wx.alerts.length; i++) {
+      var a = wx.alerts[i];
+      var lead = a.severity === "critical" ? 40000 : 15000;
+      if (along >= a.along - lead && along <= a.endAlong + 5000) {
+        return {
+          tone: a.severity,
+          icon: a.kind === "wind" ? "💨" : (a.kind === "ice" ? "🧊" : "🌧️"),
+          text: a.text
+        };
+      }
+    }
+    return null;
+  }
+
+  /* Told early enough to do something about it — an hour is roughly the last
+     point at which choosing the next truck stop is still a free choice. */
+  function hosAlert() {
+    var b = Hos.binding();
+    if (!b || b.first.seconds > 3600) return null;
+    var mins = Math.round(b.first.seconds / 60);
+    return {
+      tone: b.first.seconds < 1800 ? "critical" : "tight",
+      icon: "⏱",
+      text: mins + " min to your " + b.first.label + " — check the Hours tab for parking ahead."
+    };
   }
 
   var rerouting = false;
@@ -854,6 +1101,7 @@
     if (state.tab === "route") html = UI.renderRoutes(state);
     else if (state.tab === "warnings") html = UI.renderWarnings(state);
     else if (state.tab === "fuel") html = UI.renderFuel(state);
+    else if (state.tab === "hours") html = UI.renderHours(state);
     else html = UI.renderStops(state);
 
     if (html === null) return;   // keep the welcome panel until there is something to show

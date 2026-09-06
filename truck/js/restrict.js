@@ -91,10 +91,13 @@
      overlap and a matching heading before we believe it. */
   function matchToRoute(geom, route) {
     if (!geom.length) return null;
-    var onPoints = [], best = null;
+    var onPoints = [], best = null, closest = Infinity;
     for (var i = 0; i < geom.length; i++) {
       var near = G.nearestOnLine(geom[i], route.line, route.cumulative);
-      if (near.dist <= ON_ROUTE) onPoints.push({ pt: geom[i], near: near });
+      if (near.dist <= ON_ROUTE) {
+        onPoints.push({ pt: geom[i], near: near });
+        if (near.dist < closest) closest = near.dist;
+      }
       if (!best || near.dist < best.dist) best = near;
     }
     if (!onPoints.length) return null;
@@ -120,10 +123,15 @@
       var delta = Math.abs(G.bearingDelta(routeBearing, wayBearing));
       if (delta > 45 && delta < 135) return null;
     }
+    /* Express and local carriageways run parallel a few metres apart and share
+       a heading, so the direction test cannot separate them. Anything sitting
+       further out than a lane's width is reported as "likely" rather than
+       certain, so the driver knows to read the signs at the split. */
+    var confident = overlap >= 25 && closest <= 10;
     return {
       along: onPoints[0].near.along,
       point: onPoints[0].near.point,
-      confidence: overlap >= 25 ? "high" : "medium"
+      confidence: confident ? "high" : "medium"
     };
   }
 

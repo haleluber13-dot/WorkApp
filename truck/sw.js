@@ -1,14 +1,15 @@
 /* Offline app shell. The map tiles and every routing/POI call are live by
    nature, so only the shell and the reference data are cached — a cached route
    would be worse than no route. Bump CACHE when app files change. */
-const CACHE = "truckway-v1";
+const CACHE = "truckway-v2";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest", "./styles.css",
   "./vendor/leaflet.js", "./vendor/leaflet.css",
   "./vendor/images/marker-icon.png", "./vendor/images/marker-icon-2x.png",
   "./vendor/images/marker-shadow.png",
   "./js/util.js", "./js/profile.js", "./js/services.js", "./js/restrict.js",
-  "./js/poi.js", "./js/fuel.js", "./js/nav.js", "./js/map.js", "./js/ui.js", "./js/app.js",
+  "./js/poi.js", "./js/fuel.js", "./js/hos.js", "./js/weather.js",
+  "./js/places.js", "./js/nav.js", "./js/map.js", "./js/ui.js", "./js/app.js",
   "./data/fuel-baselines.json",
   "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png"
 ];

@@ -4,7 +4,8 @@ A navigation app for drivers of big vehicles. It plans a route with a **truck
 profile** (height, width, length, weight, axle load, hazmat), then independently
 **checks every bridge, weight limit, width limit and truck ban along that route**
 against your actual dimensions — and shows you the diesel, truck stops, parking
-and scales on the way, with what's around each one.
+and scales on the way, the weather you'll be driving into, and **which stop you
+can still reach before your hours run out**.
 
 Car navigation will happily send a 13'6" trailer under a 12'10" bridge. This
 won't.
@@ -54,6 +55,12 @@ Each hit is then:
 
 Each finding links to its OSM object so you can check the source yourself.
 
+Findings it is less sure of are marked **likely**. The main cause is parallel
+carriageways: where express and local lanes run a few metres apart and in the
+same direction — the Dan Ryan in Chicago is the classic case — no geometric test
+can tell which one the route is on. It errs toward telling you, because a
+warning you can dismiss at the split beats a fine you can't.
+
 ### On queries being fast enough to be usable
 
 The obvious query — buffer the whole route and ask for anything with a
@@ -102,6 +109,55 @@ the diesel list defaults to **truck-friendly only** and tells you how many
 car-only stations it hid. The filter runs *before* ranking, so the cheapest
 badge, the spread and the plan never point at a station you can't use.
 
+## Hours, and where you're going to park
+
+The clocks are the easy half. The question that actually matters at 7pm is
+*which truck stop can I still reach* — asked early enough that the answer is a
+parking space rather than a shoulder.
+
+Set a rule set (US property-carrying, or EU 561/AETR) and TruckWay keeps the
+driving, duty, break and cycle clocks, starting and stopping automatically with
+navigation. Elapsed time comes from a timestamp rather than a ticker, so the
+numbers stay right across a reload, a backgrounded tab, or a phone that slept
+for four hours. Starting mid-shift, you can enter the hours already used.
+
+Then it plans against the real stops on your route:
+
+- The **binding clock** — whichever of break, driving, duty or cycle stops you
+  first — sets the distance you have left.
+- It picks the **latest stop you can comfortably reach**, not the nearest and
+  not the best-appointed. Stopping 200 miles early for a shower throws away a
+  third of the shift, so the safety margin is a steep preference rather than a
+  hard cut-off: a stop ten minutes tight still beats one two hundred miles back.
+- Where nothing suitable falls before the limit, it says so **and names the next
+  one past it**, with how far past — which is the information you need to decide
+  whether to push or park early.
+- A break that would fall after you must already have parked isn't offered; the
+  two collapse into one stop.
+
+During navigation it warns an hour out, which is roughly the last point at which
+choosing your stop is still a free choice.
+
+These are the everyday limits. Split sleeper berth, adverse-conditions
+extensions and short-haul exemptions aren't modelled, everything stays on the
+device, and your log book is the record — not this.
+
+## Weather you'll actually be driving in
+
+Forecast sampled along the route **at the hour you're predicted to reach each
+point**, not the weather now. Alerts are tuned for a high-sided vehicle:
+
+- **Crosswind gusts** — the thresholds move with your height and weight, because
+  an empty box trailer catches wind a loaded one shrugs off. The high threshold
+  is where agencies start closing roads to high-sided vehicles.
+- **Ice** — freezing precipitation, or near-zero with rain falling.
+- **Snow, fog and heavy rain**, with visibility figures.
+
+Neighbouring samples with the same problem collapse into one alert, so a
+300-mile windy stretch is a single line. Gust warnings also appear in the
+driving alert strip, behind physical restrictions — a low bridge is a fact and a
+forecast is a forecast.
+
 ## Stops
 
 Truck stops, truck parking, rest areas, scales and repair along the route, each
@@ -122,6 +178,21 @@ groceries.
   normal), and automatic re-routing — after which **the new route is checked
   just as thoroughly as the old one**.
 - Screen wake-lock, day/night/plain maps.
+
+## Saved places, recent trips, and the paperwork
+
+Star the yards and docks you go back to; recent trips refill both ends, not just
+the destination.
+
+**Miles by region** gives an IFTA-style per-state (or per-country) split of the
+planned route. No free API will slice a line by administrative boundary, so it
+walks the route with reverse geocoding: a coarse pass to find which
+jurisdictions the route touches, then a bisection on each transition to pin the
+crossing to within about a mile. That's a few dozen requests instead of
+hundreds, paced to stay inside Nominatim's usage policy — which is why it takes
+a minute and sits behind a button rather than running automatically. It's an
+estimate from the planned route, not a record of where the truck went, and it
+says so.
 
 ## Run it
 
@@ -154,6 +225,9 @@ truck/
   js/restrict.js          the restriction audit and route scoring
   js/poi.js               truck stops, parking, scales, "what's nearby"
   js/fuel.js              price model, reports, spread, fill-up planner
+  js/hos.js               hours of service and the where-to-park planner
+  js/weather.js           forecast along the route, crosswind thresholds
+  js/places.js            saved places, recent trips, per-region mileage
   js/nav.js               turn-by-turn, voice, hazard call-outs, off-route
   js/map.js               Leaflet layers, markers, vehicle arrow
   js/ui.js                rendering
@@ -166,11 +240,12 @@ Bump `CACHE` in `sw.js` when app files change.
 ## Credits and limits
 
 Map data © OpenStreetMap contributors. Routing by Valhalla (FOSSGIS),
-OpenRouteService and OSRM. Geocoding by Photon and Nominatim. Tiles from
-OpenStreetMap and CARTO. All are shared community services — please don't point
-heavy automated traffic at them.
+OpenRouteService and OSRM. Geocoding by Photon and Nominatim. Weather by
+Open-Meteo. Tiles from OpenStreetMap and CARTO. All are shared community
+services — please don't point heavy automated traffic at them.
 
 **TruckWay is an aid, not an authority.** It checks what the map knows about
 your route. It cannot know about a temporary restriction, a sign put up last
-week, a load that shifted, or a bridge OSM has never recorded. Drive to the
-signs.
+week, a load that shifted, or a bridge OSM has never recorded. The hours clocks
+are a planning tool, not a log book, and the fuel prices are estimates until you
+report a real one. Drive to the signs.
