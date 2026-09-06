@@ -97,6 +97,16 @@ assets/icons/            app icons
   stream goes dark, open its source page and update the id/URL.
 - When you change app files, bump `CACHE` in `sw.js` so clients pick up the update.
 
+## Other apps in this repo
+
+- **[🚛 TruckWay](truck/)** — `truck/` — truck-legal GPS navigation. Routes with a
+  real truck profile (height, weight, width, axles, hazmat), then independently
+  audits every bridge, weight limit and truck ban along the route against those
+  dimensions. Shows diesel prices, truck stops, parking and scales on the way,
+  the weather at your arrival time, and which stop you can still reach before
+  your hours run out. Live at `/truck/` once Pages is enabled.
+- **🌊 OlaKai** — `olakai/` — live surf cams.
+
 ## Publish a shareable link (GitHub Pages)
 
 This is a static site, so GitHub Pages can host it for free:
