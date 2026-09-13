@@ -1,0 +1,17 @@
+{
+  "name": "Otiyot — the letters of the Torah as music",
+  "short_name": "Otiyot",
+  "description": "Every letter of the Torah turned into a note. Choose how the alphabet maps to the scale, pick a prayer mode, and listen to what comes out.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0d0b08",
+  "theme_color": "#0d0b08",
+  "categories": ["music", "education", "entertainment"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

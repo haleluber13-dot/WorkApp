@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Otiyot">
+  <defs>
+    <radialGradient id="bg" cx="32%" cy="26%">
+      <stop offset="0" stop-color="#332512"/>
+      <stop offset="1" stop-color="#0d0b08"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0cd7d"/>
+      <stop offset="1" stop-color="#b8892f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- staff lines: the letter sits on a stave -->
+  <g stroke="#5a4620" stroke-width="7" stroke-linecap="round" opacity=".55">
+    <path d="M64 168h384M64 224h384M64 288h384M64 344h384"/>
+  </g>
+  <!-- alef -->
+  <g fill="none" stroke="url(#gold)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M150 170 L362 342"/>
+    <path d="M338 162 q-52 22 -66 74"/>
+    <path d="M174 350 q52 -22 66 -74"/>
+  </g>
+  <circle cx="150" cy="170" r="9" fill="#f0cd7d"/>
+  <circle cx="362" cy="342" r="9" fill="#f0cd7d"/>
+</svg>

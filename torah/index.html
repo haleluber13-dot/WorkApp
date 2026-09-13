@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Otiyot — the letters of the Torah as music</title>
+<meta name="description" content="Every letter of the Torah turned into a note. Choose how the alphabet maps to the scale, pick a prayer mode, and listen to what comes out.">
+<meta name="theme-color" content="#0d0b08">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Otiyot">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand__mark" aria-hidden="true">א</span>
+    <div class="brand__text">
+      <b>Otiyot</b>
+      <small>the letters of the Torah, as music</small>
+    </div>
+  </div>
+
+  <div class="picker">
+    <select id="bookSel" aria-label="Book"></select>
+    <select id="chapSel" aria-label="Chapter"></select>
+    <select id="verseSel" aria-label="Verse" hidden></select>
+    <select id="scopeSel" aria-label="How much to play">
+      <option value="verse">this verse</option>
+      <option value="run">8 verses from here</option>
+      <option value="chapter" selected>whole chapter</option>
+      <option value="book">whole book</option>
+      <option value="torah">the whole Torah</option>
+    </select>
+  </div>
+
+  <div class="topbar__right">
+    <span id="scopeStat" class="stat"></span>
+    <button id="btnPanel" class="iconbtn" title="Settings" aria-label="Settings">☰</button>
+  </div>
+</header>
+
+<div id="warn" class="warn" hidden></div>
+
+<main class="stage">
+
+  <!-- ------------------------------------------------ the text, streaming -->
+  <section class="reader" id="readerWrap">
+    <div class="reader__head">
+      <h2 id="readerTitle">בראשית</h2>
+      <div class="reader__meta" id="readerMeta"></div>
+    </div>
+    <div class="reader__body" id="reader" dir="rtl" lang="he"></div>
+    <div class="reader__hint">Letters light up as they sound. Tap any word to jump there.</div>
+  </section>
+
+  <!-- --------------------------------------------------- what it looks like -->
+  <section class="scope">
+    <div class="scope__tabs" role="tablist">
+      <button class="tab on" data-view="roll" role="tab">Piano roll</button>
+      <button class="tab" data-view="spectrum" role="tab">Spectrum</button>
+      <button class="tab" data-view="stats" role="tab">What comes out</button>
+      <button class="tab" data-view="letters" role="tab">The 22 letters</button>
+    </div>
+
+    <div class="scope__body">
+      <canvas id="roll" class="canvas" data-view="roll"></canvas>
+      <canvas id="spectrum" class="canvas" data-view="spectrum" hidden></canvas>
+      <div id="stats" class="pane" data-view="stats" hidden></div>
+      <div id="letters" class="pane" data-view="letters" hidden></div>
+    </div>
+  </section>
+</main>
+
+<!-- --------------------------------------------------------------- transport -->
+<footer class="transport">
+  <button id="btnPlay" class="playbtn" aria-label="Play">▶</button>
+  <div class="seekwrap">
+    <input id="seek" class="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Position">
+    <div class="times"><span id="tNow">0:00</span><span id="tEnd">0:00</span></div>
+  </div>
+  <div class="tempo">
+    <label for="tempo">tempo</label>
+    <input id="tempo" type="range" min="40" max="400" value="132" step="1">
+    <output id="tempoOut">132</output>
+  </div>
+</footer>
+
+<!-- ----------------------------------------------------------------- panel -->
+<aside class="panel" id="panel" hidden>
+  <div class="panel__head">
+    <h2>How the letters become notes</h2>
+    <button id="btnClose" class="iconbtn" aria-label="Close">✕</button>
+  </div>
+
+  <div class="panel__scroll">
+
+    <fieldset class="grp">
+      <legend>Mapping</legend>
+      <div id="mapChoices" class="choices"></div>
+    </fieldset>
+
+    <fieldset class="grp">
+      <legend>Mode</legend>
+      <select id="modeSel"></select>
+      <p class="hint" id="modeHint"></p>
+      <label class="row">
+        <span>Tonic</span>
+        <select id="rootSel"></select>
+      </label>
+      <label class="row check">
+        <input type="checkbox" id="snapChk" checked>
+        <span>Keep the 12 simple letters inside the mode<small>Off: they use all twelve semitones, as the Sefer Yetzirah counts them.</small></span>
+      </label>
+    </fieldset>
+
+    <fieldset class="grp">
+      <legend>Rhythm</legend>
+      <div id="rhythmChoices" class="choices choices--sm"></div>
+    </fieldset>
+
+    <fieldset class="grp">
+      <legend>Layers</legend>
+      <label class="row check"><input type="checkbox" id="bassChk" checked>
+        <span>Bass on every word<small>Rooted in that word's gematria.</small></span></label>
+      <label class="row check"><input type="checkbox" id="padChk" checked>
+        <span>Chord under every verse<small>Built on the verse's opening word.</small></span></label>
+      <label class="row check"><input type="checkbox" id="percChk" checked>
+        <span>A breath between words<small>And a drum at the end of each verse.</small></span></label>
+    </fieldset>
+
+    <fieldset class="grp">
+      <legend>Sound</legend>
+      <label class="row"><span>Volume</span><input type="range" id="vol" min="0" max="100" value="90"></label>
+      <label class="row"><span>Tone</span><input type="range" id="tone" min="0" max="100" value="50"></label>
+      <label class="row"><span>Room</span><input type="range" id="verb" min="0" max="100" value="32"></label>
+    </fieldset>
+
+    <fieldset class="grp">
+      <legend>Take it with you</legend>
+      <div class="btnrow">
+        <button id="btnWav" class="btn">Render to WAV</button>
+        <button id="btnMidi" class="btn">Save as MIDI</button>
+      </div>
+      <p class="hint" id="exportHint">MIDI holds the whole selection, however long. WAV is rendered here in the browser, so keep it under about twenty minutes.</p>
+      <div id="renderBar" class="renderbar" hidden><div id="renderFill"></div></div>
+    </fieldset>
+
+    <details class="about">
+      <summary>What this actually is</summary>
+      <p>The text is the consonantal Torah of the <b>Westminster Leningrad Codex</b> — <span id="aboutCounts"></span>. Every letter you see is turned into a note by one of the mappings above; nothing is composed by hand.</p>
+      <p><b>Sefer Yetzirah</b> follows the oldest Jewish text that divides the alphabet musically: three <i>mothers</i> (א מ ש) as bass pillars, seven <i>doubles</i> (ב ג ד כ פ ר ת) as the seven degrees of the scale, twelve <i>simples</i> as the twelve semitones.</p>
+      <p><b>Gematria</b> reads each letter as a number: units low, tens in the middle, hundreds high. <b>Alphabetical</b> just walks Alef to Tav up the scale.</p>
+      <p><b>Cantillation</b> is different in kind — it ignores the letters and chants the te‘amim, the accent marks that have carried the melody of the reading for a thousand years. The motifs here are a plain approximation of the Ashkenazi Torah trope, enough to hear the shape of a verse. A real reader does far more with them.</p>
+      <p>The modes are the Jewish prayer modes a reading actually lives in. Text from <a href="https://tanach.us" target="_blank" rel="noopener">tanach.us</a>.</p>
+    </details>
+  </div>
+</aside>
+
+<div id="scrim" class="scrim" hidden></div>
+
+<div id="loading" class="loading"><div class="loading__inner"><span>א</span><p id="loadMsg">Opening the scroll…</p></div></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

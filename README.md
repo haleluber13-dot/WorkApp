@@ -105,6 +105,13 @@ assets/icons/            app icons
   dimensions. Shows diesel prices, truck stops, parking and scales on the way,
   the weather at your arrival time, and which stop you can still reach before
   your hours run out. Live at `/truck/` once Pages is enabled.
+- **[א Otiyot](torah/)** — `torah/` — the letters of the Torah played as music.
+  Every letter of all five books becomes a note; four different mappings decide
+  which one (Sefer Yetzirah's three mothers / seven doubles / twelve simples,
+  gematria value, plain alphabetical order, or the cantillation marks), over the
+  Jewish prayer modes. Shows the text lighting up as it sounds, a piano roll, and
+  an analysis of what the letters actually produce. Exports WAV and MIDI. Full
+  text bundled (304,557 letters), works offline. Live at `/torah/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
 
 ## Publish a shareable link (GitHub Pages)

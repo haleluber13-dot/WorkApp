@@ -1,0 +1,60 @@
+{
+  "source": "Westminster Leningrad Codex via tanach.us",
+  "books": [
+    {
+      "id": "genesis",
+      "he": "בראשית",
+      "en": "Genesis",
+      "file": "genesis.json",
+      "chapters": 50,
+      "verses": 1533,
+      "words": 20597,
+      "letters": 77998
+    },
+    {
+      "id": "exodus",
+      "he": "שמות",
+      "en": "Exodus",
+      "file": "exodus.json",
+      "chapters": 40,
+      "verses": 1213,
+      "words": 16701,
+      "letters": 63473
+    },
+    {
+      "id": "leviticus",
+      "he": "ויקרא",
+      "en": "Leviticus",
+      "file": "leviticus.json",
+      "chapters": 27,
+      "verses": 859,
+      "words": 11945,
+      "letters": 44780
+    },
+    {
+      "id": "numbers",
+      "he": "במדבר",
+      "en": "Numbers",
+      "file": "numbers.json",
+      "chapters": 36,
+      "verses": 1289,
+      "words": 16403,
+      "letters": 63504
+    },
+    {
+      "id": "deuteronomy",
+      "he": "דברים",
+      "en": "Deuteronomy",
+      "file": "deuteronomy.json",
+      "chapters": 34,
+      "verses": 959,
+      "words": 14269,
+      "letters": 54802
+    }
+  ],
+  "totals": {
+    "letters": 304557,
+    "words": 79915,
+    "verses": 5853
+  }
+}
