@@ -747,6 +747,7 @@ async function doRender() {
   requestAnimationFrame(frame);
 })();
 
-if ('serviceWorker' in navigator) {
+// Only the standalone site has a service worker; embedded copies skip it.
+if ('serviceWorker' in navigator && window.top === window.self) {
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }

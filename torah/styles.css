@@ -16,6 +16,12 @@
   --bass: #4a7a5c;
   --topbar: 58px;
   --transport: 62px;
+
+  /* Frank Ruhl Libre is a Hebrew serif drawn for setting exactly this kind of
+   * text; Archivo carries the Latin chrome without competing with it. Both
+   * degrade to a real stack if the font host is unreachable. */
+  --font-he: "Frank Ruhl Libre", "Times New Roman", "David", serif;
+  --font-ui: "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -29,7 +35,7 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.5 var(--font-ui);
   overscroll-behavior: none;
 }
 
@@ -139,15 +145,15 @@ button:focus-visible, input:focus-visible {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
 .reader__head h2 {
-  margin: 0; font-size: 19px; font-weight: 600; color: var(--gold);
-  font-family: "Frank Ruhl Libre", "Times New Roman", serif;
+  margin: 0; font-size: 19px; font-weight: 500; color: var(--gold);
+  font-family: var(--font-he);
 }
 .reader__meta { color: var(--faint); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 
 .reader__body {
   overflow-y: auto;
   padding: 14px 18px 22px;
-  font-family: "Frank Ruhl Libre", "Times New Roman", "David", serif;
+  font-family: var(--font-he);
   font-size: clamp(20px, 2.4vw, 27px);
   line-height: 2.05;
   scrollbar-width: thin;
@@ -157,7 +163,7 @@ button:focus-visible, input:focus-visible {
 
 .v__n {
   display: inline-block;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   color: var(--faint);
   border: 1px solid var(--line);
@@ -266,7 +272,7 @@ h3.sec:first-child { margin-top: 0; }
 .lcell.mother { border-left-color: var(--mother); }
 .lcell.double { border-left-color: var(--double); }
 .lcell.simple { border-left-color: var(--simple); }
-.lcell__l { font-family: "Frank Ruhl Libre", serif; font-size: 27px; line-height: 1;
+.lcell__l { font-family: var(--font-he); font-size: 27px; line-height: 1;
   color: var(--ink); }
 .lcell__m { min-width: 0; }
 .lcell__n { font-size: 12px; color: var(--ink); }
@@ -410,7 +416,7 @@ input[type=range]::-moz-range-thumb {
 .loading__inner { text-align: center; }
 .loading__inner span {
   display: block; font-size: 54px; color: var(--gold);
-  font-family: "Frank Ruhl Libre", serif;
+  font-family: var(--font-he);
   animation: breathe 2.4s ease-in-out infinite;
 }
 .loading__inner p { color: var(--faint); font-size: 12.5px; margin-top: 10px; }
