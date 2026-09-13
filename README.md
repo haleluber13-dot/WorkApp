@@ -109,9 +109,12 @@ assets/icons/            app icons
   Every letter of all five books becomes a note; four different mappings decide
   which one (Sefer Yetzirah's three mothers / seven doubles / twelve simples,
   gematria value, plain alphabetical order, or the cantillation marks), over the
-  Jewish prayer modes. Shows the text lighting up as it sounds, a piano roll, and
-  an analysis of what the letters actually produce. Exports WAV and MIDI. Full
-  text bundled (304,557 letters), works offline. Live at `/torah/`.
+  Jewish prayer modes. Twelve musical styles — Goa, Hi-Tech, Psycore, Trap, Boom
+  Bap, Drum & Bass, Techno, Dub and more — each with its own BPM, step grid, drum
+  kit and bass, so the same chapter can run 2.5 minutes or three quarters of an
+  hour. Shows the text lighting up as it sounds, a piano roll, and an analysis of
+  what the letters actually produce. Exports WAV and MIDI. Full text bundled
+  (304,557 letters), works offline. Live at `/torah/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
 
 ## Publish a shareable link (GitHub Pages)

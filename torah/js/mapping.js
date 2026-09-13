@@ -5,6 +5,8 @@
  * or MIDI. Nothing in this file touches the DOM or the Web Audio API.
  */
 
+import { STYLES, BASS_PATTERNS, steps as parseSteps } from './styles.js';
+
 /* ---------------------------------------------------------------- letters */
 
 /* The 22 letters, in alphabetical order, with their gematria values and their
@@ -224,6 +226,12 @@ function letterBeats(letter, rhythm) {
   return 1;
 }
 
+/** How many grid steps a letter takes, for the step-based styles. */
+function letterSteps(letter, rhythm, per) {
+  const mul = rhythm === 'even' ? 1 : letterBeats(letter, rhythm);
+  return Math.max(1, Math.round(per * mul));
+}
+
 /* -------------------------------------------------------------- sequencer */
 
 /**
@@ -235,29 +243,31 @@ function letterBeats(letter, rhythm) {
  *   notes  — {t, dur, midi, vel, voice, letter, wordIndex, letterIndex}
  *   index  — one entry per source letter, pointing at its note (for the reader)
  */
-export function sequence(verses, opt) {
+function sequenceFree(verses, opt) {
   const {
     mapping = 'yetzirah',
     mode = 'ahavaRabbah',
     root = 57,           // A3
-    tempo = 132,         // pulses per minute
+    bpm = 132,           // one letter per beat in the free styles
     rhythm = 'even',
     snapSimples = true,
     bass = true,
     pad = true,
     percussion = true,
+    leadVoice = 'lead',
     verseRest = 1.5,     // beats of silence between verses
     humanize = 0.012,
   } = opt || {};
 
   const steps = (MODES[mode] || MODES.ahavaRabbah).steps;
-  const spb = 60 / tempo;                       // seconds per pulse
+  const spb = 60 / bpm;                         // seconds per pulse
   const notes = [];
   const index = [];
   let t = 0;
 
   const push = n => { notes.push(n); return n; };
-  const jitter = () => (Math.random() - 0.5) * 2 * humanize;
+  // Clamped at zero: the jitter must never schedule a note before the start.
+  const at = time => Math.max(0, time + (Math.random() - 0.5) * 2 * humanize);
 
   for (let vi = 0; vi < verses.length; vi++) {
     const v = verses[vi];
@@ -283,7 +293,7 @@ export function sequence(verses, opt) {
         for (let k = 0; k < degs.length; k++) {
           const midi = degreeToMidi(root, steps, degs[k]);
           push({
-            t: t + jitter(), dur: step * (k === degs.length - 1 ? 1.8 : 1.05),
+            t: at(t), dur: step * (k === degs.length - 1 ? 1.8 : 1.05),
             midi, vel: k === 0 ? 0.9 : 0.72, voice: 'lead',
             letter: word[Math.min(k, word.length - 1)] || word[0],
             word, wordIndex: wi, verseIndex: vi, trope: tr.key,
@@ -314,9 +324,9 @@ export function sequence(verses, opt) {
 
           const dur = beats * spb;
           push({
-            t: t + jitter(), dur: dur * 0.98, midi,
+            t: at(t), dur: dur * 0.98, midi,
             vel: lastLetter ? 0.92 : 0.66 + (info.cls === 'mother' ? 0.16 : 0),
-            voice: 'lead', letter, word, wordIndex: wi, letterIndex: li,
+            voice: leadVoice, lead: true, letter, word, wordIndex: wi, letterIndex: li,
             verseIndex: vi, cls: info.cls,
           });
           index.push({ verseIndex: vi, wordIndex: wi, letterIndex: li,
@@ -360,11 +370,199 @@ export function sequence(verses, opt) {
   return { notes, index, duration };
 }
 
+/* ------------------------------------------------------- the step styles */
+
+/**
+ * The same letters, but locked to a step grid with a kit running underneath.
+ * Everything is counted in steps first and converted to seconds once, so the
+ * drums and the text can never drift apart.
+ */
+function sequenceGrid(verses, opt, style) {
+  const {
+    mapping = 'yetzirah', mode = 'ahavaRabbah', root = 57,
+    bpm = style.bpm, rhythm = 'even', snapSimples = true,
+    bass = true, pad = true, percussion = true,
+  } = opt || {};
+
+  const scale = (MODES[mode] || MODES.ahavaRabbah).steps;
+  const grid = style.grid;
+  const per = style.per;
+  const gate = style.gate ?? 0.8;
+  const swing = style.swing || 0;
+  const barSteps = grid * 4;                       // 4/4
+  const stepSec = 60 / bpm / grid;
+
+  // Swing pushes every other step late. Applied at conversion time so the
+  // step arithmetic above stays in whole numbers.
+  const tOf = s => (s + (s % 2 ? swing : 0)) * stepSec;
+
+  const notes = [];
+  const index = [];
+  const spans = [];                                // one per word, in steps
+  const leadVoice = style.lead.voice;
+  const leadOct = style.lead.oct || 0;
+  let step = 0;
+
+  for (let vi = 0; vi < verses.length; vi++) {
+    const v = verses[vi];
+    const verseFrom = step;
+    const opening = gematria(v.words[0] || '');
+    const verseRoot = root + scale[opening % scale.length] - 12;
+
+    for (let wi = 0; wi < v.words.length; wi++) {
+      const word = v.words[wi];
+      const wordFrom = step;
+      const lastWord = wi === v.words.length - 1;
+
+      if (mapping === 'trope') {
+        const code = v.accents ? v.accents[wi] : '.';
+        const ti = code && code !== '.' ? code.charCodeAt(0) - 48 : -1;
+        const tr = TROPE[ti] || { deg: [0], d: false, key: 'none' };
+        const degs = lastWord ? TROPE[30].deg : tr.deg;
+        index.push({ verseIndex: vi, wordIndex: wi, letterIndex: 0,
+                     t: tOf(step), letter: word[0], trope: tr.key });
+        for (let k = 0; k < degs.length; k++) {
+          notes.push({
+            t: tOf(step), dur: per * stepSec * gate,
+            midi: degreeToMidi(root + 12 * leadOct, scale, degs[k]),
+            vel: k === 0 ? 0.92 : 0.74, voice: leadVoice, lead: true,
+            letter: word[Math.min(k, word.length - 1)] || word[0],
+            word, wordIndex: wi, verseIndex: vi, trope: tr.key,
+          });
+          step += per;
+        }
+      } else {
+        for (let li = 0; li < word.length; li++) {
+          const letter = word[li];
+          const info = LETTER_INFO.get(letter);
+          if (!info) continue;
+
+          const m = mapping === 'gematria' ? degreeGematria(letter)
+                  : mapping === 'ordinal' ? degreeOrdinal(letter)
+                  : degreeYetzirah(letter, snapSimples);
+          if (!m) continue;
+
+          const octave = m.octave + leadOct;
+          const midi = m.degree === null
+            ? root + 12 * octave + m.semitone
+            : degreeToMidi(root + 12 * octave, scale, m.degree);
+
+          const lastLetter = li === word.length - 1;
+          // The last letter of a word gets an extra step — the same breath the
+          // free styles take, rounded onto the grid.
+          const n = letterSteps(letter, rhythm, per) + (lastLetter ? 1 : 0);
+
+          notes.push({
+            t: tOf(step), dur: Math.max(0.03, n * stepSec * gate), midi,
+            vel: lastLetter ? 0.95 : 0.72 + (info.cls === 'mother' ? 0.14 : 0),
+            voice: leadVoice, lead: true, letter, word, wordIndex: wi, letterIndex: li,
+            verseIndex: vi, cls: info.cls,
+          });
+          index.push({ verseIndex: vi, wordIndex: wi, letterIndex: li,
+                       t: tOf(step), letter, midi });
+          step += n;
+        }
+      }
+
+      spans.push({ from: wordFrom, to: Math.max(step, wordFrom + 1),
+                   g: gematria(word), verseRoot, verseIndex: vi, wordIndex: wi });
+    }
+
+    // Let each verse finish on a bar line, then leave the groove running for
+    // a bar so the text has somewhere to breathe.
+    step = Math.ceil(step / barSteps) * barSteps + (style.barGap || 0) * barSteps;
+
+    if (pad && step > verseFrom) {
+      for (const d of [0, 3, 4]) {
+        notes.push({
+          t: tOf(verseFrom), dur: (step - verseFrom) * stepSec,
+          midi: degreeToMidi(verseRoot, scale, d), vel: 0.13,
+          voice: 'pad', verseIndex: vi,
+        });
+      }
+    }
+  }
+
+  const totalSteps = Math.max(step, barSteps);
+
+  /* ---- bass: follows the word, in the shape the style asks for ---- */
+  if (bass && style.bass !== 'none') {
+    const pat = BASS_PATTERNS[style.bass];
+    for (const sp of spans) {
+      const midi = degreeToMidi(sp.verseRoot - 12, scale, sp.g % scale.length);
+      if (style.bass === 'sub') {
+        notes.push({
+          t: tOf(sp.from), dur: (sp.to - sp.from) * stepSec * 0.95, midi,
+          vel: 0.85, voice: 'subbass', glide: true, verseIndex: sp.verseIndex,
+        });
+      } else if (style.bass === 'sustain') {
+        notes.push({
+          t: tOf(sp.from), dur: (sp.to - sp.from) * stepSec, midi,
+          vel: 0.5, voice: 'bass', verseIndex: sp.verseIndex,
+        });
+      } else if (pat) {
+        // Roll and walk are step patterns, read against the bar.
+        const cells = parseSteps(pat);
+        const cellSteps = Math.max(1, Math.round(cells.length / 16 * barSteps));
+        for (let s = sp.from; s < sp.to; s++) {
+          const vel = cells[Math.floor((s % cellSteps) / cellSteps * cells.length)];
+          if (!vel) continue;
+          notes.push({
+            t: tOf(s), dur: stepSec * (style.bass === 'walk' ? 3.4 : 0.85), midi,
+            vel, voice: style.bass === 'walk' ? 'bass' : 'rollbass',
+            verseIndex: sp.verseIndex,
+          });
+        }
+      }
+    }
+  }
+
+  /* ---- the kit: one continuous groove under the whole piece ---- */
+  if (percussion && style.kit) {
+    for (const part of Object.values(style.kit)) {
+      const cells = parseSteps(part.p);
+      if (!cells.length) continue;
+      // Patterns are written in sixteenths; stretch them if the grid differs.
+      const scaleUp = barSteps / 16;
+      const len = Math.max(1, Math.round(cells.length * scaleUp));
+      for (let s = 0; s < totalSteps; s++) {
+        const idx = Math.floor(((s % len) / len) * cells.length);
+        const vel = cells[idx];
+        if (!vel) continue;
+        notes.push({ t: tOf(s), dur: stepSec, midi: 0, vel, voice: part.voice, drum: true });
+      }
+    }
+  }
+
+  notes.sort((a, b) => a.t - b.t);
+  const duration = notes.reduce((mx, n) => Math.max(mx, n.t + n.dur), 0);
+  return { notes, index, duration, fx: style.fx, bpm, style: style.name };
+}
+
+/**
+ * Turn verses into a flat, time-stamped score, in whichever style is asked for.
+ *
+ * @param {Array<{book,chapter,verse,words:string[],accents:string}>} verses
+ * @param {object} opt
+ * @returns {{notes:Array, duration:number, index:Array, fx:object, bpm:number}}
+ */
+export function sequence(verses, opt = {}) {
+  const style = STYLES[opt.style] || STYLES.scroll;
+  const bpm = opt.bpm || style.bpm;
+  const score = style.free
+    ? sequenceFree(verses, { ...opt, bpm, leadVoice: style.lead.voice })
+    : sequenceGrid(verses, { ...opt, bpm }, style);
+  score.fx = style.fx;
+  score.bpm = bpm;
+  score.styleName = style.name;
+  return score;
+}
+
 /* --------------------------------------------------------------- analysis */
 
 /** What actually came out: pitch-class census, intervals, range, letter counts. */
 export function analyse(score) {
-  const lead = score.notes.filter(n => n.voice === 'lead');
+  const lead = score.notes.filter(n => n.lead);
   const pitchClass = new Array(12).fill(0);
   const letters = new Map();
   const intervals = new Map();

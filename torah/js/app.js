@@ -5,6 +5,7 @@ import {
   LETTERS, LETTER_INFO, MODES, MAPPINGS, RHYTHMS, TROPE,
   sequence, analyse, letterMidi, midiToName, gematria, degreeToMidi,
 } from './mapping.js';
+import { STYLES, STYLE_LIST, bpmRange } from './styles.js';
 import { Transport, render } from './audio.js';
 import { toWav, toMidi, download } from './export.js';
 
@@ -28,7 +29,8 @@ const state = {
   view: 'roll',
   sel: { scope: 'chapter', bookId: 'genesis', chapter: 1, verse: 1, count: 8 },
   opt: {
-    mapping: 'yetzirah', mode: 'ahavaRabbah', root: 57, tempo: 132,
+    style: 'scroll',
+    mapping: 'yetzirah', mode: 'ahavaRabbah', root: 57, bpm: 132,
     rhythm: 'even', snapSimples: true, bass: true, pad: true, percussion: true,
   },
 };
@@ -46,11 +48,13 @@ async function boot() {
     return;
   }
 
+  buildStyleSel();
   buildBookSel();
   buildModeSel();
   buildRootSel();
   buildChoices();
   await buildChapSel();
+  syncBpm();
   wire();
 
   const t = state.manifest.totals;
@@ -61,6 +65,44 @@ async function boot() {
 
   $('loading').classList.add('gone');
   setTimeout(() => $('loading').remove(), 500);
+}
+
+function buildStyleSel() {
+  $('styleSel').innerHTML = STYLE_LIST
+    .map(x => `<option value="${x.id}">${x.name}</option>`).join('');
+  $('styleSel').value = state.opt.style;
+  buildStyleChoices();
+}
+
+function buildStyleChoices() {
+  $('styleChoices').innerHTML = STYLE_LIST.map(x => `
+    <button class="choice${x.id === state.opt.style ? ' on' : ''}" data-style="${x.id}">
+      <b>${x.name}</b><small>${x.blurb}</small>
+    </button>`).join('');
+  const st = STYLES[state.opt.style];
+  $('styleHint').textContent = st.free
+    ? 'No drums — the letters set their own pace.'
+    : `Letters land on ${st.grid === 4 ? 'sixteenths' : st.grid === 2 ? 'eighths' : 'the beat'}, ` +
+      `${st.per} step${st.per === 1 ? '' : 's'} each.`;
+  // The layer switches mean different things once a kit is running.
+  $('percLabel').innerHTML = st.kit
+    ? `Drums<small>Kick, snare, hats and percussion.</small>`
+    : `A breath between words<small>And a drum at the end of each verse.</small>`;
+  $('bassLabel').innerHTML = st.free || st.bass === 'sustain'
+    ? `Bass on every word<small>Rooted in that word's gematria.</small>`
+    : st.bass === 'sub'
+      ? `808 sub<small>One gliding note per word, from its gematria.</small>`
+      : `Rolling bass<small>Offbeat sixteenths on each word's root.</small>`;
+}
+
+/** Point the BPM controls at the range this style actually lives in. */
+function syncBpm() {
+  const r = bpmRange(state.opt.style);
+  const bpm = Math.min(r.max, Math.max(r.min, state.opt.bpm));
+  state.opt.bpm = bpm;
+  const slider = $('bpm'), num = $('bpmNum');
+  slider.min = r.min; slider.max = r.max; slider.value = bpm;
+  num.value = bpm;
 }
 
 function buildBookSel() {
@@ -184,8 +226,9 @@ function updateScopeStat() {
   const v = state.verses.length;
   const w = data.countWords(state.verses);
   const l = data.countLetters(state.verses);
+  const lpm = state.score.duration > 0 ? Math.round(l / (state.score.duration / 60)) : 0;
   $('scopeStat').textContent =
-    `${l.toLocaleString()} letters · ${w.toLocaleString()} words · ${clock(state.score.duration)}`;
+    `${l.toLocaleString()} letters · ${state.opt.bpm} BPM · ${lpm.toLocaleString()} letters/min · ${clock(state.score.duration)}`;
   $('readerMeta').textContent = `${v.toLocaleString()} verse${v === 1 ? '' : 's'}`;
   const first = state.verses[0];
   $('readerTitle').textContent = first
@@ -300,6 +343,22 @@ function fit(canvas) {
 }
 
 const CLS_COLOR = { mother: '#e0b354', double: '#6fb2c8', simple: '#b58ad6' };
+const BASS_VOICES = new Set(['bass', 'subbass', 'rollbass']);
+
+/* Four lanes at the foot of the roll, kick nearest the bottom. */
+const DRUM_LANE = {
+  kick_psy: 0, kick_808: 0, kick_punch: 0, kick_soft: 0, kick_dist: 0, tav: 0,
+  snare: 1, clap: 1,
+  hat: 2, ohat: 2,
+  perc: 3, tick: 3,
+};
+const DRUM_COLOR = {
+  kick_psy: '#e08a4a', kick_808: '#e08a4a', kick_punch: '#e08a4a',
+  kick_soft: '#e08a4a', kick_dist: '#ef6a3a', tav: '#e0b354',
+  snare: '#d0c0a0', clap: '#d0c0a0',
+  hat: '#8fa8b8', ohat: '#a9c4d4',
+  perc: '#7d7360', tick: '#7d7360',
+};
 const WINDOW_SEC = 9;
 
 function drawRoll(now) {
@@ -329,6 +388,7 @@ function drawRoll(now) {
   }
 
   let i = lowerBound(notes, t0 - 6);
+  // (drum notes carry midi 0 and are drawn in their own lanes, below)
   for (; i < notes.length; i++) {
     const n = notes[i];
     if (n.t > t1) break;
@@ -341,12 +401,17 @@ function drawRoll(now) {
     if (n.voice === 'pad') {
       g.fillStyle = active ? 'rgba(74,122,92,.22)' : 'rgba(74,122,92,.12)';
       g.fillRect(nx, y(n.midi) - 3, nw, 6);
-    } else if (n.voice === 'bass') {
+    } else if (BASS_VOICES.has(n.voice)) {
       g.fillStyle = active ? '#6fae86' : '#3c6b50';
       round(g, nx, y(n.midi) - 3, nw, 6, 3);
-    } else if (n.voice === 'tick' || n.voice === 'tav') {
-      g.fillStyle = n.voice === 'tav' ? 'rgba(224,179,84,.35)' : 'rgba(120,110,90,.22)';
-      g.fillRect(nx, h - 8, Math.max(1.5, nw), 5);
+    } else if (n.drum || n.voice === 'tick' || n.voice === 'tav') {
+      // Drums get their own lanes along the bottom, loudest at the back.
+      const lane = DRUM_LANE[n.voice] ?? 3;
+      const ly = h - 6 - lane * 5;
+      g.fillStyle = DRUM_COLOR[n.voice] || 'rgba(120,110,90,.3)';
+      g.globalAlpha = active ? 1 : 0.55;
+      g.fillRect(nx, ly, Math.max(2, Math.min(nw, 7)), 4);
+      g.globalAlpha = 1;
     } else {
       const c = CLS_COLOR[n.cls] || '#e0b354';
       g.fillStyle = c;
@@ -455,6 +520,7 @@ function renderStats() {
       <div class="card"><b>${s.count.toLocaleString()}</b><span>melody notes</span></div>
       <div class="card"><b>${s.total.toLocaleString()}</b><span>notes in all</span></div>
       <div class="card"><b>${clock(state.score.duration)}</b><span>playing time</span></div>
+      <div class="card"><b>${state.opt.bpm}</b><span>BPM · ${state.score.styleName}</span></div>
       <div class="card"><b>${s.low != null ? midiToName(s.low) : '—'}–${s.high != null ? midiToName(s.high) : '—'}</b><span>range</span></div>
       <div class="card"><b>${(s.unisonShare * 100).toFixed(0)}%</b><span>repeated notes</span></div>
     </div>
@@ -592,14 +658,6 @@ function wire() {
     }
   });
 
-  $('tempo').addEventListener('input', e => {
-    $('tempoOut').textContent = e.target.value;
-  });
-  $('tempo').addEventListener('change', e => {
-    state.opt.tempo = +e.target.value;
-    rebuild();
-  });
-
   $('reader').addEventListener('click', e => {
     const w = e.target.closest('.w');
     if (!w) return;
@@ -622,6 +680,33 @@ function wire() {
       }
     });
   }
+
+  const setStyle = id => {
+    if (!STYLES[id] || id === state.opt.style) return;
+    state.opt.style = id;
+    state.opt.bpm = STYLES[id].bpm;      // each style arrives at its own tempo
+    $('styleSel').value = id;
+    buildStyleChoices();
+    syncBpm();
+    rebuild();
+  };
+
+  $('styleSel').addEventListener('change', e => setStyle(e.target.value));
+  $('styleChoices').addEventListener('click', e => {
+    const b = e.target.closest('[data-style]');
+    if (b) setStyle(b.dataset.style);
+  });
+
+  const setBpm = v => {
+    const r = bpmRange(state.opt.style);
+    const bpm = Math.min(r.max, Math.max(r.min, Math.round(v) || state.opt.bpm));
+    state.opt.bpm = bpm;
+    $('bpm').value = bpm;
+    $('bpmNum').value = bpm;
+  };
+  $('bpm').addEventListener('input', e => setBpm(+e.target.value));
+  $('bpm').addEventListener('change', () => rebuild());
+  $('bpmNum').addEventListener('change', e => { setBpm(+e.target.value); rebuild(); });
 
   $('mapChoices').addEventListener('click', e => {
     const b = e.target.closest('[data-map]');

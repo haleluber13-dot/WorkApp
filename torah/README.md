@@ -32,6 +32,41 @@ gets to it. The motifs here are a plain approximation of the Ashkenazi trope,
 enough to hear how the accents punctuate a verse. A real reader does far more
 with them.
 
+## The styles
+
+The mapping decides which note a letter gets. The **style** decides what kind of
+record it becomes — the tempo, the grid the letters land on, the drums
+underneath, what the bass does and what the melody is played on. The letters
+never change; only the clothes they arrive in.
+
+| Style | BPM | The idea |
+|---|---:|---|
+| Ambient Scroll | 132 | The plain reading. One letter per beat, no drums. |
+| Drone | 42 | Each letter held until it blurs into the next. |
+| Goa Trance | 145 | 16th-note acid leads, rolling offbeat bass, 3/16 delay. |
+| Full-On Psy | 142 | Bright and busy over a rolling bass. |
+| Hi-Tech | 195 | Frantic 16ths and glitching percussion. |
+| Psycore | 232 | Distorted kick, screaming lead, no room left. |
+| Drum & Bass | 174 | Half-time breakbeat with a sub underneath. |
+| Trap | 142 | Half-time snare, gliding 808, hats that stutter into rolls. |
+| Boom Bap | 90 | Swung and dusty — the letters as the sample you rap over. |
+| Techno | 132 | Four to the floor, offbeat open hat. |
+| Dub | 74 | Slow, deep, mostly echo. |
+| Downtempo | 86 | Unhurried and warm, for reading along to. |
+
+Every style has its own **BPM**, which you can override from the transport bar;
+the slider stays inside the range that genre actually lives in, and the header
+shows the letters-per-minute the setting works out to. That number is the real
+measure of how fast you are reading: Drone gets through 36 letters a minute,
+Psycore 664.
+
+Because tempo and grid change but the text does not, the same chapter can run
+2.5 minutes or three quarters of an hour depending on what you pick.
+
+The drum patterns are ordinary genre conventions — a four-to-the-floor kick, a
+backbeat snare, an offbeat psytrance bass — written as step strings in
+`js/styles.js`, so adding a style is a matter of adding one object.
+
 ## The modes
 
 The scale you hear is one of the Jewish prayer modes a Torah reading actually
@@ -65,7 +100,7 @@ Some numbers, for the whole Torah at the default tempo:
 | Words | 79,915 |
 | Verses | 5,853 |
 | Notes generated | ~482,000 |
-| Playing time | about **45 hours** |
+| Playing time | about **45 hours** in Ambient Scroll, **4** at Psycore |
 
 ## Run it
 
@@ -82,9 +117,9 @@ caches everything and it runs offline. Installable as a PWA.
 
 ## Export
 
-**MIDI** holds the whole selection however long it is, in four tracks (letters,
-words, verses, breaths) — open it in any notation program to see what the
-letters spell on a stave. **WAV** is rendered in the browser, so it's capped at
+**MIDI** holds the whole selection however long it is, in four tracks — Letters,
+Bass, Pads and Drums, with the kit on channel 10 at standard General MIDI keys —
+so it opens straight into any DAW or notation program. **WAV** is rendered in the browser, so it's capped at
 a few minutes of audio; pick a shorter selection for that.
 
 ## The text

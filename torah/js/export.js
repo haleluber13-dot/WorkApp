@@ -66,12 +66,37 @@ function chunk(id, bytes) {
   return head.concat(bytes);
 }
 
-/* General MIDI voices, chosen to sound close to the in-app synth. */
+/* General MIDI programs, chosen to land near each in-app synth voice. */
+const PROGRAM = {
+  lead: 46,      // orchestral harp
+  pluck: 46,
+  acid: 87,      // lead 8 (bass + lead)
+  saw: 81,       // lead 2 (sawtooth)
+  bell: 14,      // tubular bells
+  rhodes: 4,     // electric piano 1
+  stab: 62,      // synth brass 1
+  bass: 32,      // acoustic bass
+  subbass: 38,   // synth bass 1
+  rollbass: 38,
+  pad: 89,       // warm pad
+};
+
+/* Percussion voices land on channel 10 at their standard GM key. */
+const DRUM_KEY = {
+  kick_psy: 36, kick_808: 36, kick_punch: 36, kick_soft: 36, kick_dist: 35,
+  snare: 38, clap: 39, hat: 42, ohat: 46, perc: 76,
+  tick: 37, tav: 35,
+};
+
+const BASS_VOICES = new Set(['bass', 'subbass', 'rollbass']);
+
+/* Four tracks, split by role rather than by synth voice — the lead voice
+ * changes with the style, but it is always "the letters". */
 const TRACKS = [
-  { voice: 'lead', name: 'Letters',   ch: 0, program: 46 },  // orchestral harp
-  { voice: 'bass', name: 'Words',     ch: 1, program: 32 },  // acoustic bass
-  { voice: 'pad',  name: 'Verses',    ch: 2, program: 89 },  // warm pad
-  { voice: 'perc', name: 'Breaths',   ch: 9, program: null },
+  { name: 'Letters', ch: 0, pick: n => n.lead || n.voice === 'lead' },
+  { name: 'Bass',    ch: 1, pick: n => BASS_VOICES.has(n.voice) },
+  { name: 'Pads',    ch: 2, pick: n => n.voice === 'pad' },
+  { name: 'Drums',   ch: 9, pick: n => DRUM_KEY[n.voice] !== undefined, drums: true },
 ];
 
 /** Build a Standard MIDI File (format 1) from a score. */
@@ -90,20 +115,22 @@ export function toMidi(score, meta = {}) {
   const tracks = [chunk('MTrk', t0)];
 
   for (const spec of TRACKS) {
-    const notes = score.notes.filter(n =>
-      spec.voice === 'perc' ? (n.voice === 'tick' || n.voice === 'tav') : n.voice === spec.voice);
+    const notes = score.notes.filter(spec.pick);
 
     const bytes = [];
     bytes.push(...vlq(0), 0xff, 0x03, spec.name.length,
                ...[...spec.name].map(c => c.charCodeAt(0)));
-    if (spec.program !== null) bytes.push(...vlq(0), 0xc0 | spec.ch, spec.program);
+    // One program per track, taken from whichever synth voice it actually used.
+    if (!spec.drums && notes.length) {
+      const program = PROGRAM[notes[0].voice] ?? 46;
+      bytes.push(...vlq(0), 0xc0 | spec.ch, program);
+    }
 
     // Flatten to on/off events, then sort by tick.
     const events = [];
     for (const n of notes) {
-      const isPerc = spec.voice === 'perc';
-      const key = isPerc ? (n.voice === 'tav' ? 35 : 37)
-                         : Math.max(0, Math.min(127, Math.round(n.midi)));
+      const key = spec.drums ? (DRUM_KEY[n.voice] ?? 37)
+                             : Math.max(0, Math.min(127, Math.round(n.midi)));
       const vel = Math.max(1, Math.min(127, Math.round((n.vel ?? 0.7) * 110)));
       const on = Math.round(n.t * TICKS_PER_SEC);
       const off = Math.max(on + 1, Math.round((n.t + Math.max(n.dur, 0.05)) * TICKS_PER_SEC));

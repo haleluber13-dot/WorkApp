@@ -28,6 +28,7 @@
   </div>
 
   <div class="picker">
+    <select id="styleSel" class="picker__style" aria-label="Musical style"></select>
     <select id="bookSel" aria-label="Book"></select>
     <select id="chapSel" aria-label="Chapter"></select>
     <select id="verseSel" aria-label="Verse" hidden></select>
@@ -86,9 +87,9 @@
     <div class="times"><span id="tNow">0:00</span><span id="tEnd">0:00</span></div>
   </div>
   <div class="tempo">
-    <label for="tempo">tempo</label>
-    <input id="tempo" type="range" min="40" max="400" value="132" step="1">
-    <output id="tempoOut">132</output>
+    <label for="bpm">BPM</label>
+    <input id="bpm" type="range" min="40" max="300" value="132" step="1">
+    <input id="bpmNum" type="number" min="20" max="400" value="132" step="1" aria-label="Beats per minute">
   </div>
 </footer>
 
@@ -100,6 +101,12 @@
   </div>
 
   <div class="panel__scroll">
+
+    <fieldset class="grp">
+      <legend>Style</legend>
+      <div id="styleChoices" class="choices"></div>
+      <p class="hint" id="styleHint"></p>
+    </fieldset>
 
     <fieldset class="grp">
       <legend>Mapping</legend>
@@ -128,11 +135,11 @@
     <fieldset class="grp">
       <legend>Layers</legend>
       <label class="row check"><input type="checkbox" id="bassChk" checked>
-        <span>Bass on every word<small>Rooted in that word's gematria.</small></span></label>
+        <span id="bassLabel">Bass on every word<small>Rooted in that word's gematria.</small></span></label>
       <label class="row check"><input type="checkbox" id="padChk" checked>
         <span>Chord under every verse<small>Built on the verse's opening word.</small></span></label>
       <label class="row check"><input type="checkbox" id="percChk" checked>
-        <span>A breath between words<small>And a drum at the end of each verse.</small></span></label>
+        <span id="percLabel">A breath between words<small>And a drum at the end of each verse.</small></span></label>
     </fieldset>
 
     <fieldset class="grp">
