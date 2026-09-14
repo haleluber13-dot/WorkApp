@@ -396,11 +396,24 @@ function sequenceGrid(verses, opt, style) {
   // step arithmetic above stays in whole numbers.
   const tOf = s => (s + (s % 2 ? swing : 0)) * stepSec;
 
+  const mix = opt.mix || {};
+  const soloed = Object.keys(mix).filter(k => mix[k]?.solo);
+  /** Level for one track, after mute and solo. 0 means do not emit at all. */
+  const level = key => {
+    const m = mix[key];
+    if (soloed.length && !mix[key]?.solo) return 0;
+    if (m?.mute) return 0;
+    return m?.gain ?? 1;
+  };
+
   const notes = [];
   const index = [];
   const spans = [];                                // one per word, in steps
   const leadVoice = style.lead.voice;
   const leadOct = style.lead.oct || 0;
+  const leadLevel = level('lead');
+  const bassLevel = level('bass');
+  const padLevel = level('pad');
   let step = 0;
 
   for (let vi = 0; vi < verses.length; vi++) {
@@ -425,7 +438,7 @@ function sequenceGrid(verses, opt, style) {
           notes.push({
             t: tOf(step), dur: per * stepSec * gate,
             midi: degreeToMidi(root + 12 * leadOct, scale, degs[k]),
-            vel: k === 0 ? 0.92 : 0.74, voice: leadVoice, lead: true,
+            vel: (k === 0 ? 0.92 : 0.74) * leadLevel, voice: leadVoice, lead: true,
             letter: word[Math.min(k, word.length - 1)] || word[0],
             word, wordIndex: wi, verseIndex: vi, trope: tr.key,
           });
@@ -454,7 +467,7 @@ function sequenceGrid(verses, opt, style) {
 
           notes.push({
             t: tOf(step), dur: Math.max(0.03, n * stepSec * gate), midi,
-            vel: lastLetter ? 0.95 : 0.72 + (info.cls === 'mother' ? 0.14 : 0),
+            vel: (lastLetter ? 0.95 : 0.72 + (info.cls === 'mother' ? 0.14 : 0)) * leadLevel,
             voice: leadVoice, lead: true, letter, word, wordIndex: wi, letterIndex: li,
             verseIndex: vi, cls: info.cls,
           });
@@ -472,11 +485,11 @@ function sequenceGrid(verses, opt, style) {
     // a bar so the text has somewhere to breathe.
     step = Math.ceil(step / barSteps) * barSteps + (style.barGap || 0) * barSteps;
 
-    if (pad && step > verseFrom) {
+    if (pad && padLevel > 0 && step > verseFrom) {
       for (const d of [0, 3, 4]) {
         notes.push({
           t: tOf(verseFrom), dur: (step - verseFrom) * stepSec,
-          midi: degreeToMidi(verseRoot, scale, d), vel: 0.13,
+          midi: degreeToMidi(verseRoot, scale, d), vel: 0.13 * padLevel,
           voice: 'pad', verseIndex: vi,
         });
       }
@@ -486,19 +499,19 @@ function sequenceGrid(verses, opt, style) {
   const totalSteps = Math.max(step, barSteps);
 
   /* ---- bass: follows the word, in the shape the style asks for ---- */
-  if (bass && style.bass !== 'none') {
+  if (bass && bassLevel > 0 && style.bass !== 'none') {
     const pat = BASS_PATTERNS[style.bass];
     for (const sp of spans) {
       const midi = degreeToMidi(sp.verseRoot - 12, scale, sp.g % scale.length);
       if (style.bass === 'sub') {
         notes.push({
           t: tOf(sp.from), dur: (sp.to - sp.from) * stepSec * 0.95, midi,
-          vel: 0.85, voice: 'subbass', glide: true, verseIndex: sp.verseIndex,
+          vel: 0.85 * bassLevel, voice: 'subbass', glide: true, verseIndex: sp.verseIndex,
         });
       } else if (style.bass === 'sustain') {
         notes.push({
           t: tOf(sp.from), dur: (sp.to - sp.from) * stepSec, midi,
-          vel: 0.5, voice: 'bass', verseIndex: sp.verseIndex,
+          vel: 0.5 * bassLevel, voice: 'bass', verseIndex: sp.verseIndex,
         });
       } else if (pat) {
         // Roll and walk are step patterns, read against the bar.
@@ -509,7 +522,7 @@ function sequenceGrid(verses, opt, style) {
           if (!vel) continue;
           notes.push({
             t: tOf(s), dur: stepSec * (style.bass === 'walk' ? 3.4 : 0.85), midi,
-            vel, voice: style.bass === 'walk' ? 'bass' : 'rollbass',
+            vel: vel * bassLevel, voice: style.bass === 'walk' ? 'bass' : 'rollbass',
             verseIndex: sp.verseIndex,
           });
         }
@@ -519,9 +532,13 @@ function sequenceGrid(verses, opt, style) {
 
   /* ---- the kit: one continuous groove under the whole piece ---- */
   if (percussion && style.kit) {
-    for (const part of Object.values(style.kit)) {
-      const cells = parseSteps(part.p);
+    const edits = opt.patterns || {};
+    for (const [key, part] of Object.entries(style.kit)) {
+      const lvl = level(key);
+      if (lvl <= 0) continue;
+      const cells = parseSteps(edits[key] ?? part.p);
       if (!cells.length) continue;
+      const isKick = part.voice.startsWith('kick');
       // Patterns are written in sixteenths; stretch them if the grid differs.
       const scaleUp = barSteps / 16;
       const len = Math.max(1, Math.round(cells.length * scaleUp));
@@ -529,14 +546,42 @@ function sequenceGrid(verses, opt, style) {
         const idx = Math.floor(((s % len) / len) * cells.length);
         const vel = cells[idx];
         if (!vel) continue;
-        notes.push({ t: tOf(s), dur: stepSec, midi: 0, vel, voice: part.voice, drum: true });
+        notes.push({ t: tOf(s), dur: stepSec, midi: 0, vel: vel * lvl,
+                     voice: part.voice, drum: true, track: key, kick: isKick });
       }
+    }
+  }
+
+  /* ---- pads: the clips you recorded or dropped in ---- */
+  for (const padDef of (opt.pads || [])) {
+    if (!padDef.on || !padDef.sampleId) continue;
+    const lvl = level(padDef.id);
+    if (lvl <= 0) continue;
+    const cells = parseSteps(padDef.pattern);
+    if (!cells.length || !cells.some(Boolean)) continue;
+    const len = Math.max(1, Math.round(cells.length * (barSteps / 16)));
+    let prev = null;
+    for (let st = 0; st < totalSteps; st++) {
+      const vel = cells[Math.floor(((st % len) / len) * cells.length)];
+      if (!vel) continue;
+      const n = {
+        t: tOf(st), dur: stepSec, midi: 0, vel: vel * lvl, voice: 'sample',
+        sampleId: padDef.sampleId, gain: padDef.gain, rate: padDef.rate,
+        start: padDef.start, oneShot: padDef.oneShot, track: padDef.id, drum: true,
+      };
+      // A one-shot is cut when the same pad fires again, not at the next step.
+      if (prev && padDef.oneShot) prev.dur = Math.max(stepSec, n.t - prev.t);
+      notes.push(n);
+      prev = n;
     }
   }
 
   notes.sort((a, b) => a.t - b.t);
   const duration = notes.reduce((mx, n) => Math.max(mx, n.t + n.dur), 0);
-  return { notes, index, duration, fx: style.fx, bpm, style: style.name };
+  return {
+    notes, index, duration, fx: style.fx, bpm, style: style.name,
+    barSec: barSteps * stepSec, bars: Math.ceil(totalSteps / barSteps), beatsPerBar: 4,
+  };
 }
 
 /**
@@ -552,9 +597,14 @@ export function sequence(verses, opt = {}) {
   const score = style.free
     ? sequenceFree(verses, { ...opt, bpm, leadVoice: style.lead.voice })
     : sequenceGrid(verses, { ...opt, bpm }, style);
-  score.fx = style.fx;
   score.bpm = bpm;
   score.styleName = style.name;
+  score.styleId = STYLES[opt.style] ? opt.style : 'scroll';
+  if (score.barSec == null) {
+    score.beatsPerBar = 4;
+    score.barSec = (60 / bpm) * 4;
+    score.bars = Math.ceil(score.duration / score.barSec);
+  }
   return score;
 }
 

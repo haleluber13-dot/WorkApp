@@ -8,6 +8,10 @@ import {
 import { STYLES, STYLE_LIST, bpmRange } from './styles.js';
 import { Transport, render } from './audio.js';
 import { toWav, toMidi, download } from './export.js';
+import { defaultFx, fxFromStyle } from './fx.js';
+import { SampleBank, Recorder, defaultPads } from './samples.js';
+import * as lyrics from './lyrics.js';
+import { mount } from './panes.js';
 
 const $ = id => document.getElementById(id);
 
@@ -32,8 +36,19 @@ const state = {
     style: 'scroll',
     mapping: 'yetzirah', mode: 'ahavaRabbah', root: 57, bpm: 132,
     rhythm: 'even', snapSimples: true, bass: true, pad: true, percussion: true,
+    mix: {},          // per-track {gain, mute, solo}
+    patterns: {},     // edits to the style's drum patterns
+    pads: defaultPads(),
   },
+  fx: defaultFx(),
+  lyrics: { text: '', barsPerLine: 1, offsetBars: 0 },
+  theme: 'light',
 };
+
+const bank = new SampleBank();
+const recorder = new Recorder();
+let panes = null;
+let laidCache = null;
 
 const transport = new Transport();
 
@@ -48,6 +63,10 @@ async function boot() {
     return;
   }
 
+  loadProject();
+  applyTheme(state.theme);
+  await bank.init();
+
   buildStyleSel();
   buildBookSel();
   buildModeSel();
@@ -55,6 +74,9 @@ async function boot() {
   buildChoices();
   await buildChapSel();
   syncBpm();
+  transport.fx = state.fx;
+  transport.buffers = bank.buffers;
+  panes = mount(appApi);
   wire();
 
   const t = state.manifest.totals;
@@ -62,6 +84,7 @@ async function boot() {
     `${t.letters.toLocaleString()} letters in ${t.words.toLocaleString()} words across ${t.verses.toLocaleString()} verses`;
 
   await rebuild();
+  panes.renderAll();
 
   $('loading').classList.add('gone');
   setTimeout(() => $('loading').remove(), 500);
@@ -193,6 +216,7 @@ async function rebuild(keepPosition = false) {
 
   state.score = sequence(state.verses, state.opt);
   state.stats = analyse(state.score);
+  laidCache = null;
   transport.load(state.score);
   state.windowStart = -1;
   state.litQueue = [];
@@ -201,6 +225,8 @@ async function rebuild(keepPosition = false) {
   renderStats();
   renderLetterPane();
   updateScopeStat();
+  panes?.renderLyrics();
+  saveProject();
 
   $('tEnd').textContent = clock(state.score.duration);
   $('seek').value = 0;
@@ -214,6 +240,29 @@ async function rebuild(keepPosition = false) {
   building = false;
   if (keepPosition && at) transport.seek(Math.min(at, state.score.duration));
   if (was) transport.play();
+}
+
+/** Put every control back in step with `state` after a setup is loaded. */
+async function afterProjectLoad() {
+  applyTheme(state.theme);
+  $('styleSel').value = state.opt.style;
+  $('bookSel').value = state.sel.bookId;
+  $('scopeSel').value = state.sel.scope;
+  $('modeSel').value = state.opt.mode;
+  $('rootSel').value = state.opt.root;
+  $('snapChk').checked = state.opt.snapSimples;
+  $('bassChk').checked = state.opt.bass;
+  $('padChk').checked = state.opt.pad;
+  $('percChk').checked = state.opt.percussion;
+  $('verb').value = Math.round((state.fx.reverb?.mix ?? 0.3) * 100);
+  buildStyleChoices();
+  buildChoices();
+  await buildChapSel();
+  syncBpm();
+  appApi.applyFx();
+  laidCache = null;
+  await rebuild();
+  panes?.renderAll();
 }
 
 function warn(msg) {
@@ -342,7 +391,7 @@ function fit(canvas) {
   return { w, h };
 }
 
-const CLS_COLOR = { mother: '#e0b354', double: '#6fb2c8', simple: '#b58ad6' };
+const CLS_TOKEN = { mother: '--mother', double: '--double', simple: '--simple' };
 const BASS_VOICES = new Set(['bass', 'subbass', 'rollbass']);
 
 /* Four lanes at the foot of the roll, kick nearest the bottom. */
@@ -352,12 +401,12 @@ const DRUM_LANE = {
   hat: 2, ohat: 2,
   perc: 3, tick: 3,
 };
-const DRUM_COLOR = {
-  kick_psy: '#e08a4a', kick_808: '#e08a4a', kick_punch: '#e08a4a',
-  kick_soft: '#e08a4a', kick_dist: '#ef6a3a', tav: '#e0b354',
-  snare: '#d0c0a0', clap: '#d0c0a0',
-  hat: '#8fa8b8', ohat: '#a9c4d4',
-  perc: '#7d7360', tick: '#7d7360',
+const DRUM_TOKEN = {
+  kick_psy: '--mother', kick_808: '--mother', kick_punch: '--mother',
+  kick_soft: '--mother', kick_dist: '--warn-ink', tav: '--gold',
+  snare: '--dim', clap: '--dim', sample: '--simple',
+  hat: '--double', ohat: '--double',
+  perc: '--faint', tick: '--faint',
 };
 const WINDOW_SEC = 9;
 
@@ -378,7 +427,7 @@ function drawRoll(now) {
   const y = m => h - 14 - (m - lo) / Math.max(1, hi - lo) * (h - 28);
 
   // Faint horizontal rules on the tonic of each octave.
-  g.strokeStyle = '#221b10';
+  g.strokeStyle = paint.get('--line');
   g.lineWidth = 1;
   for (let m = Math.ceil(lo / 12) * 12; m <= hi; m += 12) {
     g.beginPath();
@@ -399,22 +448,25 @@ function drawRoll(now) {
     const active = n.t <= now && now <= n.t + n.dur;
 
     if (n.voice === 'pad') {
-      g.fillStyle = active ? 'rgba(74,122,92,.22)' : 'rgba(74,122,92,.12)';
+      g.fillStyle = paint.get('--bass');
+      g.globalAlpha = active ? 0.28 : 0.14;
       g.fillRect(nx, y(n.midi) - 3, nw, 6);
+      g.globalAlpha = 1;
     } else if (BASS_VOICES.has(n.voice)) {
-      g.fillStyle = active ? '#6fae86' : '#3c6b50';
+      g.fillStyle = paint.get('--bass');
+      g.globalAlpha = active ? 1 : 0.6;
       round(g, nx, y(n.midi) - 3, nw, 6, 3);
+      g.globalAlpha = 1;
     } else if (n.drum || n.voice === 'tick' || n.voice === 'tav') {
       // Drums get their own lanes along the bottom, loudest at the back.
-      const lane = DRUM_LANE[n.voice] ?? 3;
+      const lane = n.voice === 'sample' ? 4 : (DRUM_LANE[n.voice] ?? 3);
       const ly = h - 6 - lane * 5;
-      g.fillStyle = DRUM_COLOR[n.voice] || 'rgba(120,110,90,.3)';
+      g.fillStyle = paint.get(DRUM_TOKEN[n.voice] || '--faint');
       g.globalAlpha = active ? 1 : 0.55;
       g.fillRect(nx, ly, Math.max(2, Math.min(nw, 7)), 4);
       g.globalAlpha = 1;
     } else {
-      const c = CLS_COLOR[n.cls] || '#e0b354';
-      g.fillStyle = c;
+      g.fillStyle = paint.get(CLS_TOKEN[n.cls] || '--gold');
       g.globalAlpha = active ? 1 : 0.62;
       round(g, nx, y(n.midi) - 4, nw, 8, 3.5);
       if (active) {
@@ -427,7 +479,7 @@ function drawRoll(now) {
 
   // Playhead.
   const px = Math.round(x(now)) + .5;
-  g.strokeStyle = 'rgba(224,179,84,.85)';
+  g.strokeStyle = paint.get('--gold');
   g.lineWidth = 1.5;
   g.beginPath(); g.moveTo(px, 0); g.lineTo(px, h); g.stroke();
 }
@@ -455,7 +507,7 @@ function drawSpectrum() {
   g.clearRect(0, 0, w, h);
   const an = transport.voices?.analyser;
   if (!an) {
-    g.fillStyle = '#6d6350';
+    g.fillStyle = paint.get('--faint');
     g.font = '13px ui-sans-serif, system-ui, sans-serif';
     g.textAlign = 'center';
     g.fillText('Press play to see the sound.', w / 2, h / 2);
@@ -473,8 +525,8 @@ function drawSpectrum() {
     const v = bins[b] / 255;
     const bh = Math.max(1, v * (h - 16));
     const grad = g.createLinearGradient(0, h - bh, 0, h);
-    grad.addColorStop(0, '#e0b354');
-    grad.addColorStop(1, '#553d17');
+    grad.addColorStop(0, paint.get('--gold'));
+    grad.addColorStop(1, paint.get('--gold-dim'));
     g.fillStyle = grad;
     g.fillRect(i * bw + 1, h - bh - 6, bw - 2, bh);
   }
@@ -587,6 +639,8 @@ function frame() {
   if (state.view === 'roll') drawRoll(now);
   else if (state.view === 'spectrum') drawSpectrum();
 
+  panes?.updateKaraoke(now);
+
   if (transport.playing) {
     updateHighlight(now);
     $('tNow').textContent = clock(now);
@@ -678,6 +732,10 @@ function wire() {
         if (el.classList.contains('tab')) continue;
         el.hidden = el.dataset.view !== state.view;
       }
+      if (state.view === 'beat') panes?.renderBeat();
+      if (state.view === 'samples') panes?.renderSamples();
+      if (state.view === 'lyrics') panes?.renderLyrics();
+      if (state.view === 'fx') panes?.renderFx();
     });
   }
 
@@ -685,9 +743,14 @@ function wire() {
     if (!STYLES[id] || id === state.opt.style) return;
     state.opt.style = id;
     state.opt.bpm = STYLES[id].bpm;      // each style arrives at its own tempo
+    state.opt.patterns = {};             // pattern edits belonged to the old kit
+    state.fx = fxFromStyle({ ...STYLES[id], id });
+    appApi.applyFx();
     $('styleSel').value = id;
     buildStyleChoices();
     syncBpm();
+    panes?.renderBeat();
+    panes?.renderFx();
     rebuild();
   };
 
@@ -750,13 +813,51 @@ function wire() {
   });
   $('verb').addEventListener('input', e => {
     const v = +e.target.value / 100;
-    transport.settings.reverb = v;
-    transport.voices?.setReverb(v);
+    state.fx.reverb.mix = v;
+    state.fx.reverb.on = v > 0.01;
+    appApi.applyFx('reverb');
+    panes?.renderFx();
   });
   $('tone').addEventListener('input', e => {
     const v = +e.target.value / 100;
     transport.settings.tone = v;
-    if (transport.voices) transport.voices.opt.tone = v;
+    transport.voices?.setTone(v);
+  });
+
+  $('btnTheme').addEventListener('click', () => {
+    applyTheme(THEMES[(THEMES.indexOf(state.theme) + 1) % THEMES.length]);
+    saveProject();
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (state.theme === 'system') applyTheme('system');
+  });
+
+  $('btnSaveProj').addEventListener('click', () => {
+    download(new Blob([JSON.stringify(projectData(), null, 2)], { type: 'application/json' }),
+             `${exportName()}-setup.json`);
+  });
+  $('btnLoadProj').addEventListener('click', () => $('projFile').click());
+  $('projFile').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    try {
+      const ok = loadProject(JSON.parse(await f.text()));
+      if (!ok) throw new Error('not an Otiyot setup');
+      await afterProjectLoad();
+      warn(null);
+    } catch (err) {
+      warn(`That file is not an Otiyot setup (${err.message}).`);
+    }
+  });
+  $('btnResetProj').addEventListener('click', async () => {
+    try { localStorage.removeItem(PROJECT_KEY); } catch (_) { /* nothing stored */ }
+    state.opt.mix = {};
+    state.opt.patterns = {};
+    state.opt.pads = defaultPads();
+    state.lyrics = { text: '', barsPerLine: 1, offsetBars: 0 };
+    state.fx = fxFromStyle({ ...STYLES[state.opt.style], id: state.opt.style });
+    await afterProjectLoad();
   });
 
   $('btnPanel').addEventListener('click', () => togglePanel(true));
@@ -824,6 +925,202 @@ async function doRender() {
     setTimeout(() => { $('renderBar').hidden = true; $('renderFill').style.width = '0'; }, 700);
   }
 }
+
+
+/* --------------------------------------------------------------- the theme */
+
+/* Three states, like the rest of the web: light, dark, or whatever the device
+ * says. Only the explicit choices stamp the root element. */
+const THEMES = ['light', 'dark', 'system'];
+const THEME_ICON = { light: '☀', dark: '☾', system: '◐' };
+
+function applyTheme(t) {
+  state.theme = THEMES.includes(t) ? t : 'light';
+  const root = document.documentElement;
+  if (state.theme === 'system') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', state.theme);
+  $('btnTheme').textContent = THEME_ICON[state.theme];
+  $('btnTheme').title = `Theme: ${state.theme} — click to change`;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#f6f2e8';
+  }
+  paint.clear();       // canvas colours are read from the tokens
+}
+
+/* Canvas drawing cannot use var(), so the tokens are read once per theme. */
+const paint = {
+  cache: null,
+  clear() { this.cache = null; },
+  get(name) {
+    if (!this.cache) this.cache = new Map();
+    if (!this.cache.has(name)) {
+      this.cache.set(name,
+        getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888');
+    }
+    return this.cache.get(name);
+  },
+};
+
+/* ------------------------------------------------------------- the project */
+
+const PROJECT_KEY = 'otiyot.project.v1';
+
+function projectData() {
+  return {
+    v: 1,
+    sel: state.sel,
+    opt: state.opt,
+    fx: state.fx,
+    lyrics: state.lyrics,
+    theme: state.theme,
+  };
+}
+
+function saveProject() {
+  try { localStorage.setItem(PROJECT_KEY, JSON.stringify(projectData())); }
+  catch (_) { /* private window, or full — the app still works */ }
+}
+
+function loadProject(fromObject) {
+  let p = fromObject;
+  if (!p) {
+    try { p = JSON.parse(localStorage.getItem(PROJECT_KEY) || 'null'); }
+    catch (_) { p = null; }
+  }
+  if (!p || typeof p !== 'object') return false;
+  // Merge rather than replace, so a setup saved by an older version still opens.
+  if (p.sel) Object.assign(state.sel, p.sel);
+  if (p.opt) {
+    Object.assign(state.opt, p.opt);
+    state.opt.mix = p.opt.mix || {};
+    state.opt.patterns = p.opt.patterns || {};
+    const pads = defaultPads();
+    if (Array.isArray(p.opt.pads)) {
+      p.opt.pads.forEach((pd, i) => { if (pads[i]) Object.assign(pads[i], pd, { id: pads[i].id }); });
+    }
+    state.opt.pads = pads;
+  }
+  if (p.fx) state.fx = { ...defaultFx(), ...p.fx };
+  if (p.lyrics) Object.assign(state.lyrics, p.lyrics);
+  if (p.theme) state.theme = p.theme;
+  return true;
+}
+
+/* --------------------------------------------------------------- the words */
+
+/** Lay the lyrics over the current score's bars, cached until either changes. */
+function laidLyrics() {
+  if (laidCache) return laidCache;
+  const sc = state.score;
+  laidCache = lyrics.layout(state.lyrics.text, {
+    bpm: state.opt.bpm,
+    beatsPerBar: sc?.beatsPerBar || 4,
+    barsPerLine: state.lyrics.barsPerLine,
+    offsetBars: state.lyrics.offsetBars,
+  });
+  return laidCache;
+}
+
+/* ------------------------------------------------------------ the recorder */
+
+let recTimer = null;
+
+async function toggleRecord() {
+  if (recorder.active) {
+    clearInterval(recTimer);
+    recTimer = null;
+    try {
+      const blob = await recorder.stop();
+      await appApi.addClip(blob, `take ${bank.meta.length + 1}`);
+    } catch (err) {
+      warn(`Could not save that recording: ${err.message}`);
+    }
+    panes.renderSamples();
+    return;
+  }
+  try {
+    await transport.ensure();          // a mic needs a live context anyway
+    await recorder.start();
+    panes.renderSamples();
+    recTimer = setInterval(() => {
+      const el = $('recTime');
+      if (el) el.textContent = `${recorder.elapsed.toFixed(1)}s`;
+    }, 100);
+  } catch (err) {
+    warn(err.name === 'NotAllowedError'
+      ? 'Microphone access was declined. Allow it in your browser to record.'
+      : `Could not start recording: ${err.message}`);
+  }
+}
+
+/* --------------------------------------------------------------- pane API */
+
+const appApi = {
+  state,
+  bank,
+  recorder,
+  rebuild,
+  laidLyrics,
+  toggleRecord,
+
+  async addClip(blob, name) {
+    try {
+      const ctx = await transport.ensure();
+      const entry = await bank.add(blob, name, ctx);
+      warn(null);
+      return entry;
+    } catch (err) {
+      warn(err.message);
+      return null;
+    }
+  },
+
+  /** Play a clip once, so you can hear what you picked. */
+  async audition(id) {
+    const ctx = await transport.ensure();
+    const buf = bank.get(id);
+    if (!buf) return;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = 0.9;
+    src.connect(g).connect(transport.voices.master);
+    src.start();
+  },
+
+  applyFx(id) {
+    transport.fx = state.fx;
+    if (transport.voices) {
+      if (id) transport.voices.rack.apply(id);
+      else transport.voices.replaceFx(state.fx);
+    }
+    saveProject();
+  },
+
+  resetFx() {
+    state.fx = fxFromStyle({ ...STYLES[state.opt.style], id: state.opt.style });
+    appApi.applyFx();
+  },
+
+  onLyrics() {
+    laidCache = null;
+    saveProject();
+  },
+
+  saveLrc() {
+    const laid = laidLyrics();
+    if (!laid.lines.length) return;
+    download(new Blob([lyrics.toLrc(laid.lines, exportName())], { type: 'text/plain' }),
+             `${exportName()}.lrc`);
+  },
+
+  seekTo(t) {
+    transport.seek(t);
+    idxPtr = 0;
+    clearLit();
+  },
+};
 
 /* -------------------------------------------------------------------- go */
 

@@ -4,28 +4,12 @@
  * same code drives live playback (AudioContext) and file rendering
  * (OfflineAudioContext). Nothing here knows about Hebrew; it just plays notes.
  *
- * Signal flow:
- *   voices -> bus -> drive -> out(volume) -+-> dry ------------> comp -> dest
- *                                          +-> convolver ------> comp
- *                                          +-> delay (fb loop) -> comp
+ * The voices themselves are simple; everything after them — drive, bitcrush,
+ * filter, chorus, sidechain, delay, reverb, width — lives in the FxRack.
  */
 
 import { midiToFreq } from './mapping.js';
-
-/* A short, cheap reverb: exponentially decaying noise as an impulse response.
- * Cheaper than shipping an impulse file and good enough for a stone-room feel. */
-function impulse(ctx, seconds = 2.6, decay = 2.4) {
-  const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
-  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
-  for (let c = 0; c < 2; c++) {
-    const data = buf.getChannelData(c);
-    for (let i = 0; i < len; i++) {
-      const t = i / len;
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
-    }
-  }
-  return buf;
-}
+import { FxRack, defaultFx } from './fx.js';
 
 function noiseBuffer(ctx, seconds = 1) {
   const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
@@ -55,68 +39,24 @@ export class Voices {
    */
   constructor(ctx, opt = {}) {
     this.ctx = ctx;
-    this.opt = { reverb: 0.32, tone: 0.5, drive: 0, delay: 0, feedback: 0.3, ...opt };
+    this.opt = { tone: 0.5, ...opt };
 
-    const bus = ctx.createGain();          // every voice connects here
-    const out = ctx.createGain();          // master volume
-    out.gain.value = 0.9;
-
-    const drive = ctx.createWaveShaper();
-    drive.curve = driveCurve(this.opt.drive);
-    drive.oversample = '2x';
-
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -15;
-    comp.knee.value = 20;
-    comp.ratio.value = 4.5;
-    comp.attack.value = 0.005;
-    comp.release.value = 0.2;
-
-    const dry = ctx.createGain();
-    const wet = ctx.createGain();
-    dry.gain.value = 1 - this.opt.reverb * 0.5;
-    wet.gain.value = this.opt.reverb;
-
-    const conv = ctx.createConvolver();
-    conv.buffer = impulse(ctx);
-
-    // A gentle high shelf keeps the plucks from getting glassy in the tail.
-    const damp = ctx.createBiquadFilter();
-    damp.type = 'highshelf';
-    damp.frequency.value = 3200;
-    damp.gain.value = -6;
-
-    // Echo, with a filter in the feedback loop so repeats get darker as they
-    // fade rather than turning into hiss.
-    const send = ctx.createGain();
-    send.gain.value = this.opt.delay > 0 ? 0.34 : 0;
-    const delay = ctx.createDelay(2.5);
-    delay.delayTime.value = Math.min(2.4, this.opt.delay || 0.2);
-    const fb = ctx.createGain();
-    fb.gain.value = Math.min(0.82, this.opt.feedback);
-    const dlyTone = ctx.createBiquadFilter();
-    dlyTone.type = 'lowpass';
-    dlyTone.frequency.value = 2600;
-
-    bus.connect(drive).connect(out);
-    out.connect(dry).connect(comp);
-    out.connect(conv).connect(damp).connect(wet).connect(comp);
-    out.connect(send).connect(delay).connect(dlyTone);
-    dlyTone.connect(fb).connect(delay);
-    dlyTone.connect(comp);
-    comp.connect(ctx.destination);
+    // Everything downstream of the voices lives in the rack.
+    this.rack = new FxRack(ctx, opt.fx || defaultFx());
+    this.master = this.rack.input;         // what every voice connects to
+    this.out = this.rack.volume;           // what the transport fades
+    this.rack.setVolume(opt.volume ?? 0.9);
 
     if (opt.analyser) {
       this.analyser = ctx.createAnalyser();
       this.analyser.fftSize = 2048;
       this.analyser.smoothingTimeConstant = 0.78;
-      comp.connect(this.analyser);
+      this.rack.comp.connect(this.analyser);
     }
 
-    Object.assign(this, { bus, out, drive, dry, wet, send, delay, fb, dlyTone });
-    this.master = bus;                     // what voices connect to
     this.noise = noiseBuffer(ctx, 1);
-    this.lastBass = null;                  // for 808 glides
+    this.buffers = opt.buffers || new Map();   // sampleId -> AudioBuffer
+    this.lastBass = null;                      // for 808 glides
 
     // Nodes still in the graph, with the time each becomes dead. Web Audio
     // keeps processing a gain or filter for as long as it stays connected,
@@ -139,25 +79,17 @@ export class Voices {
     this._live = keep;
   }
 
-  setReverb(x) { this.wet.gain.value = x; this.dry.gain.value = 1 - x * 0.5; }
-  setVolume(x) { this.out.gain.value = x; }
-  setDrive(x) { this.opt.drive = x; this.drive.curve = driveCurve(x); }
-  setDelay(time, feedback) {
-    this.send.gain.value = time > 0 ? 0.34 : 0;
-    if (time > 0) this.delay.delayTime.value = Math.min(2.4, time);
-    this.fb.gain.value = Math.min(0.82, feedback ?? this.opt.feedback);
-  }
-
-  /** Apply a style's fx settings in one go. */
-  applyFx(fx = {}) {
-    if (fx.reverb != null) this.setReverb(fx.reverb);
-    if (fx.drive != null) this.setDrive(fx.drive);
-    this.setDelay(fx.delay ?? 0, fx.feedback);
-  }
+  setVolume(x) { this.rack.setVolume(x); }
+  setFx(id, param, value) { this.rack.set(id, param, value); }
+  setFxEnabled(id, on) { this.rack.setEnabled(id, on); }
+  replaceFx(settings) { this.rack.replace(settings); }
+  setTone(x) { this.opt.tone = x; }
 
   /** Schedule one note. `when` is an absolute context time. */
   play(note, when) {
+    if (note.kick) this.rack.duck(when);
     switch (note.voice) {
+      case 'sample': return this._sample(note, when);
       // pitched
       case 'bass': return this._bass(note, when);
       case 'subbass': return this._sub(note, when);
@@ -523,6 +455,33 @@ export class Voices {
     this._track(when + dur + 0.6, [lp, g, ...oscs]);
   }
 
+  /* A recorded or imported clip, fired from a pad. */
+  _sample(note, when) {
+    const buf = note.buffer || this.buffers.get(note.sampleId);
+    if (!buf) return;
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = Math.max(0.05, note.rate || 1);
+    const g = ctx.createGain();
+    const peak = 0.9 * (note.vel ?? 0.8) * (note.gain ?? 1);
+    g.gain.setValueAtTime(peak, when);
+
+    const offset = Math.min(Math.max(0, note.start || 0), Math.max(0, buf.duration - 0.01));
+    // A one-shot pad is cut at the next trigger; otherwise the clip runs on.
+    const span = note.oneShot && note.dur
+      ? Math.min(note.dur, buf.duration - offset)
+      : buf.duration - offset;
+    // A short fade at each end so trimming never clicks.
+    g.gain.setValueAtTime(peak, when + Math.max(0.01, span - 0.012));
+    g.gain.linearRampToValueAtTime(0.0001, when + span);
+
+    src.connect(g).connect(this.master);
+    src.start(when, offset);
+    src.stop(when + span + 0.02);
+    this._track(when + span + 0.04, [src, g]);
+  }
+
   /* --------------------------------------------------------------- drums */
 
   _kick(note, when, k) {
@@ -710,15 +669,18 @@ export class Transport {
     this.playing = false;
     this.onTick = null;
     this.onEnd = null;
-    this.settings = { volume: 0.9, reverb: 0.32, tone: 0.5, drive: 0, delay: 0, feedback: 0.3 };
+    this.settings = { volume: 0.9, tone: 0.5 };
+    this.fx = null;                 // FxRack settings, owned by the app
+    this.buffers = new Map();       // sampleId -> AudioBuffer
   }
 
   async ensure() {
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC();
-      this.voices = new Voices(this.ctx, { ...this.settings, analyser: true });
-      this.voices.setVolume(this.settings.volume);
+      this.voices = new Voices(this.ctx, {
+        ...this.settings, analyser: true, fx: this.fx, buffers: this.buffers,
+      });
     }
     if (this.ctx.state === 'suspended') await this.ctx.resume();
     return this.ctx;
@@ -728,10 +690,12 @@ export class Transport {
     this.score = score;
     this.ptr = 0;
     this.offset = 0;
-    if (score.fx) {
-      Object.assign(this.settings, score.fx);
-      this.voices?.applyFx(score.fx);
-    }
+  }
+
+  /** Swap the whole effects rack — used when the style or a knob changes. */
+  setFx(settings) {
+    this.fx = settings;
+    this.voices?.replaceFx(settings);
   }
 
   get position() {
@@ -742,7 +706,6 @@ export class Transport {
   async play(from = null) {
     if (!this.score) return;
     await this.ensure();
-    if (this.score.fx) this.voices.applyFx(this.score.fx);
     if (from !== null) this.seek(from);
     // pause() fades the master out; undo that before we start again.
     const g = this.voices.out.gain;
@@ -825,7 +788,7 @@ export async function render(score, settings, onProgress) {
   const sampleRate = 44100;
   const total = score.duration + 3;
   const ctx = new OfflineAudioContext(2, Math.ceil(total * sampleRate), sampleRate);
-  const voices = new Voices(ctx, { ...settings, ...(score.fx || {}) });
+  const voices = new Voices(ctx, { ...settings, analyser: false });
   voices.setVolume(settings.volume ?? 0.9);
 
   // Suspend the render every couple of seconds. Each stop is used to schedule

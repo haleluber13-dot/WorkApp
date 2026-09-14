@@ -67,6 +67,40 @@ The drum patterns are ordinary genre conventions — a four-to-the-floor kick, a
 backbeat snare, an offbeat psytrance bass — written as step strings in
 `js/styles.js`, so adding a style is a matter of adding one object.
 
+## Making it yours
+
+Everything above is a starting point. Five panes across the top of the right-hand
+side open the whole thing up.
+
+**Beat** — every track in the current style, with mute, solo and level, and a
+clickable step grid for each drum. Tap a step to cycle it through rest, ghost,
+soft, normal and hard. Reset puts the style's own pattern back.
+
+**Samples** — record straight from your phone or laptop microphone, or bring in
+any audio file. Clips are kept in this browser, on your device: nothing is
+uploaded anywhere. Give a clip to one of the eight pads, tap the steps it should
+fire on, and set its level, pitch, start point and whether it is cut off by the
+next hit or left to ring.
+
+**Lyrics** — type your own words, one line per bar. A blank line rests for a bar
+and trailing dots hold a line for an extra bar each. The lines land on the beat,
+a ticker under the header follows along as it plays, and the count beside each
+line is its syllables — past about four a beat it stops being sayable, and the
+app says so. Save them as an `.lrc` so the words travel with the audio. The app
+places the words you write; it does not write any.
+
+**Plug-ins** — eight effects in signal order, each with a bypass and a couple of
+knobs: drive, bitcrush, filter, chorus, sidechain, delay, reverb and stereo
+width. Every style switches on the ones it needs — the sidechain is most of what
+makes the dance styles breathe — and all of it is yours to change.
+
+**Light or dark** — the sun/moon button in the header cycles light, dark and
+follow-the-device. Light is the default.
+
+Your whole setup — style, BPM, mode, mixer, patterns, plug-ins, pads and lyrics
+— saves in the browser as you go, and downloads as a single file from the
+settings panel. Recorded clips stay on the device and are not part of that file.
+
 ## The modes
 
 The scale you hear is one of the Jewish prayer modes a Torah reading actually
@@ -145,6 +179,11 @@ python3 tools/torah_build.py
 - Gematria mappings are one of many possible schemes; nothing here is claiming
   a hidden code was found. The point is to hear the text's shape, not to
   decode it.
+- The trope motifs, the drum patterns and the plug-ins are all approximations
+  written from scratch. The kits are ordinary genre conventions, not samples of
+  anyone's records.
+- Recorded clips live in this browser's storage on this device. Clearing site
+  data removes them, and they do not sync anywhere.
 - The whole Torah is about 480,000 notes. Selecting it works, but it holds the
   entire score in memory and the text pane switches to following the music
   rather than showing everything at once.

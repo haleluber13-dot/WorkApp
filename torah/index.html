@@ -43,11 +43,18 @@
 
   <div class="topbar__right">
     <span id="scopeStat" class="stat"></span>
+    <button id="btnTheme" class="iconbtn" title="Light, dark or system" aria-label="Colour theme">◐</button>
     <button id="btnPanel" class="iconbtn" title="Settings" aria-label="Settings">☰</button>
   </div>
 </header>
 
 <div id="warn" class="warn" hidden></div>
+
+<div id="karaoke" class="karaoke" hidden>
+  <div class="karaoke__sweep" id="karaokeSweep"></div>
+  <div class="karaoke__now" id="karaokeNow"></div>
+  <div class="karaoke__next" id="karaokeNext"></div>
+</div>
 
 <main class="stage">
 
@@ -65,6 +72,10 @@
   <section class="scope">
     <div class="scope__tabs" role="tablist">
       <button class="tab on" data-view="roll" role="tab">Piano roll</button>
+      <button class="tab" data-view="beat" role="tab">Beat</button>
+      <button class="tab" data-view="samples" role="tab">Samples</button>
+      <button class="tab" data-view="lyrics" role="tab">Lyrics</button>
+      <button class="tab" data-view="fx" role="tab">Plug-ins</button>
       <button class="tab" data-view="spectrum" role="tab">Spectrum</button>
       <button class="tab" data-view="stats" role="tab">What comes out</button>
       <button class="tab" data-view="letters" role="tab">The 22 letters</button>
@@ -73,6 +84,10 @@
     <div class="scope__body">
       <canvas id="roll" class="canvas" data-view="roll"></canvas>
       <canvas id="spectrum" class="canvas" data-view="spectrum" hidden></canvas>
+      <div id="beat" class="pane" data-view="beat" hidden></div>
+      <div id="samples" class="pane" data-view="samples" hidden></div>
+      <div id="lyrics" class="pane" data-view="lyrics" hidden></div>
+      <div id="fx" class="pane" data-view="fx" hidden></div>
       <div id="stats" class="pane" data-view="stats" hidden></div>
       <div id="letters" class="pane" data-view="letters" hidden></div>
     </div>
@@ -157,6 +172,19 @@
       </div>
       <p class="hint" id="exportHint">MIDI holds the whole selection, however long. WAV is rendered here in the browser, so keep it under about twenty minutes.</p>
       <div id="renderBar" class="renderbar" hidden><div id="renderFill"></div></div>
+    </fieldset>
+
+    <fieldset class="grp">
+      <legend>Your setup</legend>
+      <div class="btnrow">
+        <button id="btnSaveProj" class="btn">Save setup</button>
+        <button id="btnLoadProj" class="btn">Load setup</button>
+        <button id="btnResetProj" class="btn">Reset</button>
+      </div>
+      <input id="projFile" type="file" accept="application/json,.json" hidden>
+      <p class="hint">Style, BPM, mode, mixer, patterns, plug-ins, pads and lyrics —
+        saved in this browser as you go, and downloadable as one file. Recorded
+        clips stay on this device and are not included in the file.</p>
     </fieldset>
 
     <details class="about">
