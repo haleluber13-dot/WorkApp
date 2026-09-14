@@ -109,10 +109,11 @@ assets/icons/            app icons
   Every letter of all five books becomes a note; four different mappings decide
   which one (Sefer Yetzirah's three mothers / seven doubles / twelve simples,
   gematria value, plain alphabetical order, or the cantillation marks), over the
-  Jewish prayer modes. Twelve musical styles — Goa, Hi-Tech, Psycore, Trap, Boom
-  Bap, Drum & Bass, Techno, Dub and more — each with its own BPM, step grid, drum
-  kit and bass, so the same chapter can run 2.5 minutes or three quarters of an
-  hour. Shows the text lighting up as it sounds, a piano roll, and an analysis of
+  Jewish prayer modes. Fifteen musical styles — Goa, Dark Psy, Forest,
+  Zenonesque, Hi-Tech, Psycore, Trap, Boom Bap, Drum & Bass, Techno, Dub and
+  more — each with its own BPM, step grid, drum kit and bass, so the same
+  chapter can run 2.5 minutes or three quarters of an hour. Ten kicks, seven
+  bass timbres and ten ready-made grooves swap freely between them. Shows the text lighting up as it sounds, a piano roll, and an analysis of
   what the letters actually produce. Then make it yours: a clickable step grid
   and mixer for every track, eight plug-ins (drive, bitcrush, filter, chorus,
   sidechain, delay, reverb, width), eight sample pads fed by microphone

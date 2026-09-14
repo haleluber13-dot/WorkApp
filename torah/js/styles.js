@@ -33,6 +33,7 @@ export function steps(str) {
 export const STYLES = {
 
   scroll: {
+    bassVoice: 'bass',
     name: 'Ambient Scroll',
     blurb: 'The plain reading. One letter per beat, no drums, room to think.',
     free: true,                      // flowing durations rather than a step grid
@@ -43,6 +44,7 @@ export const STYLES = {
   },
 
   drone: {
+    bassVoice: 'bass',
     name: 'Drone',
     blurb: 'Each letter held until it blurs into the next. Barely music, mostly weather.',
     free: true,
@@ -53,6 +55,7 @@ export const STYLES = {
   },
 
   goa: {
+    bassVoice: 'rollbass',
     name: 'Goa Trance',
     blurb: 'The 1996 sound: 16th-note acid leads, a rolling offbeat bass and a lot of delay.',
     bpm: 145, grid: 4, per: 1, swing: 0, gate: 0.82,
@@ -70,6 +73,7 @@ export const STYLES = {
   },
 
   fullon: {
+    bassVoice: 'rollbass',
     name: 'Full-On Psy',
     blurb: 'Night-sky festival psy — a triplet-feel rolling bass under a bright, busy lead.',
     bpm: 142, grid: 4, per: 1, swing: 0, gate: 0.7,
@@ -86,7 +90,62 @@ export const STYLES = {
     barGap: 1,
   },
 
+  darkpsy: {
+    bassVoice: 'rollbass',
+    name: 'Dark Psy',
+    blurb: 'Night-forest psy: a long dark kick, a twisted low lead and no daylight at all.',
+    bpm: 152, grid: 4, per: 1, swing: 0, gate: 0.6,
+    lead: { voice: 'acid', oct: 0 },
+    bass: 'roll',
+    kit: {
+      kick:  { voice: 'kick_dark',  p: 'X...X...X...X...' },
+      hat:   { voice: 'hat',        p: '..x...x...x...x.' },
+      ohat:  { voice: 'ohat',       p: '........o.......' },
+      snare: { voice: 'snare',      p: '................' + '..............x.' },
+      perc:  { voice: 'perc',       p: '..-.x..-..-.x..-' },
+    },
+    fx: { reverb: 0.42, delay: 0.1974, feedback: 0.52, drive: 0.42 },
+    barGap: 0,
+  },
+
+  forest: {
+    bassVoice: 'squelch',
+    name: 'Forest',
+    blurb: 'Organic and burbling — a tight clicky kick, wooden percussion, everything staccato.',
+    bpm: 160, grid: 4, per: 1, swing: 0, gate: 0.38,
+    lead: { voice: 'acid', oct: 1 },
+    bass: 'roll',
+    kit: {
+      kick:  { voice: 'kick_forest', p: 'X...X...X...X...' },
+      hat:   { voice: 'hat',         p: '.x.x.x.x.x.x.x.x' },
+      ohat:  { voice: 'ohat',        p: '......o.......o.' },
+      snare: { voice: 'perc',        p: '..........x.....' },
+      perc:  { voice: 'perc',        p: 'x.-x.-x..x-.x.-x' },
+    },
+    fx: { reverb: 0.34, delay: 0.1125, feedback: 0.46, drive: 0.3 },
+    barGap: 0,
+  },
+
+  zenon: {
+    bassVoice: 'fmbass',
+    name: 'Zenonesque',
+    blurb: 'Slow, broken and bit-crushed. Space where the other psy styles put more notes.',
+    bpm: 140, grid: 4, per: 2, swing: 0, gate: 0.5,
+    lead: { voice: 'stab', oct: 0 },
+    bass: 'roll',
+    kit: {
+      kick:  { voice: 'kick_click', p: 'X.....X...X.....' + 'X...X.....X.....' },
+      hat:   { voice: 'hat',        p: '..x..x..x..x..x.' },
+      ohat:  { voice: 'ohat',       p: '............o...' },
+      snare: { voice: 'snare',      p: '........x.......' + '......x.....x...' },
+      perc:  { voice: 'perc',       p: '-..x..-.x..-..x.' },
+    },
+    fx: { reverb: 0.38, delay: 0.2143, feedback: 0.44, drive: 0.35 },
+    barGap: 1,
+  },
+
   hitech: {
+    bassVoice: 'rollbass',
     name: 'Hi-Tech',
     blurb: 'Twice the speed and none of the patience. Frantic 16ths, glitching percussion.',
     bpm: 195, grid: 4, per: 1, swing: 0, gate: 0.55,
@@ -104,6 +163,7 @@ export const STYLES = {
   },
 
   psycore: {
+    bassVoice: 'rollbass',
     name: 'Psycore',
     blurb: 'Distorted kick, screaming lead, no room left. The text at terminal velocity.',
     bpm: 232, grid: 4, per: 1, swing: 0, gate: 0.5,
@@ -121,6 +181,7 @@ export const STYLES = {
   },
 
   dnb: {
+    bassVoice: 'reese',
     name: 'Drum & Bass',
     blurb: 'Half-time breakbeat at 174 with a sub that sits under everything.',
     bpm: 174, grid: 4, per: 1, swing: 0.06, gate: 0.7,
@@ -138,6 +199,7 @@ export const STYLES = {
   },
 
   trap: {
+    bassVoice: 'subbass',
     name: 'Trap',
     blurb: 'Half-time snare, gliding 808 and hats that stutter into triplet rolls.',
     bpm: 142, grid: 4, per: 2, swing: 0, gate: 0.6,
@@ -155,6 +217,7 @@ export const STYLES = {
   },
 
   boombap: {
+    bassVoice: 'pluckbass',
     name: 'Boom Bap',
     blurb: 'Ninety BPM, swung, dusty. The letters become the sample you rap over.',
     bpm: 90, grid: 4, per: 2, swing: 0.2, gate: 0.75,
@@ -172,6 +235,7 @@ export const STYLES = {
   },
 
   techno: {
+    bassVoice: 'pluckbass',
     name: 'Techno',
     blurb: 'Four to the floor, offbeat open hat, one idea repeated until it changes you.',
     bpm: 132, grid: 4, per: 1, swing: 0, gate: 0.6,
@@ -189,6 +253,7 @@ export const STYLES = {
   },
 
   dub: {
+    bassVoice: 'bass',
     name: 'Dub',
     blurb: 'Slow, deep and mostly echo. Chords fall on the offbeat and drift away.',
     bpm: 74, grid: 4, per: 2, swing: 0.12, gate: 0.5,
@@ -206,6 +271,7 @@ export const STYLES = {
   },
 
   downtempo: {
+    bassVoice: 'bass',
     name: 'Downtempo',
     blurb: 'Unhurried, warm, a little hazy. For reading along rather than dancing.',
     bpm: 86, grid: 4, per: 2, swing: 0.14, gate: 0.8,
@@ -221,6 +287,41 @@ export const STYLES = {
     fx: { reverb: 0.4, delay: 0.2, feedback: 0.28, drive: 0.1 },
     barGap: 1,
   },
+};
+
+/* Ready-made grooves. Applying one overwrites the current style's drum
+ * patterns; the kit voices and everything else stay as they are. */
+export const BEAT_PRESETS = {
+  fourFloor:  { name: 'Four on the floor',
+    kick: 'X...X...X...X...', snare: '....x.......x...',
+    hat: '..x...x...x...x.', ohat: '..............o.', perc: '................' },
+  offbeat:    { name: 'Offbeat pump',
+    kick: 'X...X...X...X...', snare: '................',
+    hat: 'x.x.x.x.x.x.x.x.', ohat: '..o...o...o...o.', perc: '.-.-.-.-.-.-.-.-' },
+  rolling:    { name: 'Rolling sixteenths',
+    kick: 'X...X...X...X...', snare: '..............x.',
+    hat: 'xxxxxxxxxxxxxxxx', ohat: '......o.......o.', perc: '..-...-...-...-.' },
+  breakbeat:  { name: 'Breakbeat',
+    kick: 'x.....x...x.....', snare: '....X.......X...',
+    hat: '..x...x...x...x.', ohat: '..............o.', perc: '.-....-..-....-.' },
+  halfTime:   { name: 'Half-time',
+    kick: 'X.......X.......', snare: '........X.......',
+    hat: 'x.x.x.x.x.x.x.x.', ohat: '............o...', perc: '................' },
+  broken:     { name: 'Broken',
+    kick: 'X..x..X...x.X...', snare: '......x.....x..x',
+    hat: '..x..x..x..x..x.', ohat: '..........o.....', perc: '-..x..-.x..-..x.' },
+  tribal:     { name: 'Tribal',
+    kick: 'X..X..X.X..X..X.', snare: '................',
+    hat: '.x.x.x.x.x.x.x.x', ohat: '.......o.......o', perc: 'x-x-x-x-x-x-x-x-' },
+  stomp:      { name: 'Stomp',
+    kick: 'X...X..XX...X...', snare: '....X.......X...',
+    hat: '..x...x...x...x.', ohat: '................', perc: '...-...-...-...-' },
+  sparse:     { name: 'Sparse',
+    kick: 'X.......X...X...', snare: '........X.......',
+    hat: '....x.......x...', ohat: '..............o.', perc: '................' },
+  doubleTime: { name: 'Double time',
+    kick: 'X..X..X.X..X..X.', snare: '....X...X...X...',
+    hat: 'xxxxxxxxxxxxxxxx', ohat: '.......o.......o', perc: 'x.x.x.x.x.x.x.x.' },
 };
 
 /** Bass patterns per mode, as steps within one bar of 16ths. */

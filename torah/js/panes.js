@@ -6,7 +6,8 @@
  * leaves a dead listener behind.
  */
 
-import { STYLES, steps as parseSteps } from './styles.js';
+import { STYLES, BEAT_PRESETS, steps as parseSteps } from './styles.js';
+import { KICKS, BASSES } from './audio.js';
 import { FX_DEFS, FX_ORDER } from './fx.js';
 import { PAD_COUNT } from './samples.js';
 import * as lyrics from './lyrics.js';
@@ -75,13 +76,36 @@ export function mount(app) {
       </div>`;
     }).join('');
 
+    const o = app.state.opt;
+    const styleKick = st.kit?.kick?.voice || 'kick_psy';
+    const styleBass = st.bassVoice || 'bass';
+
+    const kickOpts = Object.entries(KICKS).map(([id, k]) =>
+      `<option value="${id}"${(o.kickVoice || styleKick) === id ? ' selected' : ''}>${k.name}</option>`).join('');
+    const bassOpts = Object.entries(BASSES).map(([id, bs]) =>
+      `<option value="${id}"${(o.bassVoice || styleBass) === id ? ' selected' : ''}>${bs.name}</option>`).join('');
+    const grooveOpts = `<option value="">— this style's own —</option>` +
+      Object.entries(BEAT_PRESETS).map(([id, g]) =>
+        `<option value="${id}"${o.groove === id ? ' selected' : ''}>${g.name}</option>`).join('');
+
     $('beat').innerHTML = `
       <div class="paneHead">
         <div><h3 class="sec">${esc(st.name)} — the groove</h3>
           <p class="note" style="margin:0">Tap a step to cycle it: rest → ghost → soft → normal → hard.
-          ${st.kit ? '' : 'This style has no kit; pick a style with drums to edit a pattern.'}</p></div>
-        <button class="btn btn--sm" id="beatReset">Reset patterns</button>
+          ${st.kit ? '' : 'This style has no kit, so there is nothing to tap — but the kick and bass below still apply if you switch to one that has.'}</p></div>
+        <button class="btn btn--sm" id="beatReset">Reset</button>
       </div>
+
+      <div class="picks">
+        <label><span>Kick</span><select id="kickSel">${kickOpts}</select></label>
+        <label><span>Bass</span><select id="bassSel">${bassOpts}</select></label>
+        <label><span>Groove</span><select id="grooveSel">${grooveOpts}</select></label>
+      </div>
+      <p class="note" style="margin-top:6px">
+        ${BASSES[o.bassVoice || styleBass]?.blurb || ''}
+        A groove replaces the drum patterns below; the kick and bass sounds stay whatever you picked.
+      </p>
+
       ${rows}`;
   }
 
@@ -291,6 +315,29 @@ export function mount(app) {
     if (solo) { toggleMix(solo.dataset.solo, 'solo'); renderBeat(); return; }
     if (e.target.id === 'beatReset') {
       app.state.opt.patterns = {};
+      app.state.opt.groove = '';
+      app.state.opt.kickVoice = null;
+      app.state.opt.bassVoice = null;
+      renderBeat();
+      app.rebuild(true);
+    }
+  });
+
+  $('beat').addEventListener('change', e => {
+    const o = app.state.opt;
+    if (e.target.id === 'kickSel') { o.kickVoice = e.target.value; app.rebuild(true); return; }
+    if (e.target.id === 'bassSel') { o.bassVoice = e.target.value; renderBeat(); app.rebuild(true); return; }
+    if (e.target.id === 'grooveSel') {
+      o.groove = e.target.value;
+      const g = BEAT_PRESETS[o.groove];
+      if (g) {
+        // Only write patterns for tracks this style actually has.
+        const kit = STYLES[o.style].kit || {};
+        o.patterns = {};
+        for (const key of Object.keys(kit)) if (g[key]) o.patterns[key] = g[key];
+      } else {
+        o.patterns = {};
+      }
       renderBeat();
       app.rebuild(true);
     }

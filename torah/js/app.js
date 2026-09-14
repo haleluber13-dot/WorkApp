@@ -38,6 +38,9 @@ const state = {
     rhythm: 'even', snapSimples: true, bass: true, pad: true, percussion: true,
     mix: {},          // per-track {gain, mute, solo}
     patterns: {},     // edits to the style's drum patterns
+    groove: '',       // a beat preset laid over the style, or '' for its own
+    kickVoice: null,  // null = whichever kick the style names
+    bassVoice: null,
     pads: defaultPads(),
   },
   fx: defaultFx(),
@@ -745,6 +748,9 @@ function wire() {
     state.opt.style = id;
     state.opt.bpm = STYLES[id].bpm;      // each style arrives at its own tempo
     state.opt.patterns = {};             // pattern edits belonged to the old kit
+    state.opt.groove = '';
+    state.opt.kickVoice = null;          // let the new style name its own sounds
+    state.opt.bassVoice = null;
     state.fx = fxFromStyle({ ...STYLES[id], id });
     appApi.applyFx();
     $('styleSel').value = id;
@@ -856,6 +862,9 @@ function wire() {
     try { localStorage.removeItem(PROJECT_KEY); } catch (_) { /* nothing stored */ }
     state.opt.mix = {};
     state.opt.patterns = {};
+    state.opt.groove = '';
+    state.opt.kickVoice = null;
+    state.opt.bassVoice = null;
     state.opt.pads = defaultPads();
     state.lyrics = { text: '', barsPerLine: 1, offsetBars: 0 };
     state.fx = fxFromStyle({ ...STYLES[state.opt.style], id: state.opt.style });

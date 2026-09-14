@@ -32,6 +32,34 @@ function driveCurve(amount) {
   return curve;
 }
 
+/* Ten kick drums, all the same synthesis with different numbers:
+ *   f0/f1  the pitch sweep, bend  how long it takes
+ *   dec    how long the body rings, click  the transient on top
+ *   dist   soft-clip amount, 0 for none */
+export const KICKS = {
+  kick_psy:    { name: 'Psy',      f0: 240, f1: 46, bend: 0.04,  dec: 0.30, click: 0.5,  dist: 0 },
+  kick_dark:   { name: 'Dark',     f0: 215, f1: 37, bend: 0.065, dec: 0.58, click: 0.35, dist: 0.45 },
+  kick_forest: { name: 'Forest',   f0: 285, f1: 53, bend: 0.022, dec: 0.17, click: 0.85, dist: 0.25 },
+  kick_punch:  { name: 'Punch',    f0: 190, f1: 50, bend: 0.05,  dec: 0.32, click: 0.7,  dist: 0 },
+  kick_soft:   { name: 'Soft',     f0: 140, f1: 48, bend: 0.08,  dec: 0.38, click: 0.25, dist: 0 },
+  kick_808:    { name: '808',      f0: 150, f1: 36, bend: 0.10,  dec: 0.95, click: 0.2,  dist: 0 },
+  kick_dist:   { name: 'Distorted',f0: 300, f1: 44, bend: 0.03,  dec: 0.24, click: 0.9,  dist: 0.9 },
+  kick_gabber: { name: 'Gabber',   f0: 420, f1: 41, bend: 0.018, dec: 0.34, click: 1.0,  dist: 1.0 },
+  kick_sub:    { name: 'Sub',      f0: 110, f1: 33, bend: 0.13,  dec: 0.72, click: 0.05, dist: 0 },
+  kick_click:  { name: 'Click',    f0: 205, f1: 58, bend: 0.018, dec: 0.13, click: 1.0,  dist: 0.15 },
+};
+
+/* Seven bass timbres. The pattern comes from the style; this is the sound. */
+export const BASSES = {
+  rollbass:  { name: 'Roll',    blurb: 'Short, filtered, gone before the next kick.' },
+  subbass:   { name: '808 sub', blurb: 'Pure sine that glides in from the last note.' },
+  bass:      { name: 'Round',   blurb: 'Soft sine and triangle. Sits under everything.' },
+  reese:     { name: 'Reese',   blurb: 'Detuned saws beating against each other.' },
+  fmbass:    { name: 'FM growl', blurb: 'Two operators; the growl opens as it hits.' },
+  squelch:   { name: 'Squelch', blurb: 'High resonance and a fast sweep — forest burble.' },
+  pluckbass: { name: 'Pluck',   blurb: 'Tight and muted, almost a fingered string.' },
+};
+
 export class Voices {
   /**
    * @param {BaseAudioContext} ctx
@@ -94,6 +122,10 @@ export class Voices {
       case 'bass': return this._bass(note, when);
       case 'subbass': return this._sub(note, when);
       case 'rollbass': return this._roll(note, when);
+      case 'reese': return this._reese(note, when);
+      case 'fmbass': return this._fmbass(note, when);
+      case 'squelch': return this._squelch(note, when);
+      case 'pluckbass': return this._pluckbass(note, when);
       case 'pad': return this._pad(note, when);
       case 'acid': return this._acid(note, when);
       case 'saw': return this._saw(note, when);
@@ -101,11 +133,16 @@ export class Voices {
       case 'rhodes': return this._rhodes(note, when);
       case 'stab': return this._stab(note, when);
       // drums
-      case 'kick_psy': return this._kick(note, when, { f0: 240, f1: 46, bend: 0.04, dec: 0.3, click: 0.5 });
-      case 'kick_808': return this._kick(note, when, { f0: 150, f1: 36, bend: 0.1, dec: 0.95, click: 0.2 });
-      case 'kick_punch': return this._kick(note, when, { f0: 190, f1: 50, bend: 0.05, dec: 0.32, click: 0.7 });
-      case 'kick_soft': return this._kick(note, when, { f0: 140, f1: 48, bend: 0.08, dec: 0.38, click: 0.25 });
-      case 'kick_dist': return this._kick(note, when, { f0: 300, f1: 44, bend: 0.03, dec: 0.24, click: 0.9, dist: true });
+      case 'kick_psy': return this._kick(note, when, KICKS.kick_psy);
+      case 'kick_808': return this._kick(note, when, KICKS.kick_808);
+      case 'kick_punch': return this._kick(note, when, KICKS.kick_punch);
+      case 'kick_soft': return this._kick(note, when, KICKS.kick_soft);
+      case 'kick_dist': return this._kick(note, when, KICKS.kick_dist);
+      case 'kick_dark': return this._kick(note, when, KICKS.kick_dark);
+      case 'kick_forest': return this._kick(note, when, KICKS.kick_forest);
+      case 'kick_gabber': return this._kick(note, when, KICKS.kick_gabber);
+      case 'kick_sub': return this._kick(note, when, KICKS.kick_sub);
+      case 'kick_click': return this._kick(note, when, KICKS.kick_click);
       case 'snare': return this._snare(note, when);
       case 'clap': return this._clap(note, when);
       case 'hat': return this._hat(note, when, 0.035, 8500);
@@ -421,6 +458,136 @@ export class Voices {
     this._track(stop, [o, o2, mix, lp, g]);
   }
 
+  /* Two saws a few cents apart, beating against each other. The interference
+   * is the sound; a slow drift on one of them keeps it moving. */
+  _reese(note, when) {
+    const ctx = this.ctx;
+    const f = midiToFreq(note.midi);
+    const dur = Math.max(0.1, note.dur);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = Math.min(1400, f * 12);
+    lp.Q.value = 2;
+
+    const g = ctx.createGain();
+    const peak = 0.3 * (note.vel ?? 0.8);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(peak, when + 0.02);
+    g.gain.setValueAtTime(peak, when + Math.max(0.03, dur - 0.06));
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.1);
+
+    const oscs = [];
+    for (const det of [-14, 3, 16]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f;
+      o.detune.value = det;
+      o.connect(lp);
+      oscs.push(o);
+    }
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.7;
+    const lg = ctx.createGain();
+    lg.gain.value = 9;
+    lfo.connect(lg).connect(oscs[2].detune);
+    oscs.push(lfo);
+
+    lp.connect(g).connect(this.master);
+    const stop = when + dur + 0.14;
+    oscs.forEach(o => { o.start(when); o.stop(stop); });
+    this._track(stop, [lp, g, lg, ...oscs]);
+  }
+
+  /* FM growl: the modulator's envelope opens the timbre as the note lands. */
+  _fmbass(note, when) {
+    const ctx = this.ctx;
+    const f = midiToFreq(note.midi);
+    const dur = Math.max(0.08, note.dur);
+    const car = ctx.createOscillator();
+    car.type = 'sine';
+    car.frequency.value = f;
+    const mod = ctx.createOscillator();
+    mod.type = 'sine';
+    mod.frequency.value = f * 1.5;
+    const modG = ctx.createGain();
+    modG.gain.setValueAtTime(f * 4.5, when);
+    modG.gain.exponentialRampToValueAtTime(f * 0.4, when + Math.min(dur, 0.3));
+    mod.connect(modG).connect(car.frequency);
+
+    const g = ctx.createGain();
+    const peak = 0.34 * (note.vel ?? 0.8);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(peak, when + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.08);
+
+    car.connect(g).connect(this.master);
+    const stop = when + dur + 0.12;
+    car.start(when); mod.start(when); car.stop(stop); mod.stop(stop);
+    this._track(stop, [car, mod, modG, g]);
+  }
+
+  /* Very high resonance and a fast sweep — the burbling forest bass. */
+  _squelch(note, when) {
+    const ctx = this.ctx;
+    const f = midiToFreq(note.midi);
+    const dur = Math.max(0.04, note.dur);
+    const o = ctx.createOscillator();
+    o.type = 'square';
+    o.frequency.value = f;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 20;
+    const top = Math.min(4200, f * 16 + 700);
+    lp.frequency.setValueAtTime(top, when);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(90, f * 1.4), when + Math.min(dur * 1.3, 0.2));
+
+    const g = ctx.createGain();
+    const peak = 0.24 * (note.vel ?? 0.8);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(peak, when + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.03);
+
+    o.connect(lp).connect(g).connect(this.master);
+    const stop = when + dur + 0.06;
+    o.start(when); o.stop(stop);
+    this._track(stop, [o, lp, g]);
+  }
+
+  /* Tight and muted, close to a fingered string. */
+  _pluckbass(note, when) {
+    const ctx = this.ctx;
+    const f = midiToFreq(note.midi);
+    const dur = Math.max(0.05, note.dur);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(Math.min(3000, f * 11), when);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(110, f * 2), when + Math.min(dur, 0.18));
+    lp.Q.value = 3;
+
+    const g = ctx.createGain();
+    const peak = 0.32 * (note.vel ?? 0.8);
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(peak, when + 0.005);
+    g.gain.exponentialRampToValueAtTime(peak * 0.25, when + Math.min(dur * 0.6, 0.16));
+    g.gain.exponentialRampToValueAtTime(0.0001, when + dur + 0.05);
+
+    const oscs = [];
+    for (const [type, gain] of [['triangle', 1], ['sawtooth', 0.35]]) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = f;
+      const og = ctx.createGain();
+      og.gain.value = gain;
+      o.connect(og).connect(lp);
+      oscs.push(o, og);
+    }
+    lp.connect(g).connect(this.master);
+    const stop = when + dur + 0.08;
+    oscs.filter(n => n.frequency).forEach(o => { o.start(when); o.stop(stop); });
+    this._track(stop, [lp, g, ...oscs]);
+  }
+
   /* A breathing pad that swells under a whole verse. */
   _pad(note, when) {
     const ctx = this.ctx;
@@ -498,9 +665,9 @@ export class Voices {
 
     let tail = g;
     const extra = [];
-    if (k.dist) {
+    if (k.dist > 0) {
       const ws = ctx.createWaveShaper();
-      ws.curve = driveCurve(0.9);
+      ws.curve = driveCurve(k.dist);
       ws.oversample = '4x';
       g.connect(ws);
       tail = ws;

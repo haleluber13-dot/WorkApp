@@ -45,6 +45,9 @@ never change; only the clothes they arrive in.
 | Drone | 42 | Each letter held until it blurs into the next. |
 | Goa Trance | 145 | 16th-note acid leads, rolling offbeat bass, 3/16 delay. |
 | Full-On Psy | 142 | Bright and busy over a rolling bass. |
+| Dark Psy | 152 | A long dark kick, a twisted low lead and no daylight at all. |
+| Forest | 160 | Organic and burbling — tight clicky kick, wooden percussion, everything staccato. |
+| Zenonesque | 140 | Slow, broken and bit-crushed. Space where the other psy styles put more notes. |
 | Hi-Tech | 195 | Frantic 16ths and glitching percussion. |
 | Psycore | 232 | Distorted kick, screaming lead, no room left. |
 | Drum & Bass | 174 | Half-time breakbeat with a sub underneath. |
@@ -74,7 +77,23 @@ side open the whole thing up.
 
 **Beat** — every track in the current style, with mute, solo and level, and a
 clickable step grid for each drum. Tap a step to cycle it through rest, ghost,
-soft, normal and hard. Reset puts the style's own pattern back.
+soft, normal and hard.
+
+Above the tracks sit three pickers that work on any style:
+
+- **Kick** — ten of them. Psy, Dark, Forest, Punch, Soft, 808, Distorted,
+  Gabber, Sub and Click. All the same synthesis with different numbers: a pitch
+  sweep, how fast it falls, how long the body rings, how much transient sits on
+  top and how hard it is clipped.
+- **Bass** — seven timbres, independent of the pattern the style plays. Roll,
+  808 sub, Round, Reese (detuned saws beating against each other), FM growl,
+  Squelch (the burbling forest sound) and Pluck.
+- **Groove** — ten ready-made drum patterns you can drop onto any style: four
+  on the floor, offbeat pump, rolling sixteenths, breakbeat, half-time, broken,
+  tribal, stomp, sparse and double time. The kick and bass sounds stay whatever
+  you picked.
+
+Reset puts the style's own patterns and sounds back.
 
 **Samples** — record straight from your phone or laptop microphone, or bring in
 any audio file. Clips are kept in this browser, on your device: nothing is

@@ -343,7 +343,7 @@ function sequenceFree(verses, opt) {
         push({
           t: wordStart, dur: wordDur * 1.02,
           midi: degreeToMidi(verseRoot - 12, steps, g % steps.length),
-          vel: 0.5, voice: 'bass', wordIndex: wi, verseIndex: vi,
+          vel: 0.5, voice: opt.bassVoice || 'bass', wordIndex: wi, verseIndex: vi,
         });
       }
       if (percussion) {
@@ -498,20 +498,22 @@ function sequenceGrid(verses, opt, style) {
 
   const totalSteps = Math.max(step, barSteps);
 
-  /* ---- bass: follows the word, in the shape the style asks for ---- */
+  /* ---- bass: the style sets the pattern, the timbre is swappable ---- */
   if (bass && bassLevel > 0 && style.bass !== 'none') {
     const pat = BASS_PATTERNS[style.bass];
+    const bv = opt.bassVoice || style.bassVoice
+      || (style.bass === 'sub' ? 'subbass' : style.bass === 'roll' ? 'rollbass' : 'bass');
     for (const sp of spans) {
       const midi = degreeToMidi(sp.verseRoot - 12, scale, sp.g % scale.length);
       if (style.bass === 'sub') {
         notes.push({
           t: tOf(sp.from), dur: (sp.to - sp.from) * stepSec * 0.95, midi,
-          vel: 0.85 * bassLevel, voice: 'subbass', glide: true, verseIndex: sp.verseIndex,
+          vel: 0.85 * bassLevel, voice: bv, glide: true, verseIndex: sp.verseIndex,
         });
       } else if (style.bass === 'sustain') {
         notes.push({
           t: tOf(sp.from), dur: (sp.to - sp.from) * stepSec, midi,
-          vel: 0.5 * bassLevel, voice: 'bass', verseIndex: sp.verseIndex,
+          vel: 0.5 * bassLevel, voice: bv, verseIndex: sp.verseIndex,
         });
       } else if (pat) {
         // Roll and walk are step patterns, read against the bar.
@@ -522,7 +524,7 @@ function sequenceGrid(verses, opt, style) {
           if (!vel) continue;
           notes.push({
             t: tOf(s), dur: stepSec * (style.bass === 'walk' ? 3.4 : 0.85), midi,
-            vel: vel * bassLevel, voice: style.bass === 'walk' ? 'bass' : 'rollbass',
+            vel: vel * bassLevel, voice: bv,
             verseIndex: sp.verseIndex,
           });
         }
@@ -538,7 +540,8 @@ function sequenceGrid(verses, opt, style) {
       if (lvl <= 0) continue;
       const cells = parseSteps(edits[key] ?? part.p);
       if (!cells.length) continue;
-      const isKick = part.voice.startsWith('kick');
+      const isKick = key === 'kick';
+      const voice = isKick && opt.kickVoice ? opt.kickVoice : part.voice;
       // Patterns are written in sixteenths; stretch them if the grid differs.
       const scaleUp = barSteps / 16;
       const len = Math.max(1, Math.round(cells.length * scaleUp));
@@ -547,7 +550,7 @@ function sequenceGrid(verses, opt, style) {
         const vel = cells[idx];
         if (!vel) continue;
         notes.push({ t: tOf(s), dur: stepSec, midi: 0, vel: vel * lvl,
-                     voice: part.voice, drum: true, track: key, kick: isKick });
+                     voice, drum: true, track: key, kick: isKick });
       }
     }
   }
