@@ -42,7 +42,8 @@ const state = {
   },
   fx: defaultFx(),
   lyrics: { text: '', barsPerLine: 1, offsetBars: 0 },
-  theme: 'light',
+  theme: 'dark',
+  themeExplicit: false,   // true once the reader picks one themselves
 };
 
 const bank = new SampleBank();
@@ -825,6 +826,7 @@ function wire() {
   });
 
   $('btnTheme').addEventListener('click', () => {
+    state.themeExplicit = true;
     applyTheme(THEMES[(THEMES.indexOf(state.theme) + 1) % THEMES.length]);
     saveProject();
   });
@@ -935,7 +937,7 @@ const THEMES = ['light', 'dark', 'system'];
 const THEME_ICON = { light: '☀', dark: '☾', system: '◐' };
 
 function applyTheme(t) {
-  state.theme = THEMES.includes(t) ? t : 'light';
+  state.theme = THEMES.includes(t) ? t : 'dark';
   const root = document.documentElement;
   if (state.theme === 'system') root.removeAttribute('data-theme');
   else root.setAttribute('data-theme', state.theme);
@@ -943,7 +945,7 @@ function applyTheme(t) {
   $('btnTheme').title = `Theme: ${state.theme} — click to change`;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
-    meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#f6f2e8';
+    meta.content = getComputedStyle(root).getPropertyValue('--bg').trim() || '#0d0b08';
   }
   paint.clear();       // canvas colours are read from the tokens
 }
@@ -973,7 +975,7 @@ function projectData() {
     opt: state.opt,
     fx: state.fx,
     lyrics: state.lyrics,
-    theme: state.theme,
+    theme: state.themeExplicit ? state.theme : null,
   };
 }
 
@@ -1003,7 +1005,10 @@ function loadProject(fromObject) {
   }
   if (p.fx) state.fx = { ...defaultFx(), ...p.fx };
   if (p.lyrics) Object.assign(state.lyrics, p.lyrics);
-  if (p.theme) state.theme = p.theme;
+  if (p.theme && THEMES.includes(p.theme)) {
+    state.theme = p.theme;
+    state.themeExplicit = true;
+  }
   return true;
 }
 
