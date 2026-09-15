@@ -174,6 +174,27 @@ without disturbing the other apps, `npm run build:site` writes a built copy into
 `ombak/`, which is committed. Once this branch reaches `main` the app is served
 at `<pages-url>/ombak/` alongside the rest.
 
+### The Pages deploy is currently blocked, and not by the workflow
+
+The live site has been stale since August — `truck/` is on `main` but returns
+404 — because the deploy job never runs. Measured, not guessed:
+
+| Deploy job | Result |
+|---|---|
+| with `environment: github-pages` | refused after ~2s, no runner, no steps, no logs |
+| without it | gets a runner, then `deploy-pages` fails: `HttpError: Missing environment` |
+
+So the block is mandatory — `actions/deploy-pages@v4` calls an API that rejects
+the request without it — and the job is being refused *because of* it. That
+points at the `github-pages` environment's own protection rules rather than at
+anything in the workflow file, and those live in repository settings:
+
+**Settings → Environments → github-pages** — check *Deployment branches and
+tags* and any required reviewers.
+
+Do not "fix" this by deleting the environment block; that only trades one
+failure for another, which is what happened here before.
+
 Rebuild that copy whenever the app changes:
 
 ```bash
