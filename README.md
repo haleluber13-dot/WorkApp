@@ -125,7 +125,7 @@ npx capacitor-assets generate --android --assetPath assets
 There are two routes, and the first needs nothing but Safari.
 
 **1. Add it to your home screen (no Mac, no App Store).**
-Open the deployed URL in **Safari** — it has to be Safari, not Chrome — then
+Open `<pages-url>/ombak/` in **Safari** — it has to be Safari, not Chrome — then
 **Share → Add to Home Screen**. You get the real thing: its own icon, no browser
 chrome, a launch screen, and it works with no signal. Everything is stored on the
 phone.
@@ -165,10 +165,20 @@ npm run preview  # serve the production build
 npm test         # pay-engine tests
 ```
 
-The build is fully static and uses relative paths, so `dist/` can be dropped on
-GitHub Pages, Netlify, or any static host. `.github/workflows/deploy.yml`
-publishes it to GitHub Pages on every push once Pages is switched to the
-**GitHub Actions** source in the repository settings.
+The build is fully static and uses relative paths, so it can be dropped in any
+folder on any static host.
+
+This repository already publishes a multi-app site to GitHub Pages from `main`
+(`.github/workflows/pages.yml` uploads the repository root). To take part in it
+without disturbing the other apps, `npm run build:site` writes a built copy into
+`ombak/`, which is committed. Once this branch reaches `main` the app is served
+at `<pages-url>/ombak/` alongside the rest.
+
+Rebuild that copy whenever the app changes:
+
+```bash
+npm run build:site
+```
 
 ## Where your data lives
 

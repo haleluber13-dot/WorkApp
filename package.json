@@ -13,7 +13,8 @@
     "apk": "cd android && ./gradlew assembleDebug",
     "icons": "node scripts/render-icons.mjs",
     "icons:ios": "node scripts/render-ios-icons.mjs",
-    "ios": "cap sync ios && cap open ios"
+    "ios": "cap sync ios && cap open ios",
+    "build:site": "vite build --outDir ombak --emptyOutDir"
   },
   "dependencies": {
     "@capacitor/geolocation": "^8.2.2",
