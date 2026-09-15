@@ -120,6 +120,41 @@ npm run icons          # re-render assets/ from the SVG
 npx capacitor-assets generate --android --assetPath assets
 ```
 
+## On iPhone
+
+There are two routes, and the first needs nothing but Safari.
+
+**1. Add it to your home screen (no Mac, no App Store).**
+Open the deployed URL in **Safari** — it has to be Safari, not Chrome — then
+**Share → Add to Home Screen**. You get the real thing: its own icon, no browser
+chrome, a launch screen, and it works with no signal. Everything is stored on the
+phone.
+
+**2. Build a native app (needs a Mac).**
+The Capacitor iOS project lives in `ios/`. An `.ipa` can only be produced on
+macOS with Xcode — there is no way around that, on any machine that is not a Mac.
+
+```bash
+npm run build
+npx cap sync ios
+cd ios/App && pod install     # once, and after adding plugins
+npm run ios                   # opens the project in Xcode
+```
+
+In Xcode: pick your team under **Signing & Capabilities**, choose your device,
+and press Run. For TestFlight or the App Store use **Product → Archive**.
+
+Home-screen artwork is generated from `public/icon.svg`:
+
+```bash
+npm run icons:ios    # touch icons + launch screens into public/ios/
+```
+
+Two things Safari does differently, both handled here and both worth knowing if
+you touch the markup: it ignores SVG touch icons and the web manifest's icons
+entirely — only `apple-touch-icon` PNGs count — and it zooms the whole page when
+a form control smaller than 16px takes focus.
+
 ## Running it
 
 ```bash
@@ -131,12 +166,9 @@ npm test         # pay-engine tests
 ```
 
 The build is fully static and uses relative paths, so `dist/` can be dropped on
-GitHub Pages, Netlify, or any static host.
-
-## On your phone
-
-Open the deployed URL and use **Add to Home Screen**. It installs as a standalone app,
-works with no signal, and keeps everything on the device.
+GitHub Pages, Netlify, or any static host. `.github/workflows/deploy.yml`
+publishes it to GitHub Pages on every push once Pages is switched to the
+**GitHub Actions** source in the repository settings.
 
 ## Where your data lives
 

@@ -11,10 +11,13 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
     "apk": "cd android && ./gradlew assembleDebug",
-    "icons": "node scripts/render-icons.mjs"
+    "icons": "node scripts/render-icons.mjs",
+    "icons:ios": "node scripts/render-ios-icons.mjs",
+    "ios": "cap sync ios && cap open ios"
   },
   "dependencies": {
     "@capacitor/geolocation": "^8.2.2",
+    "@capacitor/ios": "^8.5.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

@@ -13,3 +13,9 @@ android/local.properties
 android/.idea
 android/app/src/main/assets/public
 .gradle
+
+# Capacitor iOS build output
+ios/App/Pods
+ios/App/App/public
+ios/App/build
+ios/.gradle

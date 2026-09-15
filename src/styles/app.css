@@ -10,8 +10,14 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overscroll-behavior-y: none;
+  /* Keeps the page from rubber-banding away from the fixed nav on iOS. */
+  -webkit-text-size-adjust: 100%;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
+/* iOS Safari zooms the whole page when a form control under 16px takes focus. */
+input, select, textarea { font-size: max(16px, 1em); }
+/* Safari's grey flash on tap reads as a rendering glitch on a dark ground. */
+* { -webkit-tap-highlight-color: transparent; }
 h1, h2, h3, h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 p { margin: 0; }
 a { color: var(--accent-ink); }
@@ -40,7 +46,7 @@ a { color: var(--accent-ink); }
   position: relative;
   overflow: hidden;
   margin: 0 -16px 18px;
-  padding: 22px 20px 44px;
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 20px 44px;
   background: var(--grad-sea);
   color: #fff;
 }
