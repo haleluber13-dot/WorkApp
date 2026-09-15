@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="תלוש כיס">
+  <rect width="512" height="512" rx="112" fill="#2E2A63"/>
+  <g>
+    <rect x="122" y="96" width="268" height="320" rx="14" fill="#F5F7F0"/>
+    <rect x="122" y="96" width="268" height="54" fill="#4B3FA8"/>
+    <g fill="#DDE3D2">
+      <rect x="154" y="196" width="204" height="22" rx="6"/>
+      <rect x="154" y="248" width="204" height="22" rx="6"/>
+      <rect x="154" y="300" width="204" height="22" rx="6"/>
+    </g>
+    <rect x="154" y="248" width="126" height="22" rx="6" fill="#2E7A55"/>
+    <rect x="154" y="196" width="168" height="22" rx="6" fill="#9AA3B8"/>
+    <text x="256" y="386" font-family="Georgia,'Times New Roman',serif" font-size="62" font-weight="700"
+          fill="#4B3FA8" text-anchor="middle">₪</text>
+    <g fill="#2E2A63">
+      <circle cx="150" cy="123" r="7"/><circle cx="186" cy="123" r="7"/><circle cx="222" cy="123" r="7"/>
+      <circle cx="258" cy="123" r="7"/><circle cx="294" cy="123" r="7"/><circle cx="330" cy="123" r="7"/>
+      <circle cx="366" cy="123" r="7"/>
+    </g>
+  </g>
+</svg>
