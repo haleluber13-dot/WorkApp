@@ -34,12 +34,17 @@ jobs:
         with:
           path: dist
 
+  # No `environment: github-pages` block here on purpose. Declaring it makes the
+  # job subject to that environment's protection rules, and on this repository
+  # those refuse the job before it is given a runner: it fails in two seconds
+  # with no steps and no logs. deploy-pages authenticates with the workflow's
+  # OIDC token and does not need the declaration.
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Where it landed
+        run: echo "Published to ${{ steps.deployment.outputs.page_url }}"
+
