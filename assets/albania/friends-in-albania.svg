@@ -99,56 +99,106 @@
     <rect x="1356" y="800" width="8" height="12"/>
   </g>
 
-  <!-- Friends, sitting and standing on the hill -->
-  <g id="friends" transform="translate(600 812) scale(1.1)">
-    <!-- friend 1 -->
-    <g transform="translate(0 40)">
-      <circle cx="0" cy="-80" r="20" fill="#c98e62"/>
-      <path d="M-20 -86 q20 -26 40 0 q-4 -16 -20 -18 q-16 2 -20 18z" fill="#2a1a12"/>
-      <path d="M-24 -58 h48 l8 70 h-64 z" fill="#e4492e"/>
-      <rect x="-22" y="12" width="18" height="60" fill="#27364f"/>
-      <rect x="4" y="12" width="18" height="60" fill="#27364f"/>
-      <path d="M24 -50 l30 -50" stroke="#c98e62" stroke-width="12" stroke-linecap="round"/>
-    </g>
-    <!-- friend 2 -->
-    <g transform="translate(90 34)">
-      <circle cx="0" cy="-82" r="20" fill="#a86b43"/>
-      <path d="M-22 -84 q22 -34 44 0 v40 h-8 v-36 h-28 v36 h-8 z" fill="#1c120c"/>
-      <path d="M-24 -60 h48 l12 78 h-72 z" fill="#f5c542"/>
-      <rect x="-18" y="18" width="14" height="58" fill="#1f2a3a"/>
-      <rect x="4" y="18" width="14" height="58" fill="#1f2a3a"/>
-      <path d="M-24 -50 l-24 30" stroke="#a86b43" stroke-width="12" stroke-linecap="round"/>
-      <path d="M24 -50 l24 30" stroke="#a86b43" stroke-width="12" stroke-linecap="round"/>
-    </g>
-    <!-- friend 3 -->
-    <g transform="translate(180 44)">
-      <circle cx="0" cy="-78" r="20" fill="#e2b08a"/>
-      <path d="M-20 -84 q20 -24 40 0 z" fill="#6b3f1e"/>
-      <path d="M-24 -56 h48 l6 68 h-60 z" fill="#2e8b6e"/>
-      <rect x="-20" y="12" width="17" height="56" fill="#3a3a3a"/>
-      <rect x="3" y="12" width="17" height="56" fill="#3a3a3a"/>
-      <path d="M-24 -48 l-26 32" stroke="#e2b08a" stroke-width="12" stroke-linecap="round"/>
-      <path d="M24 -48 l26 32" stroke="#e2b08a" stroke-width="12" stroke-linecap="round"/>
-    </g>
-    <!-- friend 4, holding the flag -->
-    <g transform="translate(270 36)">
-      <circle cx="0" cy="-82" r="20" fill="#8a5a38"/>
-      <path d="M-22 -86 q22 -28 44 0 q-8 -8 -22 -8 q-14 0 -22 8z" fill="#111"/>
-      <path d="M-24 -60 h48 l8 72 h-64 z" fill="#4a6fd1"/>
-      <rect x="-20" y="12" width="17" height="62" fill="#2b2b33"/>
-      <rect x="3" y="12" width="17" height="62" fill="#2b2b33"/>
-      <path d="M-24 -52 l-26 34" stroke="#8a5a38" stroke-width="12" stroke-linecap="round"/>
-      <path d="M24 -52 l22 -40" stroke="#8a5a38" stroke-width="12" stroke-linecap="round"/>
-      <line x1="48" y1="-200" x2="48" y2="-80" stroke="#4a3322" stroke-width="5"/>
-      <!-- Albanian flag: red with a black double-headed eagle (simplified) -->
-      <rect x="50" y="-200" width="96" height="66" fill="#e41e20"/>
-      <g fill="#111" transform="translate(98 -167)">
+  <!-- Friends: drawn from the user's photos -->
+  <g id="friends" transform="translate(520 800) scale(1.15)">
+    <!-- Friend 1: long curly hair in a top bun, mustache + goatee, pink floral shirt, tongue out, holding the flag -->
+    <g transform="translate(0 0)">
+      <rect x="-20" y="10" width="18" height="66" fill="#3b4a5e"/>
+      <rect x="2" y="10" width="18" height="66" fill="#3b4a5e"/>
+      <path d="M-20 76 h20 v8 h-24 z M2 76 h20 l4 8 h-24 z" fill="#5a4030"/>
+      <path d="M-26 -58 h52 l6 72 h-64 z" fill="#d88aa6"/>
+      <g fill="#f3e6de" opacity="0.9">
+        <ellipse cx="-12" cy="-40" rx="7" ry="4" transform="rotate(-30 -12 -40)"/>
+        <ellipse cx="10" cy="-28" rx="8" ry="4" transform="rotate(25 10 -28)"/>
+        <ellipse cx="-8" cy="-8" rx="7" ry="4" transform="rotate(40 -8 -8)"/>
+        <ellipse cx="14" cy="4" rx="6" ry="3" transform="rotate(-20 14 4)"/>
+      </g>
+      <path d="M-6 -58 l6 10 l6 -10" fill="#f3e6de"/>
+      <path d="M-26 -50 l-18 50" stroke="#c89470" stroke-width="12" stroke-linecap="round"/>
+      <path d="M-44 0 v-2" stroke="#111" stroke-width="12" stroke-linecap="round"/>
+      <path d="M26 -50 l26 -42" stroke="#c89470" stroke-width="12" stroke-linecap="round"/>
+      <circle cx="0" cy="-80" r="20" fill="#c89470"/>
+      <!-- curly hair, pulled back, with bun -->
+      <path d="M-21 -80 q-2 -26 21 -26 q23 0 21 26 q-4 -14 -21 -16 q-17 2 -21 16z" fill="#6b4a2e"/>
+      <circle cx="0" cy="-110" r="9" fill="#6b4a2e"/>
+      <path d="M18 -86 q14 10 6 34 q-4 -14 -10 -22z" fill="#6b4a2e"/>
+      <circle cx="-7" cy="-82" r="2" fill="#222"/><circle cx="7" cy="-82" r="2" fill="#222"/>
+      <path d="M-10 -72 q10 -5 20 0" stroke="#4a3322" stroke-width="3" fill="none"/>
+      <path d="M-9 -70 q9 10 18 0 z" fill="#fff"/>
+      <ellipse cx="0" cy="-64" rx="4.5" ry="5.5" fill="#e27a8a"/>
+      <path d="M-2 -60 h4 v6 h-4z" fill="#4a3322"/>
+      <line x1="52" y1="-200" x2="52" y2="-86" stroke="#4a3322" stroke-width="5"/>
+      <rect x="54" y="-200" width="96" height="66" fill="#e41e20"/>
+      <g fill="#111" transform="translate(102 -167)">
         <path d="M-4 -18 h8 v30 h-8 z"/>
         <path d="M-4 -12 l-26 -12 l6 10 l-12 -2 l10 10 l-10 2 l14 6 l-8 6 l26 -6 z"/>
         <path d="M4 -12 l26 -12 l-6 10 l12 -2 l-10 10 l10 2 l-14 6 l8 6 l-26 -6 z"/>
         <circle cx="-8" cy="-22" r="4"/><circle cx="8" cy="-22" r="4"/>
         <path d="M-4 12 l-6 10 h6 l4 -6 l4 6 h6 l-6 -10 z"/>
       </g>
+    </g>
+
+    <!-- Friend 2: shoulder-length dark hair, beard, mint green tee, bracelets, winking and taking a selfie -->
+    <g transform="translate(112 4)">
+      <rect x="-19" y="8" width="17" height="64" fill="#34506a"/>
+      <rect x="2" y="8" width="17" height="64" fill="#34506a"/>
+      <path d="M-19 72 h17 v8 h-21 z M2 72 h17 l4 8 h-21 z" fill="#ddd"/>
+      <path d="M-25 -58 h50 l6 70 h-62 z" fill="#cfe7c6"/>
+      <path d="M-25 -50 l-20 44" stroke="#b98563" stroke-width="12" stroke-linecap="round"/>
+      <path d="M25 -50 l40 -36" stroke="#b98563" stroke-width="12" stroke-linecap="round"/>
+      <path d="M58 -80 l6 -6" stroke="#444" stroke-width="12" stroke-linecap="round"/>
+      <rect x="62" y="-104" width="14" height="24" rx="3" fill="#222" transform="rotate(-40 69 -92)"/>
+      <circle cx="0" cy="-80" r="20" fill="#b98563"/>
+      <path d="M-24 -52 q-6 -40 10 -50 q14 -8 28 0 q16 10 10 50 q-4 -18 -8 -34 q-14 4 -30 -2 q-6 18 -10 36z" fill="#2a1d16"/>
+      <path d="M-17 -74 q17 26 34 0 q2 16 -17 20 q-19 -4 -17 -20z" fill="#3a2c24"/>
+      <path d="M-11 -83 h7" stroke="#222" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="7" cy="-83" r="2" fill="#222"/>
+      <path d="M-6 -68 q6 3 12 0" stroke="#7a4b3a" stroke-width="2.5" fill="none"/>
+    </g>
+
+    <!-- Friend 3: green cap, black tee, grey cargo shorts, beard, peace sign -->
+    <g transform="translate(232 0)">
+      <rect x="-18" y="10" width="17" height="36" fill="#7b7f86"/>
+      <rect x="1" y="10" width="17" height="36" fill="#7b7f86"/>
+      <rect x="-15" y="46" width="11" height="26" fill="#6b4630"/>
+      <rect x="4" y="46" width="11" height="26" fill="#6b4630"/>
+      <rect x="-15" y="66" width="11" height="6" fill="#fff"/>
+      <rect x="4" y="66" width="11" height="6" fill="#fff"/>
+      <path d="M-18 72 h16 v9 h-20 z M3 72 h16 l4 9 h-20 z" fill="#5d6776"/>
+      <path d="M-24 -58 h48 l6 70 h-60 z" fill="#1c1c1f"/>
+      <path d="M-24 -50 l-20 44" stroke="#6b4630" stroke-width="12" stroke-linecap="round"/>
+      <path d="M24 -50 l24 -34" stroke="#6b4630" stroke-width="12" stroke-linecap="round"/>
+      <path d="M46 -86 l-4 -18 M50 -86 l6 -17" stroke="#6b4630" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="0" cy="-80" r="20" fill="#6b4630"/>
+      <path d="M-17 -74 q17 28 34 0 q2 18 -17 22 q-19 -4 -17 -22z" fill="#1d1410"/>
+      <path d="M-21 -86 q0 -24 21 -24 q21 0 21 24 z" fill="#1f4d36"/>
+      <path d="M-24 -86 h-18 q4 6 18 6z" fill="#1f4d36"/>
+      <circle cx="-7" cy="-80" r="2" fill="#111"/><circle cx="7" cy="-80" r="2" fill="#111"/>
+      <path d="M-6 -68 q6 4 12 0" stroke="#fff" stroke-width="2.5" fill="none"/>
+      <circle cx="20" cy="-76" r="2" fill="#222"/>
+    </g>
+
+    <!-- Friend 4: glasses, mustache, white ringer tee with orange trim, beige corduroy shorts, hands on cheeks -->
+    <g transform="translate(340 2)">
+      <rect x="-18" y="10" width="17" height="36" fill="#cbbd9a"/>
+      <rect x="1" y="10" width="17" height="36" fill="#cbbd9a"/>
+      <g stroke="#b4a680" stroke-width="1.5"><line x1="-14" y1="12" x2="-14" y2="44"/><line x1="-8" y1="12" x2="-8" y2="44"/><line x1="6" y1="12" x2="6" y2="44"/><line x1="12" y1="12" x2="12" y2="44"/></g>
+      <rect x="-15" y="46" width="11" height="26" fill="#b98563"/>
+      <rect x="4" y="46" width="11" height="26" fill="#b98563"/>
+      <rect x="-15" y="66" width="11" height="6" fill="#fff"/>
+      <rect x="4" y="66" width="11" height="6" fill="#fff"/>
+      <path d="M-20 70 h18 v11 h-22 z M3 70 h18 l4 11 h-22 z" fill="#6e5a44"/>
+      <path d="M-24 -58 h48 l6 70 h-60 z" fill="#f7f4ee"/>
+      <path d="M-8 -58 q8 8 16 0" stroke="#ef6a2a" stroke-width="4" fill="none"/>
+      <path d="M-24 -56 l-8 20 h10" stroke="#ef6a2a" stroke-width="3" fill="none"/>
+      <path d="M24 -56 l8 20 h-10" stroke="#ef6a2a" stroke-width="3" fill="none"/>
+      <circle cx="0" cy="-80" r="20" fill="#b98563"/>
+      <path d="M-20 -84 q2 -22 20 -22 q18 0 20 22 q-6 -10 -20 -12 q-14 2 -20 12z" fill="#2a1d16"/>
+      <g fill="none" stroke="#222" stroke-width="2"><circle cx="-7" cy="-81" r="6"/><circle cx="7" cy="-81" r="6"/><line x1="-1" y1="-81" x2="1" y2="-81"/></g>
+      <path d="M-7 -70 q7 -4 14 0" stroke="#2a1d16" stroke-width="3" fill="none"/>
+      <!-- arms up, hands on cheeks -->
+      <path d="M-24 -52 l-4 -22 l6 -4" stroke="#b98563" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M24 -52 l4 -22 l-6 -4" stroke="#b98563" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
     </g>
   </g>
 
