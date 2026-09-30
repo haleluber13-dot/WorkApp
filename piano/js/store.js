@@ -15,6 +15,14 @@ const DEFAULTS = {
     theme: "auto",
     click: true,
     countIn: true,
+    sound: "piano",
+    speak: false,
+    accompany: true,
+    autoSpeed: false,
+    onboarded: false,
+    goalMin: 15,
+    input: "touch",
+    zoom: 1,
   },
 };
 

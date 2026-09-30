@@ -1,5 +1,9 @@
-/* Sound: a small additive piano synth (no samples to download, works offline)
-   plus a metronome click. Partials are slightly stretched like real piano
+/* Sound: a recorded grand piano (Salamander Grand Piano by Alexander Holm,
+   CC-BY 3.0 — one sample every three semitones, re-pitched in between), with
+   a small additive synth as fallback while samples load or if they can't.
+   Plus a metronome click.
+
+   Synth notes: Partials are slightly stretched like real piano
    strings and the upper ones die away faster, which is most of what makes a
    sine stack sound like a struck string instead of an organ. */
 
@@ -23,12 +27,86 @@ export function audio() {
 }
 
 export function setVolume(v) { volume = v; if (out) out.gain.value = v; }
+
+/* ---------- sampled piano ---------- */
+let soundMode = "piano"; // "piano" | "synth"
+export function setSound(m) { soundMode = m === "synth" ? "synth" : "piano"; if (m === "piano") loadSamples(); }
+const SAMPLE_NAMES = ["C", "Ds", "Fs", "A"];
+const samples = new Map(); // midi -> AudioBuffer
+let loading = null, loadedCount = 0;
+const SAMPLE_MIDIS = [];
+for (let m = 21; m <= 108; m += 3) SAMPLE_MIDIS.push(m);
+const sampleFile = (m) => {
+  const pc = m % 12, oct = Math.floor(m / 12) - 1;
+  return `samples/${SAMPLE_NAMES[[0, 3, 6, 9].indexOf(pc)]}${oct}.mp3`;
+};
+export function loadSamples(onProgress) {
+  if (loading) return loading;
+  const c = audio();
+  loading = Promise.all(SAMPLE_MIDIS.map(async (m) => {
+    try {
+      const res = await fetch(sampleFile(m));
+      if (!res.ok) return;
+      const buf = await c.decodeAudioData(await res.arrayBuffer());
+      samples.set(m, buf);
+      loadedCount++;
+      onProgress?.(loadedCount / SAMPLE_MIDIS.length);
+    } catch { /* stay on synth for this range */ }
+  }));
+  return loading;
+}
+export const samplesReady = () => loadedCount / SAMPLE_MIDIS.length;
+
+function sampleNote(midi, { when, dur, vel, sustain }) {
+  const c = audio();
+  let best = null;
+  for (const m of SAMPLE_MIDIS) if (samples.has(m) && (best == null || Math.abs(m - midi) < Math.abs(best - midi))) best = m;
+  if (best == null || Math.abs(best - midi) > 3) return null;
+  const t0 = Math.max(c.currentTime, when || c.currentTime);
+  const src = c.createBufferSource();
+  src.buffer = samples.get(best);
+  src.playbackRate.value = Math.pow(2, (midi - best) / 12);
+  const lp = c.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 1200 + 16000 * Math.pow(vel, 2);
+  const g = c.createGain();
+  const peak = 0.55 * Math.pow(vel, 1.25);
+  g.gain.setValueAtTime(peak, t0);
+  src.connect(lp).connect(g).connect(out);
+  src.start(t0);
+  const voice = { stopped: false };
+  voice.stop = (at) => {
+    if (voice.stopped) return;
+    voice.stopped = true;
+    const t = Math.max(at, c.currentTime, t0);
+    g.gain.cancelScheduledValues(t);
+    g.gain.setValueAtTime(peak, t);
+    g.gain.setTargetAtTime(0, t, 0.09);
+    src.stop(t + 0.8);
+  };
+  if (!sustain) voice.stop(t0 + Math.max(0.08, dur));
+  return voice;
+}
+
 export const now = () => audio().currentTime;
 
 const PARTIALS = [1, 0.55, 0.32, 0.2, 0.12, 0.08, 0.05];
 const live = new Map(); // midi -> voice, for note-offs from MIDI/touch
 
-export function playNote(midi, { when = 0, dur = 1, vel = 0.7, sustain = false } = {}) {
+export function playNote(midi, opts = {}) {
+  const o = { when: 0, dur: 1, vel: 0.7, sustain: false, ...opts };
+  if (soundMode === "piano") {
+    if (!loading) loadSamples();
+    const v = sampleNote(midi, o);
+    if (v) {
+      if (o.sustain) { live.get(midi)?.stop(audio().currentTime); live.set(midi, v); }
+      return v;
+    }
+  }
+  return synthNote(midi, o);
+}
+
+function synthNote(midi, { when = 0, dur = 1, vel = 0.7, sustain = false } = {}) {
   const c = audio();
   const t0 = Math.max(c.currentTime, when || c.currentTime);
   const f = freq(midi);

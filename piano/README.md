@@ -6,6 +6,19 @@ real piano, then **listens** and moves on when you get it right.
 
 Open it at `/piano/` (installable as an app; works offline once loaded).
 
+## What's inside
+
+- **Onboarding** — asks your level (and skips what you know), what you play on,
+  note-name style (C D E or Do Re Mi) and a daily goal.
+- **Today's practice** — a daily plan on the home screen: warm-up (scale of the
+  week), today's lesson, a review of the exercise you practiced longest ago, a
+  2-minute reading/ear drill, and a song.
+- **Real grand-piano sound** — Salamander Grand Piano samples (CC-BY 3.0,
+  Alexander Holm), cached for offline use; a synth fallback.
+- **18 songs** graded ★ to ★★★★ (Hot Cross Buns → Happy Birthday, Silent Night,
+  Greensleeves, Minuet in G, Für Elise, Bach, Satie, blues).
+- **Glossary** of every term and symbol, searchable, with examples you can hear.
+
 ## The course — 47 lessons, 68 playable exercises
 
 | Level | What you learn |
@@ -27,14 +40,20 @@ quiz questions → exercises.
 - **Keyboard** that lights up the keys to press — blue = right hand, orange =
   left hand — with the finger number on each key.
 - A line that spells it out: *Right E₄ ③ · Left C₃ ⑤*.
-- **▶ Watch** — plays it at your tempo with a count-in and metronome.
-- **✋ Your turn** — waits at each step until you play it. Input from:
+- **▶ Listen** — plays it at your tempo with a count-in and metronome, showing bar and beat.
+- **🎯 Play along** — the music moves in time; notes you hit on the beat turn
+  green, missed ones red; you get a score and whether you're early or late.
+- **✋ Step by step** — waits at each step until you play it. Input from:
   - **🎤 microphone** — hears your acoustic/digital piano (pitch detection for
     single notes, chroma matching for chords; repeated notes need a fresh strike),
   - **🎹 MIDI** keyboard (USB/Bluetooth via Web MIDI — exact, best for chords),
   - or tapping the on-screen keys.
-- Hands separately or together, tempo ±, loop, hint, skip; wrong-note count
-  and accuracy at the end. Finishing all exercises completes the lesson.
+- Hands separately or together — the app can **play the other hand for you**.
+- **Practice just some bars**: tap the music or use 📍 (bar numbers are shown).
+- **Say the notes out loud**, auto speed-up after a perfect run, tempo ±, loop,
+  hint, skip, music size, **record yourself and listen back**, full screen, and
+  the screen stays awake while you practice.
+- Wrong-note count and accuracy at the end. Finishing all exercises completes the lesson.
 
 ## Tools
 
@@ -51,8 +70,8 @@ browser, with backup/restore.
 
 ## Code
 
-No build step, no dependencies. The piano sound is synthesized (Web Audio), so
-there's nothing to download.
+No build step, no dependencies. Sound is recorded piano samples played through
+Web Audio (with a synth fallback).
 
 ```
 index.html  styles.css  sw.js  manifest.webmanifest
@@ -65,6 +84,9 @@ js/listen.js     microphone pitch/chord detection, Web MIDI
 js/practice.js   practice screen
 js/curriculum.js the course content
 js/tools.js      tools
+js/songs.js      song library
+js/glossary.js   glossary
+samples/         piano samples (Salamander, CC-BY 3.0)
 js/store.js      progress & settings
 js/app.js        routing and pages
 ```

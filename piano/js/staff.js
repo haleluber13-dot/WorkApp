@@ -87,7 +87,7 @@ export class Staff {
   _fit() {
     if (!this.svg || !this.fit) return;
     const avail = this.host.clientHeight - 8;
-    this.scale = Math.max(0.4, Math.min(1.6, avail / this.H));
+    this.scale = Math.max(0.4, Math.min(1.6, avail / this.H)) * (this.zoom || 1);
     this.svg.setAttribute("width", this.W * this.scale);
     this.svg.setAttribute("height", this.H * this.scale);
   }
@@ -112,7 +112,7 @@ export class Staff {
       }
     }
     const hasSym = score.events.some((e) => e.sym);
-    let y = hasSym ? 2.4 * S : 0.5 * S;
+    let y = hasSym ? 3.4 * S : 0.5 * S;
     staves.forEach((st, i) => {
       y += st.up;
       st.top = y;
@@ -145,6 +145,7 @@ export class Staff {
     const accAt = new Set(score.events.filter((e) => e.notes.some((n) => n.showAcc != null)).map((e) => tk(e.t)));
     const xs = new Map();
     const barX = [];
+    const barTimes = [];
     let x = headerW + 1.2 * S, prev = null, bi = 0;
     for (const t of onsets) {
       if (prev != null) {
@@ -155,6 +156,7 @@ export class Staff {
         if (crossed) {
           x = Math.max(x + 1.2 * S, xPrev + 3.6 * S);
           barX.push(x - 1.6 * S - (accAt.has(tk(t)) ? 1.0 * S : 0));
+          barTimes.push(score.bars[bi - 1]);
         }
       }
       if (accAt.has(tk(t))) x += 1.1 * S;
@@ -168,7 +170,11 @@ export class Staff {
 
     const svg = mk("svg", { class: "staff", width: W, height: H, viewBox: `0 0 ${W} ${H}` });
     this.svg = svg;
+    this.section = mk("rect", { class: "section", x: 0, y: 0, width: 0, height: H, visibility: "hidden" }, svg);
     this.cursor = mk("rect", { class: "cursor", x: 0, y: 0, width: 2.6 * S, height: H, rx: 6, visibility: "hidden" }, svg);
+    this.barXs = new Map(barTimes.map((bt, i) => [tk(bt), barX[i]]));
+    this.barXs.set(tk(score.end), endX);
+    this.barXs.set(tk(0), headerW);
     const gLines = mk("g", { class: "lines" }, svg);
     const gNotes = mk("g", { class: "notes" }, svg);
     this.groups = [];
@@ -191,7 +197,10 @@ export class Staff {
     }
     const sysTop = staves[0].top, sysBot = staves[staves.length - 1].top + 4 * S;
     mk("line", { x1: 0.5, x2: 0.5, y1: sysTop, y2: sysBot, class: "bl" }, gLines);
-    for (const bx of barX) mk("line", { x1: bx, x2: bx, y1: sysTop, y2: sysBot, class: "bl" }, gLines);
+    barX.forEach((bx, i) => {
+      mk("line", { x1: bx, x2: bx, y1: sysTop, y2: sysBot, class: "bl" }, gLines);
+      txt(gLines, bx - 2, sysTop - 0.4 * S, String(i + (score.pickup > 0 ? 1 : 2)), "barnum", 1.05 * S);
+    });
     mk("line", { x1: endX - 4, x2: endX - 4, y1: sysTop, y2: sysBot, class: "bl" }, gLines);
     mk("rect", { x: endX - 2.2, y: sysTop, width: 3, height: sysBot - sysTop, class: "bl-end" }, gLines);
 
@@ -404,6 +413,33 @@ export class Staff {
   }
 
   xOf(t) { return this.xs?.get(tk(t)); }
+
+  /* nearest note time under a screen x coordinate (tap on the music) */
+  timeAt(clientX) {
+    if (!this.svg) return null;
+    const r = this.svg.getBoundingClientRect();
+    const x = ((clientX - r.left) / r.width) * this.W;
+    let best = null, bd = Infinity;
+    for (const [k, v] of this.xs) { const d = Math.abs(v - x); if (d < bd) { bd = d; best = k / 1000; } }
+    return best;
+  }
+
+  /* shade the practiced section [t0, t1) */
+  setSection(t0, t1) {
+    if (!this.svg) return;
+    if (t0 == null) { this.section.setAttribute("visibility", "hidden"); return; }
+    const x0 = this.barXs.get(tk(t0)) ?? (this.xs.get(tk(t0)) ?? 0) - 1.4 * S;
+    const x1 = this.barXs.get(tk(t1)) ?? this.W;
+    this.section.setAttribute("x", x0);
+    this.section.setAttribute("width", Math.max(0, x1 - x0));
+    this.section.setAttribute("visibility", "visible");
+  }
+
+  mark(t, cls) {
+    const key = tk(t);
+    for (const g of this.groups) if (+g.dataset.t === key) g.classList.add(cls);
+  }
+  clearMarks() { for (const g of this.groups) g.classList.remove("hit", "miss"); }
 
   /* Highlight notes at time t (optionally only these hands), mark earlier ones done. */
   highlight(t, hands = "RL", scroll = true) {
