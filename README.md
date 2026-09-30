@@ -105,6 +105,10 @@ assets/icons/            app icons
   dimensions. Shows diesel prices, truck stops, parking and scales on the way,
   the weather at your arrival time, and which stop you can still reach before
   your hours run out. Live at `/truck/` once Pages is enabled.
+- **[🎹 PianoPath](piano/)** — `piano/` — a complete piano course from first note
+  to Bach, Satie and jazz voicings. Shows every key and finger on a keyboard,
+  scrolling sheet music, and listens to your real piano through the microphone
+  (or a MIDI keyboard) to move on when you play it right. Live at `/piano/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
 
 ## Publish a shareable link (GitHub Pages)
