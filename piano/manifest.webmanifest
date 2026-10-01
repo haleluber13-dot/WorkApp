@@ -1,0 +1,17 @@
+{
+  "name": "PianoPath — learn piano from zero to pro",
+  "short_name": "PianoPath",
+  "description": "A complete piano course: posture, reading, scales, chords, technique and real pieces — with finger-by-finger guidance and a microphone that hears your piano.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1020",
+  "theme_color": "#0f1020",
+  "categories": ["education", "music"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
