@@ -105,8 +105,8 @@ function findRegion(q) {
   return best;
 }
 
-function nearestRegionId(p) {
-  if (bodyMod?.nearestRegion) { try { return bodyMod.nearestRegion(regions, p); } catch {} }
+function nearestRegionId(p, n) {
+  if (bodyMod?.nearestRegion) { try { return bodyMod.nearestRegion(regions, p, n); } catch {} }
   let best = null, bd = Infinity;
   for (const r of regions) {
     const d = (r.position[0] - p[0]) ** 2 + (r.position[1] - p[1]) ** 2 + (r.position[2] - p[2]) ** 2;
@@ -435,7 +435,7 @@ const app = {
     if (patch.position) {
       const c = viewer.surface.closestPoint(V(patch.position));
       if (c) { t.position = c.point.toArray(); t.normal = (patch.normal ? V(patch.normal) : viewer.surface.normalAt(c.point, c.faceIndex)).toArray(); }
-      t.region = nearestRegionId(t.position);
+      t.region = nearestRegionId(t.position, t.normal);
     }
     if (patch.sizeCm != null) t.sizeCm = clamp(+patch.sizeCm, 0.8, 80);
     if (patch.scaleBy != null) t.sizeCm = clamp(t.sizeCm * +patch.scaleBy, 0.8, 80);
@@ -445,7 +445,7 @@ const app = {
     if (patch.moveCm && viewer.surface) {
       const w = viewer.surface.walk(V(t.position), V(t.normal), t.rotation, (patch.moveCm.right || 0) / 100, (patch.moveCm.up || 0) / 100);
       t.position = w.position.toArray(); t.normal = w.normal.toArray();
-      t.region = nearestRegionId(t.position);
+      t.region = nearestRegionId(t.position, t.normal);
     }
     for (const k of ["opacity", "ink", "color", "flip", "age", "visible", "designId"]) if (patch[k] != null) t[k] = patch[k];
     if (patch.opacity != null) t.opacity = clamp(+t.opacity, 0.05, 1);
@@ -489,7 +489,7 @@ const app = {
       c.position = hit.point.toArray();
       c.normal = viewer.surface.normalAt(hit.point, hit.faceIndex).toArray();
       c.rotation = -t.rotation;
-      c.region = nearestRegionId(c.position);
+      c.region = nearestRegionId(c.position, c.normal);
     } else {
       const w = viewer.surface.walk(V(t.position), V(t.normal), t.rotation, t.sizeCm * 0.012, -t.sizeCm * 0.012);
       c.position = w.position.toArray(); c.normal = w.normal.toArray();
@@ -511,6 +511,10 @@ const app = {
 
   async setBody(params = {}) {
     store.checkpoint();
+    const SD = bodyMod?.SEX_DEFAULTS;
+    if (SD && params.sex && params.heightCm == null && params.sex !== S("body.sex") && S("body.heightCm") === SD[S("body.sex")]?.heightCm) {
+      params = { ...params, heightCm: SD[params.sex]?.heightCm };
+    }
     for (const [k, v] of Object.entries(params)) if (SETTING_BY_KEY["body." + k]) store.settings["body." + k] = coerceSetting("body." + k, v);
     store.save(); updateBodyChip(); renderBodyPop();
     await rebuildBody();
@@ -935,7 +939,12 @@ $("#bodyPop").addEventListener("input", (e) => {
 $("#bodyPop").addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
-  if (b.dataset.sex) { setSetting("body.sex", b.dataset.sex); renderBodyPop(); }
+  if (b.dataset.sex) {
+    const SD = bodyMod?.SEX_DEFAULTS, h = S("body.heightCm"), other = b.dataset.sex === "female" ? "male" : "female";
+    setSetting("body.sex", b.dataset.sex);
+    if (SD && h === SD[other]?.heightCm) setSetting("body.heightCm", SD[b.dataset.sex].heightCm);
+    renderBodyPop();
+  }
   if (b.dataset.tone) { setSetting("skin.tone", b.dataset.tone); renderBodyPop(); }
   if ("bodyreset" in b.dataset) {
     store.checkpoint();
@@ -1238,7 +1247,7 @@ async function boot() {
       const t = store.tattoo(id);
       if (!t) return;
       t.position = position; t.normal = normal;
-      t.region = nearestRegionId(position);
+      t.region = nearestRegionId(position, normal);
       syncTattoos();
     },
     onMoveEnd(id, moved) {

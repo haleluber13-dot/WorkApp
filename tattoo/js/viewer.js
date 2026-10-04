@@ -40,7 +40,7 @@ export class Viewer {
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     r.setPixelRatio(QUALITY.auto);
     r.outputColorSpace = THREE.SRGBColorSpace;
-    r.toneMapping = THREE.ACESFilmicToneMapping;
+    r.toneMapping = THREE.NeutralToneMapping;
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
     r.domElement.className = "viewer__canvas";
@@ -199,6 +199,8 @@ export class Viewer {
   setBody(geometry, regions) {
     if (this.bodyMesh) { this.scene.remove(this.bodyMesh); this.bodyMesh.geometry.dispose(); }
     if (!geometry.attributes.normal) geometry.computeVertexNormals();
+    // the BVH reorders the index in place: never touch arrays shared with the body cache
+    if (geometry.index) geometry.setIndex(geometry.index.clone());
     this.surface = new SkinSurface(geometry);
     const m = this.bodyMesh = new THREE.Mesh(geometry, this.skin);
     SkinSurface.enableFastRaycast(m);

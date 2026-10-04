@@ -16,6 +16,7 @@
 const SH = 2, B = 1 << SH, BM = B - 1, BV = B * B * B; // storage block (cells)
 const SB = 16;               // super-block size (cells)
 const GROUP_SAFETY = 1.25;   // slack for approximate (non-exact) distance bounds
+const CELL_SLACK = 0.15; // allowed overshoot of the vertex outside its cell (fraction)
 const RENORMAL = 0.2; // re-evaluate the gradient after a Newton step longer than this (in cells)
 
 function fac(r, ax) { return Array.isArray(r.factor) ? r.factor[ax] : r.factor; }
@@ -40,7 +41,8 @@ export function axisCoords(lo, hi, h, intervals) {
 
 const EDGES = new Int8Array([0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7]);
 
-export function polygonize(sdf, { min, max, h, refine = [] }) {
+export function polygonize(sdf, opts) {
+  const { min, max, h, refine = [] } = opts;
   const t0 = now();
   const X = axisCoords(min[0], max[0], h, refine.map((r) => [r.min[0], r.max[0], fac(r, 0)]));
   const Y = axisCoords(min[1], max[1], h, refine.map((r) => [r.min[1], r.max[1], fac(r, 1)]));
@@ -56,7 +58,20 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
   let nodeVal = new Float32Array(bcap * BV).fill(NaN);
   let cellVert = new Int32Array(bcap * BV).fill(-1);
   const bList = [];
-  let cand = null; // primitive subset of the current super-block
+  // primitive candidates per super-block (cached; blocks always filter their own super-block's list)
+  const nsx = Math.ceil((nx - 1) / SB), nsy = Math.ceil((ny - 1) / SB), nsz = Math.ceil((nz - 1) / SB);
+  const superLists = new Map();
+  function superList(si, sj, sk) {
+    const key = (sk * nsy + sj) * nsx + si;
+    let L = superLists.get(key);
+    if (!L) {
+      const I0 = si * SB, J0 = sj * SB, K0 = sk * SB;
+      const I1 = Math.min(I0 + SB, nx - 1), J1 = Math.min(J0 + SB, ny - 1), K1 = Math.min(K0 + SB, nz - 1);
+      L = sdf.listFor(X[I0], Y[J0], Z[K0], X[I1], Y[J1], Z[K1], margin);
+      superLists.set(key, L);
+    }
+    return L;
+  }
 
   function makeBlock(bi, bj, bk) {
     if (nBlocks >= bcap) {
@@ -68,6 +83,7 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
     const s = nBlocks++;
     const i0 = bi * B, j0 = bj * B, k0 = bk * B;
     const i1 = Math.min(i0 + B, nx - 1), j1 = Math.min(j0 + B, ny - 1), k1 = Math.min(k0 + B, nz - 1);
+    const cand = superList(Math.floor(i0 / SB), Math.floor(j0 / SB), Math.floor(k0 / SB));
     bList.push(sdf.listFor(X[i0], Y[j0], Z[k0], X[i1], Y[j1], Z[k1], margin, cand));
     slot[(bk * nby + bj) * nbx + bi] = s;
     return s;
@@ -142,7 +158,6 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
   // --- 1. super-block, block and group culling + sampling
   const all = sdf.all;
   const gv = new Float64Array(27);
-  const nsx = Math.ceil((nx - 1) / SB), nsy = Math.ceil((ny - 1) / SB), nsz = Math.ceil((nz - 1) / SB);
   for (let sk = 0; sk < nsz; sk++) for (let sj = 0; sj < nsy; sj++) for (let si = 0; si < nsx; si++) {
     const I0 = si * SB, J0 = sj * SB, K0 = sk * SB;
     const I1 = Math.min(I0 + SB, nx - 1), J1 = Math.min(J0 + SB, ny - 1), K1 = Math.min(K0 + SB, nz - 1);
@@ -153,8 +168,8 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
       evals++;
       if (Math.abs(d) > R * 1.25 + 2 * h) continue;
     }
-    cand = sdf.listFor(X[I0], Y[J0], Z[K0], X[I1], Y[J1], Z[K1], margin);
-    if (cand.length === 0) { cand = null; continue; }
+    const cand = superList(si, sj, sk);
+    if (cand.length === 0) continue;
     for (let k0 = K0; k0 < K1; k0 += B) for (let j0 = J0; j0 < J1; j0 += B) for (let i0 = I0; i0 < I1; i0 += B) {
       const i1 = Math.min(i0 + B, nx - 1), j1 = Math.min(j0 + B, ny - 1), k1 = Math.min(k0 + B, nz - 1);
       const hx = (X[i1] - X[i0]) * 0.5, hy = (Y[j1] - Y[j0]) * 0.5, hz = (Z[k1] - Z[k0]) * 0.5;
@@ -191,7 +206,6 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
         }
       }
     }
-    cand = null;
   }
   const t1 = now();
 
@@ -199,8 +213,9 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
   let qcap = nv * 4 + 1024;
   let quads = new Int32Array(qcap * 4);
   let nq = 0;
+  let skipped = 0;
   function quad(a, b, c, d, forward) {
-    if (a < 0 || b < 0 || c < 0 || d < 0) return;
+    if (a < 0 || b < 0 || c < 0 || d < 0) { skipped++; return; }
     if (nq >= qcap) { qcap *= 2; const n = new Int32Array(qcap * 4); n.set(quads); quads = n; }
     const o = nq * 4;
     if (forward) { quads[o] = a; quads[o + 1] = b; quads[o + 2] = c; quads[o + 3] = d; }
@@ -209,6 +224,17 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
   }
   for (let v = 0; v < nv; v++) {
     const i = vcell[v * 3], j = vcell[v * 3 + 1], k = vcell[v * 3 + 2];
+    // make sure every neighbour sharing a sign-changing face exists (closes the
+    // surface where the band culling was too optimistic; the list grows as we go)
+    for (let c = 0; c < 8; c++) cv[c] = node(i + (c & 1), j + ((c >> 1) & 1), k + ((c >> 2) & 1));
+    for (let f = 0; f < 6; f++) {
+      const ax = f >> 1, hi = f & 1;
+      let neg = 0;
+      for (let c = 0; c < 8; c++) if (((c >> ax) & 1) === hi && cv[c] < 0) neg++;
+      if (neg === 0 || neg === 4) continue;
+      const d = hi ? 1 : -1;
+      if (ax === 0) cellVertex(i + d, j, k); else if (ax === 1) cellVertex(i, j + d, k); else cellVertex(i, j, k + d);
+    }
     const in0 = node(i, j, k) < 0;
     // x edge: cells (i, j-1..j, k-1..k)
     if ((node(i + 1, j, k) < 0) !== in0) quad(cellVertex(i, j - 1, k - 1), cellVertex(i, j, k - 1), cellVertex(i, j, k), cellVertex(i, j - 1, k), in0);
@@ -222,6 +248,7 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
   // --- 3. project vertices onto the surface (one Newton step), normals from the gradient
   const g = new Float64Array(4);
   const normals = new Float32Array(nv * 3);
+  const orig = vpos.slice(0, nv * 3); // surface-nets positions (fold-free fallback)
   const hmin = h * Math.min(...refine.map((r) => Math.min(fac(r, 0), fac(r, 1), fac(r, 2))), 1);
   for (let v = 0; v < nv; v++) {
     const i = vcell[v * 3], j = vcell[v * 3 + 1], k = vcell[v * 3 + 2];
@@ -241,6 +268,11 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
       x -= sx; y -= sy; z -= sz;
       moved = sl / cellH;
     }
+    // keep the vertex inside (a slightly grown copy of) its cell: prevents fold-overs
+    const gx = (X[i + 1] - X[i]) * CELL_SLACK, gy = (Y[j + 1] - Y[j]) * CELL_SLACK, gz = (Z[k + 1] - Z[k]) * CELL_SLACK;
+    x = x < X[i] - gx ? X[i] - gx : x > X[i + 1] + gx ? X[i + 1] + gx : x;
+    y = y < Y[j] - gy ? Y[j] - gy : y > Y[j + 1] + gy ? Y[j + 1] + gy : y;
+    z = z < Z[k] - gz ? Z[k] - gz : z > Z[k + 1] + gz ? Z[k + 1] + gz : z;
     vpos[v * 3] = x; vpos[v * 3 + 1] = y; vpos[v * 3 + 2] = z;
     if (moved > RENORMAL) { sdf.grad(L, L.length, x, y, z, e, g); evals += 4; }
     const gl = Math.sqrt(g[0] * g[0] + g[1] * g[1] + g[2] * g[2]) || 1;
@@ -259,6 +291,26 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
     else { tris[nt++] = a; tris[nt++] = b; tris[nt++] = d; tris[nt++] = b; tris[nt++] = c; tris[nt++] = d; }
   }
   quads = null;
+  // undo the projection of vertices around folded triangles (face normal opposing the field normal)
+  let unfolded = 0;
+  for (let pass = 0; pass < 3; pass++) {
+    let changed = 0;
+    for (let t = 0; t < nt; t += 3) {
+      const a = tris[t] * 3, b = tris[t + 1] * 3, c = tris[t + 2] * 3;
+      const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2];
+      const wx = P[c] - P[a], wy = P[c + 1] - P[a + 1], wz = P[c + 2] - P[a + 2];
+      const fx = uy * wz - uz * wy, fy = uz * wx - ux * wz, fz = ux * wy - uy * wx;
+      const mx = normals[a] + normals[b] + normals[c], my = normals[a + 1] + normals[b + 1] + normals[c + 1], mz = normals[a + 2] + normals[b + 2] + normals[c + 2];
+      if (fx * mx + fy * my + fz * mz >= 0) continue;
+      for (const q of [a, b, c]) {
+        if (P[q] === orig[q] && P[q + 1] === orig[q + 1] && P[q + 2] === orig[q + 2]) continue;
+        P[q] = orig[q]; P[q + 1] = orig[q + 1]; P[q + 2] = orig[q + 2];
+        changed++;
+      }
+    }
+    unfolded += changed;
+    if (!changed) break;
+  }
   const parent = new Int32Array(nv);
   for (let i = 0; i < nv; i++) parent[i] = i;
   const find = (a) => { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; };
@@ -294,11 +346,18 @@ export function polygonize(sdf, { min, max, h, refine = [] }) {
     indices[ni++] = remap[tris[t]]; indices[ni++] = remap[tris[t + 1]]; indices[ni++] = remap[tris[t + 2]];
   }
   const t4 = now();
+  let debug;
+  if (opts.debug) {
+    const cells = new Int32Array(nv2 * 3);
+    for (let v = 0; v < nv; v++) { const r = remap[v]; if (r >= 0) { cells[r * 3] = vcell[v * 3]; cells[r * 3 + 1] = vcell[v * 3 + 1]; cells[r * 3 + 2] = vcell[v * 3 + 2]; } }
+    debug = { cells, X, Y, Z, node };
+  }
   return {
+    debug,
     positions, normals: nrm, indices: ni === nt ? indices : indices.slice(0, ni),
     stats: {
       grid: [nx, ny, nz], blocks: nBlocks, evals, vertices: nv2, triangles: ni / 3,
-      components: compTris.size, dropped: compTris.size - kept,
+      components: compTris.size, dropped: compTris.size - kept, unfolded, skipped,
       ms: { sample: t1 - t0, quads: t2 - t1, project: t3 - t2, finish: t4 - t3 },
     },
   };

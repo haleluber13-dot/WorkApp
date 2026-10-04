@@ -258,12 +258,12 @@ export function buildModel(params, opts = {}) {
     const ramp = (k0, u0, u1) => ({ o: FT.p(u1), dir: mul(FT.d, -1), len: u1 - u0, k0 });
     const thighOpt = { ramp: ramp(0.012, 0.06, 0.22) };
     B.cone(FT.p(0.065, 0.012, -0.004), FT.p(Lt - 0.03), 0.08 * tf, 0.053 * lg, 0.05, thighOpt);
-    B.ell(FT.p(0.145, 0.008, 0.0), FT.axes(), [0.2, 0.13, 0.08 * tf, 0.077 * tf, 0.075 * tf, 0.072 * tf], 0.045, thighOpt); // thigh mass
+    B.ell(FT.p(0.145, 0.008, 0.0), FT.axes(), [0.25, 0.13, 0.08 * tf, 0.077 * tf, 0.075 * tf, 0.072 * tf], 0.045, thighOpt); // thigh mass
     const mq = ms * lg;
     B.ell(FT.p(0.19, 0.006, 0.026), FT.axes(), [0.2, 0.16, 0.062 * mq, 0.055 * mq, 0.06 * mq, 0.04], 0.03 * soft, thighOpt);   // quads
     B.ell(FT.p(0.2, 0.034, 0.0), FT.axes(), [0.17, 0.16, 0.04 * mq, 0.03, 0.045 * mq, 0.04], 0.03 * soft, thighOpt);          // vastus lateralis
     B.ell(FT.p(Lt - 0.105, -0.022, 0.018), FT.axes(), [0.06, 0.08, 0.025, 0.03 * mq, 0.03 * mq, 0.03], 0.035 * soft);         // vastus medialis
-    B.ell(FT.p(0.19, 0.0, -0.028), FT.axes(), [0.17, 0.15, 0.05 * mq, 0.05 * mq, 0.03, 0.052 * mq], 0.03 * soft, thighOpt);    // hamstrings
+    B.ell(FT.p(0.19, 0.0, -0.028), FT.axes(), [0.2, 0.15, 0.05 * mq, 0.05 * mq, 0.03, 0.052 * mq], 0.035 * soft, thighOpt);    // hamstrings
     B.ell(FT.p(0.09, -0.032, -0.004), FT.axes(), [0.13, 0.08, 0.04, 0.048 * tf, 0.045, 0.045], 0.03 * soft, thighOpt);        // adductors
     if (F || hp > 0) {
       const w = F * 0.8 + Math.max(0, hp) * 0.6;
