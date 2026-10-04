@@ -28,7 +28,7 @@ export const CONCEPTS = [
   { key: "stomach", say: /\b(?:stomach|belly|tummy|abs|abdomen|abdominals?|navel|belly button|midriff|torso)\b/, has: /stomach|belly|abdom|\babs\b|navel|tummy/, fallback: ["ribs", "chest"] },
   { key: "ribs", say: /\b(?:ribs?|rib ?cage|ribcage|flanks?|side of (?:my |the |his |her )?(?:torso|body|chest|stomach)|my side)\b/, has: /\brib|flank|\bside\b/, fallback: ["stomach", "chest"] },
   { key: "hip", say: /\b(?:hips?|pelvis|pelvic|hip ?bones?)\b/, has: /\bhip|pelvi/, fallback: ["thigh", "stomach"] },
-  { key: "glute", say: /\b(?:butt|bum|glutes?|buttocks?|ass|booty)\b/, has: /glute|butt|buttock/, fallback: ["hip", "thigh"] },
+  { key: "glute", say: /\b(?:(?:butt|bum) ?cheeks?|butt|bum|glutes?|buttocks?|ass|booty)\b/, has: /glute|butt|buttock/, fallback: ["hip", "thigh"] },
   { key: "lower_back", say: /\b(?:lower back|small of (?:my |the )?back|tramp stamp|lumbar)\b/, has: /lower.?back|lumbar/, fallback: ["upper_back"] },
   { key: "spine", say: /\b(?:spine|spinal|along (?:my |the )?back|down (?:my |the )?back)\b/, has: /spine|spinal/, fallback: ["upper_back"] },
   { key: "upper_back", say: /\b(?:upper back|full back|whole back|back piece|backpiece|between (?:my |the )?shoulders|back)\b/, has: /upper.?back|\bback\b/, not: /lower|neck|nape|hand|thigh|calf|leg|knee|arm|ear|shoulder.?blade/, fallback: ["shoulder_blade", "spine"] },
@@ -91,6 +91,8 @@ function regionMods(text) {
   return out;
 }
 
+const LOC_BEFORE = /\b(?:on|onto|to|at|behind|across|along|over|around|in|into|under|underneath|below|above|near|down|up|between|of|from)\s+(?:(?:my|the|his|her|your|their|each|both|either|a)\s+)?(?:(?:left|right|inner|outer|inside|outside|upper|lower|front|back|top|bottom|side|other|same|opposite|middle|center|centre|soft|full|whole)\s+(?:of\s+(?:(?:my|the|his|her|your)\s+)?)?)*$/;
+
 export class RegionResolver {
   constructor(regionList) {
     this.setRegions(regionList);
@@ -109,7 +111,11 @@ export class RegionResolver {
       if (!concepts.length) concepts = conceptsOf(textNoGroup);
       const phrases = [r.label, ...(r.aliases || [])].filter(Boolean).map((p) => words(p)).filter((p) => p.length > 2);
       const base = words(textNoGroup.replace(/\b(?:left|right|l|r|lt|rt)\b/g, " "));
-      const info = { r, id: r.id, side, text, concepts, phrases, mods: regionMods(core.replace(/\b(?:left|right)\b/g, "")), base };
+      // "between shoulder blades" also matches "between my shoulder blades"; plurals too.
+      const DET = "(?:my|the|his|her|your|their|our)";
+      const phraseRe = phrases.map((p) => new RegExp("\\b" + p.split(" ").map((w) => (/^(?:my|the|his|her|your)$/.test(w) ? DET : escapeRe(w)))
+        .join(`\\s+(?:${DET}\\s+)?`).replace(new RegExp(`\\(\\?:${escapeRe(DET)}\\\\s\\+\\)\\?${escapeRe(DET)}`, "g"), DET) + "(?:s|es)?\\b"));
+      const info = { r, id: r.id, side, text, concepts, phrases, phraseRe, mods: regionMods(core.replace(/\b(?:left|right)\b/g, "")), base };
       this.byId.set(r.id, info);
       return info;
     });
@@ -169,23 +175,32 @@ export class RegionResolver {
     const coreLen = (p) => p.replace(/\b(?:left|right|l|r)\b/g, "").replace(/\s+/g, " ").trim().length;
 
     // 1) Exact label / alias phrases (longest wins; ties kept) — honours the body module's own aliases.
+    // A body word right after "on my", "behind the", "across her left"… is the place; the same
+    // word elsewhere is probably the design ("a heart on my butt", "palm tree on my calf").
+    const isLoc = (i) => LOC_BEFORE.test(t.slice(0, i));
     for (const info of this.info) {
-      for (const p of info.phrases) {
-        const re = new RegExp(`\\b${escapeRe(p)}\\b`);
-        const m = re.exec(t);
+      for (let k = 0; k < info.phrases.length; k++) {
+        const p = info.phrases[k];
+        const m = info.phraseRe[k].exec(t);
         if (!m) continue;
-        const len = coreLen(p);
-        if (!best || len > best.len || (len === best.len && p.length > best.matchLen)) best = { len, info, index: m.index, matchLen: p.length, ties: [info] };
-        else if (best && len === best.len && p.length === best.matchLen && !best.ties.includes(info)) best.ties.push(info);
+        const len = coreLen(p), loc = isLoc(m.index) || /^(?:behind|between|under|back of|front of|side of|inside of|top of)\b/.test(p);
+        const better = !best || (loc && !best.loc) || (loc === best.loc && (len > best.len || (len === best.len && p.length > best.plen)));
+        if (better) best = { len, loc, info, index: m.index, matchLen: m[0].length, plen: p.length, ties: [info] };
+        else if (loc === best.loc && len === best.len && p.length === best.plen && !best.ties.includes(info)) best.ties.push(info);
       }
     }
 
-    // 2) Concepts (ordered from specific to generic). First concept that appears wins,
-    //    unless an alias match is longer.
+    // 2) Concepts (ordered from specific to generic). First concept that appears wins
+    //    (preferring one that follows "on my …"), unless an alias match is longer.
     let conceptHit = null;
+    const hits = [];
     for (const c of CONCEPTS) {
       const m = c.say.exec(t);
-      if (m) { conceptHit = { c, index: m.index, len: m[0].length, word: m[0] }; break; }
+      if (m) hits.push({ c, index: m.index, len: m[0].length, word: m[0], loc: isLoc(m.index) || /^(?:behind|between|under|back of|front of)\b/.test(m[0]) });
+    }
+    conceptHit = hits.find((h) => h.loc) || hits[0] || null;
+    if (best && conceptHit && best.loc !== conceptHit.loc) {
+      if (conceptHit.loc) best = null; else conceptHit = null;
     }
 
     let concept = null, spanStart, spanEnd;
@@ -217,7 +232,7 @@ export class RegionResolver {
 
     // Expand span left over modifiers / side / possessive / preposition, and right over "on the left side".
     const pre = t.slice(0, spanStart);
-    const preRe = /(?:\b(?:on|onto|to|at|behind|across|along|over|around|in|into|under|underneath|below|above|near|down|up|from|for)\s+)?(?:\b(?:my|the|his|her|your|our|their|a|one)\s+)?(?:\b(?:other|same|opposite)\s+)?(?:\b(?:left|right)\s+)?(?:\b(?:inner|outer|inside|outside|upper|lower|front|back|top|bottom|middle|center|centre|side|soft|underside)\s+(?:of\s+)?(?:(?:my|the|his|her)\s+)?)*(?:\b(?:left|right)\s+)?$/;
+    const preRe = /(?:\b(?:on|onto|to|at|behind|across|along|over|around|in|into|under|underneath|below|above|near|down|up|from|for)\s+)?(?:\b(?:my|the|his|her|your|our|their|a|one|each|both|either)\s+)?(?:\b(?:other|same|opposite)\s+)?(?:\b(?:left|right)\s+)?(?:\b(?:inner|outer|inside|outside|upper|lower|front|back|top|bottom|middle|center|centre|side|soft|underside)\s+(?:of\s+)?(?:(?:my|the|his|her)\s+)?)*(?:\b(?:left|right)\s+)?$/;
     const pm = preRe.exec(pre);
     if (pm && pm[0].length) spanStart -= pm[0].length;
     const post = t.slice(spanEnd);

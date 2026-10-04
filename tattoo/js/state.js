@@ -39,7 +39,10 @@ export const idb = {
         t.objectStore(DB_STORE).put(v, k);
         t.oncomplete = res; t.onerror = () => rej(t.error);
       });
-    } catch (e) { console.warn("IndexedDB write failed", e); }
+    } catch (e) {
+      console.warn("IndexedDB write failed", e);
+      dispatchEvent(new CustomEvent("inkform-storage-error"));
+    }
   },
   async del(k) {
     try {
@@ -70,6 +73,11 @@ export class Store extends EventTarget {
   async loadDesigns() {
     const d = await idb.get("designs");
     this.designs = Array.isArray(d) ? d : [];
+    // purge soft-deleted designs no tattoo uses any more
+    const used = new Set(this.tattoos.map((t) => t.designId));
+    const before = this.designs.length;
+    this.designs = this.designs.filter((x) => !x.deleted || used.has(x.id));
+    if (this.designs.length !== before) this.saveDesigns();
   }
 
   emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
@@ -143,7 +151,11 @@ export class Store extends EventTarget {
   design(id) { return this.designs.find((d) => d.id === id); }
   addDesign(d) {
     this.designs.unshift(d);
-    if (this.designs.length > 300) this.designs.length = 300;
+    if (this.designs.length > 300) {
+      // drop the oldest designs that no tattoo uses
+      const used = new Set(this.tattoos.map((t) => t.designId));
+      for (let i = this.designs.length - 1; i >= 0 && this.designs.length > 300; i--) if (!used.has(this.designs[i].id)) this.designs.splice(i, 1);
+    }
     this.activeDesignId = d.id;
     this.saveDesigns(); this.save();
     this.emit("designs");

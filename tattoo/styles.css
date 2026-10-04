@@ -370,3 +370,4 @@ body[data-tab="sketch"] .ink-assistant .ia-fab { bottom: 72px; }
   body.lib-open .ink-assistant .ia-fab { opacity: 0; pointer-events: none; }
   body[data-tab="sketch"] .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + 64px) !important; }
 }
+@media (hover: none) { .libitem__del { display: grid; } }

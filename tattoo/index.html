@@ -137,12 +137,19 @@
   <button data-open="settings"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Settings</button>
 </nav>
 
-<div class="modal" id="settingsModal" hidden><div class="modal__card" id="settingsCard"></div></div>
+<div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-label="Settings" hidden><div class="modal__card" id="settingsCard"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="fileImport" accept=".json,application/json" hidden>
 <input type="file" id="fileImage" accept="image/*" hidden>
 
 <noscript><p style="padding:20px">InkForm 3D needs JavaScript.</p></noscript>
+<script>
+  if (!(HTMLScriptElement.supports && HTMLScriptElement.supports("importmap"))) {
+    document.addEventListener("DOMContentLoaded", function () {
+      document.body.insertAdjacentHTML("afterbegin", '<p style="position:fixed;z-index:99;inset:auto 0 0;margin:0;padding:14px;background:#e0455f;color:#fff;text-align:center">InkForm 3D needs a newer browser (Chrome, Edge, Firefox or Safari 16.4+). Please update your browser.</p>');
+    });
+  }
+</script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

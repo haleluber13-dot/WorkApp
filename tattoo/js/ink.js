@@ -83,6 +83,38 @@ const canFilter = (() => {
   try { const c = document.createElement("canvas").getContext("2d"); return "filter" in c; } catch { return false; }
 })();
 
+/* Blur fallback for browsers without ctx.filter (Safari): three box-blur passes
+   on a downscaled copy approximate a gaussian. Draws `src` blurred into ctx. */
+function drawBlurred(ctx, src, radius) {
+  if (radius <= 0.05) { ctx.drawImage(src, 0, 0); return; }
+  if (canFilter) { ctx.filter = `blur(${radius.toFixed(2)}px)`; ctx.drawImage(src, 0, 0); ctx.filter = "none"; return; }
+  const k = Math.max(1, Math.min(4, radius / 2));
+  const w = Math.max(1, Math.round(src.width / k)), h = Math.max(1, Math.round(src.height / k));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(src, 0, 0, w, h);
+  const r = Math.max(1, Math.round(radius / k / 1.7));
+  const im = g.getImageData(0, 0, w, h), d = im.data, tmp = new Float32Array(d.length);
+  const pass = (from, to, horiz) => {
+    const n = horiz ? w : h, m = horiz ? h : w;
+    for (let j = 0; j < m; j++) {
+      for (let ch = 0; ch < 4; ch++) {
+        let acc = 0;
+        const idx = (i) => 4 * (horiz ? j * w + i : i * w + j) + ch;
+        for (let i = -r; i <= r; i++) acc += from[idx(Math.min(n - 1, Math.max(0, i)))];
+        for (let i = 0; i < n; i++) {
+          to[idx(i)] = acc / (2 * r + 1);
+          acc += from[idx(Math.min(n - 1, i + r + 1))] - from[idx(Math.max(0, i - r))];
+        }
+      }
+    }
+  };
+  for (let it = 0; it < 3; it++) { pass(d, tmp, true); pass(tmp, d, false); }
+  g.putImageData(im, 0, 0);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(c, 0, 0, src.width, src.height);
+}
+
 /* look = { ink, color, age, opacity, blend: "skin"|"vivid", saturation, density, softness,
             freshGlow, removeWhite, whiteThreshold } */
 export function inkCanvas(base, look) {
@@ -93,9 +125,7 @@ export function inkCanvas(base, look) {
   out.width = W; out.height = H;
   const ctx = out.getContext("2d", { willReadFrequently: true });
   const blur = (look.softness || 0) * 0.6 * k + age * 3 * k;
-  if (blur > 0.05 && canFilter) ctx.filter = `blur(${blur.toFixed(2)}px)`;
-  ctx.drawImage(base, 0, 0);
-  ctx.filter = "none";
+  drawBlurred(ctx, base, blur);
 
   const img = ctx.getImageData(0, 0, W, H);
   const d = img.data;
@@ -159,9 +189,7 @@ export function inkCanvas(base, look) {
     const glow = document.createElement("canvas");
     glow.width = W; glow.height = H;
     const g = glow.getContext("2d");
-    if (canFilter) g.filter = `blur(${(7 * k).toFixed(1)}px)`;
-    g.drawImage(out, 0, 0);
-    g.filter = "none";
+    drawBlurred(g, out, 7 * k);
     g.globalCompositeOperation = "source-in";
     g.fillStyle = `rgba(205,52,52,${0.42 * (1 - age * 5)})`;
     g.fillRect(0, 0, W, H);

@@ -291,6 +291,7 @@ export class Viewer {
         this.tattooObjs.set(t.id, o);
       }
       o.mesh.renderOrder = 10 + order;
+      o.pos = t.position;
       o.mesh.visible = t.visible !== false;
       const geoKey = this._geoKey(t, it);
       if (geoKey !== o.geoKey && this.surface) {
@@ -298,20 +299,24 @@ export class Viewer {
         if (g) { o.mesh.geometry.dispose(); o.mesh.geometry = g; }
         o.geoKey = geoKey;
       }
+      const m = o.mesh.material;
       if (o.tex !== it.texture || o.blend !== it.blend) {
-        const m = o.mesh.material;
         m.map = it.texture; o.tex = it.texture; o.blend = it.blend;
         if (it.blend === "vivid") {
           m.blending = THREE.NormalBlending; m.transparent = true;
         } else {
-          // multiply the lit skin by the ink color: ink takes the skin's own shading
+          // multiply the lit skin by the ink color: ink takes the skin's own shading.
+          // result = dst * (src * o) + dst * (1 - o)  → opacity fades the ink toward bare skin
           m.blending = THREE.CustomBlending;
           m.blendEquation = THREE.AddEquation;
-          m.blendSrc = THREE.DstColorFactor; m.blendDst = THREE.ZeroFactor;
+          m.blendSrc = THREE.DstColorFactor; m.blendDst = THREE.OneMinusSrcAlphaFactor;
           m.transparent = true;
         }
         m.needsUpdate = true;
       }
+      const op = Math.max(0, Math.min(1, it.opacity ?? 1));
+      m.opacity = op;
+      if (it.blend === "vivid") m.color.setRGB(1, 1, 1); else m.color.setRGB(op, op, op, THREE.SRGBColorSpace);
     });
     for (const [id, o] of this.tattooObjs) {
       if (!seen.has(id)) { this.scene.remove(o.mesh); o.mesh.geometry.dispose(); o.mesh.material.dispose(); this.tattooObjs.delete(id); }
@@ -376,11 +381,37 @@ export class Viewer {
 
   _bindPointer() {
     const el = this.renderer.domElement;
-    let down = null;
+    let down = null;          // the primary pointer's gesture
+    const active = new Set(); // all pointers currently down
+    const cancelDrag = () => {
+      if (!down?.drag) return;
+      const id = down.drag;
+      if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; }
+      this.controls.enabled = true;
+      this.dragging = false;
+      this.controls.autoRotate = !!this.settings["scene.autoRotate"];
+      try { el.releasePointerCapture(down.id); } catch {}
+      down.drag = null;
+      this.cb.onMoveEnd?.(id, down.moved);
+    };
+    const applyMove = () => {
+      this._raf = 0;
+      const m = down?.last;
+      if (!down?.drag || !m) return;
+      const hit = this.pickBody(m.x + down.off.x, m.y + down.off.y);
+      if (hit) this.cb.onMove?.(down.drag, hit.point.toArray(), hit.normal.toArray());
+    };
     el.addEventListener("pointerdown", (e) => {
+      active.add(e.pointerId);
+      if (active.size > 1) {
+        // a second finger: this is a pinch / two-finger orbit, never a tattoo drag
+        cancelDrag();
+        down = null;
+        return;
+      }
       if (e.button !== 0 && e.pointerType === "mouse") return;
       this.tween = null;
-      down = { x: e.clientX, y: e.clientY, id: e.pointerId, t: performance.now(), moved: false, drag: null };
+      down = { x: e.clientX, y: e.clientY, id: e.pointerId, moved: false, drag: null, off: { x: 0, y: 0 }, last: null };
       if (this.placing) return; // click places; drags still orbit
       const tid = this.pickTattoo(e.clientX, e.clientY);
       if (tid) {
@@ -388,20 +419,23 @@ export class Viewer {
         down.drag = tid;
         this.dragging = true;
         this.controls.autoRotate = false;
-        el.setPointerCapture(e.pointerId);
+        try { el.setPointerCapture(e.pointerId); } catch {}
+        // keep the point you grabbed under the pointer (don't jump the center to it)
+        const pos = this.tattooObjs.get(tid)?.pos;
+        if (pos) {
+          const c = this._project(new THREE.Vector3(...pos)), r = el.getBoundingClientRect();
+          down.off = { x: r.left + c.x - e.clientX, y: r.top + c.y - e.clientY };
+        }
         this.cb.onSelect?.(tid);
         this.cb.onMoveStart?.(tid);
       }
     });
     el.addEventListener("pointermove", (e) => {
-      if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
+      if (down && e.pointerId === down.id && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
       if (down?.drag) {
-        if (this._raf) return;
-        this._raf = requestAnimationFrame(() => {
-          this._raf = 0;
-          const hit = this.pickBody(e.clientX, e.clientY);
-          if (hit) this.cb.onMove?.(down?.drag || this.selectedId, hit.point.toArray(), hit.normal.toArray());
-        });
+        if (e.pointerId !== down.id) return;
+        down.last = { x: e.clientX, y: e.clientY };
+        if (!this._raf) this._raf = requestAnimationFrame(applyMove);
         return;
       }
       if (this.placing && e.pointerType !== "touch") this._updateGhost(e.clientX, e.clientY);
@@ -411,9 +445,13 @@ export class Viewer {
       }
     });
     const end = (e) => {
-      if (!down) return;
+      active.delete(e.pointerId);
+      if (!down || e.pointerId !== down.id) return;
       const d = down; down = null;
       if (d.drag) {
+        // apply the final position before finishing
+        if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; }
+        if (d.last) { down = d; applyMove(); down = null; }
         this.controls.enabled = true;
         this.dragging = false;
         this.controls.autoRotate = !!this.settings["scene.autoRotate"];
@@ -432,7 +470,7 @@ export class Viewer {
     };
     el.addEventListener("pointerup", end);
     el.addEventListener("pointercancel", end);
-    el.addEventListener("pointerleave", () => { if (this.placing) { this.ghost.visible = false; this.dirty = true; } });
+    el.addEventListener("pointerleave", (e) => { if (this.placing && e.pointerType !== "touch") { this.ghost.visible = false; this.dirty = true; } });
     el.addEventListener("wheel", (e) => {
       if (!this.selectedId || this.settings["place.wheel"] === false || !(e.shiftKey || e.altKey)) return;
       e.preventDefault(); e.stopImmediatePropagation();
@@ -494,13 +532,14 @@ export class Viewer {
       const it = this.selItem;
       if (!it) return;
       e.preventDefault(); e.stopPropagation();
-      this.handle.setPointerCapture(e.pointerId);
+      try { this.handle.setPointerCapture(e.pointerId); } catch {}
       const t = it.tattoo;
       const c = this._project(new THREE.Vector3(...t.position));
       const r = this.renderer.domElement.getBoundingClientRect();
       const v0 = { x: e.clientX - r.left - c.x, y: e.clientY - r.top - c.y };
       st = { c, r, len0: Math.hypot(v0.x, v0.y) || 1, ang0: Math.atan2(v0.y, v0.x), size0: t.sizeCm, rot0: t.rotation, id: t.id };
       this.controls.enabled = false;
+      this.controls.autoRotate = false;
       this.cb.onTransformStart?.(t.id);
     });
     this.handle.addEventListener("pointermove", (e) => {
@@ -518,6 +557,7 @@ export class Viewer {
       if (!st) return;
       const id = st.id; st = null;
       this.controls.enabled = true;
+      this.controls.autoRotate = !!this.settings["scene.autoRotate"];
       this.cb.onTransformEnd?.(id);
     };
     this.handle.addEventListener("pointerup", end);

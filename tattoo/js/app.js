@@ -56,9 +56,10 @@ const inch = () => S("place.units") === "in";
 const fmtSize = (cm) => (inch() ? (cm / 2.54).toFixed(1) + " in" : (cm >= 10 ? cm.toFixed(0) : cm.toFixed(1)) + " cm");
 
 const thumbCache = new Map();
+const SAFE_IMG = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 function thumbOf(d) {
   if (!d) return "";
-  if (d.image) return d.image;
+  if (d.image) return SAFE_IMG.test(d.image) ? d.image : "";
   const k = d.id + ":" + (d.version || 0);
   if (!thumbCache.has(k)) thumbCache.set(k, "data:image/svg+xml;charset=utf-8," + encodeURIComponent(d.svg || "<svg xmlns='http://www.w3.org/2000/svg'/>"));
   return thumbCache.get(k);
@@ -68,6 +69,7 @@ function download(name, href) {
   const a = document.createElement("a");
   a.href = href; a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
+  if (href.startsWith("blob:")) setTimeout(() => URL.revokeObjectURL(href), 4000);
 }
 
 async function confirmIf(msg) {
@@ -144,7 +146,8 @@ function freeRegion() {
 /* ════════════════════════════════════════════════════════════════════════
    body
    ════════════════════════════════════════════════════════════════════════ */
-let bodyBuild = { running: false, pending: false, first: true };
+let bodyBuild = { running: false, pending: false, first: true, snapOnly: false, promise: null };
+const wrapDeg = (r) => ((r % 360) + 540) % 360 - 180;
 
 function regionFrame(r) {
   const n = V(r.normal).normalize();
@@ -153,53 +156,76 @@ function regionFrame(r) {
   return { n, up, right };
 }
 
-async function rebuildBody() {
-  if (!bodyMod) return;
-  if (bodyBuild.running) { bodyBuild.pending = true; return; }
+/* Keep a tattoo's on-skin orientation when its normal changes a lot near the
+   top of shoulders/feet, where the world-up reference frame swaps. */
+function carryRotation(oldN, rot, newN) {
+  if (Math.abs(oldN[1]) < 0.85 && Math.abs(newN[1]) < 0.85) return rot;
+  return rotationForUp(newN, tattooFrame(V(oldN), rot).up.toArray());
+}
+
+/* Rebuild the body mesh for the current settings. Tattoos follow their body
+   part (position and orientation relative to it). After undo/import the stored
+   positions already belong to the restored body, so they are only snapped. */
+function rebuildBody() {
+  if (!bodyMod) return Promise.resolve();
+  if (bodyBuild.running) { bodyBuild.pending = true; return bodyBuild.promise; }
   bodyBuild.running = true;
   $("#bodyLoading").classList.remove("done");
-  try {
-    do {
-      bodyBuild.pending = false;
-      const oldRegions = regions;
-      // remember each tattoo relative to its body part, so it follows the new body shape
-      const anchors = store.tattoos.map((t) => {
-        const r = oldRegions.find((x) => x.id === t.region) || oldRegions.find((x) => x.id === nearestRegionId(t.position));
-        if (!r || bodyBuild.first) return null;
-        const f = regionFrame(r), d = V(t.position).sub(V(r.position));
-        return { id: r.id, a: d.dot(f.right), b: d.dot(f.up), c: d.dot(f.n) };
-      });
-      const res = await bodyMod.buildBody(store.body());
-      if (bodyBuild.pending) continue; // a newer request arrived while building
-      regions = res.regions || [];
-      viewer.setBody(res.geometry, regions);
-      store.tattoos.forEach((t, i) => {
-        const an = anchors[i];
-        const r = an && regions.find((x) => x.id === an.id);
-        if (!r) {
-          // first build or unknown region: snap the stored point onto the surface
-          const c = viewer.surface.closestPoint(V(t.position));
-          if (c) { t.position = c.point.toArray(); t.normal = viewer.surface.normalAt(c.point, c.faceIndex).toArray(); }
-          return;
+  bodyBuild.promise = (async () => {
+    try {
+      do {
+        bodyBuild.pending = false;
+        const res = await bodyMod.buildBody(store.body());
+        if (bodyBuild.pending) continue; // a newer request arrived while building
+        const snap = bodyBuild.first || bodyBuild.snapOnly;
+        bodyBuild.snapOnly = false;
+        // anchors are taken after the await, so no edit can slip in between
+        const anchors = new Map();
+        if (!snap) {
+          for (const t of store.tattoos) {
+            const r = regions.find((x) => x.id === t.region) || regions.find((x) => x.id === nearestRegionId(t.position, t.normal));
+            if (!r) continue;
+            const f = regionFrame(r), d = V(t.position).sub(V(r.position));
+            anchors.set(t.id, { id: r.id, a: d.dot(f.right), b: d.dot(f.up), c: d.dot(f.n), rel: t.rotation - rotationForUp(t.normal, r.up) });
+          }
         }
-        const f = regionFrame(r);
-        const p = V(r.position).addScaledVector(f.right, an.a).addScaledVector(f.up, an.b).addScaledVector(f.n, an.c);
-        const c = viewer.surface.closestPoint(p);
-        if (c) { t.position = c.point.toArray(); t.normal = viewer.surface.normalAt(c.point, c.faceIndex).toArray(); }
-      });
-      viewer.rebuildAll();
-      if (bodyBuild.first) { viewer.frameBody(false); bodyBuild.first = false; }
-      store.save();
-      syncTattoos();
-      updateBodyChip();
-    } while (bodyBuild.pending);
-  } catch (e) {
-    console.error(e);
-    toast("Couldn't build the 3D body: " + e.message, 5000);
-  } finally {
-    bodyBuild.running = false;
-    $("#bodyLoading").classList.add("done");
-  }
+        regions = res.regions || [];
+        viewer.setBody(res.geometry, regions);
+        for (const t of store.tattoos) {
+          const an = anchors.get(t.id);
+          const r = an && regions.find((x) => x.id === an.id);
+          if (!r) {
+            const c = viewer.surface.closestPoint(V(t.position));
+            if (c) {
+              const n = viewer.surface.normalAt(c.point, c.faceIndex).toArray();
+              t.rotation = wrapDeg(carryRotation(t.normal, t.rotation, n));
+              t.position = c.point.toArray(); t.normal = n;
+            }
+            continue;
+          }
+          const f = regionFrame(r);
+          const p = V(r.position).addScaledVector(f.right, an.a).addScaledVector(f.up, an.b).addScaledVector(f.n, an.c);
+          const c = viewer.surface.closestPoint(p);
+          if (c) {
+            t.position = c.point.toArray(); t.normal = viewer.surface.normalAt(c.point, c.faceIndex).toArray();
+            t.rotation = wrapDeg(rotationForUp(t.normal, r.up) + an.rel);
+          }
+        }
+        viewer.rebuildAll();
+        if (bodyBuild.first) { viewer.frameBody(false); bodyBuild.first = false; }
+        store.save();
+        syncTattoos();
+        updateBodyChip();
+      } while (bodyBuild.pending);
+    } catch (e) {
+      console.error(e);
+      toast("Couldn't build the 3D body: " + e.message, 5000);
+    } finally {
+      bodyBuild.running = false;
+      $("#bodyLoading").classList.add("done");
+    }
+  })();
+  return bodyBuild.promise;
 }
 let bodyT = 0;
 function scheduleBody(ms = 220) { clearTimeout(bodyT); bodyT = setTimeout(rebuildBody, ms); }
@@ -218,7 +244,8 @@ const lastTex = new Map();  // tattoo id → last ready texture entry
 
 function lookOf(t) {
   return {
-    ink: t.ink || "original", color: t.color || S("ink.defaultColor"), age: t.age || 0, opacity: t.opacity ?? 1,
+    // opacity is applied by the material; age is quantized so slider drags reuse textures
+    ink: t.ink || "original", color: t.color || S("ink.defaultColor"), age: Math.round((t.age || 0) * 20) / 20, opacity: 1,
     blend: S("ink.blend"), saturation: S("ink.saturation"), density: S("ink.density"), softness: S("ink.softness"),
     freshGlow: S("ink.freshGlow"), removeWhite: S("ink.removeWhite"), whiteThreshold: S("ink.whiteThreshold"),
   };
@@ -238,7 +265,7 @@ function getTexture(d, look) {
   const key = texKey(d, look);
   const hit = texCache.get(key);
   if (hit) { hit.used = performance.now(); return hit.texture ? hit : null; }
-  const entry = { used: performance.now() };
+  const entry = { used: performance.now(), key };
   texCache.set(key, entry);
   entry.pending = designCanvas(d, +S("ink.textureRes")).then((base) => {
     const c = inkCanvas(base, look);
@@ -256,10 +283,16 @@ function ensureTexture(d, look) {
   const entry = texCache.get(texKey(d, look));
   return (entry?.pending || Promise.reject(new Error("texture failed"))).then(() => entry.texture ? entry : Promise.reject(new Error("texture failed")));
 }
+/* free a texture nobody shows any more (superseded look of a tattoo) */
+function releaseTexture(e) {
+  if (!e.texture || [...lastTex.values()].includes(e)) return;
+  e.texture.dispose();
+  texCache.delete(e.key);
+}
 function pruneTextures() {
-  if (texCache.size < 90) return;
+  if (texCache.size < 24) return;
   const inUse = new Set(lastTex.values());
-  const old = [...texCache.entries()].filter(([, e]) => e.texture && !inUse.has(e)).sort((a, b) => a[1].used - b[1].used).slice(0, 30);
+  const old = [...texCache.entries()].filter(([, e]) => e.texture && !inUse.has(e)).sort((a, b) => a[1].used - b[1].used).slice(0, 12);
   for (const [k, e] of old) { e.texture.dispose(); texCache.delete(k); }
 }
 
@@ -280,14 +313,16 @@ function doSync() {
     if (!d) continue;
     // while a new look is being processed keep showing the previous one
     let e = getTexture(d, lookOf(t));
-    if (e) lastTex.set(t.id, e);
-    else e = lastTex.get(t.id);
+    const prev = lastTex.get(t.id);
+    if (e) { lastTex.set(t.id, e); if (prev && prev !== e) releaseTexture(prev); }
+    else e = prev;
     if (!e?.texture) continue;
     const widthM = (t.sizeCm / 100) * e.widthScale;
-    items.push({ tattoo: t, texture: e.texture, widthM, heightM: widthM * e.aspect, blend: S("ink.blend") });
+    items.push({ tattoo: t, texture: e.texture, widthM, heightM: widthM * e.aspect, blend: S("ink.blend"), opacity: t.opacity ?? 1 });
   }
   if (viewer.surface) viewer.syncTattoos(items, store.selectedId);
   if (lastTex.size > store.tattoos.length) for (const id of [...lastTex.keys()]) if (!store.tattoos.some((t) => t.id === id)) lastTex.delete(id);
+  pruneTextures();
   renderPlaced();
   renderInspector();
   updateUndo();
@@ -310,7 +345,7 @@ addEventListener("resize", () => updateInset());
    the app API (used by UI + AI assistant)
    ════════════════════════════════════════════════════════════════════════ */
 function resolveDesign(designId) {
-  return store.design(designId) || store.design(store.activeDesignId) || store.designs[0] || null;
+  return store.design(designId) || store.design(store.activeDesignId) || store.designs.find((d) => !d.deleted) || null;
 }
 
 function generate(styleId, opts = {}, name) {
@@ -319,8 +354,27 @@ function generate(styleId, opts = {}, name) {
   const style = designsMod.STYLES.find((s) => s.id === styleId);
   return {
     id: uid("d"), name: name || out.name || style?.name || "Design", style: styleId, kind: "svg",
-    svg: out.svg, width: out.width, height: out.height, params: { styleId, opts: out.params || opts }, createdAt: Date.now(),
+    svg: out.svg, width: out.width, height: out.height, params: out.params || { styleId, opts }, createdAt: Date.now(),
   };
+}
+
+/* Move a tattoo over the skin by (right, up) cm. "up" follows the body part's
+   natural axis (toward the head / along the limb) — or the screen when
+   frame === "camera" (arrow keys and nudge buttons). The tattoo keeps its
+   orientation on the skin. */
+function moveAlongSkin(t, rightCm, upCm, frame) {
+  const r = regions.find((x) => x.id === t.region);
+  let ref;
+  if (frame === "camera") ref = new THREE.Vector3(0, 1, 0).applyQuaternion(viewer.camera.quaternion).toArray();
+  else ref = r?.up || [0, 1, 0];
+  const walkRot = rotationForUp(t.normal, ref);
+  const rel = t.rotation - walkRot;
+  const w = viewer.surface.walk(V(t.position), V(t.normal), walkRot, rightCm / 100, upCm / 100);
+  const n = w.normal.toArray();
+  t.position = w.position.toArray();
+  t.rotation = wrapDeg(carryRotation(t.normal, walkRot, n) + rel);
+  t.normal = n;
+  t.region = nearestRegionId(t.position, t.normal);
 }
 
 const app = {
@@ -330,7 +384,7 @@ const app = {
       tattoos: store.tattoos.map((t) => ({ ...t, regionLabel: regionLabel(t.region), designName: store.design(t.designId)?.name, style: store.design(t.designId)?.style })),
       selectedId: store.selectedId,
       activeDesignId: store.activeDesignId,
-      designs: store.designs.map((d) => ({ id: d.id, name: d.name, style: d.style, kind: d.kind })),
+      designs: store.designs.filter((d) => !d.deleted).map((d) => ({ id: d.id, name: d.name, style: d.style, kind: d.kind })),
       view: currentTab,
       units: S("place.units"),
     };
@@ -389,8 +443,8 @@ const app = {
       const c = viewer.surface.closestPoint(V(position));
       p = c.point; n = normal ? V(normal) : viewer.surface.normalAt(c.point, c.faceIndex);
     } else {
-      r = findRegion(region || freeRegion()) || regions[0];
-      if (!r) throw new Error("Unknown body part: " + region);
+      r = region ? findRegion(region) : (findRegion(freeRegion()) || regions[0]);
+      if (!r) throw new Error("I don't know the body part “" + region + "”");
       p = V(r.position); n = V(r.normal);
     }
     const rot = rotation ?? (r ? rotationForUp(n.toArray(), r.up) : 0);
@@ -407,10 +461,7 @@ const app = {
       opacity: opacity ?? 1, ink: ink || S("ink.defaultMode"), color: color || S("ink.defaultColor"),
       flip: false, age: age ?? S("ink.defaultAge"), visible: true, createdAt: Date.now(),
     };
-    if (offsetCm && (offsetCm.right || offsetCm.up)) {
-      const w = viewer.surface.walk(V(t.position), V(t.normal), t.rotation, (offsetCm.right || 0) / 100, (offsetCm.up || 0) / 100);
-      t.position = w.position.toArray(); t.normal = w.normal.toArray();
-    }
+    if (offsetCm && (offsetCm.right || offsetCm.up)) moveAlongSkin(t, +offsetCm.right || 0, +offsetCm.up || 0);
     store.checkpoint();
     store.tattoos.push(t);
     store.selectedId = t.id;
@@ -425,10 +476,12 @@ const app = {
   updateTattoo(id, patch = {}, { checkpoint = true } = {}) {
     const t = store.tattoo(id);
     if (!t) throw new Error("No tattoo selected");
+    const pr = patch.region ? findRegion(patch.region) : null;
+    if (patch.region && !pr) throw new Error("I don't know the body part “" + patch.region + "”");
+    if (patch.designId && !store.design(patch.designId)) throw new Error("Unknown design");
     if (checkpoint) store.checkpoint();
     if (patch.region) {
-      const r = findRegion(patch.region);
-      if (!r) throw new Error("Unknown body part: " + patch.region);
+      const r = pr;
       t.position = [...r.position]; t.normal = [...r.normal]; t.region = r.id;
       if (patch.rotation == null && patch.rotateBy == null) t.rotation = rotationForUp(r.normal, r.up);
     }
@@ -442,11 +495,7 @@ const app = {
     if (patch.rotation != null) t.rotation = +patch.rotation;
     if (patch.rotateBy != null) t.rotation += +patch.rotateBy;
     t.rotation = ((t.rotation % 360) + 540) % 360 - 180;
-    if (patch.moveCm && viewer.surface) {
-      const w = viewer.surface.walk(V(t.position), V(t.normal), t.rotation, (patch.moveCm.right || 0) / 100, (patch.moveCm.up || 0) / 100);
-      t.position = w.position.toArray(); t.normal = w.normal.toArray();
-      t.region = nearestRegionId(t.position, t.normal);
-    }
+    if (patch.moveCm && viewer.surface) moveAlongSkin(t, patch.moveCm.right || 0, patch.moveCm.up || 0, patch.moveCm.frame);
     for (const k of ["opacity", "ink", "color", "flip", "age", "visible", "designId"]) if (patch[k] != null) t[k] = patch[k];
     if (patch.opacity != null) t.opacity = clamp(+t.opacity, 0.05, 1);
     if (patch.age != null) t.age = clamp(+t.age, 0, 1);
@@ -549,7 +598,7 @@ function setSetting(key, value, { live = false } = {}) {
 }
 
 function onSettingChanged({ key }) {
-  if (key.startsWith("body.")) { scheduleBody(key === "body.detail" ? 0 : 260); updateBodyChip(); renderBodyPop(); }
+  if (key.startsWith("body.")) { scheduleBody(key === "body.detail" ? 0 : 260); updateBodyChip(); if (!$("#bodyPop").contains(document.activeElement)) renderBodyPop(); }
   if (key.startsWith("skin.") || key.startsWith("scene.") || key.startsWith("place.") || key === "ui.reduceMotion") {
     viewer?.applySettings(store.settings);
     $("#camSpin")?.classList.toggle("on", !!S("scene.autoRotate"));
@@ -558,7 +607,7 @@ function onSettingChanged({ key }) {
   if (key.startsWith("ui.")) { applyTheme(); viewer?.applySettings(store.settings); }
   if (key === "place.units") { updateBodyChip(); renderBodyPop(); }
   if (key.startsWith("sketch.") && pad) pad.setSettings(sketchSettings());
-  if (key === "skin.tone") renderBodyPop();
+  if (key === "skin.tone" && !$("#bodyPop").contains(document.activeElement)) renderBodyPop();
 }
 
 let settingsPanel = null;
@@ -573,9 +622,12 @@ function openSettings(group) {
     settingsPanel.el.querySelector("[data-close]").addEventListener("click", closeSettings);
   }
   settingsPanel.show(group);
+  settingsReturnFocus = document.activeElement;
   $("#settingsModal").hidden = false;
+  settingsPanel.el.querySelector(".settings__tabs .on")?.focus();
 }
-function closeSettings() { $("#settingsModal").hidden = true; }
+let settingsReturnFocus = null;
+function closeSettings() { $("#settingsModal").hidden = true; settingsReturnFocus?.focus?.(); }
 
 async function runAction(a) {
   switch (a) {
@@ -598,12 +650,38 @@ async function runAction(a) {
       break;
     case "resetAll":
       if (!confirm("Erase everything — designs, tattoos, sketch and settings? This cannot be undone.")) break;
-      localStorage.removeItem("inkform.v1");
-      localStorage.removeItem("inkform.tips");
+      for (const k of Object.keys(localStorage)) if (k.startsWith("inkform.")) localStorage.removeItem(k);
       await idb.del("designs"); await idb.del("sketch");
       location.reload();
       break;
   }
+}
+
+/* Validate an imported project file: keep only well-formed designs/tattoos. */
+function sanitizeProject(p) {
+  if (!p || !Array.isArray(p.tattoos) || !Array.isArray(p.designs)) throw new Error("this isn't an InkForm project file");
+  const okId = (x) => typeof x === "string" && /^[\w-]{1,64}$/.test(x);
+  const vec = (a) => Array.isArray(a) && a.length === 3 && a.every((x) => typeof x === "number" && isFinite(x));
+  const num = (x) => typeof x === "number" && isFinite(x);
+  const designs = p.designs.filter((d) => d && okId(d.id) && (
+    (typeof d.svg === "string" && /<svg[\s>]/i.test(d.svg) && !/<script|<foreignObject|\son\w+\s*=|javascript:/i.test(d.svg)) ||
+    (typeof d.image === "string" && SAFE_IMG.test(d.image))
+  )).map((d) => ({
+    id: d.id, name: String(d.name || "Design").slice(0, 80), style: String(d.style || "custom").slice(0, 40),
+    kind: d.image ? "image" : "svg", ...(d.image ? { image: d.image } : { svg: d.svg }),
+    width: num(d.width) ? d.width : 1000, height: num(d.height) ? d.height : 1000,
+    params: d.params && typeof d.params === "object" ? d.params : undefined, createdAt: num(d.createdAt) ? d.createdAt : Date.now(),
+  }));
+  const ids = new Set(designs.map((d) => d.id));
+  const tattoos = p.tattoos.filter((t) => t && okId(t.id) && ids.has(t.designId) && vec(t.position) && vec(t.normal) && num(t.sizeCm) && num(t.rotation))
+    .map((t) => ({
+      id: t.id, designId: t.designId, region: okId(t.region) ? t.region : null, position: t.position, normal: t.normal,
+      rotation: t.rotation, sizeCm: clamp(t.sizeCm, 0.8, 80), opacity: num(t.opacity) ? clamp(t.opacity, 0.05, 1) : 1,
+      ink: ["original", "black", "color", "stencil"].includes(t.ink) ? t.ink : "original",
+      color: /^#[0-9a-f]{6}$/i.test(t.color || "") ? t.color : "#141414", flip: !!t.flip,
+      age: num(t.age) ? clamp(t.age, 0, 1) : 0, visible: t.visible !== false, createdAt: num(t.createdAt) ? t.createdAt : Date.now(),
+    }));
+  return { designs, tattoos, settings: p.settings && typeof p.settings === "object" ? p.settings : null, sketch: p.sketch || null };
 }
 
 $("#fileImport").addEventListener("change", async (e) => {
@@ -611,18 +689,17 @@ $("#fileImport").addEventListener("change", async (e) => {
   e.target.value = "";
   if (!f) return;
   try {
-    const p = JSON.parse(await f.text());
-    if (!Array.isArray(p.tattoos) || !Array.isArray(p.designs)) throw new Error("not an InkForm project");
+    const p = sanitizeProject(JSON.parse(await f.text()));
     store.checkpoint();
     const known = new Set(store.designs.map((d) => d.id));
     store.designs = [...p.designs.filter((d) => !known.has(d.id)), ...store.designs];
     store.tattoos = p.tattoos;
     store.selectedId = null;
-    if (p.settings) for (const [k, v] of Object.entries(p.settings)) if (SETTING_BY_KEY[k] && k !== "ai.apiKey") store.settings[k] = v;
+    if (p.settings) for (const [k, v] of Object.entries(p.settings)) if (SETTING_BY_KEY[k] && SETTING_BY_KEY[k].type !== "action" && k !== "ai.apiKey") store.settings[k] = coerceSetting(k, v);
     if (p.sketch) { await idb.set("sketch", p.sketch); if (pad?.setState) pad.setState(p.sketch); }
     store.saveNow(); await store.saveDesigns();
     applyTheme(); viewer.applySettings(store.settings);
-    bodyBuild.first = true; // stored positions belong to the imported body
+    bodyBuild.snapOnly = true; // stored positions belong to the imported body
     await rebuildBody();
     renderLibrary(); syncTattoos(); updateBodyChip(); renderBodyPop();
     toast(`Imported ${p.tattoos.length} tattoos and ${p.designs.length} designs`);
@@ -648,7 +725,7 @@ function showTab(tab) {
   currentTab = tab;
   document.body.dataset.tab = tab;
   $$("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== tab));
-  $$(".tabs [data-tab], .mobtabs [data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+  $$(".tabs [data-tab], .mobtabs [data-tab]").forEach((b) => { b.classList.toggle("on", b.dataset.tab === tab); b.setAttribute("aria-selected", String(b.dataset.tab === tab)); });
   if (tab === "create") initCreate();
   if (tab === "sketch") initSketch();
   if (tab === "studio") viewer?._resize();
@@ -676,13 +753,14 @@ $$("[data-ltab]").forEach((b) => b.addEventListener("click", () => {
 
 function renderLibrary() {
   const g = $("#libGrid");
-  g.innerHTML = store.designs.map((d) => `
-    <div class="libitem ${d.id === store.activeDesignId ? "on" : ""}" data-id="${d.id}" role="button" tabindex="0" title="${esc(d.name)} — tap to place on the body">
-      <img src="${thumbOf(d)}" alt="${esc(d.name)}" loading="lazy">
+  const list = store.designs.filter((d) => !d.deleted);
+  g.innerHTML = list.map((d) => `
+    <div class="libitem ${d.id === store.activeDesignId ? "on" : ""}" data-id="${esc(d.id)}" role="button" tabindex="0" title="${esc(d.name)} — tap to place on the body">
+      <img src="${esc(thumbOf(d))}" alt="${esc(d.name)}" loading="lazy">
       <span class="libitem__name">${esc(d.name)}</span>
-      <button class="libitem__del" data-del="${d.id}" aria-label="Delete design">✕</button>
+      <button class="libitem__del" data-del="${esc(d.id)}" aria-label="Delete design ${esc(d.name)}">✕</button>
     </div>`).join("");
-  $("#libEmpty").hidden = store.designs.length > 0;
+  $("#libEmpty").hidden = list.length > 0;
 }
 $("#libGrid").addEventListener("click", async (e) => {
   const del = e.target.closest("[data-del]");
@@ -691,15 +769,21 @@ $("#libGrid").addEventListener("click", async (e) => {
     const id = del.dataset.del;
     const used = store.tattoos.filter((t) => t.designId === id).length;
     if (!(await confirmIf(used ? `This design is used by ${used} tattoo(s) on the body. Delete it and them?` : "Delete this design?"))) return;
-    if (used) { store.checkpoint(); store.tattoos = store.tattoos.filter((t) => t.designId !== id); if (!store.tattoo(store.selectedId)) store.selectedId = null; store.save(); }
-    store.removeDesign(id); forgetDesign(id);
+    // soft delete: undo can bring back tattoos that use it; purged at next start when unused
+    if (used) { store.checkpoint(); store.tattoos = store.tattoos.filter((t) => t.designId !== id); if (!store.tattoos.some((t) => t.id === store.selectedId)) store.selectedId = null; store.save(); }
+    store.updateDesign(id, { deleted: true });
+    if (store.activeDesignId === id) store.activeDesignId = store.designs.find((d) => !d.deleted)?.id || null;
     renderLibrary(); syncTattoos();
+    toast(used ? "Design and its tattoos removed — Ctrl+Z brings the tattoos back" : "Design deleted");
     return;
   }
   const it = e.target.closest(".libitem");
   if (it) startPlacing(it.dataset.id);
 });
-$("#libGrid").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.closest(".libitem")?.click(); });
+$("#libGrid").addEventListener("keydown", (e) => {
+  if (e.target.closest("[data-del]")) return; // let the delete button handle its own Enter/Space
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.closest(".libitem")?.click(); }
+});
 
 $("#quickGen").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -718,10 +802,10 @@ function renderPlaced() {
   $("#placedEmpty").hidden = store.tattoos.length > 0;
   $("#placedList").innerHTML = store.tattoos.slice().reverse().map((t) => {
     const d = store.design(t.designId);
-    return `<li class="${t.id === store.selectedId ? "on" : ""}" data-id="${t.id}">
-      <img src="${thumbOf(d)}" alt="">
+    return `<li class="${t.id === store.selectedId ? "on" : ""}" data-id="${esc(t.id)}">
+      <img src="${esc(thumbOf(d))}" alt="">
       <div class="meta"><b>${esc(d?.name || "Missing design")}</b><small>${esc(regionLabel(t.region))} · ${fmtSize(t.sizeCm)}</small></div>
-      <button class="eye" data-eye="${t.id}" title="${t.visible === false ? "Show" : "Hide"}" aria-label="${t.visible === false ? "Show" : "Hide"}">${t.visible === false ? "🙈" : "👁"}</button>
+      <button class="eye" data-eye="${esc(t.id)}" title="${t.visible === false ? "Show" : "Hide"}" aria-label="${t.visible === false ? "Show" : "Hide"}">${t.visible === false ? "🙈" : "👁"}</button>
     </li>`;
   }).join("");
 }
@@ -789,17 +873,17 @@ function renderInspector() {
   const u = inch();
   el.innerHTML = `<div class="insp">
     <div class="insp__head">
-      <img src="${thumbOf(d)}" alt="">
+      <img src="${esc(thumbOf(d))}" alt="">
       <div class="meta"><b>${esc(d?.name || "Design")}</b><small class="muted" id="iRegion">${esc(regionLabel(t.region))}</small></div>
       <button class="iconbtn closeinsp" id="iClose" aria-label="Deselect">✕</button>
     </div>
     <section>
       <h4>Size</h4>
-      <div class="numrow"><input type="range" id="iSize" min="${u ? 0.4 : 1}" max="${u ? 24 : 60}" step="${u ? 0.1 : 0.5}"><input type="number" id="iSizeN" step="${u ? 0.1 : 0.5}" aria-label="Size"><span class="muted">${u ? "in" : "cm"}</span></div>
+      <div class="numrow"><input type="range" id="iSize" aria-label="Size" min="${u ? 0.4 : 1}" max="${u ? 24 : 60}" step="${u ? 0.1 : 0.5}"><input type="number" id="iSizeN" step="${u ? 0.1 : 0.5}" aria-label="Size"><span class="muted">${u ? "in" : "cm"}</span></div>
     </section>
     <section>
       <h4>Rotation</h4>
-      <div class="numrow"><button class="btn btn--small" data-rot="-15">⟲</button><input type="range" id="iRot" min="-180" max="180" step="1"><button class="btn btn--small" data-rot="15">⟳</button><input type="number" id="iRotN" step="1" aria-label="Rotation"><span class="muted">°</span></div>
+      <div class="numrow"><button class="btn btn--small" data-rot="-15" aria-label="Rotate left 15°">⟲</button><input type="range" id="iRot" min="-180" max="180" step="1" aria-label="Rotation"><button class="btn btn--small" data-rot="15" aria-label="Rotate right 15°">⟳</button><input type="number" id="iRotN" step="1" aria-label="Rotation"><span class="muted">°</span></div>
     </section>
     <section>
       <h4>Position</h4>
@@ -809,7 +893,7 @@ function renderInspector() {
           <button data-nudge="-1,0" aria-label="Left">◀</button><button data-focus title="Zoom to tattoo" aria-label="Zoom to tattoo">◎</button><button data-nudge="1,0" aria-label="Right">▶</button>
           <span></span><button data-nudge="0,-1" aria-label="Down">▼</button><span></span>
         </div>
-        <div style="flex:1"><label class="muted small">Move to</label><select id="iRegionSel" style="width:100%"></select>
+        <div style="flex:1"><label class="muted small">Move to</label><select id="iRegionSel" style="width:100%" aria-label="Move to body part"></select>
           <p class="muted small" style="margin:6px 0 0">Or drag the tattoo on the body.</p></div>
       </div>
     </section>
@@ -819,8 +903,8 @@ function renderInspector() {
         <button data-ink="original">Design</button><button data-ink="black">Black</button><button data-ink="color">Color</button><button data-ink="stencil">Stencil</button>
       </div>
       <div class="tones" id="iColors" style="margin-top:8px" ${t.ink === "color" ? "" : "hidden"}>${INK_SWATCHES.map((c) => `<button class="tone" data-color="${c}" style="--c:${c}" aria-label="${c}"></button>`).join("")}<input type="color" id="iColor" aria-label="Custom ink color"></div>
-      <div class="field"><div class="lbl"><span>Opacity</span><output id="iOpO"></output></div><input type="range" id="iOp" min="0.05" max="1" step="0.01"></div>
-      <div class="field"><div class="lbl"><span>Age: fresh → healed → old</span><output id="iAgeO"></output></div><input type="range" id="iAge" min="0" max="1" step="0.01"></div>
+      <div class="field"><div class="lbl"><span>Opacity</span><output id="iOpO"></output></div><input type="range" id="iOp" aria-label="Opacity" min="0.05" max="1" step="0.01"></div>
+      <div class="field"><div class="lbl"><span>Age: fresh → healed → old</span><output id="iAgeO"></output></div><input type="range" id="iAge" aria-label="Age" min="0" max="1" step="0.01"></div>
       <label class="check field"><input type="checkbox" id="iFlip"> Mirror the design</label>
     </section>
     <section>
@@ -888,7 +972,7 @@ insp.addEventListener("click", async (e) => {
   if (!t) return;
   if (b.id === "iClose") { app.selectTattoo(null); return; }
   if (b.dataset.rot) app.updateTattoo(t.id, { rotateBy: +b.dataset.rot });
-  if (b.dataset.nudge) { const [x, y] = b.dataset.nudge.split(",").map(Number); app.updateTattoo(t.id, { moveCm: { right: x * 0.5, up: y * 0.5 } }); }
+  if (b.dataset.nudge) { const [x, y] = b.dataset.nudge.split(",").map(Number); app.updateTattoo(t.id, { moveCm: { right: x * 0.5, up: y * 0.5, frame: "camera" } }); }
   if ("focus" in b.dataset) app.focus(t.id);
   if (b.dataset.ink) { app.updateTattoo(t.id, { ink: b.dataset.ink }); }
   if (b.dataset.color) app.updateTattoo(t.id, { color: b.dataset.color, ink: "color" });
@@ -911,7 +995,7 @@ function renderBodyPop() {
     const s = SETTING_BY_KEY[k], v = S(k);
     let o = s.max <= 1 ? Math.round(v * 100) + "%" : v + (s.unit || "");
     if (k === "body.heightCm" && inch()) { const i = Math.round(v / 2.54); o = `${Math.floor(i / 12)}′${i % 12}″`; }
-    return `<div class="field"><div class="lbl"><span>${label}</span><output>${o}</output></div><input type="range" data-bk="${k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${v}"></div>`;
+    return `<div class="field"><div class="lbl"><span>${label}</span><output>${o}</output></div><input type="range" aria-label="${label}" data-bk="${k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${v}"></div>`;
   };
   p.innerHTML = `
     <div class="seg"><button data-sex="male" class="${S("body.sex") === "male" ? "on" : ""}">Male</button><button data-sex="female" class="${S("body.sex") === "female" ? "on" : ""}">Female</button></div>
@@ -980,8 +1064,9 @@ function showTip(kind) {
   const h = $("#studioHint");
   h.textContent = msgs[kind]; h.hidden = false;
   seen[kind] = 1;
-  localStorage.setItem("inkform.tips", JSON.stringify(seen));
-  setTimeout(() => (h.hidden = true), 6500);
+  try { localStorage.setItem("inkform.tips", JSON.stringify(seen)); } catch {}
+  clearTimeout(showTip.t);
+  showTip.t = setTimeout(() => (h.hidden = true), 6500);
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1211,12 +1296,15 @@ document.addEventListener("keydown", (e) => {
   if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? app.redo() : app.undo(); return; }
   if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); app.redo(); return; }
   if (mod && e.key.toLowerCase() === "d" && store.selectedId) { e.preventDefault(); app.duplicateTattoo("selected"); return; }
-  const t = store.tattoo(store.selectedId);
+  const t = store.selectedId ? store.tattoo(store.selectedId) : null;
   if (!t) return;
   const step = e.shiftKey ? 2 : 0.5;
   const moves = { ArrowUp: [0, step], ArrowDown: [0, -step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] };
-  if (moves[e.key]) { e.preventDefault(); app.updateTattoo(t.id, { moveCm: { right: moves[e.key][0], up: moves[e.key][1] } }); }
-  else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); app.removeTattoo(t.id); toast("Tattoo removed — Ctrl+Z to undo"); }
+  if (moves[e.key]) { e.preventDefault(); app.updateTattoo(t.id, { moveCm: { right: moves[e.key][0], up: moves[e.key][1], frame: "camera" } }); }
+  else if (e.key === "Delete" || e.key === "Backspace") {
+    e.preventDefault();
+    confirmIf("Remove this tattoo?").then((ok) => { if (ok) { app.removeTattoo(t.id); toast("Tattoo removed — Ctrl+Z to undo"); } });
+  }
   else if (e.key === "[" || e.key === "]") app.updateTattoo(t.id, { rotateBy: e.key === "]" ? 15 : -15 });
   else if (e.key === "+" || e.key === "=") app.updateTattoo(t.id, { scaleBy: 1.08 });
   else if (e.key === "-" || e.key === "_") app.updateTattoo(t.id, { scaleBy: 1 / 1.08 });
@@ -1231,33 +1319,36 @@ async function boot() {
   matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => S("ui.theme") === "system" && applyTheme());
   store.on("setting", onSettingChanged);
   store.on("restore", ({ bodyChanged }) => {
-    if (bodyChanged) { scheduleBody(0); updateBodyChip(); renderBodyPop(); }
+    if (bodyChanged) { bodyBuild.snapOnly = true; scheduleBody(0); updateBodyChip(); renderBodyPop(); }
     syncTattoos();
   });
   store.on("designs", () => renderLibrary());
+  addEventListener("inkform-storage-error", () => toast("Couldn't save to this browser's storage (private mode or full?) — export a project file to keep your work.", 6000));
 
-  let moveCk = false;
+  let moveCk = false, tfCk = false;
   viewer = new Viewer($("#viewer"), {
     onSelect(id) {
       if (id) { if (id !== store.selectedId) app.selectTattoo(id); }
       else if (store.selectedId) app.selectTattoo(null);
     },
-    onMoveStart() { moveCk = store.checkpoint(); },
+    onMoveStart() { moveCk = false; },
     onMove(id, position, normal) {
       const t = store.tattoo(id);
       if (!t) return;
+      if (!moveCk) { store.checkpoint(); moveCk = true; }
+      t.rotation = wrapDeg(carryRotation(t.normal, t.rotation, normal));
       t.position = position; t.normal = normal;
       t.region = nearestRegionId(position, normal);
       syncTattoos();
     },
     onMoveEnd(id, moved) {
-      if (!moved && moveCk) store.undoStack.pop(); // a simple click: no undo step
       store.save(); syncTattoos();
     },
-    onTransformStart() { store.checkpoint(); },
+    onTransformStart() { tfCk = false; },
     onTransform(id, { sizeCm, rotation }) {
       const t = store.tattoo(id);
       if (!t) return;
+      if (!tfCk) { store.checkpoint(); tfCk = true; }
       t.sizeCm = sizeCm;
       t.rotation = S("place.snapRotation") ? Math.round(rotation / 15) * 15 : rotation;
       syncTattoos();

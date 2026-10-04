@@ -20,7 +20,7 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0);
 export function tattooFrame(normal, rotationDeg = 0, out = {}) {
   const n = _tmpN.copy(normal).normalize();
   let ref = WORLD_UP;
-  if (Math.abs(n.y) > 0.92) ref = _ref.set(0, 0, n.y > 0 ? -1 : 1); // top of foot / shoulder: up = toward the body's back/front
+  if (Math.abs(n.y) > 0.995) ref = _ref.set(0, 0, n.y > 0 ? -1 : 1); // top of foot / shoulder: up = toward the body's back/front
   const up = (out.up || new THREE.Vector3()).copy(ref).addScaledVector(n, -ref.dot(n)).normalize();
   const right = (out.right || new THREE.Vector3()).crossVectors(up, n).normalize();
   if (rotationDeg) {
