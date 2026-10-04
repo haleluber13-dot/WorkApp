@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>InkForm 3D — design tattoos and try them on a 3D body</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="description" content="Design tattoos in 25+ styles, sketch your own, and place them anywhere on a realistic 3D male or female body. Drag to move, resize and rotate on the skin, and let the AI assistant place and redesign them for you.">
+<meta name="theme-color" content="#16161a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="InkForm">
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="js/sketch/sketch.css">
+<link rel="stylesheet" href="js/agent/agent.css">
+<script type="importmap">
+{ "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+</head>
+<body data-tab="studio">
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand__logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M21.5 3.5l7 7-3 3-1.6-1.6-8.6 8.6.9.9-2.6 2.6-3.6-.4L4 29.6 2.4 28l6-6-.4-3.6 2.6-2.6.9.9 8.6-8.6L18.5 6.5z" fill="currentColor"/></svg>
+    <b>InkForm</b><span class="brand__3d">3D</span>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="studio"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.6"/><path d="M8 9.5h8l-1 6h-1.6l-.6 6h-1.6l-.6-6H9z"/></svg><span>Studio</span></button>
+    <button role="tab" data-tab="create"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L21 9l-5.3 4.1L17.5 20 12 16.3 6.5 20l1.8-6.9L3 9l6.8-.7z"/></svg><span>Create</span></button>
+    <button role="tab" data-tab="sketch"><svg viewBox="0 0 24 24"><path d="M3 21l1.2-4.6L16.6 4a2 2 0 012.8 0l.6.6a2 2 0 010 2.8L7.6 19.8z"/></svg><span>Sketch</span></button>
+  </nav>
+  <div class="topbar__actions">
+    <button class="iconbtn" id="btnUndo" title="Undo (Ctrl+Z)" aria-label="Undo"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/></svg></button>
+    <button class="iconbtn" id="btnRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/></svg></button>
+    <button class="iconbtn" id="btnShot" title="Save image of the 3D view" aria-label="Save image"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+    <button class="iconbtn" id="btnSettings" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg></button>
+  </div>
+</header>
+
+<main class="views">
+  <!-- ───────────── Studio: the 3D body ───────────── -->
+  <section class="view view--studio" data-view="studio">
+    <aside class="panel panel--left" id="leftPanel" aria-label="Designs and tattoos">
+      <div class="panel__tabs" role="tablist">
+        <button class="on" data-ltab="library">Designs</button>
+        <button data-ltab="placed">On body <span class="count" id="placedCount">0</span></button>
+      </div>
+      <div class="panel__body" data-lpane="library">
+        <form class="quickgen" id="quickGen" autocomplete="off">
+          <input id="quickPrompt" type="text" placeholder="Describe a tattoo… e.g. geometric wolf" aria-label="Describe a tattoo">
+          <button class="btn btn--accent" type="submit">Make</button>
+        </form>
+        <div class="libgrid" id="libGrid"></div>
+        <p class="muted small" id="libEmpty">Your designs appear here. Make one above, open <b>Create</b> for 25+ styles, or draw your own in <b>Sketch</b>.</p>
+      </div>
+      <div class="panel__body" data-lpane="placed" hidden>
+        <ul class="placedlist" id="placedList"></ul>
+        <p class="muted small" id="placedEmpty">No tattoos yet. Pick a design and tap the body.</p>
+      </div>
+    </aside>
+
+    <div class="stage" id="stage">
+      <div class="viewer" id="viewer"></div>
+      <div class="stage__loading" id="bodyLoading"><span class="spinner"></span>Shaping the body…</div>
+      <div class="bodychip" id="bodyChip">
+        <button class="chipbtn" id="bodyToggle" aria-expanded="false"><span id="bodyLabel">Male · 178 cm</span><svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg></button>
+        <div class="popover" id="bodyPop" hidden></div>
+      </div>
+      <div class="placebar" id="placeBar" hidden>
+        <img id="placeThumb" alt="">
+        <span><b>Tap the body</b> to place it — or pick a spot:</span>
+        <select id="placeRegion" aria-label="Body part"></select>
+        <button class="btn" id="placeCancel">Cancel</button>
+      </div>
+      <div class="hint" id="studioHint" hidden></div>
+      <div class="camerabar" role="toolbar" aria-label="Camera">
+        <button data-cam="front" title="Front">Front</button>
+        <button data-cam="back" title="Back">Back</button>
+        <button data-cam="left" title="Their left side">Left</button>
+        <button data-cam="right" title="Their right side">Right</button>
+        <button data-cam="fit" title="Whole body" aria-label="Whole body"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        <button data-cam="spin" title="Turntable" aria-label="Turntable" id="camSpin"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+      </div>
+      <button class="fab fab--lib" id="mobLib" aria-label="Designs">＋ Design</button>
+    </div>
+
+    <aside class="panel panel--right" id="inspector" aria-label="Selected tattoo" hidden></aside>
+  </section>
+
+  <!-- ───────────── Create: procedural styles ───────────── -->
+  <section class="view view--create" data-view="create" hidden>
+    <div class="create">
+      <div class="create__styles">
+        <form class="promptbar" id="createPrompt" autocomplete="off">
+          <input id="createPromptInput" type="text" placeholder="Describe your tattoo — “mandala with 12 petals”, “Emma in script”, “watercolor butterfly”…" aria-label="Describe your tattoo">
+          <button class="btn btn--accent" type="submit">Generate</button>
+        </form>
+        <div class="catbar" id="catBar" role="tablist" aria-label="Style categories"></div>
+        <div class="stylegrid" id="styleGrid"></div>
+      </div>
+      <div class="create__editor">
+        <div class="preview" id="createPreview"></div>
+        <div class="create__name"><input id="createName" type="text" aria-label="Design name"><button class="iconbtn" id="createShuffle" title="New variation" aria-label="New variation"><svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button></div>
+        <div class="optlist" id="createOpts"></div>
+        <div class="create__actions">
+          <button class="btn btn--accent" id="createPlace">Put on body</button>
+          <button class="btn" id="createSave">Save to designs</button>
+          <button class="btn" id="createSketch">Edit in Sketch</button>
+          <button class="btn" id="createDownload">Download SVG</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── Sketch ───────────── -->
+  <section class="view view--sketch" data-view="sketch" hidden>
+    <div class="sketchhost" id="sketchHost"></div>
+    <div class="sketchbar">
+      <input id="sketchName" type="text" value="My sketch" aria-label="Sketch name">
+      <button class="btn" id="sketchNew">New</button>
+      <button class="btn" id="sketchSave">Save to designs</button>
+      <button class="btn btn--accent" id="sketchUse">Put on body</button>
+    </div>
+  </section>
+</main>
+
+<nav class="mobtabs" aria-label="Sections">
+  <button data-tab="studio"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.6"/><path d="M8 9.5h8l-1 6h-1.6l-.6 6h-1.6l-.6-6H9z"/></svg>Studio</button>
+  <button data-tab="create"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L21 9l-5.3 4.1L17.5 20 12 16.3 6.5 20l1.8-6.9L3 9l6.8-.7z"/></svg>Create</button>
+  <button data-tab="sketch"><svg viewBox="0 0 24 24"><path d="M3 21l1.2-4.6L16.6 4a2 2 0 012.8 0l.6.6a2 2 0 010 2.8L7.6 19.8z"/></svg>Sketch</button>
+  <button data-open="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Settings</button>
+</nav>
+
+<div class="modal" id="settingsModal" hidden><div class="modal__card" id="settingsCard"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="fileImport" accept=".json,application/json" hidden>
+<input type="file" id="fileImage" accept="image/*" hidden>
+
+<noscript><p style="padding:20px">InkForm 3D needs JavaScript.</p></noscript>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

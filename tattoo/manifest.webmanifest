@@ -1,0 +1,17 @@
+{
+  "name": "InkForm 3D — tattoo designer",
+  "short_name": "InkForm",
+  "description": "Design tattoos in 25+ styles, sketch your own, and try them on a realistic 3D body with an AI assistant.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#121215",
+  "theme_color": "#1b1b20",
+  "categories": ["design", "lifestyle", "graphics"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

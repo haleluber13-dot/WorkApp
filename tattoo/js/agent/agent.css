@@ -1,0 +1,184 @@
+/* InkForm 3D — AI assistant. Everything is scoped under .ink-assistant and uses the
+   shell's CSS variables (with fallbacks so it also works standalone). */
+
+.ink-assistant {
+  --ia-bg: var(--bg, #121214);
+  --ia-panel: var(--panel, #1b1b1f);
+  --ia-panel-2: var(--panel-2, #24242a);
+  --ia-text: var(--text, #f1eee9);
+  --ia-muted: var(--muted, #9d9aa3);
+  --ia-accent: var(--accent, #e0455f);
+  --ia-border: var(--border, rgba(255, 255, 255, 0.09));
+  --ia-radius: var(--radius, 14px);
+  --ia-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  font: inherit;
+  color: var(--ia-text);
+}
+.ink-assistant *, .ink-assistant *::before, .ink-assistant *::after { box-sizing: border-box; }
+.ink-assistant button { font: inherit; color: inherit; }
+.ink-assistant svg { width: 20px; height: 20px; display: block; }
+
+/* ── floating action button ── */
+.ink-assistant .ia-fab {
+  position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 60; display: inline-flex; align-items: center; gap: 7px;
+  height: 52px; padding: 0 20px 0 17px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--ia-accent); color: #fff; font-weight: 700; letter-spacing: 0.04em; font-size: 15px;
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--ia-accent) 45%, transparent), 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+.ink-assistant .ia-fab:hover { transform: translateY(-2px); }
+.ink-assistant .ia-fab:active { transform: translateY(0) scale(0.97); }
+.ink-assistant .ia-fab:focus-visible { outline: 3px solid color-mix(in srgb, var(--ia-accent) 55%, white); outline-offset: 3px; }
+.ink-assistant .ia-fab-star { font-size: 18px; line-height: 1; }
+.ink-assistant.is-open .ia-fab { opacity: 0; pointer-events: none; transform: scale(0.85); }
+
+/* ── panel: right drawer on desktop ── */
+.ink-assistant .ia-panel {
+  position: fixed; z-index: 61; top: 12px; right: 12px; bottom: 12px; width: min(390px, calc(100vw - 24px));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--ia-panel); border: 1px solid var(--ia-border); border-radius: calc(var(--ia-radius) + 4px);
+  box-shadow: var(--ia-shadow);
+  transform: translateX(calc(100% + 24px)); opacity: 0; visibility: hidden;
+  transition: transform 0.26s cubic-bezier(.2, .8, .2, 1), opacity 0.2s ease, visibility 0s linear 0.26s;
+}
+.ink-assistant.is-open .ia-panel { transform: none; opacity: 1; visibility: visible; transition: transform 0.26s cubic-bezier(.2, .8, .2, 1), opacity 0.2s ease; }
+.ink-assistant .ia-grab { display: none; }
+
+.ink-assistant .ia-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 12px 10px 12px 16px; border-bottom: 1px solid var(--ia-border);
+  background: linear-gradient(180deg, var(--ia-panel-2), var(--ia-panel));
+}
+.ink-assistant .ia-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ink-assistant .ia-logo {
+  width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--ia-accent) 18%, transparent); color: var(--ia-accent); font-size: 17px;
+}
+.ink-assistant .ia-name { font-weight: 650; font-size: 15px; line-height: 1.2; }
+.ink-assistant .ia-badge {
+  margin-top: 3px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--ia-border);
+  background: transparent; color: var(--ia-muted); font-size: 11.5px; line-height: 1.6; cursor: pointer;
+}
+.ink-assistant .ia-badge.is-claude { color: var(--ia-accent); border-color: color-mix(in srgb, var(--ia-accent) 45%, transparent); }
+.ink-assistant .ia-head-btns { display: flex; gap: 2px; }
+.ink-assistant .ia-icon {
+  width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ia-muted); cursor: pointer;
+}
+.ink-assistant .ia-icon:hover { background: var(--ia-panel-2); color: var(--ia-text); }
+.ink-assistant .ia-icon:focus-visible, .ink-assistant .ia-chip:focus-visible, .ink-assistant .ia-send:focus-visible,
+.ink-assistant .ia-mic:focus-visible, .ink-assistant .ia-badge:focus-visible { outline: 2px solid var(--ia-accent); outline-offset: 1px; }
+
+/* ── settings sheet ── */
+.ink-assistant .ia-settings {
+  padding: 12px 16px 14px; border-bottom: 1px solid var(--ia-border); background: var(--ia-panel-2);
+  display: grid; gap: 10px; font-size: 13.5px;
+}
+.ink-assistant .ia-settings[hidden] { display: none; }
+.ink-assistant .ia-set-row { display: grid; gap: 5px; color: var(--ia-muted); }
+.ink-assistant .ia-settings:not(.is-claude) .ia-claude-only { display: none; }
+.ink-assistant .ia-settings input, .ink-assistant .ia-settings select {
+  width: 100%; height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--ia-border);
+  background: var(--ia-panel); color: var(--ia-text); font: inherit; font-size: 14px;
+}
+.ink-assistant .ia-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 10px; background: var(--ia-panel); border: 1px solid var(--ia-border); }
+.ink-assistant .ia-seg button { height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--ia-muted); cursor: pointer; }
+.ink-assistant .ia-seg button.is-on { background: var(--ia-accent); color: #fff; font-weight: 600; }
+.ink-assistant .ia-note { margin: 0; font-size: 12px; color: var(--ia-muted); }
+.ink-assistant .ia-done-set {
+  justify-self: end; height: 32px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--ia-border);
+  background: var(--ia-panel); cursor: pointer;
+}
+
+/* ── messages ── */
+.ink-assistant .ia-log {
+  flex: 1; overflow-y: auto; padding: 16px 14px 8px; display: flex; flex-direction: column; gap: 10px;
+  scroll-behavior: smooth; overscroll-behavior: contain;
+}
+.ink-assistant .ia-log:focus { outline: none; }
+.ink-assistant .ia-msg { display: flex; }
+.ink-assistant .ia-user { justify-content: flex-end; }
+.ink-assistant .ia-bubble {
+  max-width: 86%; padding: 9px 13px; border-radius: 16px; font-size: 14.5px; line-height: 1.45;
+  overflow-wrap: anywhere; animation: ia-pop 0.18s ease-out;
+}
+.ink-assistant .ia-user .ia-bubble { background: var(--ia-accent); color: #fff; border-bottom-right-radius: 5px; }
+.ink-assistant .ia-assistant .ia-bubble { background: var(--ia-panel-2); border: 1px solid var(--ia-border); border-bottom-left-radius: 5px; }
+.ink-assistant .ia-note-inline { margin-top: 6px; font-size: 12px; color: var(--ia-muted); }
+.ink-assistant .ia-shot { display: block; margin-top: 8px; }
+.ink-assistant .ia-shot img { display: block; width: 100%; border-radius: 10px; border: 1px solid var(--ia-border); }
+.ink-assistant .ia-activity { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--ia-muted); }
+.ink-assistant .ia-activity:empty { display: none; }
+.ink-assistant .ia-activity:not(:empty) + .ia-live-text:not(:empty) { margin-top: 6px; }
+.ink-assistant .ia-act.is-start { color: var(--ia-text); }
+.ink-assistant .ia-act.is-done { color: var(--ia-muted); }
+.ink-assistant .ia-act.is-error { color: var(--ia-accent); }
+.ink-assistant .ia-progress { color: var(--ia-muted); font-style: italic; }
+@keyframes ia-pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.ink-assistant .ia-typing { display: inline-flex; gap: 4px; padding: 12px 14px; }
+.ink-assistant .ia-typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--ia-muted); animation: ia-dot 1.1s infinite ease-in-out; }
+.ink-assistant .ia-typing span:nth-child(2) { animation-delay: 0.15s; }
+.ink-assistant .ia-typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes ia-dot { 0%, 80%, 100% { opacity: 0.3; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+
+.ink-assistant .ia-empty { margin: auto 6px; text-align: center; color: var(--ia-muted); font-size: 14px; line-height: 1.5; padding: 10px 8px 20px; }
+.ink-assistant .ia-empty p { margin: 4px 0; }
+.ink-assistant .ia-empty strong { color: var(--ia-text); font-size: 15.5px; }
+.ink-assistant .ia-empty-mark {
+  width: 54px; height: 54px; margin: 0 auto 12px; border-radius: 50%; display: grid; place-items: center; font-size: 26px;
+  color: var(--ia-accent); background: color-mix(in srgb, var(--ia-accent) 14%, transparent);
+}
+
+/* ── chips ── */
+.ink-assistant .ia-chips { display: flex; gap: 7px; padding: 4px 14px 10px; overflow-x: auto; scrollbar-width: none; flex-wrap: wrap; }
+.ink-assistant .ia-chips::-webkit-scrollbar { display: none; }
+.ink-assistant .ia-chips[hidden] { display: none; }
+.ink-assistant .ia-chip {
+  flex: none; padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 13px; line-height: 1.3;
+  background: transparent; border: 1px solid color-mix(in srgb, var(--ia-accent) 45%, var(--ia-border)); color: var(--ia-text);
+  transition: background 0.15s ease;
+}
+.ink-assistant .ia-chip:hover { background: color-mix(in srgb, var(--ia-accent) 16%, transparent); }
+
+/* ── input ── */
+.ink-assistant .ia-form {
+  display: flex; align-items: flex-end; gap: 6px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)) 12px;
+  border-top: 1px solid var(--ia-border); background: var(--ia-panel);
+}
+.ink-assistant .ia-input {
+  flex: 1; min-height: 42px; max-height: 120px; resize: none; padding: 10px 14px; border-radius: 21px;
+  border: 1px solid var(--ia-border); background: var(--ia-panel-2); color: var(--ia-text);
+  font: inherit; font-size: 15px; line-height: 1.35; outline: none;
+}
+.ink-assistant .ia-input:focus { border-color: color-mix(in srgb, var(--ia-accent) 60%, var(--ia-border)); }
+.ink-assistant .ia-input::placeholder { color: var(--ia-muted); }
+.ink-assistant .ia-send, .ink-assistant .ia-mic {
+  width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 0; cursor: pointer;
+}
+.ink-assistant .ia-send { background: var(--ia-accent); color: #fff; }
+.ink-assistant .ia-send:disabled { opacity: 0.5; cursor: default; }
+.ink-assistant .ia-mic { background: var(--ia-panel-2); color: var(--ia-muted); border: 1px solid var(--ia-border); }
+.ink-assistant .ia-mic[hidden] { display: none; }
+.ink-assistant .ia-mic.is-on { background: var(--ia-accent); color: #fff; animation: ia-pulse 1.2s infinite; }
+@keyframes ia-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ia-accent) 55%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
+
+/* ── phone: bottom sheet ── */
+@media (max-width: 640px) {
+  .ink-assistant .ia-fab { height: 50px; padding: 0 18px 0 15px; }
+  .ink-assistant .ia-panel {
+    top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 70vh; height: 70dvh; max-height: calc(100% - 40px);
+    border-radius: 20px 20px 0 0; border-bottom: 0;
+    transform: translateY(105%);
+  }
+  .ink-assistant .ia-grab { display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--ia-border); margin: 8px auto -4px; flex: none; }
+  .ink-assistant .ia-head { padding-top: 8px; background: var(--ia-panel); }
+  .ink-assistant .ia-chips { flex-wrap: nowrap; }
+  .ink-assistant .ia-input { font-size: 16px; } /* avoid iOS zoom */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ink-assistant .ia-panel, .ink-assistant .ia-fab, .ink-assistant .ia-bubble { transition: none; animation: none; }
+  .ink-assistant .ia-typing span, .ink-assistant .ia-mic.is-on { animation: none; }
+}

@@ -110,6 +110,11 @@ assets/icons/            app icons
   scrolling sheet music, and listens to your real piano through the microphone
   (or a MIDI keyboard) to move on when you play it right. Live at `/piano/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
+- **[🖋️ InkForm 3D](tattoo/)** — `tattoo/` — tattoo designer with a 3D male or
+  female body. 25+ generated tattoo styles, a sketch studio with pressure,
+  symmetry and photo-to-stencil, and tattoos that wrap around the skin and can
+  be dragged, resized and rotated anywhere on the body. An AI assistant places
+  and redesigns tattoos from plain speech or text. Live at `/tattoo/`.
 
 ## Publish a shareable link (GitHub Pages)
 
