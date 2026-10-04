@@ -76,6 +76,8 @@
   display: grid; gap: 10px; font-size: 13.5px;
 }
 .ink-assistant .ia-settings[hidden] { display: none; }
+.ink-assistant .ia-settings { flex: none; max-height: 70%; overflow-y: auto; }
+.ink-assistant .ia-panel.is-settings .ia-chips { display: none; }
 .ink-assistant .ia-set-row { display: grid; gap: 5px; color: var(--ia-muted); }
 .ink-assistant .ia-settings:not(.is-claude) .ia-claude-only { display: none; }
 .ink-assistant .ia-settings input, .ink-assistant .ia-settings select {
@@ -132,7 +134,7 @@
 }
 
 /* ── chips ── */
-.ink-assistant .ia-chips { display: flex; gap: 7px; padding: 4px 14px 10px; overflow-x: auto; scrollbar-width: none; flex-wrap: wrap; }
+.ink-assistant .ia-chips { flex: none; display: flex; gap: 7px; padding: 4px 14px 10px; overflow-x: auto; scrollbar-width: none; flex-wrap: wrap; }
 .ink-assistant .ia-chips::-webkit-scrollbar { display: none; }
 .ink-assistant .ia-chips[hidden] { display: none; }
 .ink-assistant .ia-chip {

@@ -718,7 +718,11 @@ export function buildUI(pad) {
   };
 
   // ---------------------------------------------------------- text editor / transform bar
-  ui.showTextEditor = () => { textArea.value = ''; textEd.hidden = false; setTimeout(() => textArea.focus({ preventScroll: true }), 0); };
+  ui.showTextEditor = () => {
+    textArea.value = ''; textEd.hidden = false;
+    textArea.focus({ preventScroll: true });
+    setTimeout(() => { if (pad._text && document.activeElement !== textArea) textArea.focus({ preventScroll: true }); }, 0);
+  };
   ui.hideTextEditor = () => { textEd.hidden = true; textArea.blur(); };
   ui.positionTextEditor = () => {};
   ui.syncXf = () => {

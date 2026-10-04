@@ -1,0 +1,25 @@
+/* InkForm 3D — tattoo lettering fonts (all SIL Open Font License 1.1, see OFL-LICENSES.txt).
+   Latin subsets (.woff) from the @fontsource packages.
+
+   Family name        Font                 Use
+   "Ink Script"       Great Vibes          elegant script / names
+   "Ink Script Bold"  Dancing Script 700   casual bold script
+   "Ink Gothic"       UnifrakturMaguntia   gothic / blackletter
+   "Ink Chicano"      Pirata One           chicano / compact blackletter
+   "Ink Signpainter"  Mr Dafoe             chicano script / signpainter
+   "Ink Typewriter"   Courier Prime        typewriter
+   "Ink Sans"         Oswald 600           bold condensed sans
+   "Ink Western"      Rye                  old-school western / traditional banner
+   "Ink Brush"        Kaushan Script       brush script
+   "Ink Marker"       Caveat Brush         handwritten marker (ignorant style)
+*/
+@font-face { font-family: "Ink Script"; src: url("great-vibes.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Ink Script Bold"; src: url("dancing-script-700.woff") format("woff"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Ink Gothic"; src: url("unifrakturmaguntia.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Ink Chicano"; src: url("pirata-one.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Ink Signpainter"; src: url("mr-dafoe.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Ink Typewriter"; src: url("courier-prime.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Ink Sans"; src: url("oswald-600.woff") format("woff"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Ink Western"; src: url("rye.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Ink Brush"; src: url("kaushan-script.woff") format("woff"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Ink Marker"; src: url("caveat-brush.woff") format("woff"); font-weight: 400; font-display: swap; }

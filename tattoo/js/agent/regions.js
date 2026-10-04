@@ -118,17 +118,25 @@ export class RegionResolver {
   get(id) { return this.byId.get(id) || null; }
   has(id) { return this.byId.has(id); }
 
-  /** "your left inner forearm" style phrase for replies. */
+  /** "your left inner forearm", "the back of your neck", "behind your right ear". */
   describe(id, { possessive = true } = {}) {
     const info = this.get(id);
     if (!info) return possessive ? "your skin" : String(id || "").replace(/_/g, " ");
-    let label = (info.r.label || info.id.replace(/_/g, " ")).trim();
-    label = label.charAt(0).toLowerCase() + label.slice(1);
-    label = label.replace(/\s*\((left|right|l|r)\)\s*$/i, (_, s) => "").trim();
-    if ((info.side === "left" || info.side === "right") && !/\b(left|right)\b/i.test(label)) label = `${info.side} ${label}`;
-    if (!possessive) return label;
-    if (/^(the |your |my )/.test(label)) return label.replace(/^my /, "your ");
-    return /^(behind|back of|between|under|side of|nape)/.test(label) ? label.replace(/\b(the|my) /, "your ").replace(/^(behind|back of|between|under|side of)\s+(?!your)/, "$1 your ") : `your ${label}`;
+    let base = String(info.r.label || info.id.replace(/_/g, " ")).toLowerCase();
+    base = base.replace(/\s*\/.*$/, "");
+    base = base.replace(/\b(?:left|right)\b/g, " ");
+    const paren = /\(([^)]*)\)/.exec(base);
+    base = base.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+    if (paren && /^(?:inner|outer|front|back|upper|lower)$/.test(paren[1].trim()) && !base.includes(paren[1].trim())) base = `${paren[1].trim()} ${base}`;
+    const s = info.side === "left" || info.side === "right" ? info.side + " " : "";
+    if (!possessive) return (s + base).trim();
+    let m;
+    if ((m = /^behind (?:the |my )?(.+)$/.exec(base))) return `behind your ${s}${m[1]}`;
+    if ((m = /^side of (?:the |my )?(.+)$/.exec(base))) return `the ${s}side of your ${m[1]}`;
+    if ((m = /^(front|back|top|bottom|inside|outside|small|nape) of (?:the |my )?(.+)$/.exec(base))) return `the ${m[1]} of your ${s}${m[2]}`;
+    if ((m = /^between (?:the |my )?(.+)$/.exec(base))) return `between your ${m[1]}`;
+    if ((m = /^under (?:the |my )?(.+)$/.exec(base))) return `under your ${s}${m[1]}`;
+    return `your ${s}${base}`;
   }
 
   /** Same region on the other side of the body (or null). */
@@ -183,15 +191,23 @@ export class RegionResolver {
     let concept = null, spanStart, spanEnd;
     // An alias wins when it is more specific than the concept word; on a tie, only if it
     // agrees with the concept (e.g. "forearm" alias on both forearm regions → let scoring pick).
-    let aliasCands = null;
+    let aliasCands = null, aliasBonus = null;
     if (best && conceptHit && best.len === conceptHit.len) {
+      // Same specificity: the concept decides, regions named by the alias get a nudge.
       const agree = best.ties.filter((i) => i.concepts.includes(conceptHit.c.key));
-      if (agree.length) aliasCands = agree; else best = null;
+      if (agree.length) aliasBonus = new Set(agree.map((i) => i.id));
+      best = null;
     } else if (best && conceptHit && best.len < conceptHit.len) best = null;
     else if (best) aliasCands = best.ties;
     if (best) {
-      concept = conceptHit && best.len === conceptHit.len ? conceptHit.c.key : best.info.concepts[0] || null;
+      concept = best.info.concepts[0] || null;
       spanStart = best.index; spanEnd = best.index + best.matchLen;
+      if (conceptHit) {
+        // merge adjacent spans ("left butt cheek": concept "butt" + alias "cheek")
+        const cs = conceptHit.index, ce = conceptHit.index + conceptHit.len;
+        const gap = ce <= spanStart ? t.slice(ce, spanStart) : spanEnd <= cs ? t.slice(spanEnd, cs) : "";
+        if (/^\s*$/.test(gap)) { spanStart = Math.min(spanStart, cs); spanEnd = Math.max(spanEnd, ce); }
+      }
     } else if (conceptHit) {
       concept = conceptHit.c.key;
       spanStart = conceptHit.index; spanEnd = conceptHit.index + conceptHit.len;
@@ -235,7 +251,7 @@ export class RegionResolver {
       if (cands.length === 1) regionId = cands[0].id;
       else regionId = this.pick(concept, { side: side || defaultSide, sideExplicit: !!side, mods, softMods, only: cands });
     }
-    if (!regionId) regionId = this.pick(concept, { side: side || defaultSide, sideExplicit, mods, softMods });
+    if (!regionId) regionId = this.pick(concept, { side: side || defaultSide, sideExplicit, mods, softMods, bonus: aliasBonus });
     if (!regionId) return null;
     const chosen = this.get(regionId);
     return {
@@ -245,7 +261,7 @@ export class RegionResolver {
   }
 
   /** Best region for a concept (following fallbacks), side and modifiers. */
-  pick(concept, { side = "left", sideExplicit = false, mods = new Set(), softMods = [], only = null } = {}, seen = new Set()) {
+  pick(concept, { side = "left", sideExplicit = false, mods = new Set(), softMods = [], only = null, bonus = null } = {}, seen = new Set()) {
     if (only) seen.add("__only");
     if (!only && (!concept || seen.has(concept))) return null;
     if (concept) seen.add(concept);
@@ -274,6 +290,7 @@ export class RegionResolver {
         if (mods.has(OPPOSITE[m])) continue;
         if (i.mods.has(m)) s += 1.5;
       }
+      if (bonus && bonus.has(i.id)) s += 2;
       // fewer extra qualifiers = more "default" region
       s -= i.mods.size * 0.1;
       if (s > bestScore) { best = i; bestScore = s; }

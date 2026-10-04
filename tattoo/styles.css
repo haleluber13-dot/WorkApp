@@ -352,3 +352,21 @@ input[type="color"] { width: 34px; height: 30px; border: 1px solid var(--border)
   .sketchbar { flex-wrap: wrap; }
   .hint { bottom: 60px; }
 }
+
+/* ── AI assistant button placement around the shell's own controls ──── */
+body[data-tab="studio"]:has(#inspector:not([hidden])) .ink-assistant .ia-fab { right: 340px; }
+body[data-tab="create"] .ink-assistant .ia-fab { right: 420px; }
+body[data-tab="sketch"] .ink-assistant .ia-fab { bottom: 72px; }
+@media (max-width: 900px) {
+  body[data-tab="studio"]:has(#inspector:not([hidden])) .ink-assistant .ia-fab { right: 14px; bottom: calc(var(--mobtabs) + (100vh - var(--topbar) - var(--mobtabs)) * 0.42 + 12px); }
+  body[data-tab="create"] .ink-assistant .ia-fab { right: 14px; }
+  body[data-tab="studio"] .fab--lib { bottom: 84px; }
+}
+@media (max-width: 700px) {
+  .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + 12px) !important; }
+  body[data-tab="studio"] .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + 12px); }
+  body[data-tab="studio"]:has(#inspector:not([hidden])) .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + (100vh - var(--topbar) - var(--mobtabs)) * 0.42 + 12px) !important; height: 44px; }
+  body[data-tab="studio"] .fab--lib { bottom: 74px; right: 14px; }
+  body.lib-open .ink-assistant .ia-fab { opacity: 0; pointer-events: none; }
+  body[data-tab="sketch"] .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + 64px) !important; }
+}

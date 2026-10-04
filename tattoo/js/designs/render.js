@@ -103,7 +103,7 @@ export function tLine(ctx, m, s, { w = 3, color = INK, inner = true, bold = 1.6,
   };
   for (const e of m.els) {
     if (e.t === "part") {
-      const fill = e.noFill ? "none" : e.fill === "solid" ? "#fff" : e.fill === "dots" || e.fill === "lines" || e.fill === "grey" ? `url(#${patFill(e.fill)})` : "#000";
+      const fill = e.noFill ? "none" : (e.fill === "solid" || e.fill === "ink") ? "#fff" : e.fill === "dots" || e.fill === "lines" || e.fill === "grey" ? `url(#${patFill(e.fill)})` : "#000";
       mk += pathEl(e, `fill="${fill}" stroke="${e.noStroke ? "none" : "#fff"}" stroke-width="${f2(sw * (e.sw ?? 1))}"`);
     } else if (e.t === "dark") {
       mk += (solidDark && !darkAsLine) ? pathEl(e, `fill="#fff" stroke="#fff" stroke-width="${f2(sw * 0.5)}"`) : pathEl(e, `fill="#000" stroke="#fff" stroke-width="${f2(sw * 0.8)}"`);
@@ -127,7 +127,7 @@ export function tFill(ctx, m, s, { w = 5, palette = PALETTES.traditional, inner 
   for (const e of m.els) {
     if (e.t === "part") {
       const role = roleMap?.[e.role] ?? e.role;
-      const col = e.noFill ? "none" : e.fill === "solid" ? outline : (palette[role] ?? palette.main);
+      const col = e.noFill ? "none" : e.fill === "solid" ? outline : (palette[role] ?? (role && role[0] === "#" ? role : palette.main));
       out += pathEl(e, `fill="${col}" stroke="${e.noStroke ? "none" : outline}" stroke-width="${f2(sw)}"`);
     } else if (e.t === "dark") out += pathEl(e, `fill="${outline}"`);
     else if (e.t === "line" && inner) out += `<path d="${e.d}" fill="none" stroke="${outline}" stroke-width="${f2(sw * (e.w ?? 0.7))}"/>`;
@@ -142,7 +142,7 @@ export function tSolid(ctx, m, s, { w = 3, color = INK, neg = true, bold = 1 } =
   const sw = w / s, id = ctx.uid("ms");
   let mk = "";
   for (const e of m.els) {
-    if (e.t === "part") mk += e.noFill ? pathEl(e, `fill="none" stroke="#fff" stroke-width="${f2(sw * 1.6)}"`) : pathEl(e, `fill="#fff" stroke="#fff" stroke-width="${f2(sw * bold)}"`);
+    if (e.t === "part") mk += e.noFill ? pathEl(e, `fill="none" stroke="#fff" stroke-width="${f2(sw * 1.6)}"`) : (e.role === "white" || e.role === "light") && e.fill ? pathEl(e, `fill="#000" stroke="#fff" stroke-width="${f2(sw * 0.6)}"`) : pathEl(e, `fill="#fff" stroke="#fff" stroke-width="${f2(sw * bold)}"`);
     else if (e.t === "dark") mk += neg ? pathEl(e, `fill="#000"`) : "";
     else if (e.t === "line" && neg) mk += `<path d="${e.d}" fill="none" stroke="#000" stroke-width="${f2(sw * (e.w ?? 0.7))}"/>`;
     else if (e.t === "shine" && neg) mk += pathEl(e, `fill="#000"`);
@@ -429,4 +429,15 @@ export function drawMotif(ctx, m, mode, o = {}) {
     default: body = tLine(ctx, m, s, o);
   }
   return `<g transform="${tf}">${body}</g>`;
+}
+
+// Bounding box of a scene/motif (canvas units) from its geometry
+export function sceneBBox(m, pad = 0) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const step = Math.max(m.box[2], m.box[3]) / 150;
+  for (const e of m.els) {
+    for (const poly of samplePath(e.d, step)) for (const p of poly) { if (p[0] < x0) x0 = p[0]; if (p[1] < y0) y0 = p[1]; if (p[0] > x1) x1 = p[0]; if (p[1] > y1) y1 = p[1]; }
+  }
+  if (!Number.isFinite(x0)) return m.box.slice();
+  return [x0 - pad, y0 - pad, x1 - x0 + 2 * pad, y1 - y0 + 2 * pad];
 }

@@ -39,6 +39,16 @@ const DEFAULT_REGION_FALLBACKS = ["left_forearm_inner", "forearm"];
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function round1(v) { return Math.round(v * 10) / 10; }
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+function lowerName(n) { n = String(n || "design"); return /[“"']/.test(n) ? n : n.toLowerCase(); }
+// "on your chest" but "behind your ear" / "between your shoulder blades"
+function onWhere(desc) { return /^(?:behind|between|under|along|down|across)\b/.test(desc) ? desc : `on ${desc}`; }
+// Size words scale with the body part: geometric mean of the absolute word size and the part's own size.
+function sizeForWord(cm, regionSize) {
+  if (!regionSize) return cm;
+  const rel = regionSize * ({ 2.5: 0.3, 3.5: 0.4, 5.5: 0.65, 8: 0.85, 9: 1, 14: 1.3, 16: 1.45, 25: 2 }[cm] || cm / 9);
+  return Math.round(Math.sqrt(cm * rel) * 2) / 2;
+}
+const AMOUNT_PHRASES = /\b(?:a (?:tiny|little|wee|small) (?:bit|touch)|(?:tiny|little|wee) bit|a little|a bit)\b/g;
 function pick(arr, rnd = Math.random) { return arr[Math.floor(rnd() * arr.length) % arr.length]; }
 
 /* ───────────────────────── text preparation ───────────────────────── */
@@ -175,6 +185,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     pending: null,         // { kind: "where" | "what" | "style", ... }
     designs: new Map(),    // designId → { prompt, styleId, opts, name }
     lastDesignId: null,
+    lastView: "front",
   };
   let resolver = null, resolverKey = "";
 
@@ -215,7 +226,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
   }
   function tattooName(t) {
     if (!t) return "tattoo";
-    return designInfo(t.designId).name.toLowerCase();
+    return lowerName(designInfo(t.designId).name);
   }
   function where(t) { return R().describe(t.region); }
 
@@ -370,6 +381,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
 
   function friendlyError(e) {
     const msg = e && e.message ? String(e.message) : "";
+    if (/loading/i.test(msg)) return "The design engine is still loading — give it a second and try again.";
     if (/region/i.test(msg)) return "I couldn't find that spot on the body.";
     if (/design/i.test(msg)) return "I couldn't make that design — try describing it another way?";
     return "Hmm, that didn't work. Could you try saying it another way?";
@@ -385,7 +397,8 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       let body = parts.length === 1 ? parts[0] : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1];
       reply = (done[0].lead === false ? cap(body) : "Done — " + body) + ".";
     }
-    for (const r of info) reply += (reply ? " " : "") + r.say;
+    const seen = new Set();
+    for (const r of info) { if (seen.has(r.say)) continue; seen.add(r.say); reply += (reply ? " " : "") + r.say; }
     const last = results[results.length - 1];
     if (last.follow && !info.some((r) => r.ask)) reply += " " + last.follow;
     const chips = (last.chips || results.reduce((a, r) => r.chips || a, null)) || followChips(last.kind);
@@ -412,7 +425,11 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       case "rotate": case "flip": return ["Rotate 15°", "Straighten it", "Flip it", "Bigger"];
       case "ink": case "age": case "opacity": return ["Black ink", "Make it look healed", "Fresh ink", "Bigger"];
       case "body": case "skin": return ["Female body", "Male body", "Taller", "Darker skin", "Lighter skin"];
-      case "camera": return has ? ["Show me the front", "Show me the back", "Zoom in on it"] : ["Show me the front", "Show me the back", "Rose on my chest"];
+      case "camera": {
+        const v = ctx.lastView || "";
+        const list = ["Show me the front", "Show me the back", "Show me the left side"].filter((x) => !x.endsWith(" " + v) && !x.endsWith(v + " side"));
+        return has ? [...list, "Zoom in on it"] : [...list, "Rose on my chest"];
+      }
       case "remove": return has ? ["Undo", "Remove all", "Show me the front"] : ["Undo", "Mandala on my upper back", "Rose on my chest"];
       case "design": return ["More detail", "Simpler", "Thinner lines", "Another variation", "Bigger"];
       case "mirror": return ["Bigger", "Show me the front", "Undo"];
@@ -482,13 +499,13 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     if (/^(?:how big|what size|how large)\b/.test(c)) {
       const t = current();
       if (!t) return { say: "There's no tattoo yet — want me to add one?", info: true, kind: "info" };
-      return { say: `Your ${tattooName(t)} is ${fmtSize(t.sizeCm)} wide, on ${where(t)}.`, info: true, kind: "info" };
+      return { say: `Your ${tattooName(t)} is ${fmtSize(t.sizeCm)} wide, ${onWhere(where(t))}.`, info: true, kind: "info" };
     }
     if (/^where(?:'s| is)\s+(?:it|the)\b/.test(c)) {
       const t = current();
       if (!t) return { say: "There's no tattoo yet.", info: true };
       try { app.focus(t.id); } catch {}
-      return { say: `It's on ${where(t)} — I've zoomed in on it.`, info: true, kind: "camera" };
+      return { say: `It's ${onWhere(where(t))} — I've zoomed in on it.`, info: true, kind: "camera" };
     }
 
     // ── clear all
@@ -556,7 +573,8 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
 
     // ── placement of a new design
     const placeStart = /^(?:(?:can|could|would|will) you\s+|i (?:want|need|would like|'d like|wanna)|i'd love|let's|lets|how about|what about|try|give me|show me an?\b|get me|make me|draw|design|create|generate|ink|tattoo|put|place|add|stick|slap|do an?\b|get an?\b|write|letter|spell)/.test(c);
-    const moveToRegion = /^(?:move|put|place|shift|switch|transfer|relocate|bring|stick|slide)\s+(?:it|that|this|them|the tattoo|the design|the (?:[a-z]+ )?(?:one|tattoo))\b/.test(c)
+    const moveToRegion = (/^(?:move|put|place|shift|switch|transfer|relocate|bring|stick|slide)\s+(?:it|that|this|them|the tattoo|the design|the (?:[a-z]+ )?(?:one|tattoo))\b/.test(c)
+        || /^(?:what if|how about|what about|try)\s+(?:it|we put it|i put it|putting it|moving it)\s*(?:was|were|is|went|goes)?\s*(?:on|onto|to|at|behind)\b/.test(c) || /^(?:try it|put it there)\s+(?:on|at|behind)\b/.test(c))
       && !LANDMARK_RE.test(c) && !hasDirection((findRegion(c) || { rest: c }).rest);
     if (moveToRegion) {
       const tgt = resolveTarget(c);
@@ -574,7 +592,8 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
         }
       }
     }
-    if ((placeStart || hasQuote || writeVerb) && !PRONOUN_ONLY(c)) {
+    const bareWithRegion = /^(?:an?|some|two|three|\d+)\s+\S/.test(c) && !isCommandLike(c) && !!findRegion(c);
+    if ((placeStart || hasQuote || writeVerb || bareWithRegion) && !PRONOUN_ONLY(c)) {
       const spec = parsePlacementSpec(c, quotes, raw);
       if (spec.prompt || spec.lettering) {
         if (!spec.regionId) {
@@ -617,10 +636,14 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
         if (tgt.explicit && !tgt.rest.replace(/\b(?:make|change|do|set|the|it|to|a|an)\b/g, "").trim()) {
           remember(tattooById(ids[0]));
           try { app.focus(ids[0]); } catch {}
-          return { say: `Got it — your ${tattooName(tattooById(ids[0]))} on ${where(tattooById(ids[0]))}. What should I change?`, info: true, chips: ["Bigger", "Smaller", "Make it red", "Remove it"], kind: "select" };
+          return { say: `Got it — your ${tattooName(tattooById(ids[0]))} ${onWhere(where(tattooById(ids[0])))}. What should I change?`, info: true, chips: ["Bigger", "Smaller", "Make it red", "Remove it"], kind: "select" };
         }
       }
     }
+
+    // ── a change request but nothing on the body yet
+    if (!tattoos().length && (isCommandLike(c) || OPTION_HINTS.some((h) => h.say.test(c)) && /\b(?:more|less|fewer|thinner|thicker)\b/.test(c)) && !findRegion(c))
+      return { say: "There's no tattoo on the body yet — tell me what you'd like and where, e.g. “a rose on my wrist”.", info: true, chips: starterChips(), kind: "info", stop: true };
 
     // ── a bare body part: move "it" there, or ask what to put there
     const reg = findRegion(c, { preferFree: true });
@@ -730,11 +753,11 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     s = s.replace(/\b(?:about|around|roughly|approx(?:imately)?|maybe|like|wide|across|big|tall|long|in size|sized?)\b(?=\s*$|\s)/g, (w) => /big/.test(w) && !len ? w : " ");
     if (!spec.sizeCm) {
       for (const [re, cm] of SIZE_WORDS) {
-        const mm = re.exec(s);
-        if (mm) { spec.sizeCm = cm; s = s.replace(mm[0], " "); break; }
+        const mm = re.exec(s.replace(AMOUNT_PHRASES, " "));
+        if (mm) { spec.sizeCm = cm; spec.sizeWord = true; s = s.replace(mm[0], " "); break; }
       }
     }
-    s = s.replace(/\b(?:sized?|size)\b/g, " ");
+    s = s.replace(/\b(?:sized?|size|style|styled|version)\b/g, " ");
 
     // ink / color
     if (/\b(?:black and gr[ae]y|black ?& ?gr[ae]y|black(?:work)? ink|in black|all black|black)\b/.test(s) && !/\bblack (?:cat|panther|widow|rose|wolf|crow|raven|bird|heart|snake|dragon)\b/.test(s)) {
@@ -812,7 +835,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
     const regionId = spec.regionId || defaultRegion();
     const args = { designId: design.id, region: regionId };
-    if (spec.sizeCm) args.sizeCm = spec.sizeCm;
+    if (spec.sizeCm) args.sizeCm = spec.sizeWord ? sizeForWord(spec.sizeCm, (R().get(regionId) || { r: {} }).r.sizeCm) : spec.sizeCm;
     if (spec.rotation != null) args.rotation = spec.rotation;
     if (spec.ink) args.ink = spec.ink;
     if (spec.color) args.color = spec.color;
@@ -824,9 +847,9 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     if (!t || !t.id) throw new Error("placement failed");
     if (spec.age != null) { try { await app.updateTattoo(t.id, { age: spec.age }); } catch {} }
     remember(t);
-    const name = (design.name || spec.prompt || "design").toLowerCase();
+    const name = lowerName(design.name || spec.prompt || "design");
     const size = t.sizeCm || spec.sizeCm;
-    const desc = `${size ? fmtSize(size) + " " : ""}${name} on ${R().describe(t.region || regionId)}`;
+    const desc = `${size ? fmtSize(size) + " " : ""}${name} ${onWhere(R().describe(t.region || regionId))}`;
     const follow = spec.guessedRegion
       ? "I put it there for now — tell me another spot if you'd like."
       : pick(["Want it bigger or rotated?", "Want to try a different size or angle?", "How does that look? I can move, resize or recolor it.", "Want it mirrored on the other side too?"], random);
@@ -847,7 +870,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     if (len) args.sizeCm = clamp(len.cm, 1, 60);
     const n = await app.placeTattoo(args);
     remember(n);
-    return { done: `added the same ${tattooName(t)} on ${R().describe(n.region || regionId)}`, kind: "copy", follow: "Want it a different size there?" };
+    return { done: `added the same ${tattooName(t)} ${onWhere(R().describe(n.region || regionId))}`, kind: "copy", follow: "Want it a different size there?" };
   }
 
   async function tryMirror(c) {
@@ -862,7 +885,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
     const dup = await app.duplicateTattoo(t.id, { mirror: true });
     remember(dup);
-    return { done: `added a matching ${tattooName(t)} on ${R().describe(dup.region || R().mirrorOf(t.region))}`, kind: "mirror", follow: "They look great as a pair!" };
+    return { done: `added a matching ${tattooName(t)} ${onWhere(R().describe(dup.region || R().mirrorOf(t.region)))}`, kind: "mirror", follow: "They look great as a pair!" };
   }
 
   async function tryRemove(c) {
@@ -879,7 +902,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
     if (!ids) { const t = current(); ids = t ? [t.id] : []; }
     if (!ids.length) return { say: "There's nothing to remove yet.", info: true, kind: "remove" };
-    const names = ids.map((id) => { const t = tattooById(id); return t ? `${tattooName(t)} on ${where(t)}` : "tattoo"; });
+    const names = ids.map((id) => { const t = tattooById(id); return t ? `${tattooName(t)} ${onWhere(where(t))}` : "tattoo"; });
     for (const id of ids) await app.removeTattoo(id);
     if (ids.includes(ctx.currentId)) ctx.currentId = null;
     return { done: ids.length > 1 ? `removed ${ids.length} tattoos` : `removed the ${names[0]}`, kind: "remove", follow: "Say “undo” if you change your mind." };
@@ -888,23 +911,26 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
   function listTattoos() {
     const list = tattoos();
     if (!list.length) return { say: "No tattoos yet — tell me what you'd like and where!", info: true, chips: starterChips(), kind: "info" };
-    const lines = list.map((t, i) => `${i + 1}. ${cap(tattooName(t))} — ${fmtSize(t.sizeCm)} on ${where(t)}`);
+    const lines = list.map((t, i) => `${i + 1}. ${cap(tattooName(t))} — ${fmtSize(t.sizeCm)} ${onWhere(where(t))}`);
     return { say: `You have ${list.length} tattoo${list.length > 1 ? "s" : ""}:\n${lines.join("\n")}`, info: true, kind: "info" };
   }
 
   /* ───────────────────────── camera ───────────────────────── */
 
+  // app.getState().view may be the UI tab, so remember the camera side ourselves.
+  async function view(v) { ctx.lastView = v; await app.viewFrom(v); }
+
   async function tryCamera(c) {
     let m;
     const camVerb = /\b(?:show(?: me)?|view|see|look(?: at)?|let me see|turn (?:around|the (?:body|camera|view|model))|rotate (?:the )?(?:view|camera|body|model)|spin (?:the )?(?:body|model|view|around)|camera|zoom|close[- ]?up|focus|from (?:the )?(?:back|behind|front|side|above|top|left|right)|switch (?:the )?view)\b/;
     if (/^(?:turn|spin) (?:it |me |the body |the model |him |her )?around\b|^turn around\b/.test(c)) {
-      const v = (state().view === "back" || (state().view && state().view.name === "back")) ? "front" : "back";
-      await app.viewFrom(v);
+      const v = ctx.lastView === "back" ? "front" : "back";
+      await view(v);
       return { done: `turned the view to the ${v}`, kind: "camera", lead: false };
     }
     if (!camVerb.test(c)) return null;
     if (/\b(?:reset|whole body|full body|entire body|zoom out|all of me|everything)\b/.test(c)) {
-      await app.viewFrom("front");
+      await view("front");
       return { done: "showing the whole body", kind: "camera", lead: false };
     }
     const viewWord = (/\b(?:back|behind|rear|backside)\b/.test(c) && !/\b(?:back of (?:my |the )?(?:neck|hand|arm|leg|knee|thigh|calf|ear)|lower back|upper back tattoo)\b/.test(c)) ? "back"
@@ -915,7 +941,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       : /\b(?:side|profile)\b/.test(c) ? (current() && (R().get(current().region) || {}).side === "right" ? "right" : "left")
       : null;
     // "zoom in on it", "show me the tattoo"
-    if (/\b(?:zoom|close[- ]?up|focus|show(?: me)?|let me see|look at)\b/.test(c) && /\b(?:it|that|this|the tattoo|the design|the one|my tattoo)\b/.test(c) && !viewWord) {
+    if (/\b(?:zoom|close[- ]?up|up close|closer|focus|show(?: me)?|let me see|see|look at)\b/.test(c) && /\b(?:it|that|this|the tattoo|the design|the one|my tattoo)\b/.test(c) && !viewWord) {
       const tgt = resolveTarget(c);
       const t = (tgt.ids && tattooById(tgt.ids[0])) || current();
       if (t) {
@@ -928,7 +954,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     const reg = findRegion(c);
     if (reg && /\b(?:zoom|close[- ]?up|focus|show(?: me)?|let me see|look at|view)\b/.test(c)) {
       if (viewWord === "back" && /^(?:upper_back|lower_back|spine)$/.test(reg.concept) && !/\bzoom|close|focus\b/.test(c)) {
-        await app.viewFrom("back");
+        await view("back");
         return { done: "here's the back", kind: "camera", lead: false };
       }
       const tgt = resolveTarget(c);
@@ -937,7 +963,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       return { done: `zoomed in on ${R().describe(reg.regionId)}`, kind: "camera", lead: false };
     }
     if (viewWord) {
-      await app.viewFrom(viewWord);
+      await view(viewWord);
       return { done: viewWord === "top" ? "showing the view from above" : `here's the ${viewWord === "left" || viewWord === "right" ? viewWord + " side" : viewWord}`, kind: "camera", lead: false };
     }
     if (/\bzoom in\b/.test(c)) {
@@ -1113,12 +1139,13 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
 
     // ---- size
-    let sizePatch = null, sizeDesc = null;
+    let sizePatch = null, sizeDesc = null, sizeAbs = false;
     const len = parseLength(c);
+    const cs = c.replace(AMOUNT_PHRASES, " ");
     const sizeVerb = /\b(?:bigger|larger|enlarge|scale (?:it )?up|increase|grow|biggger|huger|wider|smaller|shrink|scale (?:it )?down|reduce|decrease|tinier|littler|narrower|size|big|large|small|tiny|huge|twice|double|half|halve|times|x\b|wide|across|%|percent)\b/;
     const moveish = /\b(?:move|shift|slide|nudge|bump|push|pull|up|down|higher|lower|raise|left|right|closer|toward|towards|away|over)\b/.test(c);
     const rotish = /\b(?:rotate|turn|tilt|spin|degrees|angle)\b/.test(c);
-    if ((sizeVerb.test(c) || (len && !moveish && !rotish)) && !/\b(?:lines?|petals?|points?|rings?|font|text size|shoulders|hips|chest|bust)\b/.test(c) && !(moveish && !/\b(?:bigger|larger|smaller|size|wide|big|tiny|huge)\b/.test(c))) {
+    if ((sizeVerb.test(cs) || (len && !moveish && !rotish)) && !/\b(?:lines?|petals?|points?|rings?|font|text size|shoulders|hips|chest|bust)\b/.test(c) && !(moveish && !/\b(?:bigger|larger|smaller|size|wide|big|tiny|huge)\b/.test(c))) {
       const up = /\b(?:bigger|larger|enlarge|scale (?:it )?up|increase|grow|huger|wider|double|twice)\b/.test(c);
       const down = /\b(?:smaller|shrink|scale (?:it )?down|reduce|decrease|tinier|littler|narrower|half|halve)\b/.test(c);
       if ((m = /\b(\d+(?:\.\d+)?)\s*(?:times|x)\b/.exec(c)) && !len) {
@@ -1134,7 +1161,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
         const d = len.cm * (down ? -1 : 1);
         sizePatch = (t) => ({ sizeCm: clamp(t.sizeCm + d, 1, 60) }); sizeDesc = `made it ${Math.abs(round1(len.cm))} cm ${down ? "smaller" : "bigger"}`;
       } else if (len) {
-        sizePatch = { sizeCm: clamp(len.cm, 1, 60) }; sizeDesc = `resized it to ${fmtSize(len.cm)}`;
+        sizePatch = { sizeCm: clamp(len.cm, 1, 60) }; sizeDesc = `resized it to ${fmtSize(len.cm)}`; sizeAbs = true;
         c = c.slice(0, len.index) + " " + c.slice(len.index + len.len);
       } else if (up || down) {
         const f = { tiny: 1.06, small: 1.12, normal: 1.25, large: 1.6 }[lvl];
@@ -1142,7 +1169,10 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
         sizeDesc = `made it ${lvl === "small" || lvl === "tiny" ? "a bit " : lvl === "large" ? "a lot " : ""}${up ? "bigger" : "smaller"}`;
         relative = true;
       } else {
-        for (const [re, cm] of SIZE_WORDS) if (re.test(c)) { sizePatch = { sizeCm: cm }; sizeDesc = `made it ${re.exec(c)[0]} (${fmtSize(cm)})`; break; }
+        for (const [re, cm] of SIZE_WORDS) if (re.test(cs)) {
+          const v = sizeForWord(cm, (R().get(t0.region) || { r: {} }).r.sizeCm);
+          sizePatch = { sizeCm: v }; sizeDesc = `made it ${re.exec(cs)[0]} (${fmtSize(v)})`; sizeAbs = true; break;
+        }
       }
       if (sizePatch) {
         patchFor.push([sizePatch, sizeDesc]); kind = kind || "size";
@@ -1173,7 +1203,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
 
     // ---- movement
-    const mv = parseMove(c, t0, lvl);
+    const mv = parseMove(c.replace(/\bupside[- ]down\b|\b(?:turn|rotate|spin|tilt)\w*\s+(?:it|that|this|them)?\s*(?:to the )?(?:left|right)\b/g, " "), t0, lvl);
     if (mv) {
       if (mv.say) { say = mv.say; }
       else { patchFor.push([mv.patch, mv.desc]); kind = kind || "move"; relative = true; }
@@ -1240,7 +1270,8 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       }
       for (const [, d] of patchFor) parts.push(d);
       const t = tattooById(ids[ids.length - 1]);
-      if (sizePatch && t && !all) parts[parts.indexOf(sizeDesc)] = `${sizeDesc} (now ${fmtSize(t.sizeCm)})`;
+      if (sizePatch && t && !all && !sizeAbs) parts[parts.indexOf(sizeDesc)] = `${sizeDesc} (now ${fmtSize(t.sizeCm)})`;
+      if (all) for (let i = 0; i < parts.length; i++) parts[i] = parts[i].replace(/\bit\b/g, "them");
     }
     if (!parts.length && !say && /^(?:make|change|set|do|turn)\b/.test(c.trim()) && !quiet) {
       return { parts, say: "What should I change — size, position, angle, color or style?", chips: ["Bigger", "Smaller", "Rotate 15°", "Make it red", "Change style"], kind: "ask", ask: true };
@@ -1262,7 +1293,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       if (dir.up) { up = dir.up * amt * (away ? -1 : 1); desc.push(`${away ? "away from" : "closer to"} your ${lm[1]}`); }
       else if (dir.center) {
         const h = horizontalToCenter(t, dir.center * (away ? -1 : 1));
-        if (h == null) return { say: "That spot is already centered." };
+        if (h == null) return { say: Math.abs((t.position || [0])[0]) < 0.015 ? "It's already right in the middle." : "From that angle I can't tell which way the center is — try “move it left” or “right”." };
         right = h * amt; desc.push(`${(dir.center > 0) !== away ? "toward the center" : "toward the side"}`);
       }
     } else {
@@ -1277,8 +1308,8 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
         else right += (which === "left" ? 1 : -1) * s * amt;
         desc.push(`toward your ${which}`);
       } else if (/\b(?:left|right)\b/.test(c) && /\b(?:move|shift|slide|nudge|bump|push|over|to the|a bit|slightly|little|more|left|right)\b/.test(c)) {
-        if (/\bleft\b/.test(c)) { right -= amt; desc.push("left"); }
-        if (/\bright\b/.test(c)) { right += amt; desc.push("right"); }
+        if (/\bleft\b/.test(c)) { right -= amt; desc.push(`${len ? round1(amt) + " cm " : ""}left`); }
+        if (/\bright\b/.test(c)) { right += amt; desc.push(`${len ? round1(amt) + " cm " : ""}right`); }
       }
       if (!up && !right) return null;
     }
@@ -1379,7 +1410,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
         } else continue;
         next = clamp(Math.round(next / stepUnit) * stepUnit, opt.min, opt.max);
         next = Math.round(next * 1000) / 1000;
-        if (next === Number(curVal)) return { say: `That's already as ${inc ? "high" : "low"} as ${optName} go for this style.`, kind: "design" };
+        if (next === Number(curVal)) return { say: numM ? `It already has ${next} ${optName}.` : `That's already as ${inc ? "high" : "low"} as ${optName} go for this style.`, kind: "design" };
         desc = numM ? `set ${optName} to ${next}` : `${/line/.test(optName) ? (inc ? "made the lines thicker" : "made the lines thinner") : `${inc ? "more" : /petal|point|ring|layer|leaf|leaves|star|dot|side/.test(optName) ? "fewer" : "less"} ${optName}`}`;
       } else if (opt.type === "bool") {
         next = !(dec && !inc) ? (/\b(?:no|without|remove|turn off|less)\b/.test(c) ? false : true) : false;
@@ -1406,7 +1437,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
 
   async function regen(info, opts) {
     const styleId = info.style;
-    const d = await makeDesign({ styleId: styleId || undefined, opts, prompt: styleId ? undefined : info.prompt || info.name });
+    const d = await makeDesign({ styleId: styleId || undefined, opts, prompt: styleId ? undefined : info.prompt || info.name, name: info.name && info.name !== "tattoo" ? info.name : undefined });
     const entry = ctx.designs.get(d.id);
     if (entry) { entry.opts = { ...(entry.opts || {}), ...opts }; entry.prompt = info.prompt || entry.prompt; }
     return d;

@@ -91,7 +91,7 @@ export function mountAssistant(container, app) {
     <div class="ia-log" role="log" aria-live="polite" aria-relevant="additions" tabindex="0"></div>
     <div class="ia-chips" role="group" aria-label="Suggestions"></div>
     <form class="ia-form" autocomplete="off">
-      <textarea class="ia-input" rows="1" placeholder="Describe a tattoo or a change…" aria-label="Message the assistant" enterkeyhint="send"></textarea>
+      <textarea class="ia-input" rows="1" placeholder="Describe a tattoo…" aria-label="Message the assistant" enterkeyhint="send"></textarea>
       <button type="button" class="ia-mic" aria-label="Speak" hidden>${ICON.mic}</button>
       <button type="submit" class="ia-send" aria-label="Send">${ICON.send}</button>
     </form>`;
@@ -319,6 +319,7 @@ export function mountAssistant(container, app) {
   });
   function toggleSettings(show = settingsBox.hidden) {
     settingsBox.hidden = !show;
+    panel.classList.toggle("is-settings", show);
     $(".ia-settings-btn").setAttribute("aria-expanded", String(show));
     if (show) syncSettingsForm();
   }

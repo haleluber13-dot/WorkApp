@@ -593,7 +593,7 @@ export class SketchPad {
       this.canvas.style.width = cw + 'px'; this.canvas.style.height = ch + 'px';
       this._checker = null;
     }
-    if (this._needFit !== false) { this._needFit = false; this.fitView(); }
+    if (this._needFit !== false || !this._userView) { this._needFit = false; this.fitView(); }
     this._requestRender();
   }
   _viewM(pan = true) {
@@ -620,9 +620,11 @@ export class SketchPad {
     this.view.rot = 0;
     this.view.zoom = Math.max(0.02, Math.min((this.cw - pad) / this.w, (this.ch - pad) / this.h));
     this.view.panX = 0; this.view.panY = 0;
+    this._userView = false;
     this.ui.syncZoom(); this._requestRender();
   }
   setZoom(z, at) {
+    this._userView = true;
     at ||= { x: this.cw / 2, y: this.ch / 2 };
     const d = this.toDoc(at.x, at.y);
     this.view.zoom = clamp(z, 0.03, 32);
@@ -631,6 +633,7 @@ export class SketchPad {
   }
   zoomBy(f, at) { this.setZoom(this.view.zoom * f, at); }
   rotateView(deg, absolute = false) {
+    this._userView = true;
     const at = { x: this.cw / 2, y: this.ch / 2 };
     const d = this.toDoc(at.x, at.y);
     this.view.rot = absolute ? deg * Math.PI / 180 : this.view.rot + deg * Math.PI / 180;
@@ -755,7 +758,7 @@ export class SketchPad {
       case 'gesture':
         if ([...this._pointers.values()].filter((p) => p.type === 'touch').length < 2) this._endGesture();
         break;
-      case 'pan': if (e.pointerId === this._panId) this._mode = null; break;
+      case 'pan': if (e.pointerId === this._panId) { this._mode = null; this.ui.setStageCursor(null); } break;
       case 'draw':
         if (e.pointerId !== this._drawId) break;
         if (cancelled && this.stroke && this.stroke.dist < 4) this._abortStroke(); else this._endStroke();
@@ -765,7 +768,7 @@ export class SketchPad {
       case 'textmove': this._mode = null; break;
       case 'xf': this._mode = null; this._xfDrag = null; this.ui.syncXf(); break;
     }
-    if (e.pointerType === 'touch' && !this._pointers.size && this._mode === 'pan') this._mode = null;
+    if (!this._pointers.size && (this._mode === 'pan' || this._mode === 'gesture-end')) { this._mode = null; this.ui.setStageCursor(null); }
     this._requestRender();
   }
 
@@ -778,7 +781,7 @@ export class SketchPad {
     else if (mouseWheel && !e.shiftKey) this.zoomBy(Math.exp(-e.deltaY * (lineMode ? 0.06 : 0.0018)), s);
     else {
       const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX, dy = e.shiftKey && !e.deltaX ? 0 : e.deltaY;
-      this.view.panX -= dx; this.view.panY -= dy; this._requestRender();
+      this.view.panX -= dx; this.view.panY -= dy; this._userView = true; this._requestRender();
     }
   }
 
@@ -841,6 +844,7 @@ export class SketchPad {
     this.ui.setStageCursor('grabbing');
   }
   _updatePan(s) {
+    this._userView = true;
     const p = this._panStart;
     this.view.panX = p.x + s.x - p.s.x; this.view.panY = p.y + s.y - p.s.y;
   }
@@ -862,6 +866,7 @@ export class SketchPad {
     let dAng = Math.atan2(b.y - a.y, b.x - a.x) - g.ang0;
     dAng = Math.atan2(Math.sin(dAng), Math.cos(dAng));
     if (Math.abs(d - g.d0) > 12 || Math.hypot(mid.x - g.mid0.x, mid.y - g.mid0.y) > 12 || Math.abs(dAng) > 0.12) g.moved = true;
+    this._userView = true;
     this.view.zoom = clamp(g.zoom0 * d / g.d0, 0.03, 32);
     if (this.viewRotateGesture && (g.rotating || Math.abs(dAng) > 0.26)) {
       g.rotating = true;
@@ -895,11 +900,11 @@ export class SketchPad {
   _stab(d, first = false) {
     const s = clamp((this.opts[this.tool].smoothing ?? 0) / 100, 0, 1);
     if (first || !this._lz) { this._lz = { ...d }; this._ema = { ...d }; return { ...d }; }
-    const R = Math.pow(s, 1.5) * 26 / this.view.zoom;
+    const R = s * s * 22 / this.view.zoom; // lazy-brush radius in screen px → doc px
     const lz = this._lz;
     const dx = d.x - lz.x, dy = d.y - lz.y, dist = Math.hypot(dx, dy);
     if (dist > R) { const k = (dist - R) / dist; lz.x += dx * k; lz.y += dy * k; }
-    const k2 = 1 - s * 0.6;
+    const k2 = 1 - s * 0.55;
     this._ema.x += (lz.x - this._ema.x) * k2; this._ema.y += (lz.y - this._ema.y) * k2;
     return { ...this._ema };
   }
@@ -1283,7 +1288,7 @@ export class SketchPad {
     }
     // layers
     const z = this.view.zoom;
-    g.imageSmoothingEnabled = z < 2.5;
+    g.imageSmoothingEnabled = z < 6;
     g.imageSmoothingQuality = z < 1 ? 'high' : 'low';
     for (const l of this.layers) {
       if (!l.visible) continue;
@@ -1293,7 +1298,7 @@ export class SketchPad {
         set(mul(M, this._xfMatrix()));
         g.imageSmoothingEnabled = true;
         g.drawImage(l.canvas, 0, 0);
-        g.imageSmoothingEnabled = z < 2.5;
+        g.imageSmoothingEnabled = z < 6;
       } else if (l === this.active && this._preview) {
         const pv = this._preview;
         if (pv.erase || l.opacity < 1) {
