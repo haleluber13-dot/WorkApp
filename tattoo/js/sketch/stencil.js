@@ -57,7 +57,7 @@ export function gaussian(src, w, h, sigma) {
   return out;
 }
 
-function canny(B, w, h, sensitivity) {
+function canny(B, w, h, sensitivity, sigma) {
   const mag = new Float32Array(w * h), dir = new Uint8Array(w * h);
   for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
     const p = y * w + x;
@@ -83,10 +83,14 @@ function canny(B, w, h, sensitivity) {
     if (m >= q && m >= r) { nms[p] = m; vals.push(m); }
   }
   if (!vals.length) return new Uint8Array(w * h);
-  vals.sort((a, b) => a - b);
-  const pctHigh = 0.96 - (sensitivity / 100) * 0.62; // more sensitivity → lower threshold
-  const high = Math.max(0.04, vals[Math.min(vals.length - 1, Math.floor(vals.length * pctHigh))]);
-  const low = high * 0.45;
+  // Convert Sobel magnitude to an estimate of the edge's luminance step (contrast), which is
+  // independent of resolution and blur: peak gradient of a blurred step = A / (σ·√(2π)), Sobel ≈ 8×.
+  const se = Math.sqrt(sigma * sigma + 0.64);
+  const toContrast = (se * 2.5066) / 8;
+  const sens = sensitivity / 100;
+  const highC = 0.035 + 0.42 * Math.pow(1 - sens, 1.6);
+  const high = highC / toContrast;
+  const low = high * 0.42;
   const out = new Uint8Array(w * h);
   const stack = [];
   for (let p = 0; p < nms.length; p++) {
@@ -218,7 +222,7 @@ export function photoToStencil(source, w, h, params = {}, unit = 1) {
     const B = gaussian(L, w, h, sigma);
     let bin;
     if (P.mode === 'threshold') bin = adaptive(B, w, h, P.threshold, scale);
-    else bin = canny(B, w, h, P.threshold);
+    else bin = canny(B, w, h, P.threshold, sigma);
     if (P.shadows > 0) {
       const lv = (P.shadows / 100) * 0.55;
       const Bs = gaussian(L, w, h, sigma * 1.6 + 0.8 * scale);

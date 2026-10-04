@@ -136,15 +136,22 @@ E.laurel = () => {
 
 E.lavender = () => {
   const els = [];
-  for (const [x0, x1, top] of [[96, 70, 40], [100, 104, 20], [104, 134, 44]]) {
-    els.push(line(So([[100, 190], [lerp(x0, x1, 0.4), 120], [x1, top + 50]]), 0.7));
-    for (let k = 0; k < 9; k++) {
-      const y = top + k * 6.5, x = x1 + (x1 - 100) * -0.05 * k;
-      for (const sg of [1, -1]) els.push(part(ellipseD(x + sg * 4, y, 4.2, 6, sg * 0.5), "purple"));
+  for (const [x0, x1, top, n] of [[96, 64, 30, 6], [100, 104, 10, 7], [104, 138, 36, 6]]) {
+    const stem = [[100, 190], [lerp(x0, x1, 0.4), 120], [x1, top + 4]];
+    els.push(line(So(stem), 0.7));
+    for (let k = 0; k < n; k++) {
+      const t = k / (n - 1);
+      const y = top + 10 + t * (n * 9.5), x = lerp(x1, lerp(x0, x1, 0.75), t * 0.3);
+      const sz = 5 + t * 2.6;
+      for (const sg of [-1, 1]) {
+        const b = [x + sg * 1, y], tip = [x + sg * (sz * 1.5 + 1), y - sz * 1.6];
+        els.push(part(petalD(b, tip, sz * 0.62, { at: 0.55, tipRound: 0.5 }), "purple"));
+      }
+      if (k === 0) els.push(part(petalD([x, y + 1], [x, y - sz * 1.8], sz * 0.55, { at: 0.55, tipRound: 0.5 }), "purple"));
     }
   }
   els.push(...leafEls([100, 186], [70, 150], 6, { veins: 0 }), ...leafEls([100, 186], [132, 156], 6, { veins: 0 }));
-  return mk(els, [50, 12, 100, 180]);
+  return mk(els, [44, 6, 112, 188]);
 };
 
 E.sacredheart = () => {

@@ -334,8 +334,8 @@
 .sketchpad .sp-tag { align-self: flex-start; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 6px; border-radius: 5px; background: color-mix(in srgb, #4aa3ff 22%, transparent); color: #8cc6ff; }
 .sketchpad .sp-rename { width: 100%; height: 26px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--sp-accent); background: var(--sp-bg); color: var(--sp-text); font: inherit; user-select: text; -webkit-user-select: text; }
 .sketchpad .sp-dropline { position: absolute; left: 4px; right: 4px; height: 2px; border-radius: 2px; background: var(--sp-accent); pointer-events: none; }
-.sketchpad .sp-layer-actions { display: flex; justify-content: space-between; margin-top: 6px; padding: 4px; border-radius: 10px; background: var(--sp-bg); }
-.sketchpad .sp-layer-actions .sp-ibtn { width: 34px; height: 32px; }
+.sketchpad .sp-layer-actions { display: flex; gap: 2px; margin-top: 6px; padding: 4px; border-radius: 10px; background: var(--sp-bg); }
+.sketchpad .sp-layer-actions .sp-ibtn { flex: 1 1 0; min-width: 0; width: auto; height: 32px; }
 .sketchpad .sp-layer-actions .sp-ibtn svg { width: 18px; height: 18px; }
 
 /* canvas popover */

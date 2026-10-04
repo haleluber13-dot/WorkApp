@@ -75,6 +75,7 @@ export const ICONS = {
   alignLeft: svg('<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>'),
   alignCenter: svg('<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>'),
   alignRight: svg('<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>'),
+  rename: svg('<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17z"/><path d="M14 7l3 3"/><path d="M13 20h7"/>'),
   hand: svg('<path d="M8 13V6.5a1.5 1.5 0 0 1 3 0V12M11 11.5V5a1.5 1.5 0 0 1 3 0v6.5M14 11.5V6.5a1.5 1.5 0 0 1 3 0V14c0 4-2.5 6.5-6 6.5-2.4 0-3.8-1-5.2-3L4 14.6a1.5 1.5 0 0 1 2.4-1.8L8 15"/>'),
 };
 

@@ -28,6 +28,8 @@ export function normalizeOpts(style, opts = {}) {
       v = typeof v === "string" ? parseFloat(v) : v;
       if (!Number.isFinite(v)) v = o.default;
       v = Math.min(o.max, Math.max(o.min, v));
+      if (o.step >= 1) v = Math.round(v);
+      else if (o.step) v = Math.round(v / o.step) * o.step, v = +v.toFixed(4);
     } else if (o.type === "select") {
       if (!o.choices.some((c) => c.value === v)) {
         const lv = String(v).toLowerCase();
@@ -37,7 +39,7 @@ export function normalizeOpts(style, opts = {}) {
     } else if (o.type === "bool") v = v === true || v === "true" || v === 1 || v === "1" || v === "on";
     else if (o.type === "seed") { v = typeof v === "string" && /^-?\d+$/.test(v) ? parseInt(v, 10) : v; if (typeof v !== "number" && typeof v !== "string") v = o.default; }
     else if (o.type === "color") v = /^#[0-9a-f]{3,8}$/i.test(String(v)) ? v : o.default;
-    else if (o.type === "text") v = String(v).slice(0, 120);
+    else if (o.type === "text") v = String(v).replace(/[\u0000-\u0009\u000b-\u001f]/g, " ").slice(0, 64);
     out[o.key] = v;
   }
   // pass through unknown keys (e.g. hidden extras) untouched

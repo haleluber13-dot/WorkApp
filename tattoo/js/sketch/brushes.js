@@ -27,47 +27,47 @@ export const SKIN_TONES = ['#f6dcc8', '#eac2a4', '#d6a27c', '#b47a55', '#8a5638'
 export const TOOLS = {
   move: { label: 'Move / transform', short: 'Move', key: 'V', icon: 'move', kind: 'move', ui: ['moveActions'], defaults: {} },
   fineliner: {
-    label: 'Fine liner', short: 'Fine', icon: 'fineliner', kind: 'brush', stamp: 'round', spacing: 0.06, pMin: 0.55,
+    label: 'Fine liner', key: 'F', desc: 'Crisp, even round line', short: 'Fine', icon: 'fineliner', kind: 'brush', stamp: 'round', spacing: 0.1, pMin: 0.55,
     ui: ['size', 'opacity', 'smoothing', 'pressure'],
     defaults: { size: 3, opacity: 1, flow: 1, smoothing: 40, pSize: true, pOpacity: false },
   },
   liner: {
-    label: 'Tattoo liner', short: 'Liner', icon: 'liner', kind: 'brush', stamp: 'round', spacing: 0.05, pMin: 0.1, taper: true, velocity: true,
+    label: 'Tattoo liner', key: 'L', desc: 'Ink line that tapers at start and end', short: 'Liner', icon: 'liner', kind: 'brush', stamp: 'round', spacing: 0.1, pMin: 0.1, taper: true, velocity: true,
     ui: ['size', 'opacity', 'taper', 'smoothing', 'pressure'],
     defaults: { size: 8, opacity: 1, flow: 1, smoothing: 50, taper: 55, pSize: true, pOpacity: false },
   },
   brushpen: {
-    label: 'Brush pen', short: 'Brush', icon: 'brushpen', kind: 'brush', stamp: 'nib', spacing: 0.04, pMin: 0.2, taper: true, velocity: true,
+    label: 'Brush pen', key: 'N', desc: 'Calligraphic nib — width follows direction', short: 'Brush', icon: 'brushpen', kind: 'brush', stamp: 'nib', spacing: 0.04, pMin: 0.2, taper: true, velocity: true,
     ui: ['size', 'opacity', 'nibAngle', 'nibThin', 'taper', 'smoothing', 'pressure'],
     defaults: { size: 20, opacity: 1, flow: 1, smoothing: 45, taper: 40, nibAngle: 40, nibThin: 22, pSize: true, pOpacity: false },
   },
   shader: {
-    label: 'Shader (soft / whip shading)', short: 'Shade', icon: 'shader', kind: 'brush', stamp: 'soft', spacing: 0.1, pMin: 0.4, fadeEnd: true,
+    label: 'Shader', key: 'S', desc: 'Soft airbrush build-up and whip shading', short: 'Shade', icon: 'shader', kind: 'brush', stamp: 'soft', spacing: 0.1, pMin: 0.4, fadeEnd: true,
     ui: ['size', 'opacity', 'flow', 'hardness', 'whip', 'smoothing', 'pressure'],
-    defaults: { size: 70, opacity: 0.75, flow: 0.12, hardness: 0, whip: 0, smoothing: 25, pSize: false, pOpacity: true },
+    defaults: { size: 70, opacity: 0.85, flow: 0.22, hardness: 0, whip: 30, smoothing: 25, pSize: false, pOpacity: true },
   },
   stipple: {
-    label: 'Stipple / dotwork', short: 'Dots', icon: 'stipple', kind: 'brush', stamp: 'dots', spacing: 0.3, pMin: 0.3,
+    label: 'Stipple / dotwork', key: 'D', desc: 'Scatters dots for dotwork shading', short: 'Dots', icon: 'stipple', kind: 'brush', stamp: 'dots', spacing: 0.3, pMin: 0.3,
     ui: ['size', 'opacity', 'density', 'dotSize', 'jitter', 'smoothing', 'pressure'],
     defaults: { size: 50, opacity: 1, flow: 1, density: 35, dotSize: 2.5, jitter: 50, smoothing: 20, pSize: false, pOpacity: false },
   },
   hatch: {
-    label: 'Hatching', short: 'Hatch', icon: 'hatch', kind: 'brush', stamp: 'round', masked: 'hatch', spacing: 0.08, pMin: 0.4,
+    label: 'Hatching', key: 'H', desc: 'Fills the stroke with parallel or cross-hatched lines', short: 'Hatch', icon: 'hatch', kind: 'brush', stamp: 'round', masked: 'hatch', spacing: 0.08, pMin: 0.4,
     ui: ['size', 'opacity', 'hatchMode', 'hatchSpacing', 'hatchAngle', 'hatchWidth', 'smoothing'],
     defaults: { size: 60, opacity: 1, flow: 1, hatchMode: 'lines', hatchSpacing: 9, hatchAngle: 45, hatchWidth: 1.6, smoothing: 30, pSize: false, pOpacity: false },
   },
   pencil: {
-    label: 'Pencil (sketch)', short: 'Pencil', icon: 'pencil', kind: 'brush', stamp: 'soft', hardnessFixed: 0.72, masked: 'grain', spacing: 0.12, pMin: 0.5,
+    label: 'Pencil', key: 'P', desc: 'Grainy sketch line', short: 'Pencil', icon: 'pencil', kind: 'brush', stamp: 'soft', hardnessFixed: 0.72, masked: 'grain', spacing: 0.12, pMin: 0.5,
     ui: ['size', 'opacity', 'grain', 'smoothing', 'pressure'],
     defaults: { size: 4, opacity: 0.9, flow: 0.7, grain: 60, smoothing: 25, pSize: true, pOpacity: true },
   },
   marker: {
-    label: 'Marker (flat, translucent)', short: 'Marker', icon: 'marker', kind: 'brush', stamp: 'round', spacing: 0.05, pMin: 0.6,
+    label: 'Marker', key: 'M', desc: 'Flat translucent colour that builds up between strokes', short: 'Marker', icon: 'marker', kind: 'brush', stamp: 'round', spacing: 0.1, pMin: 0.6,
     ui: ['size', 'opacity', 'smoothing', 'pressure'],
     defaults: { size: 26, opacity: 0.45, flow: 1, smoothing: 35, pSize: false, pOpacity: false },
   },
   eraser: {
-    label: 'Eraser', short: 'Erase', key: 'E', icon: 'eraser', kind: 'brush', stamp: 'round', spacing: 0.06, pMin: 0.4, erase: true,
+    label: 'Eraser', short: 'Erase', key: 'E', icon: 'eraser', kind: 'brush', stamp: 'round', spacing: 0.1, pMin: 0.4, erase: true,
     ui: ['eraseMode', 'size', 'opacity', 'smoothing', 'pressure'],
     defaults: { size: 30, opacity: 1, flow: 1, eraseMode: 'hard', smoothing: 25, pSize: false, pOpacity: false },
   },
@@ -361,8 +361,8 @@ export class Stroke {
     const { def, opts } = this;
     if (this.rake) return Math.max(0.3, opts.hatchWidth * 0.3);
     if (def.stamp === 'dots') return Math.max(1, opts.size * def.spacing);
-    if (def.stamp === 'nib') return Math.max(0.25, this.lastSize * Math.max(0.05, opts.nibThin / 100) * 0.35);
-    return Math.max(0.25, this.lastSize * def.spacing);
+    if (def.stamp === 'nib') return Math.max(0.3, this.lastSize * Math.max(0.05, opts.nibThin / 100) * 0.35);
+    return Math.max(0.3, this.lastSize * def.spacing);
   }
 
   _taper(d) {

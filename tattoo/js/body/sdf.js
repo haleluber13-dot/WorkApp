@@ -7,7 +7,7 @@
 // axis-aligned bounding box used to skip it cheaply when it cannot affect the
 // result at the query point.
 
-export const T_CONE = 0, T_ELL = 1, T_BOX = 2, T_LOFT = 3, T_PLANE = 4;
+export const T_CONE = 0, T_ELL = 1, T_BOX = 2, T_LOFT = 3, T_PLANE = 4, T_CHAIN = 5;
 export const OP_UNION = 0, OP_SUB = 1, OP_INTER = 2;
 export const STRIDE = 40;
 
@@ -43,7 +43,7 @@ export class SDFBuilder {
   // ellipsoid with orthonormal axes [ax, ay, az] and radii
   // radii: [rx, ry, rz] or asymmetric [rx+, rx-, ry+, ry-, rz+, rz-]
   ell(c, axes, radii, k = 0, opt = {}) {
-    const r = radii.length === 3 ? [radii[0], radii[0], radii[1], radii[1], radii[2], radii[2]] : radii.slice();
+    const r = (radii.length === 3 ? [radii[0], radii[0], radii[1], radii[1], radii[2], radii[2]] : radii.slice()).map((v) => Math.max(v, 0.003));
     const [ax, ay, az] = axes;
     const bbox = [0, 0, 0, 0, 0, 0];
     for (let d = 0; d < 3; d++) {
@@ -77,16 +77,27 @@ export class SDFBuilder {
     const step = (y1 - y0) / (n - 1);
     const base = this.loft.length;
     let maxA = 0, maxF = -1, minB = 1;
+    const samp = [];
+    for (let i = 0; i < n; i++) samp.push(catmull(rows, y0 + step * i));
     for (let i = 0; i < n; i++) {
-      const y = y0 + step * i;
-      const v = catmull(rows, y);
-      this.loft.push(v[0], v[1], v[2], v[3]);
+      const v = samp[i];
+      const p = samp[Math.max(0, i - 1)], q = samp[Math.min(n - 1, i + 1)];
+      const dy = step * (Math.min(n - 1, i + 1) - Math.max(0, i - 1));
+      this.loft.push(v[0], v[1], v[2], v[3], (q[0] - p[0]) / dy, (q[1] - p[1]) / dy, (q[2] - p[2]) / dy, (q[3] - p[3]) / dy);
       maxA = Math.max(maxA, v[0]);
       maxF = Math.max(maxF, v[3] + v[1]);
       minB = Math.min(minB, v[3] - v[2]);
     }
     const bbox = [-maxA, y0, minB, maxA, y1, maxF];
     return this._push(T_LOFT, opCode(opt), k, [y0, y1, n, base, step], bbox, opt.ramp);
+  }
+  // tube of radius r along a polyline (≤ 7 points): a single primitive, so
+  // carving a groove with it has no bumps at the joints
+  chain(pts, r, k = 0, opt = {}) {
+    pts = pts.slice(0, 7);
+    const bbox = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (const p of pts) for (let d = 0; d < 3; d++) { bbox[d] = Math.min(bbox[d], p[d] - r); bbox[d + 3] = Math.max(bbox[d + 3], p[d] + r); }
+    return this._push(T_CHAIN, opCode(opt), k, [pts.length, r, ...pts.flat()], bbox, opt.ramp);
   }
   // half-space y >= 0 (used as a smooth intersection to flatten the soles)
   floor(k = 0.004) {
@@ -202,15 +213,15 @@ export class SDF {
       return (Math.sqrt(x2 * a2 * il2) + yy * rr) * il2 - r1;
     }
     if (t === T_LOFT) {
-      const y0 = D[p], y1 = D[p + 1], n = D[p + 2], base = D[p + 3], step = D[p + 4];
-      const d0 = this.loft2(base, n, y0, step, x, y, z);
-      const dp = this.loft2(base, n, y0, step, x, y + 0.008, z);
-      const dm = this.loft2(base, n, y0, step, x, y - 0.008, z);
-      const gy = (dp - dm) / 0.016;
-      const dxz = d0 / Math.sqrt(1 + gy * gy);
-      const dy = Math.max(y0 - y, y - y1);
-      if (dxz > 0 && dy > 0) return Math.sqrt(dxz * dxz + dy * dy);
-      return dxz > dy ? dxz : dy;
+      const y0 = D[p], y1 = D[p + 1];
+      const dxz = this.loftD(D[p + 3], D[p + 2], y0, D[p + 4], x, y, z);
+      const dy = y0 - y > y - y1 ? y0 - y : y - y1;
+      // smoothly rounded caps (avoids a crease ring where a cap meets the side)
+      const kc = 0.02, hh = kc - Math.abs(dxz - dy);
+      const m = dxz > dy ? dxz : dy;
+      const sm = hh > 0 ? m + hh * hh * hh / (6 * kc * kc) : m;
+      if (dxz > 0 && dy > 0) { const e = Math.sqrt(dxz * dxz + dy * dy); return e > sm ? e : sm; }
+      return sm;
     }
     if (t === T_BOX) {
       const qx = x - D[p], qy = y - D[p + 1], qz = z - D[p + 2];
@@ -222,28 +233,52 @@ export class SDF {
       return Math.sqrt(mx * mx + my * my + mz * mz) + inner - D[p + 15];
     }
     if (t === T_PLANE) return -y;
+    if (t === T_CHAIN) {
+      const n = D[p], r = D[p + 1];
+      let best = Infinity;
+      for (let i = 0; i < n - 1; i++) {
+        const o2 = p + 2 + i * 3;
+        const ax = D[o2], ay = D[o2 + 1], az = D[o2 + 2];
+        const bx = D[o2 + 3] - ax, by = D[o2 + 4] - ay, bz = D[o2 + 5] - az;
+        const px = x - ax, py = y - ay, pz = z - az;
+        let h = (px * bx + py * by + pz * bz) / (bx * bx + by * by + bz * bz);
+        h = h < 0 ? 0 : h > 1 ? 1 : h;
+        const dx = px - bx * h, dy = py - by * h, dz = pz - bz * h;
+        const dd = dx * dx + dy * dy + dz * dz;
+        if (dd < best) best = dd;
+      }
+      return Math.sqrt(best) - r;
+    }
     return 1e9;
   }
 
-  loft2(base, n, y0, step, x, y, z) {
+  // distance to a vertical loft of (asymmetric) ellipses, corrected for the
+  // profile slope using the tabulated derivatives
+  loftD(base, n, y0, step, x, y, z) {
     const L = this.L;
     let t = (y - y0) / step;
     if (t < 0) t = 0; else if (t > n - 1) t = n - 1;
     let i = t | 0; if (i > n - 2) i = n - 2;
-    const f = t - i;
-    const j = base + i * 4;
-    const a = L[j] + (L[j + 4] - L[j]) * f;
-    const bf = L[j + 1] + (L[j + 5] - L[j + 1]) * f;
-    const bb = L[j + 2] + (L[j + 6] - L[j + 2]) * f;
-    const cz = L[j + 3] + (L[j + 7] - L[j + 3]) * f;
+    const f = t - i, g = 1 - f;
+    const j = base + i * 8, k = j + 8;
+    const a = L[j] * g + L[k] * f;
+    const cz = L[j + 3] * g + L[k + 3] * f;
     const zz = z - cz;
-    const b = zz > 0 ? bf : bb;
+    const front = zz > 0;
+    const b = front ? L[j + 1] * g + L[k + 1] * f : L[j + 2] * g + L[k + 2] * f;
     const ax = x / a, az = zz / b;
     const k0 = Math.sqrt(ax * ax + az * az);
     const bx = ax / a, bz = az / b;
     const k1 = Math.sqrt(bx * bx + bz * bz);
-    if (k1 < 1e-12) return -Math.min(a, b);
-    return k0 * (k0 - 1) / k1;
+    if (k1 < 1e-12 || k0 < 1e-9) return -Math.min(a, b);
+    const d = k0 * (k0 - 1) / k1;
+    if (t <= 0 || t >= n - 1) return d;
+    const da = L[j + 4] * g + L[k + 4] * f;
+    const db = front ? L[j + 5] * g + L[k + 5] * f : L[j + 6] * g + L[k + 6] * f;
+    const dcz = L[j + 7] * g + L[k + 7] * f;
+    const nx = bx / k1, nz = bz / k1;
+    const gy = -(nx * (ax / k0) * da + nz * (az / k0) * db + nz * dcz);
+    return d / Math.sqrt(1 + gy * gy);
   }
 
   eval(list, count, x, y, z) {

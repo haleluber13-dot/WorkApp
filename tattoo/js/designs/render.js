@@ -91,7 +91,7 @@ export function tLine(ctx, m, s, { w = 3, color = INK, inner = true, bold = 1.6,
   const sw = w / s, id = ctx.uid("ml");
   let mk = "";
   // heavier outer silhouette
-  if (bold > 1) for (const e of m.els) if (e.t === "part" && !e.noStroke) mk += pathEl(e, `fill="none" stroke="#fff" stroke-width="${f2(sw * bold)}"`);
+  if (bold > 1) for (const e of m.els) if (e.t === "part" && !e.noStroke && !e.gap && !e.noBold) mk += pathEl(e, `fill="none" stroke="#fff" stroke-width="${f2(sw * bold)}"`);
   const pat = {};
   const patFill = (kind) => {
     if (pat[kind]) return pat[kind];
@@ -104,7 +104,8 @@ export function tLine(ctx, m, s, { w = 3, color = INK, inner = true, bold = 1.6,
   for (const e of m.els) {
     if (e.t === "part") {
       const fill = e.noFill ? "none" : (e.fill === "solid" || e.fill === "ink") ? "#fff" : e.fill === "dots" || e.fill === "lines" || e.fill === "grey" ? `url(#${patFill(e.fill)})` : "#000";
-      mk += pathEl(e, `fill="${fill}" stroke="${e.noStroke ? "none" : "#fff"}" stroke-width="${f2(sw * (e.sw ?? 1))}"`);
+      if (e.gap) mk += pathEl(e, `fill="#000" stroke="#000" stroke-width="${f2(e.gap * 2)}"`);
+      else mk += pathEl(e, `fill="${fill}" stroke="${e.noStroke ? "none" : "#fff"}" stroke-width="${f2(sw * (e.sw ?? 1))}"`);
     } else if (e.t === "dark") {
       mk += (solidDark && !darkAsLine) ? pathEl(e, `fill="#fff" stroke="#fff" stroke-width="${f2(sw * 0.5)}"`) : pathEl(e, `fill="#000" stroke="#fff" stroke-width="${f2(sw * 0.8)}"`);
     } else if (e.t === "line" && inner) {
@@ -121,7 +122,7 @@ export function tFill(ctx, m, s, { w = 5, palette = PALETTES.traditional, inner 
   let out = "";
   if (bold > 1) {
     let g = "";
-    for (const e of m.els) if ((e.t === "part" && !e.noStroke) || e.t === "dark") g += pathEl(e, `fill="${outline}" stroke="${outline}" stroke-width="${f2(sw * bold)}"`);
+    for (const e of m.els) if (((e.t === "part" && !e.noStroke) || e.t === "dark") && !e.noBold) g += pathEl(e, `fill="${outline}" stroke="${outline}" stroke-width="${f2(sw * bold)}"`);
     out += `<g stroke-linejoin="round">${g}</g>`;
   }
   for (const e of m.els) {
@@ -169,6 +170,8 @@ export function tDots(ctx, m, s, { w = 2.4, color = INK, density = 1, dot = 1.3,
   }
   const r = dot / s;
   let out = `<g>${dotsPath(small, r * 0.8, color)}${dotsPath(med, r, color)}${dotsPath(big, r * 1.2, color)}</g>`;
+  // parts whose role is "dark" are solid ink in every black & grey treatment
+  for (const e of m.els) if (e.t === "part" && e.role === "dark" && !e.noFill) out += pathEl(e, `fill="${color}"`);
   if (outline) out += tLine(ctx, m, s, { w, color, inner, bold: 1.5 });
   else for (const e of m.els) if (e.t === "dark") out += pathEl(e, `fill="${color}"`);
   return out;
@@ -187,7 +190,7 @@ export function tHatch(ctx, m, s, { w = 2.2, color = INK, spacing = 5, angle = -
   let d = "";
   const tcache = new Map();
   const qs = Math.max(1.2, (x1 - x0 + y1 - y0) / 260), kq = 0.6 / qs * 1.6;
-  const T = (x, y) => { const k = Math.round(x * kq) + "," + Math.round(y * kq); let v = tcache.get(k); if (v === undefined) { v = toneAt(m, x, y, { edge: 0.35, base: 0.75 }); tcache.set(k, v); } return v; };
+  const T = (x, y) => { const k = Math.round(x * kq) + "," + Math.round(y * kq); let v = tcache.get(k); if (v === undefined) { v = toneAt(m, x, y, { edge: 0.22, base: 0.7 }); tcache.set(k, v); } return v; };
   for (let L = 0; L < Math.min(layers, 4); L++) {
     const a = angles[L] * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
     const spL = sp * (L === 0 ? 1 : 1.1);
@@ -229,9 +232,6 @@ export function tSketchLines(ctx, m, s, { w = 2, color = INK, seed = 1, amp = 1.
       }
     }
   }
-  const id = ctx.uid("sk");
-  let mk = "";
-  for (const e of m.els) if (e.t === "part" || e.t === "dark") mk += pathEl(e, `fill="#fff"`);
   let dark = "";
   for (const e of m.els) if (e.t === "dark") dark += pathEl(e, `fill="${color}"`);
   return `<g><path d="${d}" fill="none" stroke="${color}" stroke-width="${f2((w * 0.75) / s)}" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>${dark}</g>`;
@@ -363,10 +363,7 @@ export function tWatercolor(ctx, m, s, { colors = WATERCOLORS.rainbow, seed = 1,
 }
 
 // Single continuous line feel: outline of parts drawn with slight wobble & open ends, no occlusion fill
-export function tContinuous(ctx, m, s, { w = 2.2, color = INK, seed = 1, wob = 0.6, inner = false } = {}) {
-  const noise = makeNoise("cl" + seed);
-  let d = "";
-  const els = m.els.filter((e) => (e.t === "part" && !e.noStroke) || (inner && e.t === "line") || e.t === "dark");
+export function tContinuous(ctx, m, s, { w = 2.2, color = INK, inner = false } = {}) {
   return tLine(ctx, { ...m, els: m.els.filter((e) => e.t !== "shade" && e.t !== "shine"), _geo: m._geo }, s, { w, color, inner, bold: 1, darkAsLine: false });
 }
 

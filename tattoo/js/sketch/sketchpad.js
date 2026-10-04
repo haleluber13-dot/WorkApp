@@ -221,6 +221,8 @@ export class SketchPad {
     this._savePrefs();
     this._requestRender();
   }
+  /** Public: change a tool option and refresh the options panel. */
+  setToolOption(key, value, tool = this.tool) { if (!this.opts[tool]) return; this.setOpt(key, value, tool); if (tool === this.tool) this.ui?.syncTool(); }
   setColor(hex, { recent = false } = {}) {
     this.color = normHex(hex);
     if (recent) this._pushRecent(this.color);
@@ -239,10 +241,11 @@ export class SketchPad {
   // ---------------------------------------------------------------- document & layers
   _initBuffers() {
     const { w, h } = this;
-    this.strokeCanvas = makeCanvas(w, h); this.sctx = this.strokeCanvas.getContext('2d');
-    this.maskCanvas = makeCanvas(w, h); this.mctx = this.maskCanvas.getContext('2d');
-    this.tmpCanvas = makeCanvas(w, h); this.tctx = this.tmpCanvas.getContext('2d');
-    this.scratch = makeCanvas(w, h); this.scctx = this.scratch.getContext('2d');
+    // CPU-backed buffers: predictable raster cost for thousands of stamps and cheap read-back on commit
+    this.strokeCanvas = makeCanvas(w, h); this.sctx = ctxOf(this.strokeCanvas);
+    this.maskCanvas = makeCanvas(w, h); this.mctx = ctxOf(this.maskCanvas);
+    this.tmpCanvas = makeCanvas(w, h); this.tctx = ctxOf(this.tmpCanvas);
+    this.scratch = makeCanvas(w, h); this.scctx = ctxOf(this.scratch);
   }
   _newLayer(name, props = {}) {
     const canvas = makeCanvas(this.w, this.h);
@@ -290,7 +293,7 @@ export class SketchPad {
 
   get artLayers() { return this.layers.filter((l) => !l.ref); }
 
-  selectLayer(l) { if (!l || l === this.active) return; this._commitPending(); this.active = l; this.ui.syncLayers(); this._requestRender(); }
+  selectLayer(l) { if (!l || l === this.active) return; this._commitPending(); this.active = l; this.ui.syncActiveLayer(); this._requestRender(); }
 
   addLayer(name) {
     let created;
@@ -362,6 +365,7 @@ export class SketchPad {
   setLayerProp(l, prop, value) {
     l[prop] = value;
     if (prop === 'locked' || prop === 'name' || prop === 'visible' || prop === 'exportRef') this.ui.syncLayers();
+    if (prop === 'opacity' && l._thumb) { const sub = l._thumb.parentNode?.querySelector('.sp-lsub'); if (sub) sub.textContent = Math.round(value * 100) + '%'; }
     if (prop === 'visible' || prop === 'opacity' || prop === 'exportRef') this._changed(null);
     this._requestRender();
   }
@@ -681,6 +685,10 @@ export class SketchPad {
 
   _onDown(e) {
     this._rect = this.canvas.getBoundingClientRect();
+    // pointerdown is preventDefault-ed (no native focus change), so pull focus into the pad for shortcuts —
+    // except while the lettering textarea is being edited.
+    const ae = document.activeElement;
+    if (ae !== this.root && !(this._text && ae === this.ui.textArea)) this.root.focus({ preventScroll: true });
     if (this.ui.compact) this.ui.closeSheet();
     this.ui.closePopovers();
     const s = this._pt(e);

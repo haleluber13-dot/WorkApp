@@ -62,6 +62,8 @@ const SIDES = [["left", 1], ["right", -1]];
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
+const MODIFIERS = new Set(["inner", "outer", "inside", "outside", "upper", "lower", "front", "back", "top", "side", "rear", "middle", "mid", "low"]);
+
 function sidedAliases(base, sideName) {
   const out = [];
   const short = sideName === "left" ? "l" : "r";
@@ -69,7 +71,7 @@ function sidedAliases(base, sideName) {
     out.push(`${sideName} ${a}`);
     out.push(`${short} ${a}`);
     const words = a.split(" ");
-    if (words.length > 1 && !/^(of|the)$/.test(words[1])) out.push(`${words[0]} ${sideName} ${words.slice(1).join(" ")}`);
+    if (words.length > 1 && MODIFIERS.has(words[0]) && !/^(of|the)$/.test(words[1])) out.push(`${words[0]} ${sideName} ${words.slice(1).join(" ")}`);
     if (/ of /.test(a)) out.push(a.replace(/ of (the )?/, ` of ${sideName} `).replace(/ of (left|right) /, ` of the ${sideName} `));
   }
   for (const a of base) out.push(a);
@@ -123,10 +125,14 @@ function anchorFor(base, sd, skel) {
   if (!side) return null;
   const { FU, FF, FH, FT, FS, FO, Lu, Lf, Lt, handScale: hs, footScale: fs } = side;
   const upU = mul(FU.d, -1), upF = mul(FF.d, -1), upH = mul(FH.d, -1), upT = mul(FT.d, -1), upS = mul(FS.d, -1);
+  const r = limbAnchor(base);
+  if (r) r.part = ARM_REGIONS.has(base) ? "arm" : "leg";
+  return r;
+  function limbAnchor(base) {
   switch (base) {
     case "shoulder": return { o: FU.p(0.035), dir: norm(add(FU.l, mul(FU.d, -0.35))), up: upU };
     case "upper_arm_outer": return { o: FU.p(0.15), dir: FU.l, up: upU };
-    case "upper_arm_inner": return { o: FU.p(0.15), dir: mul(FU.l, -1), up: upU };
+    case "upper_arm_inner": return { o: FU.p(0.15), dir: norm(add(mul(FU.l, -1), mul(FU.f, 0.35))), up: upU };
     case "bicep": return { o: FU.p(0.165), dir: FU.f, up: upU };
     case "tricep": return { o: FU.p(0.15), dir: mul(FU.f, -1), up: upU };
     case "elbow": return { o: FU.p(Lu - 0.005), dir: mul(FU.f, -1), up: upU };
@@ -150,7 +156,7 @@ function anchorFor(base, sd, skel) {
     }
     case "thigh_front": return { o: FT.p(0.2), dir: FT.f, up: upT };
     case "thigh_outer": return { o: FT.p(0.17), dir: FT.l, up: upT };
-    case "thigh_inner": return { o: FT.p(0.15), dir: mul(FT.l, -1), up: upT };
+    case "thigh_inner": return { o: FT.p(0.17), dir: norm(add(mul(FT.l, -1), mul(FT.f, 0.35))), up: upT };
     case "thigh_back": return { o: FT.p(0.2), dir: mul(FT.f, -1), up: upT };
     case "knee": return { o: FT.p(Lt - 0.005), dir: FT.f, up: upT };
     case "calf": return { o: FS.p(0.125), dir: mul(FS.f, -1), up: upS };
@@ -159,13 +165,18 @@ function anchorFor(base, sd, skel) {
     case "foot_top": return { o: FO.p(0.06 * fs, 0, 0.03 * fs), dir: norm(add([0, 1, 0], mul(FO.d, 0.45))), up: mul(FO.d, -1) };
   }
   return null;
+  }
 }
+
+const ARM_REGIONS = new Set(["shoulder", "upper_arm_outer", "upper_arm_inner", "bicep", "tricep", "elbow", "elbow_ditch",
+  "forearm_outer", "forearm_inner", "wrist_inner", "wrist_outer", "hand_back", "palm", "finger", "thumb"]);
 
 function lerpP(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
 
 // march from an interior point along dir to the zero level set
-export function projectToSurface(sdf, o, dir) {
-  const f = (t) => sdf.evalAll(o[0] + dir[0] * t, o[1] + dir[1] * t, o[2] + dir[2] * t);
+export function projectToSurface(sdf, o, dir, list = null) {
+  const L = list || sdf.all;
+  const f = (t) => sdf.eval(L, L.length, o[0] + dir[0] * t, o[1] + dir[1] * t, o[2] + dir[2] * t);
   let t = 0, d = f(0);
   let guard = 0;
   while (d > 0 && guard++ < 200) { t -= 0.002; d = f(t); } // start outside: back up
@@ -182,6 +193,20 @@ export function projectToSurface(sdf, o, dir) {
   return [o[0] + dir[0] * tt, o[1] + dir[1] * tt, o[2] + dir[2] * tt];
 }
 
+// move a point onto the zero level of the full field (Newton steps along the gradient)
+export function snapToSurface(sdf, p) {
+  const g = [0, 0, 0, 0];
+  let q = p.slice();
+  for (let i = 0; i < 6; i++) {
+    sdf.grad(sdf.all, sdf.n, q[0], q[1], q[2], 0.0008, g);
+    const d = sdf.evalAll(q[0], q[1], q[2]);
+    const l2 = g[0] * g[0] + g[1] * g[1] + g[2] * g[2];
+    if (l2 < 1e-12 || Math.abs(d) < 1e-6) break;
+    q = [q[0] - d * g[0] / l2, q[1] - d * g[1] / l2, q[2] - d * g[2] / l2];
+  }
+  return q;
+}
+
 export function surfaceNormal(sdf, p) {
   const g = [0, 0, 0, 0];
   sdf.grad(sdf.all, sdf.n, p[0], p[1], p[2], 0.0008, g);
@@ -196,7 +221,16 @@ export function computeRegions(sdf, skel) {
     const a = anchorFor(def.base, sd, skel);
     if (!a) continue;
     const dir = norm(a.dir);
-    const position = projectToSurface(sdf, a.o, dir);
+    let position;
+    if (a.part && skel.parts && skel.parts[a.part][sd]) {
+      // march against this limb alone (avoids crossing into touching body parts), then snap
+      const [i0, i1] = skel.parts[a.part][sd];
+      const list = new Int32Array(i1 - i0);
+      for (let i = i0; i < i1; i++) list[i - i0] = i;
+      position = snapToSurface(sdf, projectToSurface(sdf, a.o, dir, list));
+    } else {
+      position = projectToSurface(sdf, a.o, dir);
+    }
     const normal = surfaceNormal(sdf, position);
     let up = sub(a.up, mul(normal, dot(a.up, normal)));
     if (Math.hypot(...up) < 1e-4) up = sub([0, 1, 0], mul(normal, normal[1]));

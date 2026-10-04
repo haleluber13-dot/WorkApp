@@ -4,12 +4,15 @@ import { polygonize } from "./mesher.js";
 import { computeRegions } from "./regions.js";
 
 // grid spacing (canonical meters) per detail level
-export const DETAIL_H = { low: 0.0078, medium: 0.0047, high: 0.0031 };
+export const DETAIL_H = { low: 0.0100, medium: 0.0059, high: 0.0039 };
+// hand refinement factor (cell size multiplier across the fingers) per level
+export const DETAIL_HAND = { low: 0.4, medium: 0.5, high: 0.6 };
+export const DETAIL_HAND_Z = { low: 0.6, medium: 1, high: 1 };
 
 export function buildBodyData(params) {
   const t0 = now();
   const P = normalizeParams(params);
-  const { sdf, skel, refine } = buildModel(P);
+  const { sdf, skel, refine } = buildModel(P, { handFactor: DETAIL_HAND[P.detail], handFactorZ: DETAIL_HAND_Z[P.detail] });
   const t1 = now();
   const h = DETAIL_H[P.detail] || DETAIL_H.medium;
   const b = sdf.bounds();

@@ -2,10 +2,15 @@
 
 export const FONTS = [
   { id: 'Ink Script', label: 'Script', fallback: '"Brush Script MT", "Segoe Script", "Snell Roundhand", cursive' },
+  { id: 'Ink Script Bold', label: 'Script bold', fallback: '"Segoe Script", "Brush Script MT", cursive' },
+  { id: 'Ink Signpainter', label: 'Signpainter', fallback: '"Brush Script MT", cursive' },
+  { id: 'Ink Brush', label: 'Brush script', fallback: '"Brush Script MT", cursive' },
   { id: 'Ink Gothic', label: 'Gothic / blackletter', fallback: '"Old English Text MT", "UnifrakturMaguntia", "Times New Roman", serif' },
-  { id: 'Ink Marker', label: 'Marker', fallback: '"Permanent Marker", "Marker Felt", "Comic Sans MS", sans-serif' },
-  { id: 'Ink Sans', label: 'Sans', fallback: 'system-ui, "Helvetica Neue", Arial, sans-serif' },
+  { id: 'Ink Chicano', label: 'Chicano', fallback: '"Old English Text MT", "Times New Roman", serif' },
+  { id: 'Ink Western', label: 'Western / old school', fallback: '"Rockwell", Georgia, serif' },
+  { id: 'Ink Sans', label: 'Bold sans', fallback: '"Oswald", "Arial Narrow", system-ui, sans-serif' },
   { id: 'Ink Typewriter', label: 'Typewriter', fallback: '"American Typewriter", "Courier New", Courier, monospace' },
+  { id: 'Ink Marker', label: 'Marker', fallback: '"Permanent Marker", "Marker Felt", "Comic Sans MS", sans-serif' },
   { id: 'Ink Elegant', label: 'Elegant serif', fallback: 'Didot, "Bodoni 72", "Playfair Display", Georgia, serif' },
 ];
 

@@ -46,14 +46,6 @@ export const BAND_PATTERNS = {
   scallops: { name: "Scallops", fn: (n, H, c) => ({ lines: [{ pts: Array.from({ length: n }, (_, i) => arcPts(i * c + c / 2, H * 0.2, c / 2, Math.PI, 0, 10).map((p) => [p[0], H * 0.2 + (H * 0.2 - p[1]) * -1.2])).flat(), w: 1 }],
     solid: Array.from({ length: n }, (_, i) => circ(i * c + c / 2, H * 0.72, Math.min(c, H) * 0.08)) }) },
   meander: { name: "Greek key", fn: (n, H, c) => {
-    const pts = [];
-    for (let i = 0; i < n; i++) {
-      const u = i * c, a = H * 0.12, b = H * 0.88, g = (b - a);
-      pts.push([u, b], [u, a], [u + c * 0.75, a], [u + c * 0.75, a + g * 0.75], [u + c * 0.25, a + g * 0.75], [u + c * 0.25, a + g * 0.38], [u + c * 0.5, a + g * 0.38], [u + c * 0.5, a + g * 0.5]);
-      pts.push(null);
-      pts.push([u + c * 0.5, a + g * 0.5]);
-      pts.push(null);
-    }
     // the classic meander as one polyline per unit + bottom connector
     const lines = [];
     for (let i = 0; i < n; i++) {

@@ -127,6 +127,20 @@ function rotationForUp(normal, up) {
   return Math.round(Math.atan2(u.dot(fr.right), u.dot(fr.up)) * 180 / Math.PI);
 }
 
+/* first body part (default first) that doesn't already carry a tattoo */
+function freeRegion() {
+  const prefs = [S("designs.defaultRegion"), "left_forearm_inner", "right_forearm_inner", "left_forearm_outer", "right_forearm_outer",
+    "left_upper_arm_outer", "right_upper_arm_outer", "left_chest", "right_chest", "upper_back", "left_calf", "right_calf",
+    "left_thigh_front", "right_thigh_front", "left_ribs", "right_ribs", "lower_back", "stomach"];
+  for (const id of prefs) {
+    const r = regions.find((x) => x.id === id);
+    if (!r) continue;
+    const busy = store.tattoos.some((t) => Math.hypot(t.position[0] - r.position[0], t.position[1] - r.position[1], t.position[2] - r.position[2]) < Math.max(0.05, t.sizeCm / 200));
+    if (!busy) return r.id;
+  }
+  return S("designs.defaultRegion");
+}
+
 /* ════════════════════════════════════════════════════════════════════════
    body
    ════════════════════════════════════════════════════════════════════════ */
@@ -375,7 +389,7 @@ const app = {
       const c = viewer.surface.closestPoint(V(position));
       p = c.point; n = normal ? V(normal) : viewer.surface.normalAt(c.point, c.faceIndex);
     } else {
-      r = findRegion(region || S("designs.defaultRegion")) || regions[0];
+      r = findRegion(region || freeRegion()) || regions[0];
       if (!r) throw new Error("Unknown body part: " + region);
       p = V(r.position); n = V(r.normal);
     }
@@ -1104,10 +1118,9 @@ $("#createPlace").addEventListener("click", () => {
   const d = store.addDesign(curDesign());
   renderLibrary();
   showTab("studio");
-  const sel = store.tattoo(store.selectedId);
   if (S("designs.autoPlace")) {
     try {
-      app.placeTattoo({ designId: d.id, region: sel ? sel.region : S("designs.defaultRegion") });
+      app.placeTattoo({ designId: d.id, region: freeRegion() });
       toast("Placed — drag it anywhere on the body");
     } catch (e) { toast(e.message); }
   } else startPlacing(d.id);
@@ -1164,8 +1177,7 @@ $("#sketchUse").addEventListener("click", () => {
   const d = sketchToDesign();
   if (!d) return;
   showTab("studio");
-  const sel = store.tattoo(store.selectedId);
-  try { app.placeTattoo({ designId: d.id, region: sel ? sel.region : S("designs.defaultRegion") }); toast("Placed — drag it anywhere on the body"); }
+  try { app.placeTattoo({ designId: d.id, region: freeRegion() }); toast("Placed — drag it anywhere on the body"); }
   catch (e) { toast(e.message); }
 });
 $("#sketchNew").addEventListener("click", async () => {
@@ -1292,8 +1304,8 @@ async function boot() {
   // first run: a few starter designs so the library isn't empty
   if (!store.designs.length && designsMod) {
     const starters = [
-      ["mandala", "Mandala"], ["botanical", "Rose"], ["geometric", "Geometric"], ["lettering", "Script"],
-      ["tribal", "Tribal"], ["japanese", "Waves"], ["traditional", "Traditional"], ["minimal", "Minimal line"],
+      ["mandala"], ["floral"], ["geometric"], ["lettering-script"], ["traditional"],
+      ["tribal"], ["japanese"], ["minimal-line"], ["dotwork"], ["animals"],
     ];
     for (const [sid] of starters.reverse()) {
       const style = designsMod.STYLES.find((s) => s.id === sid) || designsMod.STYLES.find((s) => s.id.includes(sid) || s.category?.toLowerCase().includes(sid));

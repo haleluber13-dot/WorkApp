@@ -96,10 +96,10 @@ export function textEls(text, { font = "script", size = 160, cx = 500, cy = 500,
     });
   }
   const d = pieces.join("");
-  if (shadow) els.push(dark(transformD(d, M.t(shadow * 0.7, shadow))));
-  if (outline) els.push({ t: "part", d, role: role === "dark" ? "white" : role, sw: 0.75 });
-  else if (fill === "solid") els.push(role === "dark" ? dark(d) : { t: "part", d, role, fill: "ink", noStroke: true });
-  else els.push({ t: "part", d, role: "white", fill, sw: 0.6 });
+  if (shadow) els.push({ ...dark(transformD(d, M.t(shadow * 0.7, shadow))), noBold: true });
+  if (outline) els.push({ t: "part", d, role: role === "dark" ? "white" : role, sw: 0.75, noBold: true });
+  else if (fill === "solid") els.push(role === "dark" ? { ...dark(d), noBold: true } : { t: "part", d, role, fill: "ink", noStroke: true, noBold: true });
+  else els.push({ t: "part", d, role: "white", fill, sw: 0.6, noBold: true });
   if (!Number.isFinite(x0)) addBox(cx - 100, cy - 100, cx + 100, cy + 100);
   return { els, bbox: [x0, y0, x1, y1] };
 }

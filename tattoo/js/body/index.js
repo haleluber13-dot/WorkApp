@@ -22,54 +22,69 @@ export const SEX_DEFAULTS = Object.freeze({
 
 const CACHE_SIZE = 4;
 const cache = new Map(); // key → Promise<data>
-let worker = null;
-let workerBroken = false;
-let seq = 0;
-const pending = new Map();
+const POOL_SIZE = Math.max(1, Math.min(2, ((typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 2) - 1));
+const pool = [];          // { worker, busy, job }
+const queue = [];         // jobs waiting for a free worker
+let workersBroken = false;
 let lastStats = null;
 
-function getWorker() {
-  if (workerBroken) return null;
-  if (worker) return worker;
-  try {
-    worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
-    worker.onmessage = (e) => {
-      const { id, data, error } = e.data || {};
-      const p = pending.get(id);
-      if (!p) return;
-      pending.delete(id);
-      if (error) p.reject(new Error(error)); else p.resolve(data);
-    };
-    worker.onerror = (e) => {
-      // module failed to load or crashed: fall back to the main thread
-      workerBroken = true;
-      try { worker.terminate(); } catch { /* ignore */ }
-      worker = null;
-      const all = [...pending.values()];
-      pending.clear();
-      for (const p of all) p.fallback();
-      if (e && e.preventDefault) e.preventDefault();
-    };
-  } catch {
-    workerBroken = true;
-    worker = null;
+function spawnWorker() {
+  const entry = { worker: null, busy: false, job: null };
+  const w = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+  entry.worker = w;
+  w.onmessage = (e) => {
+    const { data, error } = e.data || {};
+    const job = entry.job;
+    entry.job = null; entry.busy = false;
+    if (job) {
+      if (error) job.fallback(); else { data.stats.via = "worker"; job.resolve(data); }
+    }
+    pump();
+  };
+  w.onerror = (e) => {
+    // module failed to load or crashed: fall back to the main thread for everything
+    if (e && e.preventDefault) e.preventDefault();
+    workersBroken = true;
+    for (const p of pool) { try { p.worker.terminate(); } catch { /* ignore */ } if (p.job) p.job.fallback(); }
+    pool.length = 0;
+    while (queue.length) queue.shift().fallback();
+  };
+  return entry;
+}
+
+function pump() {
+  while (queue.length) {
+    let entry = pool.find((p) => !p.busy);
+    if (!entry && pool.length < POOL_SIZE && !workersBroken) {
+      try { entry = spawnWorker(); pool.push(entry); } catch { workersBroken = true; }
+    }
+    if (!entry) break;
+    const job = queue.shift();
+    entry.busy = true; entry.job = job;
+    try { entry.worker.postMessage({ id: job.id, params: job.params }); }
+    catch { entry.busy = false; entry.job = null; job.fallback(); }
   }
-  return worker;
 }
 
 async function computeMainThread(P) {
   const { buildBodyData } = await import("./core.js");
-  return buildBodyData(P);
+  const data = buildBodyData(P);
+  data.stats.via = "main-thread";
+  return data;
 }
 
+let seq = 0;
 function compute(P) {
-  const w = getWorker();
-  if (!w) return computeMainThread(P);
+  if (workersBroken || typeof Worker === "undefined") return computeMainThread(P);
   return new Promise((resolve, reject) => {
-    const id = ++seq;
-    const fallback = () => computeMainThread(P).then(resolve, reject);
-    pending.set(id, { resolve, reject: () => { pending.delete(id); fallback(); }, fallback });
-    try { w.postMessage({ id, params: P }); } catch { pending.delete(id); fallback(); }
+    let done = false;
+    const job = {
+      id: ++seq, params: P,
+      resolve: (d) => { if (!done) { done = true; resolve(d); } },
+      fallback: () => { if (!done) { done = true; computeMainThread(P).then(resolve, reject); } },
+    };
+    queue.push(job);
+    pump();
   });
 }
 

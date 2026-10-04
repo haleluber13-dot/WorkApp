@@ -143,7 +143,7 @@ export function buildUI(pad) {
   const makeToolBtn = (id) => {
     const t = TOOLS[id];
     const key = t.key ? ` (${t.key})` : '';
-    const b = h('button', { type: 'button', class: 'sp-tool', title: t.label + key, 'aria-label': t.label, html: icon(t.icon) + `<span class="sp-tool-lbl">${t.short}</span>`, onclick: () => { if (pad.tool === id && ui.compact) openSheet('tool'); else pad.setTool(id); } });
+    const b = h('button', { type: 'button', class: 'sp-tool', title: t.label + key + (t.desc ? ' — ' + t.desc : ''), 'aria-label': t.label, html: icon(t.icon) + `<span class="sp-tool-lbl">${t.short}</span>`, onclick: () => { if (pad.tool === id && ui.compact) openSheet('tool'); else pad.setTool(id); } });
     b.dataset.tool = id;
     (toolBtns[id] ||= []).push(b);
     return b;
@@ -278,6 +278,7 @@ export function buildUI(pad) {
     ibtn('clear', 'Clear layer', () => pad.clearLayer()),
     ibtn('up', 'Move layer up', () => pad.active && pad.moveLayer(pad.active, pad.layers.indexOf(pad.active) + 1)),
     ibtn('down', 'Move layer down', () => pad.active && pad.moveLayer(pad.active, pad.layers.indexOf(pad.active) - 1)),
+    ibtn('rename', 'Rename layer', () => { const li = layerList.querySelector('.sp-layer.active .sp-lname'); if (li && pad.active) rename(pad.active, li); }),
     ibtn('trash', 'Delete layer', () => pad.deleteLayer(), 'sp-danger'));
   const layersBody = h('div', { class: 'sp-sec-body' },
     layerList, layerOpacity.el, refExport.el, layerActions,
@@ -546,6 +547,7 @@ export function buildUI(pad) {
       const grip = h('span', { class: 'sp-grip', html: icon('grip'), title: 'Drag to reorder', 'aria-hidden': 'true' });
       const li = h('li', { class: 'sp-layer' + (l === pad.active ? ' active' : '') + (l.ref ? ' ref' : '') + (l.visible ? '' : ' hidden-layer'), tabindex: '0', 'aria-label': l.name, 'aria-selected': l === pad.active },
         grip, thumb, h('div', { class: 'sp-lmeta' }, name, l.ref ? h('span', { class: 'sp-tag' }, 'Trace ref') : h('span', { class: 'sp-lsub' }, Math.round(l.opacity * 100) + '%')), lock, eye);
+      li._layer = l;
       li.addEventListener('click', () => pad.selectLayer(l));
       li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pad.selectLayer(l); } });
       name.addEventListener('dblclick', (e) => { e.stopPropagation(); rename(l, name); });
@@ -553,13 +555,18 @@ export function buildUI(pad) {
       grip.addEventListener('pointerdown', (e) => startReorder(e, l, li));
       layerList.append(li);
     }
+    syncActiveLayer();
+    ui.syncThumbs(true);
+  }
+  function syncActiveLayer() {
+    for (const li of layerList.children) if (li._layer) { const on = li._layer === pad.active; li.classList.toggle('active', on); li.setAttribute('aria-selected', on); }
     const a = pad.active;
     if (a) {
       layerOpacity.set(Math.round(a.opacity * 100));
       refExport.el.hidden = !a.ref; refExport.set(a.exportRef);
     }
-    ui.syncThumbs(true);
   }
+  ui.syncActiveLayer = syncActiveLayer;
   function rename(l, nameEl) {
     const inp = h('input', { class: 'sp-rename', value: l.name, 'aria-label': 'Layer name' });
     nameEl.replaceWith(inp); inp.focus(); inp.select();
@@ -680,7 +687,7 @@ export function buildUI(pad) {
     const detail = slider({ label: 'Detail', min: 0, max: 100, value: P.detail, onInput: (v) => { P.detail = v; schedule(); } });
     const weight = slider({ label: 'Line weight', min: 1, max: 12, step: 0.5, value: P.weight, unit: 'px', onInput: (v) => { P.weight = v; schedule(); } });
     const shadows = slider({ label: 'Shadow fill', min: 0, max: 100, value: P.shadows, unit: '%', onInput: (v) => { P.shadows = v; schedule(); } });
-    const cleanup = slider({ label: 'Clean up specks', min: 0, max: 100, value: P.cleanup, unit: '%', onInput: (v) => { P.cleanup = v; schedule(); } });
+    const cleanup = slider({ label: 'Clean-up', min: 0, max: 100, value: P.cleanup, unit: '%', onInput: (v) => { P.cleanup = v; schedule(); } });
     const sync = () => { thr.el.querySelector('.sp-lbl').textContent = thrLabel(); detail.el.hidden = P.mode === 'scan'; shadows.el.hidden = P.mode === 'scan'; weight.el.hidden = P.mode === 'scan'; };
     const modeSeg = seg({ label: 'Method', value: P.mode, onChange: (v) => { P.mode = v; sync(); schedule(); }, options: [{ value: 'edges', label: 'Outlines' }, { value: 'threshold', label: 'Bold ink' }, { value: 'scan', label: 'Line-art scan' }] });
     const inkSeg = seg({ label: 'Ink', value: lastStencil.inkMode || 'black', onChange: (v) => { P.inkMode = v; P.color = v === 'current' ? pad.color : '#000000'; schedule(); }, options: [{ value: 'black', label: 'Black ink' }, { value: 'current', label: 'Current colour' }] });
