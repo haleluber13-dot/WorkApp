@@ -60,7 +60,7 @@ export function mountAssistant(container, app) {
   const fab = el("button", { class: "ia-fab", type: "button", "aria-label": "Open the AI tattoo assistant", "aria-expanded": "false", "aria-controls": "ia-panel" }, '<span class="ia-fab-star" aria-hidden="true">✦</span><span>AI</span>');
   const panel = el("section", { class: "ia-panel", id: "ia-panel", role: "dialog", "aria-label": "AI tattoo assistant", "aria-hidden": "true" });
   panel.innerHTML = `
-    <div class="ia-grab" aria-hidden="true"></div>
+    <button type="button" class="ia-grab" aria-label="Show the whole chat"></button>
     <header class="ia-head">
       <div class="ia-title"><span class="ia-logo" aria-hidden="true">✦</span><div><div class="ia-name">Tattoo assistant</div><button type="button" class="ia-badge" title="Assistant settings"></button></div></div>
       <div class="ia-head-btns">
@@ -102,6 +102,9 @@ export function mountAssistant(container, app) {
   const log = $(".ia-log"), input = $(".ia-input"), chipsBox = $(".ia-chips"), form = $(".ia-form");
   const badge = $(".ia-badge"), micBtn = $(".ia-mic"), sendBtn = $(".ia-send");
   const settingsBox = $(".ia-settings");
+  const grab = $(".ia-grab");
+  grab.addEventListener("click", () => setCompact(!root.classList.contains("is-compact")));
+  log.addEventListener("click", (e) => { if (root.classList.contains("is-compact") && !e.target.closest("a")) setCompact(false); });
 
   /* ── state ── */
   let messages = loadChat();
@@ -151,7 +154,16 @@ export function mountAssistant(container, app) {
     }
     scrollDown();
   }
-  function scrollDown() { requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; }); }
+  function scrollDown() { log.scrollTop = log.scrollHeight; requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; }); }
+  const isPhone = () => { try { return matchMedia("(max-width: 640px)").matches; } catch { return false; } };
+  function sceneKey() {
+    try { const st = app.getState(); return JSON.stringify([st.tattoos, st.body, getSetting("skin.tone")]); } catch { return ""; }
+  }
+  function setCompact(on) {
+    root.classList.toggle("is-compact", !!on);
+    grab.setAttribute("aria-expanded", String(!on));
+    scrollDown();
+  }
   function push(m) {
     m.ts = m.ts || Date.now();
     messages.push(m);
@@ -191,6 +203,7 @@ export function mountAssistant(container, app) {
     const typing = showTyping();
     let result;
     const engine = engineName();
+    const before = sceneKey();
     try {
       if (engine === "claude") result = await sendClaude(text, typing);
       else {
@@ -209,6 +222,9 @@ export function mountAssistant(container, app) {
     if (result.liveNode) { result.liveNode.replaceWith(bubble(msg)); messages.push(msg); saveChat(); scrollDown(); }
     else push(msg);
     setChips(result.chips || []);
+    // Phone: shrink to a compact sheet after something changed on the body, so it can be seen.
+    const changed = sceneKey() !== before || (result.actions || []).some((a) => a === "camera" || a === "body" || a === "skin");
+    setCompact(isPhone() && changed);
     speak(result.reply);
     busy = false;
     panel.classList.remove("is-busy");
@@ -315,9 +331,10 @@ export function mountAssistant(container, app) {
   /* ── header buttons ── */
   $(".ia-close").addEventListener("click", () => close());
   $(".ia-clear").addEventListener("click", () => {
-    messages = []; saveChat(); claude.reset(); local.reset(); renderAll(); input.focus();
+    messages = []; saveChat(); claude.reset(); local.reset(); setCompact(false); renderAll(); input.focus();
   });
   function toggleSettings(show = settingsBox.hidden) {
+    if (show) setCompact(false);
     settingsBox.hidden = !show;
     panel.classList.toggle("is-settings", show);
     $(".ia-settings-btn").setAttribute("aria-expanded", String(show));
@@ -355,6 +372,7 @@ export function mountAssistant(container, app) {
     panel.setAttribute("aria-hidden", "false");
     fab.setAttribute("aria-expanded", "true");
     refreshBadge(); setupMic();
+    setCompact(false);
     if (!log.childElementCount) renderAll();
     setTimeout(() => input.focus({ preventScroll: true }), 60);
     scrollDown();

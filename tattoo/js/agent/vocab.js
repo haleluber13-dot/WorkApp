@@ -116,7 +116,12 @@ const COMMON = new Set(("a an the and or but so to of on in at by for with from 
   "darker barker parker marker " +
   "maria mario emma ohana mama papa nana familia lift angle write wrote white knew tattoos designs variations colors colours degrees " +
   "band hand land sand wand bend kind mind find wind hint mint pint print paint saint faint " +
-  "sketchy lines curves dots stars notes words layers rings petals points sides").split(/\s+/));
+  "sketchy lines curves dots stars notes words layers rings petals points sides lighting lights lightning daylight sighting " +
+  "inches inch theme mode spinning spin background floor shadows shadow " +
+  "font fonts style styles text size sizes angle shade shading petal petals detail details layer layers frame border thorns thorn leaves leaf " +
+  "curve swirl banner ribbon scroll arc arched wavy caps flourish outline sparkle sparkles splatter fade older newer version copy mirror " +
+  "view zoom front stencil opacity body model tone pale woman man slimmer muscle closer farther further toward towards away center centre middle edge " +
+  "wing wings star moon moth math path bath boat coat goat fork folk lord ford food foot fool pool tool cool soul sole").split(/\s+/));
 const KNOWN = new Set();
 /** Words that are real vocabulary (subjects, regions, colors…): never corrected. */
 export function addKnownWords(words) { for (const w of words) if (w) KNOWN.add(String(w).toLowerCase()); }
@@ -162,3 +167,9 @@ export function fixTypos(text, skip = null) {
     return uniq.length === 1 ? uniq[0] : w;
   });
 }
+
+// Style vocabulary and every motif word are real words too.
+addKnownWords(STYLE_WORDS.source.replace(/\\[bsw]/g, " ").split(/[^a-z]+/).filter((w) => w.length >= 4));
+addKnownWords(Object.values(SUBJECT_WORDS).flat().flatMap((w) => w.split(" ")));
+addKnownWords(Object.keys(SUBSTITUTES).flatMap((w) => w.split(/[_ ]/)));
+addKnownWords(LETTER_STYLES.flatMap(([, re]) => re.source.replace(/\\[bsw]/g, " ").split(/[^a-z]+/)).filter((w) => w.length >= 4));

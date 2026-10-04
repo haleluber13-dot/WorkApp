@@ -12,6 +12,8 @@
 //   included) is pushed back unchanged; system prompt and tool list are frozen per
 //   conversation, so earlier thinking blocks stay valid.
 
+import { RegionResolver } from "./regions.js";
+
 const SDK_URL = new URL("../../vendor/anthropic/sdk.js", import.meta.url).href;
 
 export const CLAUDE_MODELS = [
@@ -297,6 +299,18 @@ function stateSnapshot(app) {
 
 /* ───────────────────────── tool execution ───────────────────────── */
 
+// The app quietly maps unknown region names onto *some* body part (its fuzzy matcher accepts
+// almost anything), so check region ids here: exact id, else our own body-part parser, else an error.
+function checkRegion(app, region) {
+  if (region == null) return undefined;
+  let list = [];
+  try { list = app.listRegions() || []; } catch {}
+  if (!list.length || list.some((r) => r.id === region)) return region;
+  const hit = new RegionResolver(list).find(String(region).replace(/[_-]+/g, " ").toLowerCase(), {});
+  if (hit) return hit.regionId;
+  throw new Error(`Unknown region "${region}" — use one of the region ids listed in the system prompt.`);
+}
+
 async function runTool(app, name, input, { allowLook }) {
   const pickDefined = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
   switch (name) {
@@ -315,13 +329,13 @@ async function runTool(app, name, input, { allowLook }) {
       return { design_id: d.id, name: d.name };
     }
     case "place_tattoo": {
-      const t = await app.placeTattoo(pickDefined({ designId: input.design_id, region: input.region, sizeCm: input.size_cm, rotation: input.rotation, offsetCm: input.offset_cm, ink: input.ink, color: input.color }));
+      const t = await app.placeTattoo(pickDefined({ designId: input.design_id, region: checkRegion(app, input.region), sizeCm: input.size_cm, rotation: input.rotation, offsetCm: input.offset_cm, ink: input.ink, color: input.color }));
       return summarizeTattoo(t);
     }
     case "update_tattoo": {
       const { id, ...rest } = input;
       const t = await app.updateTattoo(id, pickDefined({
-        region: rest.region, sizeCm: rest.size_cm, scaleBy: rest.scale_by, rotation: rest.rotation, rotateBy: rest.rotate_by,
+        region: checkRegion(app, rest.region), sizeCm: rest.size_cm, scaleBy: rest.scale_by, rotation: rest.rotation, rotateBy: rest.rotate_by,
         moveCm: rest.move_cm, opacity: rest.opacity, ink: rest.ink, color: rest.color, flip: rest.flip, age: rest.age,
         visible: rest.visible, designId: rest.design_id,
       }));
@@ -343,7 +357,10 @@ async function runTool(app, name, input, { allowLook }) {
       app.setSetting(input.key, input.value);
       return { key: input.key, value: app.getSetting(input.key) };
     case "camera":
-      if (input.focus) await app.focus(input.focus);
+      if (input.focus) {
+        const isTattoo = input.focus === "selected" || ((app.getState() || {}).tattoos || []).some((t) => t.id === input.focus);
+        await app.focus(isTattoo ? input.focus : checkRegion(app, input.focus));
+      }
       else if (input.view) await app.viewFrom(input.view);
       else await app.viewFrom("front");
       return { ok: true };

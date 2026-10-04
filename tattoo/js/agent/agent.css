@@ -35,7 +35,8 @@
 
 /* ── panel: right drawer on desktop ── */
 .ink-assistant .ia-panel {
-  position: fixed; z-index: 61; top: 12px; right: 12px; bottom: 12px; width: min(390px, calc(100vw - 24px));
+  /* below the app's top bar so its undo / settings buttons stay usable */
+  position: fixed; z-index: 61; top: calc(var(--topbar, 0px) + env(safe-area-inset-top, 0px) + 10px); right: 12px; bottom: 12px; width: min(390px, calc(100vw - 24px));
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--ia-panel); border: 1px solid var(--ia-border); border-radius: calc(var(--ia-radius) + 4px);
   box-shadow: var(--ia-shadow);
@@ -96,7 +97,7 @@
 /* ── messages ── */
 .ink-assistant .ia-log {
   flex: 1; overflow-y: auto; padding: 16px 14px 8px; display: flex; flex-direction: column; gap: 10px;
-  scroll-behavior: smooth; overscroll-behavior: contain;
+  overscroll-behavior: contain;
 }
 .ink-assistant .ia-log:focus { outline: none; }
 .ink-assistant .ia-msg { display: flex; }
@@ -174,7 +175,16 @@
     border-radius: 20px 20px 0 0; border-bottom: 0;
     transform: translateY(105%);
   }
-  .ink-assistant .ia-grab { display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--ia-border); margin: 8px auto -4px; flex: none; }
+  .ink-assistant .ia-grab {
+    display: block; flex: none; width: 100%; height: 18px; margin: 0 0 -6px; padding: 0; border: 0; background: transparent; cursor: pointer; position: relative;
+  }
+  .ink-assistant .ia-grab::before { content: ""; position: absolute; left: 50%; top: 7px; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: var(--ia-muted); opacity: 0.5; }
+  /* compact sheet after an action, so the change on the body stays visible above it */
+  .ink-assistant.is-compact .ia-panel { height: auto; max-height: 52dvh; }
+  .ink-assistant.is-compact .ia-log { flex: none; max-height: 34dvh; padding-top: 8px; cursor: pointer; }
+  .ink-assistant.is-compact .ia-log > :not(:last-child) { display: none; }
+  .ink-assistant.is-compact .ia-head { padding-top: 2px; padding-bottom: 6px; }
+  .ink-assistant.is-compact .ia-logo { width: 28px; height: 28px; font-size: 14px; }
   .ink-assistant .ia-head { padding-top: 8px; background: var(--ia-panel); }
   .ink-assistant .ia-chips { flex-wrap: nowrap; }
   .ink-assistant .ia-input { font-size: 16px; } /* avoid iOS zoom */

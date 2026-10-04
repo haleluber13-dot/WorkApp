@@ -338,8 +338,39 @@ function updateInset() {
     else if (!$("#inspector").hidden) b = $("#inspector").offsetHeight;
   }
   viewer.setInsetBottom(b);
+  // keep the camera bar above a bottom sheet
+  $(".camerabar").style.bottom = overlay && b && !document.body.classList.contains("lib-open") ? `${b + 10}px` : "";
+  layoutFloating();
 }
 addEventListener("resize", () => updateInset());
+
+/* Place the floating AI button where it covers nothing: beside side panels,
+   above bottom sheets, toolbars and primary buttons. */
+function layoutFloating() {
+  const fab = document.querySelector(".ink-assistant .ia-fab");
+  if (!fab) return;
+  const W = innerWidth, H = innerHeight;
+  const fw = fab.offsetWidth || 90, fh = fab.offsetHeight || 52;
+  let right = 18;
+  const side = (el) => el && !el.hidden && el.offsetParent && getComputedStyle(el).position !== "absolute" ? el.getBoundingClientRect() : null;
+  const sideRect = currentTab === "studio" ? side($("#inspector")) : currentTab === "create" ? side($(".create__editor")) : null;
+  if (sideRect && sideRect.left > W / 2) right = W - sideRect.left + 18;
+  const mob = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobtabs")) || 0;
+  let bottom = (matchMedia("(max-width: 700px)").matches ? mob : 0) + 14;
+  const obstacles = [];
+  const add = (sel) => { const el = typeof sel === "string" ? $(sel) : sel; if (el && el.offsetParent && !el.hidden) obstacles.push(el.getBoundingClientRect()); };
+  if (currentTab === "studio") { add(".camerabar"); add("#mobLib"); if (!sideRect) add("#inspector"); }
+  if (currentTab === "sketch") { add(".sketchbar"); $$(".sketchpad .sp-bottombar, .sketchpad [class*='bottom']").forEach(add); }
+  if (currentTab === "create") { add(".create__actions"); }
+  for (let i = 0; i < 6; i++) {
+    const r = { left: W - right - fw, right: W - right, top: H - bottom - fh, bottom: H - bottom };
+    const hit = obstacles.find((o) => o.width && o.height && o.left < r.right && o.right > r.left && o.top < r.bottom && o.bottom > r.top);
+    if (!hit) break;
+    bottom = H - hit.top + 10;
+  }
+  document.body.style.setProperty("--fab-right", right + "px");
+  document.body.style.setProperty("--fab-bottom", Math.min(bottom, H - fh - 70) + "px");
+}
 
 /* ════════════════════════════════════════════════════════════════════════
    the app API (used by UI + AI assistant)
@@ -415,6 +446,9 @@ const app = {
     if (!sid) sid = S("designs.defaultStyle");
     if (!designsMod?.STYLES.some((s) => s.id === sid)) sid = designsMod?.STYLES[0]?.id;
     const d = generate(sid, o, name);
+    // the same request again: reuse the design already in the library
+    const same = store.designs.find((x) => !x.deleted && x.svg === d.svg);
+    if (same) { store.activeDesignId = same.id; store.save(); renderLibrary(); return same; }
     store.addDesign(d);
     renderLibrary();
     return d;
@@ -462,6 +496,7 @@ const app = {
       flip: false, age: age ?? S("ink.defaultAge"), visible: true, createdAt: Date.now(),
     };
     if (offsetCm && (offsetCm.right || offsetCm.up)) moveAlongSkin(t, +offsetCm.right || 0, +offsetCm.up || 0);
+    if (placingDesignId) stopPlacing();
     store.checkpoint();
     store.tattoos.push(t);
     store.selectedId = t.id;
@@ -533,6 +568,7 @@ const app = {
     if (!t) throw new Error("No tattoo selected");
     const c = { ...t, id: uid("t"), position: [...t.position], normal: [...t.normal], createdAt: Date.now() };
     if (mirror) {
+      if (Math.abs(t.position[0]) < 0.015) throw new Error("This tattoo is in the middle of the body — there's no other side to copy it to");
       const p = V([-t.position[0], t.position[1], t.position[2]]);
       const hit = viewer.surface.closestPoint(p);
       c.position = hit.point.toArray();
@@ -540,8 +576,8 @@ const app = {
       c.rotation = -t.rotation;
       c.region = nearestRegionId(c.position, c.normal);
     } else {
-      const w = viewer.surface.walk(V(t.position), V(t.normal), t.rotation, t.sizeCm * 0.012, -t.sizeCm * 0.012);
-      c.position = w.position.toArray(); c.normal = w.normal.toArray();
+      const off = clamp(t.sizeCm * 0.2, 1.5, 4);
+      moveAlongSkin(c, off, -off, "camera");
     }
     store.checkpoint();
     store.tattoos.push(c);
@@ -594,7 +630,10 @@ let lastBodyCheckpoint = 0;
 function setSetting(key, value, { live = false } = {}) {
   if (key.startsWith("body.") && performance.now() - lastBodyCheckpoint > 1200) { store.checkpoint(); }
   if (key.startsWith("body.")) lastBodyCheckpoint = performance.now();
+  const SD = bodyMod?.SEX_DEFAULTS, prevSex = S("body.sex");
   store.set(key, value);
+  // switching body: keep the height typical for it unless the user changed it
+  if (key === "body.sex" && SD && S("body.sex") !== prevSex && S("body.heightCm") === SD[prevSex]?.heightCm) store.set("body.heightCm", SD[S("body.sex")].heightCm);
 }
 
 function onSettingChanged({ key }) {
@@ -624,10 +663,11 @@ function openSettings(group) {
   settingsPanel.show(group);
   settingsReturnFocus = document.activeElement;
   $("#settingsModal").hidden = false;
+  document.body.classList.add("modal-open");
   settingsPanel.el.querySelector(".settings__tabs .on")?.focus();
 }
 let settingsReturnFocus = null;
-function closeSettings() { $("#settingsModal").hidden = true; settingsReturnFocus?.focus?.(); }
+function closeSettings() { $("#settingsModal").hidden = true; document.body.classList.remove("modal-open"); settingsReturnFocus?.focus?.(); }
 
 async function runAction(a) {
   switch (a) {
@@ -723,12 +763,14 @@ let currentTab = "studio";
 function showTab(tab) {
   if (!["studio", "create", "sketch"].includes(tab)) tab = "studio";
   currentTab = tab;
+  if (tab !== "studio" && placingDesignId) stopPlacing();
   document.body.dataset.tab = tab;
   $$("[data-view]").forEach((v) => (v.hidden = v.dataset.view !== tab));
   $$(".tabs [data-tab], .mobtabs [data-tab]").forEach((b) => { b.classList.toggle("on", b.dataset.tab === tab); b.setAttribute("aria-selected", String(b.dataset.tab === tab)); });
   if (tab === "create") initCreate();
   if (tab === "sketch") initSketch();
   if (tab === "studio") viewer?._resize();
+  requestAnimationFrame(layoutFloating);
   if (location.hash.slice(2) !== tab) history.replaceState(null, "", "#/" + tab);
 }
 $$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
@@ -793,7 +835,7 @@ $("#quickGen").addEventListener("submit", (e) => {
     const d = app.createDesign({ prompt: q });
     $("#quickPrompt").value = "";
     startPlacing(d.id);
-    toast(`Made “${d.name}” — tap the body to place it`);
+    if (!showTip("place")) toast(`“${d.name}” is ready — tap the body to place it`);
   } catch (err) { toast(err.message); }
 });
 
@@ -836,13 +878,16 @@ function startPlacing(designId) {
   ensureTexture(d, look).then(go).catch(() => toast("Couldn't load that design"));
   $("#placeThumb").src = thumbOf(d);
   $("#placeBar").hidden = false;
+  document.body.classList.add("placing");
   $("#placeRegion").value = "";
   showTip("place");
+  layoutFloating();
 }
 function stopPlacing() {
   placingDesignId = null;
   viewer?.stopPlacing();
   $("#placeBar").hidden = true;
+  document.body.classList.remove("placing");
 }
 $("#placeCancel").addEventListener("click", stopPlacing);
 $("#placeRegion").addEventListener("change", (e) => {
@@ -875,11 +920,12 @@ function renderInspector() {
     <div class="insp__head">
       <img src="${esc(thumbOf(d))}" alt="">
       <div class="meta"><b>${esc(d?.name || "Design")}</b><small class="muted" id="iRegion">${esc(regionLabel(t.region))}</small></div>
+      <button class="iconbtn insp__min" id="iMin" aria-label="Show more controls" aria-expanded="false">⌃</button>
       <button class="iconbtn closeinsp" id="iClose" aria-label="Deselect">✕</button>
     </div>
     <section>
       <h4>Size</h4>
-      <div class="numrow"><input type="range" id="iSize" aria-label="Size" min="${u ? 0.4 : 1}" max="${u ? 24 : 60}" step="${u ? 0.1 : 0.5}"><input type="number" id="iSizeN" step="${u ? 0.1 : 0.5}" aria-label="Size"><span class="muted">${u ? "in" : "cm"}</span></div>
+      <div class="numrow"><input type="range" id="iSize" aria-label="Size" min="${u ? 0.4 : 1}" max="${u ? 31.5 : 80}" step="${u ? 0.1 : 0.5}"><input type="number" id="iSizeN" step="${u ? 0.1 : 0.5}" aria-label="Size"><span class="muted">${u ? "in" : "cm"}</span></div>
     </section>
     <section>
       <h4>Rotation</h4>
@@ -923,6 +969,16 @@ function renderInspector() {
   const rs = el.querySelector("#iRegionSel");
   rs.innerHTML = $("#placeRegion").innerHTML.replace("Choose a body part…", "Body part…");
   refreshInspector(t);
+  applyInspMin();
+}
+/* phones: the inspector opens as a short "peek" sheet (size + rotation); ⌃ shows everything */
+let inspMin = true;
+function applyInspMin() {
+  const el = $("#inspector");
+  el.classList.toggle("is-min", inspMin);
+  const b = el.querySelector("#iMin");
+  if (b) { b.textContent = inspMin ? "⌃" : "⌄"; b.setAttribute("aria-expanded", String(!inspMin)); b.setAttribute("aria-label", inspMin ? "Show more controls" : "Show fewer controls"); }
+  requestAnimationFrame(updateInset);
 }
 function refreshInspector(t) {
   const el = $("#inspector"), u = inch();
@@ -962,6 +1018,7 @@ insp.addEventListener("input", (e) => {
 });
 insp.addEventListener("change", (e) => {
   liveCk = null;
+  if (/^i(Size|Rot)N$/.test(e.target.id)) { const t = store.tattoo(store.selectedId); if (t) { e.target.blur(); refreshInspector(t); } }
   if (e.target.id === "iFlip") app.updateTattoo("selected", { flip: e.target.checked });
   if (e.target.id === "iRegionSel" && e.target.value) { app.updateTattoo("selected", { region: e.target.value }); app.focus("selected"); }
 });
@@ -971,6 +1028,7 @@ insp.addEventListener("click", async (e) => {
   const t = store.tattoo(store.selectedId);
   if (!t) return;
   if (b.id === "iClose") { app.selectTattoo(null); return; }
+  if (b.id === "iMin") { inspMin = !inspMin; applyInspMin(); return; }
   if (b.dataset.rot) app.updateTattoo(t.id, { rotateBy: +b.dataset.rot });
   if (b.dataset.nudge) { const [x, y] = b.dataset.nudge.split(",").map(Number); app.updateTattoo(t.id, { moveCm: { right: x * 0.5, up: y * 0.5, frame: "camera" } }); }
   if ("focus" in b.dataset) app.focus(t.id);
@@ -978,7 +1036,7 @@ insp.addEventListener("click", async (e) => {
   if (b.dataset.color) app.updateTattoo(t.id, { color: b.dataset.color, ink: "color" });
   switch (b.dataset.act) {
     case "dup": app.duplicateTattoo(t.id); break;
-    case "mirror": app.duplicateTattoo(t.id, { mirror: true }); toast("Copied to the other side"); break;
+    case "mirror": try { app.duplicateTattoo(t.id, { mirror: true }); toast("Copied to the other side"); } catch (err) { toast(err.message, 3500); } break;
     case "edit": app.openSketch(t.designId); break;
     case "hide": app.updateTattoo(t.id, { visible: t.visible === false }); break;
     case "back": app.reorderTattoo(t.id, -1); break;
@@ -1023,12 +1081,7 @@ $("#bodyPop").addEventListener("input", (e) => {
 $("#bodyPop").addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
-  if (b.dataset.sex) {
-    const SD = bodyMod?.SEX_DEFAULTS, h = S("body.heightCm"), other = b.dataset.sex === "female" ? "male" : "female";
-    setSetting("body.sex", b.dataset.sex);
-    if (SD && h === SD[other]?.heightCm) setSetting("body.heightCm", SD[b.dataset.sex].heightCm);
-    renderBodyPop();
-  }
+  if (b.dataset.sex) { setSetting("body.sex", b.dataset.sex); renderBodyPop(); }
   if (b.dataset.tone) { setSetting("skin.tone", b.dataset.tone); renderBodyPop(); }
   if ("bodyreset" in b.dataset) {
     store.checkpoint();
@@ -1044,6 +1097,7 @@ $(".camerabar").addEventListener("click", (e) => {
   if (!b) return;
   const c = b.dataset.cam;
   if (c === "spin") setSetting("scene.autoRotate", !S("scene.autoRotate"));
+  else if (c === "shot") saveShot();
   else app.viewFrom(c);
 });
 
@@ -1053,11 +1107,12 @@ $("#mobLib").addEventListener("click", () => { document.body.classList.toggle("l
 
 /* tips */
 function showTip(kind) {
-  if (!S("ui.hints")) return;
+  if (!S("ui.hints")) return false;
   let seen = {};
   try { seen = JSON.parse(localStorage.getItem("inkform.tips") || "{}"); } catch {}
-  if (seen[kind]) return;
+  if (seen[kind]) return false;
   const msgs = {
+    welcome: "Pick a design, then tap the body to place it — or tap ✦ AI and just say what you want.",
     place: "Tap anywhere on the body to place the design. Drag to turn the body; pinch or scroll to zoom.",
     placed: "Drag the tattoo to slide it over the skin · drag the round handle to resize and rotate.",
   };
@@ -1067,6 +1122,8 @@ function showTip(kind) {
   try { localStorage.setItem("inkform.tips", JSON.stringify(seen)); } catch {}
   clearTimeout(showTip.t);
   showTip.t = setTimeout(() => (h.hidden = true), 6500);
+  showTip.last = Date.now();
+  return true;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1215,7 +1272,7 @@ $("#createPlace").addEventListener("click", () => {
   if (S("designs.autoPlace")) {
     try {
       app.placeTattoo({ designId: d.id, region: freeRegion() });
-      toast("Placed — drag it anywhere on the body");
+      if (Date.now() - (showTip.last || 0) > 800) toast("Placed — drag it anywhere on the body");
     } catch (e) { toast(e.message); }
   } else startPlacing(d.id);
 });
@@ -1272,7 +1329,7 @@ $("#sketchUse").addEventListener("click", () => {
   const d = sketchToDesign();
   if (!d) return;
   showTab("studio");
-  try { app.placeTattoo({ designId: d.id, region: freeRegion() }); toast("Placed — drag it anywhere on the body"); }
+  try { app.placeTattoo({ designId: d.id, region: freeRegion() }); if (Date.now() - (showTip.last || 0) > 800) toast("Placed — drag it anywhere on the body"); }
   catch (e) { toast(e.message); }
 });
 $("#sketchNew").addEventListener("click", async () => {
@@ -1288,6 +1345,7 @@ document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
   if (e.key === "Escape") {
     if (!$("#settingsModal").hidden) { closeSettings(); return; }
+    if (!$("#bodyPop").hidden) { $("#bodyPop").hidden = true; $("#bodyToggle").setAttribute("aria-expanded", "false"); $("#bodyToggle").focus(); return; }
     if (placingDesignId) { stopPlacing(); return; }
     if (currentTab === "studio" && store.selectedId && !typing) { app.selectTattoo(null); return; }
   }
@@ -1316,7 +1374,7 @@ document.addEventListener("keydown", (e) => {
    ════════════════════════════════════════════════════════════════════════ */
 async function boot() {
   applyTheme();
-  matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => S("ui.theme") === "system" && applyTheme());
+  matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => { if (S("ui.theme") === "system") { applyTheme(); viewer?.applySettings(store.settings); } });
   store.on("setting", onSettingChanged);
   store.on("restore", ({ bodyChanged }) => {
     if (bodyChanged) { bodyBuild.snapOnly = true; scheduleBody(0); updateBodyChip(); renderBodyPop(); }
@@ -1354,6 +1412,7 @@ async function boot() {
       syncTattoos();
     },
     onTransformEnd() { store.save(); syncTattoos(); },
+    onPlaceMiss() { toast("Tap on the body to place it — or pick a body part at the top"); },
     onPlace(position, normal) {
       const id = placingDesignId;
       stopPlacing();
@@ -1419,10 +1478,11 @@ async function boot() {
   }
 
   // AI assistant
-  import("./agent/chat.js").then((m) => { assistant = m.mountAssistant(document.body, app); window.inkAssistant = assistant; })
+  import("./agent/chat.js").then((m) => { assistant = m.mountAssistant(document.body, app); window.inkAssistant = assistant; setTimeout(layoutFloating, 50); })
     .catch((e) => console.error("assistant failed to load", e));
 
   syncTattoos();
+  if (!store.tattoos.length && currentTab === "studio") setTimeout(() => showTip("welcome"), 900);
   window.inkReady = true;
 }
 

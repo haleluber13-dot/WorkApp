@@ -284,7 +284,7 @@ export const MOTIF_STYLES = [
     gallery: [{"subject": "wolf"}, {"subject": "fox", "frame": "oval", "flowers": "peonies"}, {"subject": "owl", "frame": "circle", "flowers": "daisies"}, {"subject": "lion", "flowers": "roses", "palette": "muted"}, {"subject": "deer", "frame": "oval"}, {"subject": "skull", "frame": "arch", "banner": true, "text": "Memento mori"}],
     options: [subjectOpt("wolf"), selectOpt("frame", "Ornamental frame", ["arch", "oval", "circle", "none"], "arch"),
       selectOpt("flowers", "Flowers", ["roses", "peonies", "daisies", "none"], "roses"), selectOpt("palette", "Palette", ["neo", "traditional", "muted"], "neo"),
-      boolOpt("banner", "Banner", false), textOpt("text", "Banner text", ""), weightOpt(8, "Outline weight"), seedOpt()],
+      boolOpt("banner", "Banner", false), textOpt("text", "Banner text", "Forever"), weightOpt(8, "Outline weight"), seedOpt()],
     gen(o, ctx) { return neoScene(ctx, o); },
   },
   {

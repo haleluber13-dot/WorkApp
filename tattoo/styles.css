@@ -90,13 +90,14 @@ input[type="color"] { width: 34px; height: 30px; border: 1px solid var(--border)
 .topbar__actions { display: flex; gap: 2px; min-width: 150px; justify-content: flex-end; }
 
 .views { position: absolute; top: calc(var(--topbar) + env(safe-area-inset-top)); left: 0; right: 0; bottom: var(--mobtabs); }
-.view { position: absolute; inset: 0; }
+.view { position: absolute; inset: 0; overflow: hidden; }
 
 /* ── studio ──────────────────────────────────────────────────────────── */
 .view--studio { display: grid; grid-template-columns: 300px 1fr auto; }
 .panel { background: var(--panel); display: flex; flex-direction: column; min-height: 0; z-index: 5; }
 .panel--left { border-right: 1px solid var(--border); }
-.panel--right { border-left: 1px solid var(--border); width: 320px; overflow-y: auto; }
+.panel--right { border-left: 1px solid var(--border); width: calc(320px * var(--fs)); overflow-y: auto; }
+.insp__min { display: none; }
 .panel__tabs { display: flex; gap: 4px; padding: 10px 10px 0; }
 .panel__tabs button {
   flex: 1; border: 0; background: transparent; padding: 8px; border-radius: 9px; font-weight: 600; color: var(--muted);
@@ -162,7 +163,8 @@ input[type="color"] { width: 34px; height: 30px; border: 1px solid var(--border)
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.bodychip { position: absolute; top: 12px; left: 12px; z-index: 4; }
+.bodychip { position: absolute; top: 12px; left: 12px; z-index: 13; }
+body.placing .bodychip { visibility: hidden; }
 .chipbtn {
   display: flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px;
   background: color-mix(in srgb, var(--panel) 85%, transparent); backdrop-filter: blur(8px); font-weight: 600;
@@ -200,6 +202,7 @@ input[type="color"] { width: 34px; height: 30px; border: 1px solid var(--border)
 .camerabar button:hover { background: var(--panel-2); }
 .camerabar button.on { background: var(--accent); color: var(--accent-ink); }
 .camerabar svg { fill: none; stroke: currentColor; stroke-width: 2.2; }
+.camerabar .cam-shot { display: none; }
 .fab--lib { display: none; }
 
 /* inspector */
@@ -335,9 +338,9 @@ input[type="color"] { width: 34px; height: 30px; border: 1px solid var(--border)
   .mobtabs button.on { color: var(--accent); }
   .mobtabs svg { width: 21px; height: 21px; }
   #btnShot { display: none; }
+  .camerabar .cam-shot { display: grid; }
   .camerabar { bottom: 10px; left: 10px; transform: none; }
   .camerabar button { padding: 6px 7px; font-size: .82em; }
-  .fab--lib { bottom: 62px; right: 10px; }
   .placebar { flex-wrap: wrap; justify-content: center; top: 8px; }
   .placebar span { flex-basis: 100%; text-align: center; font-size: .9em; }
   .modal { padding: 0; }
@@ -353,21 +356,42 @@ input[type="color"] { width: 34px; height: 30px; border: 1px solid var(--border)
   .hint { bottom: 60px; }
 }
 
-/* ── AI assistant button placement around the shell's own controls ──── */
-body[data-tab="studio"]:has(#inspector:not([hidden])) .ink-assistant .ia-fab { right: 340px; }
-body[data-tab="create"] .ink-assistant .ia-fab { right: 420px; }
-body[data-tab="sketch"] .ink-assistant .ia-fab { bottom: 72px; }
-@media (max-width: 900px) {
-  body[data-tab="studio"]:has(#inspector:not([hidden])) .ink-assistant .ia-fab { right: 14px; bottom: calc(var(--mobtabs) + (100vh - var(--topbar) - var(--mobtabs)) * 0.42 + 12px); }
-  body[data-tab="create"] .ink-assistant .ia-fab { right: 14px; }
-  body[data-tab="studio"] .fab--lib { bottom: 84px; }
+/* ── floating controls: positions computed by app.js (layoutFloating) ── */
+.ink-assistant .ia-fab { right: var(--fab-right, 18px) !important; bottom: var(--fab-bottom, 18px) !important; transition: right .2s, bottom .2s, opacity .18s, transform .18s; }
+body.modal-open .ink-assistant .ia-fab, body.lib-open .ink-assistant .ia-fab, body.placing .ink-assistant .ia-fab { opacity: 0; pointer-events: none; }
+.camerabar { transition: bottom .2s; }
+
+/* tablets: the design library becomes a drawer so the 3D view gets the room */
+@media (max-width: 1180px) and (min-width: 901px) {
+  .view--studio { grid-template-columns: 1fr auto; }
+  .panel--left {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 300px; z-index: 12; box-shadow: var(--shadow);
+    transform: translateX(-105%); transition: transform .25s;
+  }
+  body.lib-open .panel--left { transform: none; }
+  .fab--lib {
+    display: block; position: absolute; left: 14px; right: auto; top: 60px; z-index: 6; border-radius: 24px; padding: 9px 14px;
+    background: var(--panel); color: var(--text); font-weight: 700; box-shadow: var(--shadow); border: 1px solid var(--border);
+  }
 }
-@media (max-width: 700px) {
-  .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + 12px) !important; }
-  body[data-tab="studio"] .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + 12px); }
-  body[data-tab="studio"]:has(#inspector:not([hidden])) .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + (100vh - var(--topbar) - var(--mobtabs)) * 0.42 + 12px) !important; height: 44px; }
-  body[data-tab="studio"] .fab--lib { bottom: 74px; right: 14px; }
-  body.lib-open .ink-assistant .ia-fab { opacity: 0; pointer-events: none; }
-  body[data-tab="sketch"] .ink-assistant .ia-fab { bottom: calc(var(--mobtabs) + 64px) !important; }
+@media (max-width: 900px) {
+  .insp__min { display: inline-grid; }
+  .panel--right.is-min section:nth-of-type(n+3) { display: none; }
+  .panel--right .insp { padding-top: 8px; }
+  .panel--right .insp::before { content: ""; display: block; width: 38px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 8px; }
+  /* create: styles scroll sideways so the preview and buttons stay in view */
+  .create { display: flex; flex-direction: column; overflow-y: auto; }
+  .create__styles { padding: 10px 10px 4px; }
+  .stylegrid { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 128px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+  .stylecard { scroll-snap-align: start; }
+  .stylecard small { display: none; }
+  .create__editor { padding: 10px; }
+  .preview { height: 38vh; max-height: 38vh; aspect-ratio: auto; }
+  .create__actions { position: sticky; bottom: 0; background: var(--panel); padding: 8px 0; margin: 0; z-index: 2; }
+  .placebar { left: 8px; right: 8px; transform: none; max-width: none; top: 8px; flex-wrap: nowrap; gap: 6px; }
+  .placebar span { display: none; }
+  .placebar select { flex: 1; max-width: none; min-width: 0; }
+  .placebar::before { content: "Tap the body, or:"; font-size: .85em; color: var(--muted); white-space: nowrap; }
+  .hint { bottom: auto; top: 64px; }
 }
 @media (hover: none) { .libitem__del { display: grid; } }

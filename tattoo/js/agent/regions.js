@@ -91,6 +91,8 @@ function regionMods(text) {
   return out;
 }
 
+// Words that are also popular designs ("a heart", "a skull", "a hand") only count as a place after "on my …".
+const AMBIG = /^(?:hearts?|palms?|hands?|skulls?|temples?|faces?|heads?|feet|foot|back|side|sides|neck|ribs?|cheeks?|crowns?)$/;
 const LOC_BEFORE = /\b(?:on|onto|to|at|behind|across|along|over|around|in|into|under|underneath|below|above|near|down|up|between|of|from)\s+(?:(?:my|the|his|her|your|their|each|both|either|a)\s+)?(?:(?:left|right|inner|outer|inside|outside|upper|lower|front|back|top|bottom|side|other|same|opposite|middle|center|centre|soft|full|whole)\s+(?:of\s+(?:(?:my|the|his|her|your)\s+)?)?)*$/;
 
 export class RegionResolver {
@@ -184,6 +186,7 @@ export class RegionResolver {
         const m = info.phraseRe[k].exec(t);
         if (!m) continue;
         const len = coreLen(p), loc = isLoc(m.index) || /^(?:behind|between|under|back of|front of|side of|inside of|top of)\b/.test(p);
+        if (!loc && m.index > 0 && AMBIG.test(p)) continue;
         const better = !best || (loc && !best.loc) || (loc === best.loc && (len > best.len || (len === best.len && p.length > best.plen)));
         if (better) best = { len, loc, info, index: m.index, matchLen: m[0].length, plen: p.length, ties: [info] };
         else if (loc === best.loc && len === best.len && p.length === best.plen && !best.ties.includes(info)) best.ties.push(info);
@@ -198,7 +201,9 @@ export class RegionResolver {
       const m = c.say.exec(t);
       if (m) hits.push({ c, index: m.index, len: m[0].length, word: m[0], loc: isLoc(m.index) || /^(?:behind|between|under|back of|front of)\b/.test(m[0]) });
     }
-    conceptHit = hits.find((h) => h.loc) || hits[0] || null;
+    // words that are also popular designs ("a heart", "a skull", "a hand") only count as a place after "on my …"
+    const usable = hits.filter((h) => h.loc || h.index === 0 || !AMBIG.test(h.word.trim()));
+    conceptHit = usable.find((h) => h.loc) || usable[0] || null;
     if (best && conceptHit && best.loc !== conceptHit.loc) {
       if (conceptHit.loc) best = null; else conceptHit = null;
     }

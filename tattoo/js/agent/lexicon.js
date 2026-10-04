@@ -43,6 +43,7 @@ export const SIZE_WORDS = [
 
 // Option-name hints for "make the lines thinner", "more petals" …
 export const OPTION_HINTS = [
+  { say: /\b(?:all caps|caps|capitals?|capital letters|upper ?case|lower ?case|small letters)\b/, keys: ["upper", "caps"] },
   { say: /\b(?:lines?|line ?work|strokes?|outlines?|line weight|linework)\b/, keys: ["line", "stroke", "weight", "outline", "thick", "width", "pen"] },
   { say: /\bpetals?\b/, keys: ["petal"] },
   { say: /\b(?:points?|spikes?|rays?|tips?)\b/, keys: ["point", "spike", "ray", "tip"] },
@@ -58,6 +59,12 @@ export const OPTION_HINTS = [
   { say: /\b(?:frame|border)\b/, keys: ["frame", "border"] },
   { say: /\b(?:font|letters?|text|lettering)\b/, keys: ["font", "text", "letter"] },
   { say: /\b(?:thorns?)\b/, keys: ["thorn"] },
+  { say: /\b(?:banner|ribbon|scroll)\b/, keys: ["banner"] },
+  { say: /\b(?:arc|arched|curved|straight|wavy|wave)\b/, keys: ["layout"] },
+  { say: /\b(?:flourish(?:es)?|swash(?:es)?|swirls?)\b/, keys: ["flourish"] },
+  { say: /\b(?:shadow|outlined?|drop shadow)\b/, keys: ["effect"] },
+  { say: /\b(?:sparkles?|glints?)\b/, keys: ["sparkle", "accent"] },
+  { say: /\b(?:splatter|splashes?|drips?)\b/, keys: ["splatter"] },
   { say: /\b(?:rays|sun ?rays|sunburst)\b/, keys: ["ray", "burst"] },
 ];
 

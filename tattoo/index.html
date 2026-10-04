@@ -53,7 +53,7 @@
       </div>
       <div class="panel__body" data-lpane="library">
         <form class="quickgen" id="quickGen" autocomplete="off">
-          <input id="quickPrompt" type="text" placeholder="Describe a tattoo… e.g. geometric wolf" aria-label="Describe a tattoo">
+          <input id="quickPrompt" type="text" placeholder="Describe a tattoo…" aria-label="Describe a tattoo">
           <button class="btn btn--accent" type="submit">Make</button>
         </form>
         <div class="libgrid" id="libGrid"></div>
@@ -85,6 +85,7 @@
         <button data-cam="left" title="Their left side">Left</button>
         <button data-cam="right" title="Their right side">Right</button>
         <button data-cam="fit" title="Whole body" aria-label="Whole body"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+        <button data-cam="shot" class="cam-shot" title="Save image" aria-label="Save image"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
         <button data-cam="spin" title="Turntable" aria-label="Turntable" id="camSpin"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M21 12a9 9 0 11-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
       </div>
       <button class="fab fab--lib" id="mobLib" aria-label="Designs">＋ Design</button>
@@ -98,7 +99,7 @@
     <div class="create">
       <div class="create__styles">
         <form class="promptbar" id="createPrompt" autocomplete="off">
-          <input id="createPromptInput" type="text" placeholder="Describe your tattoo — “mandala with 12 petals”, “Emma in script”, “watercolor butterfly”…" aria-label="Describe your tattoo">
+          <input id="createPromptInput" type="text" placeholder="Describe it: “Emma in script”, “koi on my calf”…" aria-label="Describe your tattoo">
           <button class="btn btn--accent" type="submit">Generate</button>
         </form>
         <div class="catbar" id="catBar" role="tablist" aria-label="Style categories"></div>

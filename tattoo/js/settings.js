@@ -60,9 +60,9 @@ export const SETTINGS = [
       { value: "shop", label: "Warm tattoo shop" }, { value: "dramatic", label: "Dramatic" },
       { value: "rim", label: "Rim light" }, { value: "flat", label: "Flat (check linework)" },
     ] },
-  { key: "scene.background", group: "skin", label: "Background", type: SELECT, default: "charcoal",
+  { key: "scene.background", group: "skin", label: "Background", type: SELECT, default: "auto",
     choices: [
-      { value: "charcoal", label: "Charcoal studio" }, { value: "midnight", label: "Midnight blue" },
+      { value: "auto", label: "Match theme" }, { value: "charcoal", label: "Charcoal studio" }, { value: "midnight", label: "Midnight blue" },
       { value: "warm", label: "Warm shop" }, { value: "light", label: "Light grey" },
       { value: "white", label: "White" }, { value: "black", label: "Black" },
     ] },

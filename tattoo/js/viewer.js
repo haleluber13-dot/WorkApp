@@ -69,7 +69,7 @@ export class Viewer {
     this.key.castShadow = true;
     this.key.shadow.mapSize.set(2048, 2048);
     Object.assign(this.key.shadow.camera, { left: -1.3, right: 1.3, top: 2.3, bottom: -0.2, near: 0.5, far: 12 });
-    this.key.shadow.bias = -0.0004; this.key.shadow.normalBias = 0.025; this.key.shadow.radius = 4;
+    this.key.shadow.bias = -0.0006; this.key.shadow.normalBias = 0.035; this.key.shadow.radius = 4;
     this.fill = new THREE.DirectionalLight(0xffffff, 0.6);
     this.rim = new THREE.DirectionalLight(0xffffff, 1);
     this.scene.add(this.hemi, this.key, this.fill, this.rim);
@@ -140,10 +140,12 @@ export class Viewer {
     this._resize();
 
     this.tween = null;
+    let last = performance.now();
     const loop = (t) => {
       requestAnimationFrame(loop);
+      const dt = Math.min(0.1, Math.max(0, (t - last) / 1000)); last = t;
       if (this.tween) this._stepTween(t);
-      const moved = this.controls.update();
+      const moved = this.controls.update(dt);
       if (moved || this.dirty || this.controls.autoRotate) {
         this.renderer.render(this.scene, this.camera);
         this.dirty = false;
@@ -156,7 +158,9 @@ export class Viewer {
   /* ── settings ─────────────────────────────────────────────────────── */
   applySettings(s) {
     this.settings = s;
-    const bg = BACKGROUNDS[s["scene.background"]] || BACKGROUNDS.charcoal;
+    let bgKey = s["scene.background"];
+    if (bgKey === "auto" || !BACKGROUNDS[bgKey]) bgKey = document.documentElement.dataset.theme === "light" ? "light" : "charcoal";
+    const bg = BACKGROUNDS[bgKey];
     this.container.style.background = bg.css;
     this.bg = bg;
     const L = LIGHTING[s["scene.lighting"]] || LIGHTING.studio;
@@ -261,8 +265,31 @@ export class Viewer {
     const p = new THREE.Vector3(...point), n = new THREE.Vector3(...normal).normalize();
     const span = Math.max(sizeM * 2.6, 0.3);
     const dist = THREE.MathUtils.clamp(span / 2 / Math.tan(this._halfFov()), 0.35, 3);
-    const dir = n.clone(); dir.y = dir.y * 0.6 + 0.12; dir.normalize();
-    this.moveCamera(p.clone().addScaledVector(dir, dist), p);
+    const base = n.clone(); base.y = base.y * 0.6 + 0.12; base.normalize();
+    // the spot may be hidden behind another body part (inner arm, inner thigh):
+    // swing around the body until the camera can actually see it
+    const from = p.clone().addScaledVector(n, 0.004);
+    const clear = (dir) => {
+      if (!this.bodyMesh) return true;
+      this.raycaster.set(from, dir);
+      this.raycaster.far = dist;
+      const hit = this.raycaster.intersectObject(this.bodyMesh, false)[0];
+      this.raycaster.far = Infinity;
+      return !hit;
+    };
+    let best = base;
+    if (!clear(base)) {
+      const Y = new THREE.Vector3(0, 1, 0);
+      const tries = [];
+      for (const tilt of [0, 0.35, -0.3, 0.7]) for (const a of [20, -20, 40, -40, 60, -60, 80, -80, 100, -100, 130, -130]) tries.push([a, tilt]);
+      for (const [a, tilt] of tries) {
+        const d = base.clone().applyAxisAngle(Y, a * Math.PI / 180);
+        d.y += tilt; d.normalize();
+        if (d.dot(n) < 0.05) continue; // must still look at the skin's front side
+        if (clear(d)) { best = d; break; }
+      }
+    }
+    this.moveCamera(p.clone().addScaledVector(best, dist), p);
   }
   viewFrom(side) {
     if (!this.bounds) return;
@@ -464,6 +491,7 @@ export class Viewer {
       const hit = this.pickBody(e.clientX, e.clientY);
       if (this.placing) {
         if (hit) this.cb.onPlace?.(hit.point.toArray(), hit.normal.toArray());
+        else this.cb.onPlaceMiss?.();
         return;
       }
       this.cb.onSelect?.(null, hit ? { point: hit.point.toArray(), normal: hit.normal.toArray() } : null);
