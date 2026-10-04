@@ -1169,7 +1169,8 @@ async function loadIntoSketch(d) {
 }
 function sketchToDesign() {
   if (!pad || pad.isEmpty?.()) { toast("Draw something first"); return null; }
-  const c = pad.toTrimmedCanvas ? pad.toTrimmedCanvas(12) : pad.toCanvas();
+  const c = (pad.toTrimmedCanvas && pad.toTrimmedCanvas(12)) || pad.toCanvas();
+  if (!c) { toast("Draw something first"); return null; }
   return app.addImageDesign({ name: $("#sketchName").value.trim() || "My sketch", image: c.toDataURL("image/png"), width: c.width, height: c.height });
 }
 $("#sketchSave").addEventListener("click", () => { if (sketchToDesign()) toast("Saved to your designs"); });
