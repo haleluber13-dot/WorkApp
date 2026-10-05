@@ -1,5 +1,5 @@
 /* MotorLab service worker — offline app shell. Bump CACHE when files change. */
-const CACHE = 'motorlab-v7';
+const CACHE = 'motorlab-v8';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './icons/icon.svg',
@@ -58,8 +58,20 @@ self.addEventListener('fetch', (e) => {
     }).catch(() => caches.match(e.request)));
     return;
   }
-  e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
+  /* Code and data come from the network first, so an update is never a mix of
+     old and new files; the cache is the offline fallback. Heavy assets (models,
+     textures, sounds, environments) are cache-first: they do not change
+     between builds in ways that break the page, and they are large. */
+  const heavy = /\.(glb|png|jpg|webp|mp3|hdr|wasm|bin)$/i.test(url.pathname);
+  if (heavy){
+    e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(r => {
+      if (r.ok){ const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
+      return r;
+    })));
+    return;
+  }
+  e.respondWith(fetch(e.request).then(r => {
     if (r.ok){ const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
     return r;
-  }).catch(() => caches.match('./index.html'))));
+  }).catch(() => caches.match(e.request).then(hit => hit || (e.request.mode === 'navigate' ? caches.match('./index.html') : undefined))));
 });

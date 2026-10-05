@@ -17,6 +17,20 @@
 </script>
 </head>
 <body>
+<div id="bootstage" style="position:fixed;top:0;left:0;right:0;z-index:99998;background:#f26b1d;color:#111;font:12px/1.3 system-ui,sans-serif;padding:5px 10px;box-shadow:0 2px 8px rgba(0,0,0,.4)">MotorLab is loading… (page received)</div>
+<script>
+  /* Stays until the app has started. If it stays for good, the text on it is
+     exactly what to report: the last stage reached, or the first error. */
+  (function(){
+    var box = document.getElementById('bootstage'), t0 = Date.now(), failed = false;
+    window.__ml_stage = function(s){ if (!failed && box) box.textContent = 'MotorLab is loading… ' + s + ' (' + Math.round((Date.now() - t0) / 100) / 10 + 's)'; };
+    window.__ml_done = function(){ if (box) box.remove(); box = null; };
+    window.__ml_fail = function(msg){ failed = true; if (box){ box.style.background = '#b3261e'; box.style.color = '#fff'; box.textContent = 'MotorLab could not start: ' + msg + ' — tap to copy'; box.onclick = function(){ try { navigator.clipboard.writeText(box.textContent); } catch (e) {} }; } };
+    window.addEventListener('error', function(e){ window.__ml_fail((e.message || 'error') + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : '')); }, true);
+    window.addEventListener('unhandledrejection', function(e){ var r = e.reason; window.__ml_fail(r && (r.message || r.stack) ? (r.message || r.stack) : String(r)); });
+    setTimeout(function(){ if (box && !failed && document.getElementById('bootstage')) box.textContent += ' — this is slow; if it never finishes, send this text: ' + (box.textContent); }, 30000);
+  })();
+</script>
 
 <header class="topbar">
   <div class="brand">

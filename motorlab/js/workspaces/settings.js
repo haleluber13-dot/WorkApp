@@ -155,7 +155,7 @@ export function render(ctx, tab){
       note('Shorter is quicker once you know the app; longer stops a slow click from lifting something you only meant to look at.'),
       toggle('Snap a part onto the bench when you drop it nearby', s.benchSnap ?? true,
         (v) => set('benchSnap', v)),
-      toggle('Show a picture of each part in the lists', s.partPics ?? true, (v) => set('partPics', v)),
+      toggle('Show a picture of each part in the lists', s.partPics ?? true, (v) => { set('partPicsAuto', false); set('partPics', v); }),
       note('The pictures are rendered from the parts themselves. Turn them off on a slow machine.')),
 
     section('Text and motion',

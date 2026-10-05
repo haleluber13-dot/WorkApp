@@ -187,6 +187,7 @@ ${body}
 <script>
 ${dracoJs}
 </script>
+<script>window.__ml_stage&&__ml_stage('decoder loaded');</script>
 <script>
 /* GLTFLoader uploads textures through ImageBitmapLoader when it can, and that
    loader fetch()es the blob: URLs it makes from a model's embedded images — a
@@ -196,7 +197,8 @@ ${dracoJs}
    everywhere pictures are. */
 window.createImageBitmap = undefined;
 </script>
-<script>window.__MOTORLAB_OMIT=${JSON.stringify(omit)};window.__MOTORLAB_SCANS_ONLY=${JSON.stringify(!process.argv.includes('--keep-all'))};window.__MOTORLAB_LAND=${land};window.__MOTORLAB_FEED=${feed};window.__MOTORLAB_ASSETS=${JSON.stringify(assets)};</script>
+<script>window.__ml_stage&&__ml_stage('assets loaded');window.__MOTORLAB_OMIT=${JSON.stringify(omit)};window.__MOTORLAB_SCANS_ONLY=${JSON.stringify(!process.argv.includes('--keep-all'))};window.__MOTORLAB_LAND=${land};window.__MOTORLAB_FEED=${feed};window.__MOTORLAB_ASSETS=${JSON.stringify(assets)};</script>
+<script>window.__ml_stage&&__ml_stage('starting the app');</script>
 <script>
 ${js}
 </script>

@@ -85,8 +85,12 @@ function lowEndDevice(){
 }
 
 async function boot(){
+  globalThis.__ml_stage?.('app script running');
   load();
   if (state.settings.qualityAuto && lowEndDevice() && state.settings.quality !== 'fast') state.settings.quality = 'fast';
+  /* a thumbnail render per part is a few hundred extra renders on a phone */
+  if (state.settings.partPicsAuto !== false && lowEndDevice()) state.settings.partPics = false;
+  globalThis.__ml_stage?.('saved state loaded');
   loadStoredUpdates();
   globalThis.__MOTORLAB_GENERATED = state.ui.generated ||= {};
   invalidateTrees();
@@ -96,7 +100,9 @@ async function boot(){
   Promise.all([loadTextures(), loadPartModels()])
     .then(() => { if (currentModel){ currentModel = null; reloadModel(); } });
 
+  globalThis.__ml_stage?.('opening the 3D view');
   viewport = new Viewport($('#gl'), $('#labels'));
+  globalThis.__ml_stage?.('3D view open, building the machine');
   /* a handle for tooling and tests — the single-file build has no module URLs
      to import, so anything that wants to look inside it has to come through
      here */
@@ -546,11 +552,19 @@ function credits(){
 }
 
 /* ---------------------------------------------------------------------- */
-const start = () => boot().then(() => { booted = true; }).catch((err) => { console.error(err); showFatal(err); });
+const start = () => boot().then(() => { booted = true; globalThis.__ml_done?.(); }).catch((err) => { console.error(err); globalThis.__ml_fail?.(err?.message || String(err)); showFatal(err); });
 if (document.readyState === 'loading') addEventListener('DOMContentLoaded', start);
 else start();
 
 try {
-  if ('serviceWorker' in navigator && navigator.serviceWorker)
-    addEventListener('load', () => { try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch {} });
+  if ('serviceWorker' in navigator && navigator.serviceWorker){
+    addEventListener('load', () => { try { navigator.serviceWorker.register('./sw.js', { updateViaCache:'none' }).catch(() => {}); } catch {} });
+    /* when a newer worker takes over, reload once so every file comes from the
+       same version — a half-updated cache is how an update turns into a dark page */
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded || !navigator.serviceWorker.controller) return;
+      reloaded = true; location.reload();
+    });
+  }
 } catch { /* sandboxed frame: no service worker, the page still runs */ }
