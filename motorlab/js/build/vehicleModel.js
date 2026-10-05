@@ -1342,6 +1342,8 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
   const side1 = (s) => s < 0 ? 1 : 2;
 
   /* --- panel gaps: a 5 mm dark line lying in the skin ------------------- */
+  /* a shut line is a gap, not a bead: the dark pipe is sunk into the skin so
+     only a sliver of it shows, and that sliver reads as depth */
   const seam = (id, pts, r = M(7)) => pts.length > 1 && give(id, pipe(pts, r, gap, 5));
   const runV = (t, y0, y1, side, n = 9) => {
     const out2 = [], x = X(t);
@@ -1349,7 +1351,7 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       const y = y0 + (y1 - y0) * (i / n);
       if (y > sp.top(x) - M(20) || y < sp.bot(x) + M(10)) continue;
       if (sp.z(x, y) < M(60)) continue;
-      out2.push(sp.p(x, y, side, M(1)).toArray());
+      out2.push(sp.p(x, y, side, -M(4)).toArray());
     }
     return out2;
   };
@@ -1360,7 +1362,7 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       const x = X(t);
       if (y > sp.top(x) - M(20) || y < sp.bot(x) + M(10)) continue;
       if (sp.z(x, y) < M(60)) continue;
-      out2.push(sp.p(x, y, side, M(3)).toArray());
+      out2.push(sp.p(x, y, side, -M(4)).toArray());
     }
     return out2;
   };
@@ -1379,7 +1381,7 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       for (let i = 0; i <= 10; i++){
         const t = t0 + (t1 - t0) * (i / 10), x = X(t), y = waist(t) - hgt * 0.012;
         if (sp.z(x, y) < M(60)) continue;
-        pts.push(sp.p(x, y, side, M(3)).toArray());
+        pts.push(sp.p(x, y, side, -M(4)).toArray());
       }
       seam(id, pts);
     }
@@ -1409,7 +1411,7 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       const sz = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / n);
       const sy = Math.pow(Math.max(0, cy), 2 / n);
       const w = c.wBot + (c.wTop - c.wBot) * cy;
-      pts.push([c.x, yMid + hH * sy + M(2), w * sz * 1.006]);
+      pts.push([c.x, yMid + hH * sy - M(4), w * sz * 0.996]);
     }
     return pts;
   };
@@ -1513,7 +1515,7 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       } else if (lt === 'xenon'){
         for (const k of [0.3, 0.7]) bowl(lampY, zIn + (zNose - zIn) * k, hh * 0.30);
       } else bowl(lampY, (zIn + zNose) / 2, hh * 0.42);
-      hl.add(skinStrip(side, lampY - hh * 0.46, lampY - hh * 0.12, tWrap * 0.95, zNose - M(10), false, M(6), amber, 0.3, tHead));   // the indicator round the corner
+      hl.add(skinStrip(side, lampY - hh * 0.44, lampY - hh * 0.16, tWrap * 0.55, zNose - M(40), false, M(6), amber, 0.5, tHead));   // the indicator, in the corner of the lens
       give('headlamp.' + side1(side), hl);
     }
     if (zTail > M(60)){
