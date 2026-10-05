@@ -702,6 +702,12 @@ export class Viewport {
        exactly as it was. */
     const shellId = this.model.shellId;
     const shelled = !!shellId && this.installed.has(shellId);
+    /* The moment anything beneath the shell comes off, the shell turns to
+       glass: you see the generated engine with that part missing, instead of
+       an unchanged skin over an invisible teardown. Fully assembled, the
+       shell is the solid real model again. */
+    const anyRemoved = shelled && [...this.model.nodes.keys()].some(id => id !== shellId && !this.installed.has(id) && !this.bench.has(id));
+    const shellSee = shelled && anyRemoved;
     /* parts the model is known not to cover stay out in the open — and so
        does the running gear a service state is there to show */
     const keep = this.model.keepIds || new Set();
@@ -713,7 +719,7 @@ export class Viewport {
          like destroying it. */
       const inst = this.installed.has(id) || this.bench.has(id);
       const bid  = baseId(id);
-      const under = shelled && id !== shellId && !keep.has(id) && !keep.has(bid)
+      const under = shelled && !shellSee && id !== shellId && !keep.has(id) && !keep.has(bid)
                  && !reveal?.has(id) && !reveal?.has(bid) && !this.bench.has(id);
       const sel  = this.selected === id || (bid !== id && this.selected === bid);
       const hov  = this.hovered === id;
@@ -736,6 +742,13 @@ export class Viewport {
         o.visible = true; o.castShadow = true;
         const base = this._origMats.get(o);
         if (!base) return;
+        if (id === shellId && shellSee){
+          let m = o.userData._see;
+          if (!m){ m = new THREE.MeshBasicMaterial({ color:0x8fa6bf, transparent:true, opacity:0.09, depthWrite:false, side:THREE.DoubleSide }); o.userData._see = m; }
+          o.material = m; o.castShadow = false; o.renderOrder = 20;
+          return;
+        }
+        if (id === shellId) o.renderOrder = 0;
         if (sel || hov || hl){
           let m = o.userData._hi;
           if (!m){ m = base.clone(); o.userData._hi = m; }

@@ -87,7 +87,8 @@ function lowEndDevice(){
 async function boot(){
   globalThis.__ml_stage?.('app script running');
   load();
-  if (state.settings.qualityAuto && lowEndDevice() && state.settings.quality !== 'fast') state.settings.quality = 'fast';
+  /* phones keep the balanced look (shadows, SMAA) now that draw calls are halved;
+     only the per-part thumbnails are skipped there */
   /* a thumbnail render per part is a few hundred extra renders on a phone */
   if (state.settings.partPicsAuto !== false && lowEndDevice()) state.settings.partPics = false;
   globalThis.__ml_stage?.('saved state loaded');
@@ -561,9 +562,10 @@ try {
     addEventListener('load', () => { try { navigator.serviceWorker.register('./sw.js', { updateViaCache:'none' }).catch(() => {}); } catch {} });
     /* when a newer worker takes over, reload once so every file comes from the
        same version — a half-updated cache is how an update turns into a dark page */
+    const hadController = !!navigator.serviceWorker.controller;   /* an update, not a first visit */
     let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloaded || !navigator.serviceWorker.controller) return;
+      if (reloaded || !hadController) return;
       reloaded = true; location.reload();
     });
   }
