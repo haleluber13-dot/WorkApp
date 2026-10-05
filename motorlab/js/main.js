@@ -42,6 +42,17 @@ const ctx = {
 };
 
 /* ---------------------------------------------------------------------- */
+/* The shared page can be shown inside a sandboxed frame where reading
+   localStorage throws. Everything that saves goes through try/catch, but the
+   throw on the property itself would still kill the boot — so give the page a
+   memory-only store instead and let it run (nothing persists, that is all). */
+try { void localStorage.length; } catch {
+  const mem = new Map();
+  const shim = { getItem: (k) => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => { mem.set(k, String(v)); },
+                 removeItem: (k) => { mem.delete(k); }, clear: () => mem.clear(), key: (i) => [...mem.keys()][i] ?? null,
+                 get length(){ return mem.size; } };
+  try { Object.defineProperty(globalThis, 'localStorage', { value: shim, configurable: true }); } catch {}
+}
 async function boot(){
   load();
   loadStoredUpdates();
@@ -118,10 +129,12 @@ async function boot(){
 
   $('#btnHelp').onclick = showHelp;
   $('#btnReset').onclick = () => goto('settings', { tab:'data' });
-  if (!localStorage.getItem('motorlab.seen')){
-    localStorage.setItem('motorlab.seen', '1');
-    setTimeout(showHelp, 700);
-  }
+  try {
+    if (!localStorage.getItem('motorlab.seen')){
+      localStorage.setItem('motorlab.seen', '1');
+      setTimeout(showHelp, 700);
+    }
+  } catch { /* storage blocked: no first-run note, nothing else lost */ }
 }
 
 function current(){ return WS_BY_ID[state.workspace] || garage; }
@@ -504,5 +517,7 @@ function credits(){
 if (document.readyState === 'loading') addEventListener('DOMContentLoaded', boot);
 else boot();
 
-if ('serviceWorker' in navigator)
-  addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+try {
+  if ('serviceWorker' in navigator && navigator.serviceWorker)
+    addEventListener('load', () => { try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch {} });
+} catch { /* sandboxed frame: no service worker, the page still runs */ }
