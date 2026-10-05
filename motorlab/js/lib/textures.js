@@ -56,19 +56,19 @@ export const FILTER_UV = { u0:0.016, u1:0.984, v0:0.719, v1:0.953 };
  * levelled there to the real surface's value, so a material that takes one
  * runs roughness 1.0 and reads the truth off the map. */
 const SURFACES = {
-  cast:     { nrm:'cast_nrm.jpg',     rgh:'cast_rgh.jpg', },     // sand-cast aluminium
-  iron:     { nrm:'iron_nrm.jpg',     rgh:'iron_rgh.jpg', },     // cast iron
+  cast:     { nrm:'cast_nrm.jpg',     rgh:'cast_rgh.jpg' },     // sand-cast aluminium
+  iron:     { nrm:'iron_nrm.jpg',     rgh:'iron_rgh.jpg' },     // cast iron
   rust:     { nrm:'rust_nrm.jpg',     rgh:'rust_rgh.jpg',     col:'rust_col.jpg' },     // heat-cycled iron, rust bloom
-  hot:      { nrm:'hot_nrm.jpg',      rgh:'hot_rgh.jpg', },      // heat-scaled steel
-  machined: { nrm:'machined_nrm.jpg', rgh:'machined_rgh.jpg', }, // fine tool marks
-  steel:    { nrm:'steel_nrm.jpg',    rgh:'steel_rgh.jpg', },    // brushed steel
+  hot:      { nrm:'hot_nrm.jpg',      rgh:'hot_rgh.jpg' },      // heat-scaled steel
+  machined: { nrm:'machined_nrm.jpg', rgh:'machined_rgh.jpg' }, // fine tool marks
+  steel:    { nrm:'steel_nrm.jpg',    rgh:'steel_rgh.jpg' },    // brushed steel
   forged:   { nrm:'forged_nrm.jpg',   rgh:'forged_rgh.jpg',   col:'forged_col.jpg' },   // forging scale
   zinc:     { nrm:'zinc_nrm.jpg',     rgh:'zinc_rgh.jpg',     col:'zinc_col.jpg' },     // galvanised spangle
-  powder:   { nrm:'powder_nrm.jpg',   rgh:'powder_rgh.jpg', },   // black powder coat
-  wrinkle:  { nrm:'wrinkle_nrm.jpg',  rgh:'wrinkle_rgh.jpg', },  // wrinkle enamel
+  powder:   { nrm:'powder_nrm.jpg',   rgh:'powder_rgh.jpg' },   // black powder coat
+  wrinkle:  { nrm:'wrinkle_nrm.jpg',  rgh:'wrinkle_rgh.jpg' },  // wrinkle enamel
   braid:    { nrm:'braid_nrm.jpg',    rgh:'braid_rgh.jpg',    col:'braid_col.jpg' },    // stainless braid
   rubber:   { nrm:'rubber_nrm.jpg',   rgh:'rubber_rgh.jpg',   col:'rubber_col.jpg' },
-  plastic:  { nrm:'plastic_nrm.jpg',  rgh:'plastic_rgh.jpg', },
+  plastic:  { nrm:'plastic_nrm.jpg',  rgh:'plastic_rgh.jpg' },
   leather:  { nrm:'leather_nrm.jpg',  rgh:'leather_rgh.jpg',  col:'leather_col.jpg' },
   asphalt:  { nrm:'asphalt_nrm.jpg',  rgh:'asphalt_rgh.jpg',  col:'asphalt_col.jpg' },
   /* generated, not scanned: a faint brushed grain, the orange peel of sprayed
