@@ -9,6 +9,7 @@
  */
 import { h, section, para, btn, toast, add } from '../ui.js';
 import { state, engine, vehicle, fitted, save } from '../store.js';
+import { wheelRadius as specWheelRadius } from '../data/vehicles.js';
 import { engineAudio } from '../lib/engineAudio.js';
 import { TrackDrive } from '../lib/track.js';
 
@@ -19,12 +20,9 @@ const drive = {
   td: null,             // the TrackDrive instance when on the circuit
 };
 
-const wheelRadius = (v) => {
-  /* rolling radius from the spec: rim + a sensible sidewall */
-  const rim = (v.rimF || 17) * 25.4 / 2;
-  const wall = (v.tyreF || 225) * 0.45;
-  return (rim + wall) / 1000;
-};
+/* rolling radius from the spec — the same figure the 3D model and the dyno
+   use, so the speedo agrees with the wheels that are turning */
+const wheelRadius = (v) => specWheelRadius(v, false);
 
 function ratios(v){ return v.gears || [3.6, 2.1, 1.4, 1.0, 0.8]; }
 
