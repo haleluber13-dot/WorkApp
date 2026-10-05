@@ -197,7 +197,7 @@ const REP = {
   shaft:    [1, 3],     // crank and shafts: marks along the length
   hardware: 0.8,        // bolts, nuts, washers, clamps
   hose:     [8, 1.5],   // along the tube, round the tube
-  cover:    4,          // painted cam covers
+  cover:    7,          // wrinkle-painted cam covers: cells of a few millimetres
 };
 
 export const MAT = {
@@ -605,7 +605,7 @@ export function letterDecal(lines, { w, h, hex = 0xd9dde0, style = 'bare', strip
                           : '"Arial Narrow", "Roboto Condensed", "Liberation Sans Narrow", "Helvetica Neue", Arial, sans-serif';
     rows.forEach((text, i) => {
       const cy = rowH * (i + 0.5);
-      let size = rowH * (script ? 0.78 : 0.72);
+      let size = rowH * (script ? 0.82 : n === 1 ? 0.84 : 0.76);
       g.font = `${script ? 'italic ' : ''}bold ${size}px ${family}`;
       const avail = x1 - x0;
       const tw = Math.max(1, g.measureText(text).width);
@@ -952,15 +952,19 @@ export function camCoverMesh(len, width, height, mat, bolts = 8, hardware = null
   if (lg && lg.lines && lg.lines.length){
     const put = (lines, x, z, lw, lh, flipExtra) => {
       const p = letterPlate(lines, lw, lh, m, { hex:lg.hex, style:lg.style, stripes:lg.stripes,
-                                                 script:lg.script, flip: !!opts.flip !== !!flipExtra, thickness: height * 0.03 });
+                                                 script:lg.script, flip: flipExtra, thickness: height * 0.03 });
       g.add(at(p, x, camCoverTopAt(width, height, z, dohc) - 0.0002, z));
     };
+    const flipOf = (zSign, extra) => opts.flipSides ? zSign < 0 : (!!opts.flip !== !!extra);
     if (dohc){
-      const hz = w * 0.43, lw = len * 0.52, lh = w * 0.30;
-      put(lg.lines, 0, -hz, lw, lh, false);
-      put(lg.lines.slice(0, 1), lg.lines.length > 1 ? len * 0.05 : 0, hz, lw, lh, true);
+      /* one line per hump, as tall as the hump allows: the intake-side hump
+         carries the first line, the exhaust-side hump the second (or the
+         first again when there is only one) */
+      const hz = w * 0.43, lw = len * 0.46, lh = w * 0.34;
+      put([lg.lines[0]], 0, -hz, lw, lh, flipOf(-1, false));
+      put([lg.lines[1] || lg.lines[0]], 0, hz, lw, lh, flipOf(1, false));
     } else {
-      put(lg.lines, 0, 0, len * 0.56, w * 0.46, false);
+      put(lg.lines, 0, 0, len * 0.50, w * 0.62, flipOf(1, false));
     }
   }
   return g;
