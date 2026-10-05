@@ -512,6 +512,7 @@ export function boltCircle(radius, count, head, h, mat, plane = 'xz'){
     const a = (i / count) * TAU;
     const b = hexPrism(head, h, mat || MAT.plated());
     if (plane === 'xz') b.position.set(Math.cos(a) * radius, 0, Math.sin(a) * radius);
+    else if (plane === 'yz'){ rot(b, 0, 0, Math.PI / 2); b.position.set(0, Math.cos(a) * radius, Math.sin(a) * radius); }
     else { rot(b, Math.PI / 2, 0, 0); b.position.set(Math.cos(a) * radius, Math.sin(a) * radius, 0); }
     g.add(b);
   }
@@ -705,7 +706,7 @@ export function crankDamper(radius, width, mat){
                      [radius * 0.60, width * 0.30], [radius * 0.16, width * 0.30]], m, 30);
   rot(hub, 0, 0, Math.PI / 2);
   g.add(hub);
-  g.add(at(boltCircle(radius * 0.36, 6, radius * 0.11, width * 0.16, MAT.plated(), 'xy'),
+  g.add(at(boltCircle(radius * 0.36, 6, radius * 0.11, width * 0.16, MAT.plated(), 'yz'),
            -width * 0.18, 0, 0));
   g.add(at(rot(hexPrism(radius * 0.30, width * 0.22, MAT.plated()), 0, 0, Math.PI / 2),
            -width * 0.32, 0, 0));                     // the crank bolt in the nose
@@ -731,7 +732,7 @@ export function flywheelMesh(radius, width, mat, teeth = 110, bolts = true){
   rot(ring, 0, Math.PI / 2, 0);
   ring.position.x = width * 0.18;
   g.add(ring);
-  if (bolts) g.add(at(boltCircle(radius * 0.28, 8, radius * 0.10, width * 0.20, MAT.plated(), 'xy'),
+  if (bolts) g.add(at(boltCircle(radius * 0.28, 8, radius * 0.10, width * 0.20, MAT.plated(), 'yz'),
            width * 0.42, 0, 0));
   return g;
 }
@@ -758,7 +759,7 @@ export function clutchMesh(radius, width, mat){
   g.add(at(lathe([[radius*0.16, width*0.36], [radius*0.30, width*0.36],
                   [radius*0.30, width*0.50], [radius*0.16, width*0.50]], MAT.plated(), 26)
            .rotateZ(Math.PI/2), 0, 0, 0));
-  g.add(at(boltCircle(radius * 0.94, 6, radius * 0.09, width * 0.16, MAT.plated(), 'xy'),
+  g.add(at(boltCircle(radius * 0.94, 6, radius * 0.09, width * 0.16, MAT.plated(), 'yz'),
            -width * 0.42, 0, 0));
   return g;
 }
