@@ -753,6 +753,8 @@ const SUPPRESS = { 'i6-30-legend': ['bov', 'bypasspipe', 'airbox'],
                    'race-82-nitro': ['injseals', 'wpgasket', 'bypasspipe', 'ect'],   /* no EFI, no cooling system */
                    'ford-dfv': ['injseals'] };                                       /* slide-throttle mechanical injection */
 function finish(parts, e){
+  /* module parts skip the P() helper, so give them its defaults */
+  for (const p of parts){ if (!(p.qty >= 1)) p.qty = 1; p.deps ||= []; p.removable ??= true; p.group ||= 'misc'; }
   const drop = new Set(SUPPRESS[e.id] || []);
   if (drop.size){
     parts = parts.filter(p => !drop.has(p.id));
