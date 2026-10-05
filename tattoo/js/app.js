@@ -1436,6 +1436,7 @@ function initWeb() {
           try { app.placeTattoo({ designId: d.id, region: freeRegion() }); toast("Placed — drag it anywhere on the body"); } catch (e) { toast(e.message); }
         },
         onSave(item, art) { webToDesign(item, art); toast("Saved to your designs"); },
+        onPickForGeo(item, blob) { sendToGeo(blob, item.title || "Web picture"); },
         async onCutout(item, blob) {
           const f = new File([blob], (item.title || "web-image").replace(/[^\w-]+/g, "-").slice(0, 40) + ".png", { type: blob.type || "image/png" });
           await openInPhoto([f]);
@@ -1448,12 +1449,50 @@ function initWeb() {
   })();
   return webInit;
 }
+/* Create → Geometric maker: shapes filled with photos, low-poly / half & half effects */
+let geo = null, geoInit = null;
+function initGeo() {
+  if (geoInit) return geoInit;
+  geoInit = (async () => {
+    try {
+      const m = await import("./geo/geomaker.js");
+      const asDesign = (canvas, name) => app.addImageDesign({ name: name || "Geometric", image: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height, style: "geometric-maker" });
+      geo = m.mountGeoMaker($("#geoHost"), {
+        toast,
+        onUse(canvas, name) {
+          const d = asDesign(canvas, name);
+          showTab("studio");
+          try { app.placeTattoo({ designId: d.id, region: freeRegion() }); toast("Placed — drag it anywhere on the body"); } catch (e) { toast(e.message); }
+        },
+        onSave(canvas, name) { asDesign(canvas, name); toast("Saved to your designs"); },
+        onSketch(canvas, name) { const d = asDesign(canvas, name); app.openSketch(d.id); },
+        onExport(canvas, name) { download(`${(name || "geometric").replace(/[^\w-]+/g, "-")}.png`, canvas.toDataURL("image/png")); },
+        getDesigns: () => store.designs.filter((d) => !d.deleted).map((d) => ({ id: d.id, name: d.name, thumb: thumbOf(d) })),
+        getDesignCanvas: (id) => designCanvas(store.design(id), 1536),
+      });
+      window.inkGeo = geo;
+    } catch (e) {
+      console.error(e);
+      $("#geoHost").innerHTML = `<p class="muted" style="padding:20px">The geometric maker couldn't load: ${esc(e.message)}</p>`;
+    }
+  })();
+  return geoInit;
+}
+async function sendToGeo(blobOrCanvas, name) {
+  showTab("create"); setCreateMode("geo");
+  await initGeo();
+  try { await geo?.addPhoto(blobOrCanvas, name); toast("Added to the geometric maker — put it in a shape"); } catch (e) { toast(e.message || "Couldn't add that picture"); }
+}
+
 function setCreateMode(mode) {
-  const isWeb = mode === "web";
-  $(".view--create").classList.toggle("is-web", isWeb);
-  $("#webHost").hidden = !isWeb;
+  const view = $(".view--create");
+  view.classList.toggle("is-web", mode === "web");
+  view.classList.toggle("is-geo", mode === "geo");
+  $("#webHost").hidden = mode !== "web";
+  $("#geoHost").hidden = mode !== "geo";
   $$("[data-cmode]").forEach((b) => { b.classList.toggle("on", b.dataset.cmode === mode); b.setAttribute("aria-selected", String(b.dataset.cmode === mode)); });
-  if (isWeb) initWeb(); else initCreate();
+  if (mode === "web") initWeb(); else if (mode === "geo") initGeo(); else initCreate();
+  requestAnimationFrame(layoutFloating);
 }
 $$("[data-cmode]").forEach((b) => b.addEventListener("click", () => setCreateMode(b.dataset.cmode)));
 
@@ -1478,6 +1517,7 @@ function initPhoto() {
         },
         onSave(canvas, name) { asDesign(canvas, name); toast("Saved to your designs"); },
         onSketch(canvas, name) { const d = asDesign(canvas, name); app.openSketch(d.id); },
+        onGeo(canvas, name) { sendToGeo(canvas, name || "Photo"); },
         onExport(canvas, name) { download(`${(name || "photo-tattoo").replace(/[^\w-]+/g, "-")}.png`, canvas.toDataURL("image/png")); },
       });
       window.inkPhoto = photo;
