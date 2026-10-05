@@ -54,7 +54,8 @@
         <button data-ltab="placed">On body <span class="count" id="placedCount">0</span></button>
       </div>
       <div class="panel__body" data-lpane="library">
-        <button class="btn fromphoto" id="fromPhoto" type="button"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 7h3l2-2.5h6L17 7h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zm8 3a4 4 0 100 8 4 4 0 000-8z"/></svg> Use a photo</button>
+        <button class="btn btn--accent fromphoto" id="fromPhoto" type="button"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 7h3l2-2.5h6L17 7h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zm8 3a4 4 0 100 8 4 4 0 000-8z"/></svg> Use a photo — cut out what you want</button>
+        <button class="btn fromphoto" id="importDesigns" type="button"><svg viewBox="0 0 24 24" width="18" height="18" style="fill:none;stroke:currentColor;stroke-width:2"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg> Import pictures as designs</button>
         <form class="quickgen" id="quickGen" autocomplete="off">
           <input id="quickPrompt" type="text" placeholder="Describe a tattoo…" aria-label="Describe a tattoo">
           <button class="btn btn--accent" type="submit">Make</button>
@@ -158,6 +159,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="fileImport" accept=".json,application/json" hidden>
 <input type="file" id="fileImage" accept="image/*" hidden>
+<input type="file" id="fileDesigns" accept="image/*,.heic,.heif,.avif,.webp,.svg" multiple hidden>
 
 <noscript><p style="padding:20px">InkForm 3D needs JavaScript.</p></noscript>
 <script>

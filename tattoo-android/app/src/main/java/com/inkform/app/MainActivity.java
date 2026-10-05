@@ -2,6 +2,7 @@ package com.inkform.app;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -27,13 +28,17 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
 
+import androidx.core.content.FileProvider;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 
@@ -54,6 +59,8 @@ public class MainActivity extends Activity {
     private SpeechRecognizer recognizer;
     private String pendingLang;
     private boolean pendingPartial;
+    private Uri cameraUri;
+    private final ArrayList<String> sharedQueue = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,7 +117,7 @@ public class MainActivity extends Activity {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
                 try {
-                    startActivityForResult(params.createIntent(), REQ_FILE);
+                    startActivityForResult(buildChooser(params), REQ_FILE);
                 } catch (Exception e) {
                     fileCallback = null;
                     return false;
@@ -128,6 +135,7 @@ public class MainActivity extends Activity {
 
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl(HOME);
+        handleShared(getIntent());
     }
 
     @Override
@@ -144,12 +152,119 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleShared(intent);
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_FILE && fileCallback != null) {
-            fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
-            fileCallback = null;
+        if (requestCode != REQ_FILE || fileCallback == null) return;
+        Uri[] result = null;
+        if (resultCode == RESULT_OK) {
+            ArrayList<Uri> uris = new ArrayList<>();
+            if (data != null) {
+                ClipData clip = data.getClipData();
+                if (clip != null) for (int i = 0; i < clip.getItemCount(); i++) uris.add(clip.getItemAt(i).getUri());
+                else if (data.getData() != null) uris.add(data.getData());
+            }
+            // the camera writes into cameraUri and returns no data
+            if (uris.isEmpty() && cameraUri != null) uris.add(cameraUri);
+            if (!uris.isEmpty()) result = uris.toArray(new Uri[0]);
         }
+        fileCallback.onReceiveValue(result);
+        fileCallback = null;
+        cameraUri = null;
+    }
+
+    // ── picking files: gallery / photos / drive, several at once, or the camera ──
+    private Intent buildChooser(WebChromeClient.FileChooserParams params) {
+        boolean multiple = params.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE;
+        ArrayList<String> mimes = new ArrayList<>();
+        boolean images = false;
+        for (String a : params.getAcceptTypes()) {
+            for (String t : a.split(",")) {
+                t = t.trim().toLowerCase();
+                if (t.isEmpty()) continue;
+                if (t.startsWith("image/")) images = true;
+                if (t.contains("/")) mimes.add(t);
+                else if (t.equals(".json")) mimes.add("application/json");
+                else if (t.equals(".heic") || t.equals(".heif")) { mimes.add("image/heic"); mimes.add("image/heif"); images = true; }
+                else if (t.equals(".svg")) mimes.add("image/svg+xml");
+            }
+        }
+        Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+        pick.addCategory(Intent.CATEGORY_OPENABLE);
+        if (images) pick.setType("image/*");
+        else if (mimes.size() == 1) pick.setType(mimes.get(0));
+        else {
+            pick.setType("*/*");
+            if (!mimes.isEmpty()) pick.putExtra(Intent.EXTRA_MIME_TYPES, mimes.toArray(new String[0]));
+        }
+        pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple);
+
+        Intent camera = images ? cameraIntent() : null;
+        if (camera != null && params.isCaptureEnabled()) return camera;
+        Intent chooser = Intent.createChooser(pick, images ? "Add photos" : "Choose a file");
+        if (camera != null) chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{camera});
+        return chooser;
+    }
+
+    private Intent cameraIntent() {
+        try {
+            Intent cam = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            if (cam.resolveActivity(getPackageManager()) == null) return null;
+            File dir = new File(getCacheDir(), "camera");
+            if (!dir.exists() && !dir.mkdirs()) return null;
+            File photo = new File(dir, "photo-" + System.currentTimeMillis() + ".jpg");
+            cameraUri = FileProvider.getUriForFile(this, "com.inkform.app.files", photo);
+            cam.putExtra(MediaStore.EXTRA_OUTPUT, cameraUri);
+            cam.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            return cam;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ── photos shared into the app ("Share → InkForm 3D") ──
+    @SuppressWarnings("deprecation")
+    private void handleShared(Intent intent) {
+        if (intent == null) return;
+        final ArrayList<Uri> uris = new ArrayList<>();
+        String action = intent.getAction();
+        if (Intent.ACTION_SEND.equals(action)) {
+            Uri u = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (u != null) uris.add(u);
+        } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            ArrayList<Uri> list = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (list != null) uris.addAll(list);
+        } else if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null) {
+            uris.add(intent.getData());
+        }
+        if (uris.isEmpty()) return;
+        new Thread(() -> {
+            int n = 0;
+            for (Uri u : uris) {
+                if (n >= 30) break;
+                try (InputStream in = getContentResolver().openInputStream(u)) {
+                    if (in == null) continue;
+                    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+                    byte[] chunk = new byte[65536];
+                    int r; long total = 0;
+                    while ((r = in.read(chunk)) > 0) { buf.write(chunk, 0, r); total += r; if (total > 60L * 1024 * 1024) break; }
+                    JSONObject o = new JSONObject();
+                    String name = u.getLastPathSegment();
+                    o.put("name", name == null ? "photo" : name.replaceAll(".*/", ""));
+                    String type = getContentResolver().getType(u);
+                    o.put("type", type == null ? "" : type);
+                    o.put("b64", Base64.encodeToString(buf.toByteArray(), Base64.NO_WRAP));
+                    synchronized (sharedQueue) { sharedQueue.add(o.toString()); }
+                    n++;
+                } catch (Exception ignored) { }
+            }
+            runOnUiThread(() -> web.evaluateJavascript("window.inkSharedReady && window.inkSharedReady()", null));
+        }).start();
     }
 
     @Override
@@ -290,5 +405,16 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String platform() { return "android"; }
+
+        /** Photos shared into the app, as a JSON array of {name, type, b64}; empties the queue. */
+        @JavascriptInterface
+        public String takeShared() {
+            synchronized (sharedQueue) {
+                JSONArray a = new JSONArray();
+                for (String s : sharedQueue) { try { a.put(new JSONObject(s)); } catch (Exception ignored) { } }
+                sharedQueue.clear();
+                return a.toString();
+            }
+        }
     }
 }

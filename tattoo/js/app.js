@@ -1434,6 +1434,69 @@ function initPhoto() {
 }
 $("#fromPhoto").addEventListener("click", () => { closeLib(); showTab("photo"); });
 
+/* Send pictures to the Photo studio (cut out / adjust); several at once. */
+async function openInPhoto(files) {
+  files = [...files].filter(Boolean);
+  if (!files.length) return;
+  showTab("photo");
+  await initPhoto();
+  if (!photo) return;
+  try {
+    if (photo.loadFiles) await photo.loadFiles(files);
+    else await photo.loadFile(files[0]);
+  } catch (e) { toast(e.message || "Couldn't open that picture"); }
+}
+
+/* Pictures that are already tattoo designs (PNG/JPG/SVG/HEIC…) go straight into the library. */
+$("#importDesigns").addEventListener("click", () => $("#fileDesigns").click());
+$("#fileDesigns").addEventListener("change", async (e) => {
+  const files = [...e.target.files];
+  e.target.value = "";
+  if (!files.length) return;
+  toast(files.length > 1 ? `Importing ${files.length} pictures…` : "Importing…");
+  let added = 0, last = null;
+  const { decodeImageFile } = await import("./imageio.js");
+  for (const f of files) {
+    try {
+      const name = (f.name || "Picture").replace(/\.[^.]+$/, "").slice(0, 60);
+      if (/svg/i.test(f.type) || /\.svg$/i.test(f.name)) {
+        const svg = await f.text();
+        if (/<script|<foreignObject|\son\w+\s*=|javascript:/i.test(svg)) throw new Error("unsafe svg");
+        last = app.addSvgDesign({ name, svg, style: "imported" });
+      } else {
+        const c = await decodeImageFile(f, { maxSide: 2048 });
+        last = app.addImageDesign({ name, image: c.toDataURL("image/png"), width: c.width, height: c.height, style: "imported" });
+      }
+      added++;
+    } catch (err) { toast(`Skipped “${f.name}”: ${err.message || "couldn't read it"}`); }
+  }
+  if (added) { toast(`Added ${added} design${added > 1 ? "s" : ""} — tap one, then tap the body`); if (last) startPlacing(last.id); }
+});
+
+/* Drag pictures onto the app from the computer. */
+addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.items || [])].some((i) => i.kind === "file")) e.preventDefault(); });
+addEventListener("drop", (e) => {
+  const files = [...(e.dataTransfer?.files || [])].filter((f) => f.type.startsWith("image/") || /\.(heic|heif|avif|webp|svg)$/i.test(f.name));
+  if (!files.length) return;
+  e.preventDefault();
+  if (currentTab === "sketch" || currentTab === "photo") return; // those tabs handle their own drops
+  openInPhoto(files);
+});
+
+/* Photos shared into the Android app ("Share → InkForm 3D"). */
+window.inkSharedReady = async () => {
+  if (!window.InkAndroid?.takeShared) return;
+  let list = [];
+  try { list = JSON.parse(window.InkAndroid.takeShared() || "[]"); } catch {}
+  if (!list.length) return;
+  const files = list.map((o) => {
+    const bin = atob(o.b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], o.name || "photo", { type: o.type || "" });
+  });
+  openInPhoto(files);
+};
+
 /* ════════════════════════════════════════════════════════════════════════
    keyboard
    ════════════════════════════════════════════════════════════════════════ */
@@ -1594,6 +1657,7 @@ async function boot() {
 
   syncTattoos();
   if (!store.tattoos.length && currentTab === "studio") setTimeout(() => showTip("welcome"), 900);
+  window.inkSharedReady?.();
   window.inkReady = true;
 }
 
