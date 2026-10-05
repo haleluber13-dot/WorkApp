@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="js/sketch/sketch.css">
 <link rel="stylesheet" href="js/photo/photo.css">
+<link rel="stylesheet" href="js/webbank/webbank.css">
 <link rel="stylesheet" href="js/agent/agent.css">
 <script type="importmap">
 { "imports": {
@@ -100,6 +101,11 @@
 
   <!-- ───────────── Create: procedural styles ───────────── -->
   <section class="view view--create" data-view="create" hidden>
+    <div class="createswitch seg" role="tablist" aria-label="Create from">
+      <button class="on" data-cmode="styles" role="tab" aria-selected="true">✦ Generate in 35 styles</button>
+      <button data-cmode="web" role="tab" aria-selected="false">🌐 Web library</button>
+    </div>
+    <div class="webhost" id="webHost" hidden></div>
     <div class="create">
       <div class="create__styles">
         <form class="promptbar" id="createPrompt" autocomplete="off">

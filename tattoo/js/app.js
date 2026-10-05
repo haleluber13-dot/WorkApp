@@ -508,16 +508,16 @@ const app = {
     renderLibrary();
     return d;
   },
-  addSvgDesign({ name = "AI design", svg, style = "custom" }) {
+  addSvgDesign({ name = "AI design", svg, style = "custom", credit = null }) {
     if (!/<svg[\s>]/i.test(svg || "")) throw new Error("Not an SVG");
     const vb = /viewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(svg);
-    const d = { id: uid("d"), name, style, kind: "svg", svg, width: vb ? +vb[1] : 1000, height: vb ? +vb[2] : 1000, createdAt: Date.now() };
+    const d = { id: uid("d"), name, style, kind: "svg", svg, width: vb ? +vb[1] : 1000, height: vb ? +vb[2] : 1000, createdAt: Date.now(), ...(credit ? { credit } : {}) };
     store.addDesign(d);
     renderLibrary();
     return d;
   },
-  addImageDesign({ name = "Image", image, width, height, style = "sketch" }) {
-    const d = { id: uid("d"), name, style, kind: "image", image, width, height, createdAt: Date.now() };
+  addImageDesign({ name = "Image", image, width, height, style = "sketch", credit = null }) {
+    const d = { id: uid("d"), name, style, kind: "image", image, width, height, createdAt: Date.now(), ...(credit ? { credit } : {}) };
     store.addDesign(d);
     renderLibrary();
     return d;
@@ -772,6 +772,7 @@ function sanitizeProject(p) {
     kind: d.image ? "image" : "svg", ...(d.image ? { image: d.image } : { svg: d.svg }),
     width: num(d.width) ? d.width : 1000, height: num(d.height) ? d.height : 1000,
     params: d.params && typeof d.params === "object" ? d.params : undefined, createdAt: num(d.createdAt) ? d.createdAt : Date.now(),
+    ...(d.credit && typeof d.credit === "object" ? { credit: Object.fromEntries(["title", "creator", "source", "license", "licenseUrl", "url"].map((k) => [k, String(d.credit[k] || "").slice(0, 300)])) } : {}),
   }));
   const ids = new Set(designs.map((d) => d.id));
   const tattoos = p.tattoos.filter((t) => t && okId(t.id) && ids.has(t.designId) && vec(t.position) && vec(t.normal) && num(t.sizeCm) && num(t.rotation))
@@ -981,7 +982,7 @@ function renderInspector() {
   el.innerHTML = `<div class="insp">
     <div class="insp__head">
       <img src="${esc(thumbOf(d))}" alt="">
-      <div class="meta"><b>${esc(d?.name || "Design")}</b><small class="muted" id="iRegion">${esc(regionLabel(t.region))}</small></div>
+      <div class="meta"><b>${esc(d?.name || "Design")}</b><small class="muted" id="iRegion">${esc(regionLabel(t.region))}</small>${creditHtml(d)}</div>
       <button class="iconbtn insp__min" id="iMin" aria-label="Show more controls" aria-expanded="false">⌃</button>
       <button class="iconbtn closeinsp" id="iClose" aria-label="Deselect">✕</button>
     </div>
@@ -1400,6 +1401,61 @@ $("#sketchNew").addEventListener("click", async () => {
   if (!pad.isEmpty?.() && !(await askConfirm("Start a new sketch? The current drawing will be cleared — save it to your designs first if you want to keep it.", "Start new"))) return;
   pad.clear(); $("#sketchName").value = "My sketch";
 });
+
+/* Credit line for designs that came from the web library (license requirement). */
+function creditHtml(d) {
+  const c = d?.credit;
+  if (!c) return "";
+  const lic = c.licenseUrl && /^https?:/.test(c.licenseUrl) ? `<a href="${esc(c.licenseUrl)}" target="_blank" rel="noopener">${esc(c.license || "license")}</a>` : esc(c.license || "");
+  const src = c.url && /^https?:/.test(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.source || "source")}</a>` : esc(c.source || "");
+  return `<p class="credit">${esc(c.title || "")}${c.creator ? " — " + esc(c.creator) : ""} · ${src} · ${lic}</p>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Create → Web library (openly licensed drawings, photos and art)
+   ════════════════════════════════════════════════════════════════════════ */
+let web = null, webInit = null;
+function creditOf(item) {
+  return { title: item.title || "", creator: item.creator || "", source: item.source || "", license: item.license || "", licenseUrl: item.licenseUrl || "", url: item.url || "" };
+}
+function webToDesign(item, art) {
+  const name = (item.title || "Web design").slice(0, 60);
+  if (typeof art === "string") return app.addSvgDesign({ name, svg: art, style: "web", credit: creditOf(item) });
+  return app.addImageDesign({ name, image: art.toDataURL("image/png"), width: art.width, height: art.height, style: "web", credit: creditOf(item) });
+}
+function initWeb() {
+  if (webInit) return webInit;
+  webInit = (async () => {
+    try {
+      const m = await import("./webbank/webbank.js");
+      web = m.mountWebBank($("#webHost"), {
+        toast,
+        onUse(item, art) {
+          const d = webToDesign(item, art);
+          showTab("studio");
+          try { app.placeTattoo({ designId: d.id, region: freeRegion() }); toast("Placed — drag it anywhere on the body"); } catch (e) { toast(e.message); }
+        },
+        onSave(item, art) { webToDesign(item, art); toast("Saved to your designs"); },
+        async onCutout(item, blob) {
+          const f = new File([blob], (item.title || "web-image").replace(/[^\w-]+/g, "-").slice(0, 40) + ".png", { type: blob.type || "image/png" });
+          await openInPhoto([f]);
+        },
+      });
+    } catch (e) {
+      console.error(e);
+      $("#webHost").innerHTML = `<p class="muted" style="padding:20px">The web library couldn't load: ${esc(e.message)}</p>`;
+    }
+  })();
+  return webInit;
+}
+function setCreateMode(mode) {
+  const isWeb = mode === "web";
+  $(".view--create").classList.toggle("is-web", isWeb);
+  $("#webHost").hidden = !isWeb;
+  $$("[data-cmode]").forEach((b) => { b.classList.toggle("on", b.dataset.cmode === mode); b.setAttribute("aria-selected", String(b.dataset.cmode === mode)); });
+  if (isWeb) initWeb(); else initCreate();
+}
+$$("[data-cmode]").forEach((b) => b.addEventListener("click", () => setCreateMode(b.dataset.cmode)));
 
 /* ════════════════════════════════════════════════════════════════════════
    Photo tab: cut out part of a photo, pro adjustments, tattoo looks
