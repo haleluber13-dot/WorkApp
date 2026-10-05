@@ -1,3 +1,4 @@
+import { ensureUV } from './geo.js';
 /* MotorLab — a track you actually drive on.
  *
  * The rolling-road cockpit revs the engine in place; this puts the same car on
@@ -312,7 +313,7 @@ function ribbon(pts, width, color, y, innerW){
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  g.setIndex(idx); g.computeVertexNormals();
+  g.setIndex(idx); g.computeVertexNormals(); ensureUV(g, 0.5);
   return new THREE.Mesh(g, new THREE.MeshStandardMaterial({
     color, roughness: 0.95, metalness: 0, side: THREE.DoubleSide }));
 }

@@ -3,7 +3,7 @@
  * and tagged by part id so the same teardown UI works on a whole car. */
 import * as THREE from 'three';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, group, tag, at, rot,
-         boundsOf, deg, TAU, lathe, wheelMesh, brakeDisc, caliper, coreMesh } from '../lib/geo.js';
+         boundsOf, deg, TAU, lathe, wheelMesh, brakeDisc, caliper, coreMesh, ensureUV } from '../lib/geo.js';
 import { wheelRadius, weightDistribution } from '../data/vehicles.js';
 import { modelFor, fitToLength } from '../lib/importModel.js';
 import { partMesh } from '../lib/partModels.js';
@@ -550,7 +550,7 @@ function loft(sections, N){
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setIndex(idx);
-  g.computeVertexNormals();
+  g.computeVertexNormals(); ensureUV(g, 4);
   return g;
 }
 
@@ -871,7 +871,7 @@ function patch(rows, mat){
     }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setIndex(idx); g.computeVertexNormals();
+  g.setIndex(idx); g.computeVertexNormals(); ensureUV(g, 4);
   return new THREE.Mesh(g, mat);
 }
 
