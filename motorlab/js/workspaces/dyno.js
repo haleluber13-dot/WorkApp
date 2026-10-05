@@ -5,12 +5,13 @@ import { displacementL } from '../data/engines.js';
 import { dynoRun, accelerationRun, lapTime, TRACKS, vehicleMass, gripCoef } from '../sim/dyno.js';
 import { simulate, emptyMods, baselineTorque } from '../sim/engineSim.js';
 import { applyUpgrades } from '../data/upgrades.js';
+import { withVariantMods } from '../data/vehicleVariants.js';
 import { addXp, unlock, evaluateChallenges } from '../game.js';
 import { defaultTune } from '../sim/ecu.js';
 
 let lastRun = null, baseline = null;
 
-function mods(){ return applyUpgrades(emptyMods(), fitted()); }
+function mods(){ return withVariantMods(applyUpgrades(emptyMods(), fitted()), vehicle()); }
 
 export function render(ctx, tab){
   const e = engine(), v = vehicle(), t = tune(), m = mods();

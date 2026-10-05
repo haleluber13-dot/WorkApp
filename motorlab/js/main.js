@@ -39,6 +39,8 @@ let refreshTimer = null;
 const ctx = {
   get viewport(){ return viewport; },
   refresh, debouncedRefresh, goto, setTab, reloadModel, applySettings,
+  /* throw the current 3D model away and build it again — a part changed shape */
+  rebuildModel(){ currentModel = null; reloadModel(); },
 };
 
 /* ---------------------------------------------------------------------- */

@@ -10,6 +10,7 @@
 import { h, section, para, btn, toast, add } from '../ui.js';
 import { state, engine, vehicle, fitted, save } from '../store.js';
 import { wheelRadius as specWheelRadius } from '../data/vehicles.js';
+import { variantMods } from '../data/vehicleVariants.js';
 import { engineAudio } from '../lib/engineAudio.js';
 import { TrackDrive } from '../lib/track.js';
 
@@ -158,7 +159,7 @@ function startTrack(ctx){
   const vp = ctx.viewport;
   vp.exitInterior();
   drive.td = new TrackDrive(vp);
-  drive.td.enter(vehicle(), engine());
+  drive.td.enter({ ...vehicle(), massKg: vehicle().massKg + (variantMods(vehicle()).weightKg || 0) }, engine());
   drive.running = true; drive.gear = 1;
   toast('On the circuit — W/S drive, A/D steer, Space drift.');
 }

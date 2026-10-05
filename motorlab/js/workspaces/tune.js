@@ -5,9 +5,10 @@ import { FUELS, isBoosted, displacementL } from '../data/engines.js';
 import { LOAD_BINS, autoTune, auditTune, cloneTune, mbtTiming, fuelProps } from '../sim/ecu.js';
 import { simulate, emptyMods, injectorCapacityKgH, chargeTemp, boostCapability, inducedType } from '../sim/engineSim.js';
 import { applyUpgrades } from '../data/upgrades.js';
+import { withVariantMods } from '../data/vehicleVariants.js';
 import { addXp, unlock, evaluateChallenges } from '../game.js';
 
-export function mods(){ return applyUpgrades(emptyMods(), fitted()); }
+export function mods(){ return withVariantMods(applyUpgrades(emptyMods(), fitted()), vehicle()); }
 export function result(){ return simulate(engine(), tune(), mods(), { ambientC: state.settings.ambientC }); }
 
 export function render(ctx, tab){

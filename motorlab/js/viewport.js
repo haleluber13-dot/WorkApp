@@ -760,9 +760,10 @@ export class Viewport {
   static LIFT_IDS = new Set(['chassis','subfront','subrear','mounts','exhaustsys','prop','diff',
     'axles','final','lcaf','lcar','ucaf','ucar','dampf','dampr','strutf','strutr','arbf','arbr',
     'uprf','uprr','discf','discr','calf','calr','rack','tank','hbrake','abs','mcyl','gearbox',
-    'transfer','wheels']);
+    'transfer','wheels','downpipe','cat','midpipe','rearbox','brakelines','fuellines','fuelpump',
+    'arblinkf','arblinkr','tierods','difff']);
   static BAY_IDS = new Set(['engine','gearbox','rad','intake','battery','mcyl','abs','subfront',
-    'mounts','fusebox','harness']);
+    'mounts','fusebox','harness','fans','hoses','exptank','condenser','accomp','ecu','horn','washer','headlamp']);
 
   /** 'ground' | 'lift' | 'bay'. The lift raises the whole car on a two-post
    *  rig and shows the underside running gear the scan is hiding; 'bay' takes

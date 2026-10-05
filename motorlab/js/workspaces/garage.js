@@ -13,6 +13,7 @@ import { VEHICLES, VEHICLE_BY_ID, weightDistribution } from '../data/vehicles.js
 import { simulate, emptyMods } from '../sim/engineSim.js';
 import { defaultTune } from '../sim/ecu.js';
 import { applyUpgrades } from '../data/upgrades.js';
+import { withVariantMods } from '../data/vehicleVariants.js';
 import { liveriesFor, setLivery } from '../build/scannedVehicle.js';
 import { hasBundled, bundledRecord, rawModelFor, preferGenerated } from '../lib/importModel.js';
 import { photo } from '../lib/photo.js';
@@ -220,7 +221,7 @@ export function render(ctx, tab){
       })) : null);
 
   const t = defaultTune(e);
-  const res = simulate(e, state.tunes[e.id] || t, applyUpgrades(emptyMods(), state.fitted[e.id] || []));
+  const res = simulate(e, state.tunes[e.id] || t, withVariantMods(applyUpgrades(emptyMods(), state.fitted[e.id] || []), v));
   const p = U.power(res.hp), tq = U.torque(res.tqNm);
 
   add(wrap,
