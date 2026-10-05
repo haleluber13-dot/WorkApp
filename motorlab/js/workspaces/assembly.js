@@ -6,10 +6,12 @@
 import { h, section, sectionWith, kv, note, para, chip, bar, btn, toast, modal,
          torqueDial, confirmDialog, add } from '../ui.js';
 import { state, engine, vehicle, tree, vTree, installedSet, setInstalled,
-         vInstalledSet, setVInstalled, isTorqued, setTorqued, save, U } from '../store.js';
-import { canInstall, canRemove, blockers, GROUP_BY_ID } from '../data/parts.js';
+         vInstalledSet, setVInstalled, isTorqued, setTorqued, save, U, setVVariant } from '../store.js';
+import { canInstall, canRemove, blockers, GROUP_BY_ID, baseId } from '../data/parts.js';
 import { V_GROUP_BY_ID } from '../data/vehicleParts.js';
-import { addXp, unlock } from '../game.js';
+import { SLOT_BY_ID, VARIANTS, VARIANT_BY_SLOT_ID, slotsForPart, variantsFor, defaultVariants,
+         describeEffects } from '../data/vehicleVariants.js';
+import { addXp, unlock, spend, earn } from '../game.js';
 import { UPGRADE_BY_ID, availableFor } from '../data/upgrades.js';
 import { activeReference, setReference, uidFrom, creditFrom, embedUrl } from '../data/reference.js';
 import { partShot } from '../lib/partShot.js';
@@ -54,6 +56,10 @@ function actionsFor(kind, partId){
   const ups = upgradesFor(kind, partId);
   if (ups.length) out.push({ id:'upgrade', label:`Upgrade / replace (${ups.length})`, icon:'⭐', ok:true,
     hint:'Aftermarket options that fit here.' });
+  const vs = variantSlotsFor(kind, partId);
+  const nOpt = vs.reduce((n, slot) => n + VARIANTS[slot].length - 1, 0);
+  if (nOpt) out.push({ id:'variant', label:`Change part (${nOpt} option${nOpt > 1 ? 's' : ''})`, icon:'🔁', ok:true,
+    hint:'Swap this for a different kind of part — a different wheel, brake, seat, bonnet…' });
   out.push({ id:'related', label:'What connects to this?', icon:'🔗', ok:true });
   out.push({ id:'focus', label:'Zoom to it', icon:'🎥', ok:true });
   return out;
@@ -77,17 +83,22 @@ const UPGRADE_SLOTS = {
   flywheel:['lightflywheel'], clutch:['clutch-twin'],
   /* vehicle */
   dampf:['coilovers','susp-race','bike-susp'], dampr:['coilovers','susp-race','bike-susp'],
-  strutf:['coilovers','susp-race'], forks:['bike-susp'], shock:['bike-susp'],
-  arbf:['arbs'], arbr:['arbs'], lcaf:['bushings'], lcar:['bushings'],
+  strutf:['coilovers','susp-race'], strutr:['coilovers','susp-race'], forks:['bike-susp'], shock:['bike-susp'],
+  arbf:['arbs'], arbr:['arbs'], arblinkf:['arbs'], arblinkr:['arbs'],
+  lcaf:['bushings'], lcar:['bushings'], ucaf:['bushings'], ucar:['bushings'], tierods:['bushings'], subfront:['bushings'], subrear:['bushings'],
   discf:['bbk','pads-race','brake-cool'], calf:['bbk','pads-race'],
-  discr:['bbk','pads-race'], calr:['pads-race'],
+  discr:['bbk','pads-race'], calr:['pads-race'], brakelines:['pads-race'],
   wheels:['tyre-sport','tyre-slick','wheels-light'],
-  diff:['lsd'], gearbox:['gears-close'], aero:['aero-kit'],
+  diff:['lsd'], difff:['lsd'], gearbox:['gears-close'], aero:['aero-kit'],
+  splitter:['aero-kit'], spoiler:['aero-kit'], diffuser:['aero-kit'], rearwing:['aero-kit'],
   body:['carbon-panels','weight-strip'], seats:['weight-strip'],
-  exhaustsys:['exh-cat','exh-full'],
+  bonnet:['carbon-panels','weight-strip'], roof:['carbon-panels','weight-strip'], doorF:['carbon-panels','weight-strip'],
+  doorR:['carbon-panels','weight-strip'], wingF:['carbon-panels'], bootlid:['carbon-panels','weight-strip'], quarters:['carbon-panels'],
+  seatsF:['weight-strip'], seatR:['weight-strip'], carpet:['weight-strip'], headliner:['weight-strip'], doorcardsF:['weight-strip'], doorcardsR:['weight-strip'],
+  exhaustsys:['exh-cat','exh-full'], downpipe:['exh-cat','exh-full'], cat:['exh-cat','exh-full'], midpipe:['exh-cat','exh-full'], rearbox:['exh-cat','exh-full'],
 };
 function upgradesFor(kind, partId){
-  const ids = UPGRADE_SLOTS[partId] || [];
+  const ids = UPGRADE_SLOTS[partId] || UPGRADE_SLOTS[baseId(partId)] || [];
   const e = engine(), v = vehicle();
   return ids.map(i => UPGRADE_BY_ID[i]).filter(u => {
     if (!u) return false;
@@ -137,8 +148,83 @@ function runAction(ctx, kind, partId, action){
     case 'remove':  doRemove(ctx, kind, partId); break;
     case 'torque':  openTorqueDrill(ctx, kind, partId); break;
     case 'upgrade': openUpgradeSheet(ctx, kind, partId); break;
+    case 'variant': openVariantSheet(ctx, kind, partId); break;
     case 'related': showRelated(ctx, kind, partId); break;
   }
+}
+
+/* ---- change to a different part --------------------------------------
+ * A vehicle part can be swapped for a different kind of the same thing: a
+ * forged wheel, a six-piston brake, a bucket seat, a GT wing. The catalogue
+ * is data/vehicleVariants.js; fitting one rebuilds the model and its effects
+ * reach the simulation like an upgrade's. */
+function variantSlotsFor(kind, partId){
+  if (kind !== 'vehicle') return [];
+  return slotsForPart(baseId(partId));
+}
+/** The variant fitted in a slot of the current vehicle, and whether it is the factory one. */
+function fittedVariant(slot){
+  const v = vehicle();
+  const id = variantsFor(v)[slot];
+  return { id, variant: VARIANT_BY_SLOT_ID[slot]?.[id], stock: defaultVariants(v)[slot] === id };
+}
+/** A rebuild of the 3D model after a part changed shape. */
+export function rebuildModel(ctx){
+  if (ctx.rebuildModel) return ctx.rebuildModel();
+  /* applySettings() rebuilds the vehicle whenever the body opacity it last
+     applied differs from the saved one — so forget the last one */
+  globalThis.__MOTORLAB_BODY_OPACITY = null;
+  ctx.applySettings();
+}
+function fitVariant(ctx, kind, partId, slot, variant){
+  const cur = fittedVariant(slot);
+  if (cur.id === variant.id){ toast(`${variant.name} is already fitted.`); return; }
+  const stockId = defaultVariants(vehicle())[slot];
+  const cost = variant.id === stockId ? 0 : variant.cost;
+  if (cost && state.settings.gameMode && !spend(cost)){
+    toast(`Not enough credits — $${cost.toLocaleString()} needed, $${state.game.credits.toLocaleString()} available. Earn more from lessons, challenges and dyno runs.`, 'bad');
+    return;
+  }
+  /* taking a bought part back off recovers part of what it cost */
+  if (state.settings.gameMode && !cur.stock && cur.variant?.cost) earn(Math.round(cur.variant.cost * 0.6));
+  setVVariant(slot, variant.id);
+  addXp(20, `Fitted ${variant.name}`);
+  rebuildModel(ctx);
+  toast(`${variant.name} fitted${cost ? ` for $${cost.toLocaleString()}` : ''}. ${describeEffects(variant.effects)}.`, 'good');
+  selected = partId;
+  ctx.refresh();
+}
+function openVariantSheet(ctx, kind, partId){
+  const M = model(kind);
+  const p = M.tree.byId[partId];
+  const slots = variantSlotsFor(kind, partId);
+  if (!p || !slots.length) return;
+  const render = () => {
+    const body = h('div', null,
+      para(`Different kinds of <b>${p.parentName || p.name}</b> that bolt on in its place. Fitting one changes the car's shape and its numbers — mass, grip, braking, downforce, drag — so the dyno and the track feel it.`));
+    for (const slot of slots){
+      const cur = fittedVariant(slot);
+      const stockId = defaultVariants(vehicle())[slot];
+      add(body, h('h4', { class:'title', style:{ marginTop:'10px' }, text:SLOT_BY_ID[slot].name }));
+      for (const x of VARIANTS[slot]){
+        const on = cur.id === x.id;
+        const price = x.id === stockId ? 'factory part' : '$' + x.cost.toLocaleString();
+        add(body, h('div', { class:'card' + (on ? ' on' : '') },
+          h('div', { class:'card__h' },
+            h('div', null,
+              h('div', { class:'card__brand', text:x.brand || (x.id === stockId ? 'As delivered' : '') }),
+              h('div', { class:'card__t', text:x.name })),
+            h('div', { style:{ textAlign:'right' } },
+              on ? chip('fitted', 'ok') : chip(price, 'acc'),
+              h('div', { class:'tiny muted', style:{ marginTop:'4px' }, text:describeEffects(x.effects) }))),
+          h('div', { class:'card__b', text:x.teach }),
+          on ? null : h('div', { class:'btnrow', style:{ marginTop:'8px' } },
+            btn('Fit it', { class:'btn--pri', onClick:() => { sheet.close(); fitVariant(ctx, kind, partId, slot, x); } }))));
+      }
+    }
+    return body;
+  };
+  const sheet = modal({ title:'Change part', body:render(), actions:[{ label:'Close' }], wide:true });
 }
 
 /* ---- install / remove ------------------------------------------------- */
@@ -454,10 +540,14 @@ function clusterRows(ctx, kind, parentId, pieces, inst){
     else { const b = blockers(M.tree, i, pieces[0].id); toast(b.length ? `${fit ? 'Fit' : 'Remove'} ${b[0]} first.` : 'Nothing to do.', 'bad'); }
     checkMilestones(ctx, kind); ctx.refresh();
   };
+  const fittedNames = variantSlotsFor(kind, parentId).map(slot => fittedVariant(slot)).filter(f => f.variant && !f.stock).map(f => f.variant.name);
   const head = h('div', { class:'pitem pitem--cluster' + (open ? ' open' : ''),
       onclick:() => { (state.ui.instOpen ||= {})[key] = !open; save(); ctx.refresh(); } },
     h('span', { class:'pitem__st pitem__chev', text: open ? '▾' : '▸' }),
-    h('span', { class:'pitem__n', text:name }),
+    fittedNames.length
+      ? h('span', { class:'pitem__n' }, h('span', { text:name }),
+          h('span', { class:'tiny muted', style:{ display:'block', lineHeight:'1.3' }, text:'Fitted: ' + fittedNames.join(' · ') }))
+      : h('span', { class:'pitem__n', text:name }),
     h('span', { class:'pitem__q', text:`${fitted}/${pieces.length}` }),
     h('button', { class:'pitem__go', title:'Fit every piece',
       onclick:(ev) => { ev.stopPropagation(); batch(true); } }, 'fit all'),
@@ -472,12 +562,16 @@ function partRow(ctx, kind, p, inst){
   const on = inst.has(p.id);
   const can = on ? canRemove(M.tree, inst, p.id) : canInstall(M.tree, inst, p.id);
   const torqued = p.torque ? isTorqued(p.id) : true;
+  const fittedNames = variantSlotsFor(kind, p.id).map(slot => fittedVariant(slot)).filter(f => f.variant && !f.stock).map(f => f.variant.name);
   return h('div', {
     class:'pitem' + (on ? ' installed' : '') + (selected === p.id ? ' on' : '') + (can ? '' : ' blocked'),
     onclick:() => { selected = p.id; ctx.viewport.select(p.id); if (state.settings.autoFrame) ctx.viewport.focusPart(p.id); ctx.setTab('inspect'); },
     oncontextmenu:(ev) => { ev.preventDefault(); openMenu(ctx, kind, p.id, ev); } },
     h('span', { class:'pitem__st' }),
-    h('span', { class:'pitem__n', text:p.name }),
+    fittedNames.length
+      ? h('span', { class:'pitem__n' }, h('span', { text:p.name }),
+          h('span', { class:'tiny muted', style:{ display:'block', lineHeight:'1.3' }, text:'Fitted: ' + fittedNames.join(' · ') }))
+      : h('span', { class:'pitem__n', text:p.name }),
     p.qty > 1 ? h('span', { class:'pitem__q', text:'×' + p.qty }) : null,
     on && p.torque && !torqued ? h('span', { class:'pitem__q', style:{ color:'var(--warn)' }, text:'⚠' }) : null,
     h('button', { class:'pitem__go', onclick:(ev) => { ev.stopPropagation(); on ? doRemove(ctx, kind, p.id) : doInstall(ctx, kind, p.id); },
@@ -560,6 +654,13 @@ function renderInspector(ctx, kind, wrap){
   if (blk.length) add(wrap, section('Comes off before',
     ...blk.map(b => row(b, inst.has(b.id) ? 'on top — remove first' : 'already off'))));
 
+  const vslots = variantSlotsFor(kind, p.id);
+  if (vslots.length){
+    add(wrap, section('Fitted here',
+      ...vslots.map(slot => { const f = fittedVariant(slot); return kv(SLOT_BY_ID[slot].name, (f.variant?.name || '—') + (f.stock ? '' : ' ★')); }),
+      h('div', { style:{ marginTop:'8px' } },
+        btn(`Change part (${vslots.reduce((n, s) => n + VARIANTS[s].length - 1, 0)} options)`, { class:'btn--wide', onClick:() => openVariantSheet(ctx, kind, p.id) }))));
+  }
   const ups = upgradesFor(kind, p.id);
   if (ups.length){
     const fittedIds = new Set(state.fitted[engine().id] || []);

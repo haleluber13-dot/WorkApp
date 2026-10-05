@@ -23,7 +23,9 @@ export const instanced = ['injlines', 'quills', 'injclamps', 'bridges', 'oilrail
 
 export function parts(e, ctx){
   if (e.fuel !== 'diesel') return [];
-  const cummins = e.id === 'd-i6-67', psd = e.id === 'd-v8-66', tdi = e.id === 'd-i4-20';
+  /* `tdi` is the Bosch common-rail four branch (EA288 and the Hyundai D4EA share
+     the rail, clamps, lines and return module); `ea288` is what only the VW has */
+  const cummins = e.id === 'd-i6-67', psd = e.id === 'd-v8-66', ea288 = e.id === 'd-i4-20', tdi = ea288 || e.id === 'hyundai-d4ea';
   if (!cummins && !psd && !tdi) return [];
   const out = [];
   const add = (o) => out.push(o);
@@ -174,7 +176,7 @@ export function parts(e, ctx){
   /* ------------------------------------------------------------------ */
   /* VW EA288                                                             */
   /* ------------------------------------------------------------------ */
-  if (tdi){
+  if (ea288){
     if (glow)
       add({ id:'glowharness', name:'Glow plug harness & J179 glow time control module', group:'ignition', deps:['glow'], mesh:'coil',
         teach:'The four steel glow plugs (Q10–Q13) are each fed by their own output from the J179 module, which drives them with PWM so the voltage at the plug can be set: up to 11.5 V to reach over 1,000 °C within 2 seconds for a cold start, then about 4.4 V of post-start glow for up to 5 minutes to cut smoke and combustion noise. The four are switched one after another rather than together, to spare the vehicle\'s electrical supply.',

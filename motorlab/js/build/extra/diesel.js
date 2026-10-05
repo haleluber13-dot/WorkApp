@@ -12,7 +12,9 @@
 export function build(ctx){
   const { e } = ctx;
   if (e.fuel !== 'diesel') return;
-  const cummins = e.id === 'd-i6-67', psd = e.id === 'd-v8-66', tdi = e.id === 'd-i4-20';
+  /* `tdi` is the Bosch common-rail four branch (EA288 and the D4EA share the
+     rail, clamps, lines and return); `ea288` is what only the VW has */
+  const cummins = e.id === 'd-i6-67', psd = e.id === 'd-v8-66', ea288 = e.id === 'd-i4-20', tdi = ea288 || e.id === 'hyundai-d4ea';
   if (!cummins && !psd && !tdi) return;
 
   const { L, M, MAT, has, add, each, flush, portAt, inSide, cylPosition, cylSlot,
@@ -483,7 +485,7 @@ export function build(ctx){
   /* VW EA288                                                             */
   /* ================================================================== */
   if (tdi){
-    /* LP-EGR module beside the turbo: cooler, and V339 on the compressor-inlet side */
+    /* LP-EGR module beside the turbo: cooler, and the valve on the compressor-inlet side (V339 on the EA288) */
     if (tb && (has('egrcooler') || has('egrvalve'))){
       const s = tb.size, E = -I0;
       const c0 = V3(tb.pos.x + s * 1.10, tb.pos.y - s * 0.85, tb.pos.z + E * s * 0.10);

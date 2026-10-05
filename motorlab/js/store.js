@@ -78,8 +78,12 @@ export function invalidateTree(kind, id){
 }
 export function vTree(){
   const v = vehicle();
-  const k = 'v:' + v.id;
-  if (!treeCache.has(k)) treeCache.set(k, buildVehicleTree(v));
+  /* a scanned car's grille, wipers and filler flap are part of its scan's
+     panels, so the tree leaves them out — the same way an engine's tree
+     changes when its shell arrives (main.js invalidates the trees then) */
+  const scan = !!modelFor('veh', v.id);
+  const k = 'v:' + v.id + (scan ? ':scan' : '');
+  if (!treeCache.has(k)) treeCache.set(k, buildVehicleTree(v, { scan }));
   return treeCache.get(k);
 }
 export function invalidateTrees(){ treeCache.clear(); }

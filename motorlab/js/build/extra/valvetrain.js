@@ -332,7 +332,7 @@ export function build(ctx){
         circles.push({ y, z, r:rCam });
       }
     if (has('idlers'))                              // where the core builder puts them
-      circles.push({ y:L.deckH * 0.78, z:-b * 0.55, r:M(26) }, { y:L.deckH * 0.26, z:-b * 0.62, r:M(21) });
+      circles.push({ y:L.deckH * 1.05, z:-b * 0.40, r:M(26) }, { y:L.deckH * 0.20, z:-b * 1.00, r:M(21) });
     const outer = hull(ringPts(circles, M(4.5))), inner = hull(ringPts(circles, M(0.5)));
     const sh = polyShape(outer); sh.holes.push(polyPath(inner));
     const beltMesh = extrudeX(sh, M(15), MAT.rubber());

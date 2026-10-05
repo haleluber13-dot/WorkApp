@@ -18,12 +18,14 @@ export function build(ctx){
   const flat = e.layout === 'F';
 
   /* ---- the main builder's induction frame, recomputed ---- */
+  /* taken from the main builder when it hands them over (ctx.inducY / ctx.thrAt),
+     so the module cannot drift from where the plenum and throttle really are */
   const vAngle = Math.abs(L.bankAngles[0] || 0);
-  const inducY = L.banks >= 2 ? L.deckH * Math.cos(vAngle) * 1.04 + B * 0.70 : L.deckH + B * 1.95;
-  const plenZ = L.banks >= 2 ? 0 : -B * 0.95;
+  const inducY = ctx.inducY ?? (L.banks >= 2 ? L.deckH * Math.cos(vAngle) * 1.04 + B * 0.70 : L.deckH + B * 1.42);
+  const plenZ = ctx.thrAt ? ctx.thrAt.z : (L.banks >= 2 ? 0 : -B * 1.12);
   const plenH = B * (L.banks >= 2 ? 0.72 : 0.46);
   const plenW = L.banks >= 2 ? B * 1.45 : B * 0.70;
-  const thrAt = V3(-L.len * 0.48, inducY, plenZ);
+  const thrAt = ctx.thrAt ? ctx.thrAt.clone() : V3(-L.len * 0.48, inducY, plenZ);
 
   /* ---- small helpers ---- */
   const UP = V3(0, 1, 0);
@@ -66,13 +68,13 @@ export function build(ctx){
      extra groove on the crank damper — the separate A/C and steering belts an
      older engine wears. */
   const plane2 = beltX - M(34);
-  const accY = flat ? B * 1.50 : -B * 0.40;
+  const accY = flat ? B * 1.50 : L.banks >= 2 ? -B * 0.85 : -B * 0.40;   /* a vee's compressor sits below the core plugs on the bank face */
   const psSide = -1, acSide = 1;
   const second = [];                                 // pulleys on the second belt
 
   if (has('pspump')){
     const Rb = B * 0.36, Lb = B * 0.95, rP = B * 0.42;
-    const zc = flat ? psSide * B * 0.78 : psSide * (wCase + Rb + M(10));
+    const zc = flat ? psSide * B * 2.45 : psSide * (wCase + Rb + M(10));   /* a boxer's PS pump sits outboard of its alternator */
     const g = group('pspump');
     g.add(at(ribbedPulley(rP, M(22)), plane2, accY, zc));
     g.add(at(rot(cyl(B * 0.10, B * 0.10, M(34), MAT.steel(), 14), 0, 0, Math.PI / 2), plane2 + M(17), accY, zc));
@@ -157,7 +159,8 @@ export function build(ctx){
      builder hung the alternator, and where its two mounting ears are */
   if (has('altbracket') && has('alternator')){
     const size = B * 1.35, R = size * 0.56;
-    const ax = beltX + size * 0.56, ay = L.deckH * 0.78, az = -(outerZ + size * 0.30);
+    /* exactly where the core builder put the alternator (ctx.altAt) */
+    const ax = ctx.altAt ? ctx.altAt.x : beltX + size * 0.56, ay = ctx.altAt ? ctx.altAt.y : L.deckH * 0.78, az = ctx.altAt ? ctx.altAt.z : -(outerZ + size * 0.30);
     const g = group('altbracket');
     /* the pivot bolt through the lower lug, with its nut on the far side */
     const piv = V3(ax - size * 0.30, ay - R * 0.92, az);
@@ -165,7 +168,7 @@ export function build(ctx){
     g.add(at(rot(hexPrism(M(14), M(8), MAT.plated()), 0, 0, Math.PI / 2), piv.x - size * 0.16, piv.y, piv.z));
     g.add(at(rot(hexPrism(M(14), M(9), MAT.plated()), 0, 0, Math.PI / 2), piv.x + size * 0.16, piv.y, piv.z));
     /* the cast foot the pivot bolt passes through, back to the block */
-    const footZ = -Math.max(wCase, outerZ - B * 0.30);
+    const footZ = -(Math.max(wCase, outerZ - B * 0.30) + M(6));
     g.add(at(box(M(18), R * 0.55, Math.abs(piv.z - footZ) + M(6), MAT.alloyDark()),
              piv.x + size * 0.12, piv.y, (piv.z + footZ) / 2));
     /* the slotted strap from the top ear across to its boss on the engine */
@@ -186,15 +189,19 @@ export function build(ctx){
      from the block flank — the main builder hangs the filter at
      (0.2·len, −0.9·crankR, outerZ + 50 mm), axis along the crank, seal face aft */
   if (has('filterbracket')){
-    const F = V3(L.len * 0.20, -L.crankR * 0.90, (/bmw|mercedes|porsche|audi|volkswagen/i.test(e.maker || '') ? -1 : 1) * (L.banks >= 2 ? wCase + M(70) : outerZ + M(50)));
+    /* the filter is wherever the core builder put it (ctx.oilFilterAt), on
+       either side of the block — the bracket reaches from the flank on that side */
+    const F = ctx.oilFilterAt ? ctx.oilFilterAt.clone()
+            : V3(L.len * 0.20, -L.crankR * 0.90, (/bmw|mercedes|porsche|audi|volkswagen/i.test(e.maker || '') ? -1 : 1) * (L.banks >= 2 ? wCase + M(70) : outerZ + M(50)));
     const face = F.x + M(115) * 0.58;
     const g = group('filterbracket');
     g.add(at(rot(cyl(M(40), M(40), M(18), MAT.alloyDark(), 26), 0, 0, Math.PI / 2), face + M(9), F.y, F.z));
     g.add(at(rot(cyl(M(11), M(11), M(10), MAT.steel(), 12), 0, 0, Math.PI / 2), face - M(2), F.y, F.z));   // the threaded spigot
-    const zA = wCase + M(6), zB = F.z;
-    g.add(at(box(M(28), M(58), Math.max(M(10), zB - zA), MAT.alloyDark()), face + M(12), F.y, (zA + zB) / 2));
+    const sgn = Math.sign(F.z) || 1;
+    const zA = sgn * (wCase + M(6)), zB = F.z;
+    g.add(at(box(M(28), M(58), Math.max(M(10), Math.abs(zB - zA)), MAT.alloyDark()), face + M(12), F.y, (zA + zB) / 2));
     g.add(at(roundBox(M(70), M(80), M(12), M(3), MAT.alloyDark()), face + M(12), F.y, zA));
-    g.add(at(rot(hexPrism(M(19), M(10), MAT.plated()), Math.PI / 2, 0, 0), face + M(12), F.y + M(26), zA + M(10)));
+    g.add(at(rot(hexPrism(M(19), M(10), MAT.plated()), Math.PI / 2, 0, 0), face + M(12), F.y + M(26), zA + sgn * M(10)));
     add('filterbracket', g);
   }
 
@@ -254,7 +261,15 @@ export function build(ctx){
         const minX = Math.min(...ends.map(o => o.end.x));
         const maxZ = Math.max(...ends.map(o => Math.abs(o.end.z)));
         const avgY = ends.reduce((a, o) => a + o.end.y, 0) / ends.length;
-        const c = V3(Math.min(frontX - B * 1.10, minX - B * 1.30), avgY + B * 0.25, s * (maxZ + B * 0.45));
+        /* An F1 unit's rear-centre turbo breathes from the airbox over the
+           engine (the roll-hoop intake), so the box sits above the plenum at
+           the back; a flat's box sits on top of the engine, over the heads,
+           since beside the heads there is nothing to bolt it to. Anything
+           else: out ahead of the engine on the compressor's side. */
+        const rearCentre = e.turboLayout === 'rearCentre';
+        const c = rearCentre ? V3(minX - B * 0.60, avgY + B * 1.55, 0)
+                : ctx.flat   ? V3(Math.min(frontX - B * 1.10, minX - B * 1.30), Math.max(avgY + B * 0.25, B * 1.55), s * (maxZ + B * 0.45))
+                : V3(Math.min(frontX - B * 1.10, minX - B * 1.30), avgY + B * 0.25, s * (maxZ + B * 0.45));
         g.add(at(airboxMesh(bx, by, bz), c.x, c.y, c.z));
         ends.forEach((o, k) => {
           const out = V3(c.x + bx * 0.50, c.y - by * 0.05, c.z - s * bz * (ends.length > 1 ? (k ? 0.20 : -0.20) : 0));
@@ -269,26 +284,33 @@ export function build(ctx){
         });
       }
     } else {
-      /* Atmospheric / supercharged: a round air-cleaner canister on the front
-         of the plenum, closing round the element the throttle carries, with a
-         snorkel dropping forward to the cold air behind the grille. Take it
-         off and the bare element is what is left on the throttle. */
-      const R = M(84), len = M(176), cx = thrAt.x - M(115);
-      const can = group('canister');
-      can.add(at(rot(tubeMesh(R, R - M(3), len * 0.62, MAT.black(), 32), 0, 0, Math.PI / 2), cx - len * 0.19, thrAt.y, thrAt.z));
-      can.add(at(rot(tubeMesh(R * 1.02, R - M(3), len * 0.40, MAT.plastic(), 32), 0, 0, Math.PI / 2), cx + len * 0.30, thrAt.y, thrAt.z));
-      can.add(at(rot(cyl(R, R, M(4), MAT.black(), 32), 0, 0, Math.PI / 2), cx - len * 0.50, thrAt.y, thrAt.z));   // front end cap
-      for (let k = 0; k < 4; k++){                                                     // the clips on the seam
-        const a = (k / 4) * TAU + Math.PI / 4;
-        can.add(at(box(M(18), M(6), M(10), MAT.steel()), cx + len * 0.10, thrAt.y + Math.sin(a) * R * 1.03, thrAt.z + Math.cos(a) * R * 1.03));
-      }
-      /* the outlet boot to the throttle mouth */
-      can.add(at(rot(tubeMesh(M(44), M(38), M(30), MAT.rubber(), 22), 0, 0, Math.PI / 2), thrAt.x - M(40), thrAt.y, thrAt.z));
-      /* the snorkel: off the bottom of the canister, forward and down */
-      const s0 = V3(cx - len * 0.30, thrAt.y - R * 0.80, thrAt.z);
-      can.add(pipe([s0, V3(s0.x - B * 0.40, s0.y - B * 0.35, s0.z), V3(s0.x - B * 1.10, s0.y - B * 0.55, s0.z),
-                    V3(s0.x - B * 1.60, s0.y - B * 0.60, s0.z)], M(30), MAT.black(), 12));
-      g.add(can);
+      /* Atmospheric / supercharged: a remote moulded airbox beside the engine
+         on the intake side at plenum height, and a rubber duct forward off the
+         throttle mouth and across to it — which is where every one of these
+         engines (4A-GE, F20C, 2GR, LS3, F136) actually breathes. The 168 mm
+         drum that used to hang off the throttle snout stood on the thermostat
+         housing and in the fan on a vee. Take the box off and the throttle's
+         own element is what is left. */
+      const bx = B * 1.55, by = B * 0.90, bz = B * 1.00;
+      const side = L.banks >= 2 ? -1 : inSide(0);
+      /* outboard of the cam cover and its coils: a vee's cover reaches
+         sin(a)·(deckH + 1.6·B) plus most of its own half-width */
+      const reach = Math.max(...L.bankAngles.map(a => Math.abs(Math.sin(a)) * (L.deckH + B * 1.60) + Math.abs(Math.cos(a)) * B * 0.80));
+      const vee = L.banks >= 2;
+      const c = V3(-L.len * 0.30, thrAt.y + (vee ? B * 0.50 : 0), side * (vee ? reach + B * 1.00 : outerZ + B * 1.30));
+      g.add(at(airboxMesh(bx, by, bz), c.x, c.y, c.z));
+      /* the duct: off the throttle mouth, forward, then across into the box's
+         inner face — on a vee it climbs over the cam cover and its coils (and
+         the phasers at the head's front) rather than cutting through them */
+      const mouth = V3(thrAt.x - M(40), thrAt.y, thrAt.z);
+      const out = vee ? V3(c.x, c.y + by * 0.30, c.z - side * bz * 0.5)
+                      : V3(c.x - bx * 0.5 + M(30), c.y, c.z - side * bz * 0.5);
+      g.add(pipe(vee ? [mouth, V3(mouth.x - B * 0.30, mouth.y + B * 0.10, mouth.z),
+                        V3(c.x, thrAt.y + B * 0.95, side * reach * 0.70), out]
+                     : [mouth, V3(mouth.x - B * 0.55, mouth.y, mouth.z),
+                        V3(out.x - B * 0.45, out.y, out.z + (mouth.z - out.z) * 0.45), out], M(36), MAT.rubber(), 14));
+      g.add(at(rot(cyl(M(40), M(40), M(24), MAT.black(), 20), Math.PI / 2, 0, 0), out.x, out.y, out.z - side * M(8)));   // the box's outlet stub
+      const cl = hoseClamp(M(37)); alignY(cl, V3(1, 0, 0)); cl.position.copy(mouth).add(V3(-M(8), 0, 0)); g.add(cl);
     }
     add('airbox', g);
   }

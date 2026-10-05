@@ -23,12 +23,12 @@ export const V_GROUP_BY_ID = Object.fromEntries(V_GROUPS.map(g => [g.id, g]));
 
 const P = (o) => Object.assign({ group:'chassis', qty:1, deps:[], removable:true }, o);
 
-export function buildVehicleTree(v){
+export function buildVehicleTree(v, opts = {}){
   if (v.model === 'koenigsegg') return hypercarModelTree(v);
   if (v.model === 'harley') return cruiserModelTree(v);
   if (v.model === 'carconcept') return conceptModelTree(v);
   if (v.model) return modelTree(v);
-  return v.class === 'bike' ? bikeTree(v) : v.class === 'kart' ? kartTree(v) : carTree(v);
+  return v.class === 'bike' ? bikeTree(v) : v.class === 'kart' ? kartTree(v) : carTree(v, opts);
 }
 
 /* ====================================================================== */
@@ -189,8 +189,9 @@ export const bodyDoors = (v) => FOUR_DOOR.has(v.body) && v.class === 'car' ? 4 :
 export const isOpenWheeler = (v) => ['formula', 'dragster'].includes(v.id) || v.body === 'formula' || v.body === 'dragster';
 
 /* ====================================================================== */
-function carTree(v){
+function carTree(v, opts = {}){
   const parts = [], add = (o) => { parts.push(P(o)); return o.id; };
+  const scan = !!opts.scan;     // a bundled scan carries its own grille, wipers and filler flap
   const race = ['formula','stockcar','dragster','awd-rally','drift','audi-quattro-s1'].includes(v.id);
   const awd = v.drivetrain === 'AWD', rwd = v.drivetrain !== 'FWD', fwd = v.drivetrain === 'FWD';
   const liveRear = v.suspR === 'liveaxle';
@@ -212,7 +213,7 @@ function carTree(v){
     teach:`${v.chassis === 'unibody' ? 'A unibody has no separate frame — folded and spot-welded steel panels form one stiff box, and the suspension bolts to reinforced pickup points in that box. The floor pan, sills, pillars and inner wings are all this one welded structure; the panels you can unbolt hang off it.' : v.chassis === 'ladder frame' ? 'Two full-length rails with crossmembers between them. The body bolts on through rubber mounts, so cab noise and chassis flex are separated — ideal for towing, poor for handling.' : v.chassis === 'carbon monocoque' ? 'A single carbon-fibre tub the driver sits inside. Torsional stiffness of 30,000+ Nm/degree means the suspension actually does the work instead of the chassis flexing.' : /aluminium/.test(v.chassis) ? 'Extruded and cast aluminium sections bonded and riveted into a floor, sills and towers. Light and stiff, and almost impossible to repair after a structural hit.' : 'Welded steel tubing triangulated so every load path is a tension or compression member — no bending.'} Torsional rigidity is the number that matters: a floppy chassis makes every suspension change meaningless.`,
     spec:{ 'Type':v.chassis, 'Wheelbase':`${v.wheelbase} mm`, 'Track F/R':`${v.trackF}/${v.trackR} mm`, 'Kerb mass':`${v.massKg} kg` } });
 
-  if (race) add({ id:'cage', name:'Roll cage', group:'chassis', deps:['chassis'], mesh:'cage', torque:t(60,'sequence',8,'M12'),
+  if (race && !open) add({ id:'cage', name:'Roll cage', group:'chassis', deps:['chassis'], mesh:'cage', torque:t(60,'sequence',8,'M12'),
     teach:'A cage is not just safety equipment — a well-triangulated cage tied into the strut towers can double the shell\'s torsional stiffness. That is why cars feel sharper after one goes in. The feet are plated to the floor; a cage bolted through bare sheet metal pulls through in a rollover.' });
 
   add({ id:'subfront', name:'Front subframe', group:'subframe', deps:['chassis'], mesh:'subfront', torque:t(110,'star',8,'M14'),
@@ -353,7 +354,7 @@ function carTree(v){
     teach:'Pedal force × pedal ratio × booster assist ÷ master-cylinder area = line pressure. Fit bigger calipers without thinking about master-cylinder bore and the pedal goes long and soft. It bolts through the firewall onto the vacuum servo, with the reservoir on top.' });
   add({ id:'abs', name:'ABS / stability module', group:'brakes', deps:['brakelines','harness'], mesh:'abs',
     teach:'Wheel-speed sensors spot a wheel decelerating faster than the car and modulate that circuit up to 15 times a second. Stability control adds yaw rate and steering angle and brakes individual corners to correct a slide.' });
-  add({ id:'hbrake', name: v.id==='drift' ? 'Hydraulic handbrake' : 'Parking brake lever & cables', group:'brakes', deps:[v.brakeR ? 'calr' : 'calf', 'chassis'], mesh:'hbrake',
+  if (!open) add({ id:'hbrake', name: v.id==='drift' ? 'Hydraulic handbrake' : 'Parking brake lever & cables', group:'brakes', deps:[v.brakeR ? 'calr' : 'calf', 'chassis'], mesh:'hbrake',
     teach: v.id==='drift' ? 'A separate master cylinder plumbed into the rear circuit only — pull it and the rear locks instantly regardless of pedal input. This is how a drift is initiated and adjusted.' : 'A lever on the tunnel pulling two cables to the rear calipers or drums, holding the car with the engine off. The cables run under the floor and seize when the outer sheath lets water in.' });
 
   /* ---- wheels ------------------------------------------------------------ */
@@ -442,7 +443,7 @@ function carTree(v){
     teach:'Most "electrical gremlins" are ground faults. Current has to get back to the battery negative, and a corroded ground strap raises the voltage everything else floats at. The loom runs along the sill under the carpet and across the bulkhead behind the dash.' });
   add({ id:'ecu', name:'Engine control unit', group:'elec', deps:['harness'], mesh:'ecu', torque:t1(8,'sequence',4,'M6'),
     teach:'The computer reading every sensor and firing every injector and coil. Mounted in the bay or behind the kick panel, with one or two big multi-pin connectors that only release with the lever. Tune it in the Tuning workspace.' });
-  add({ id:'horn', name:'Horn', group:'elec', deps:['harness'], mesh:'horn',
+  if (!open) add({ id:'horn', name:'Horn', group:'elec', deps:['harness'], mesh:'horn',
     teach:'A diaphragm driven by an electromagnet that interrupts its own supply — a buzzer with a trumpet on it. Two horns of different pitch is what gives a car its chord.' });
   if (!open){
     add({ id:'washer', name:'Washer bottle & pump', group:'elec', deps:['chassis'], mesh:'washer',
@@ -453,7 +454,7 @@ function carTree(v){
       spec:{ 'Fitted':lv.name } });
     add({ id:'taillamp', name:'Tail lamp clusters', group:'elec', qty:2, each:'Tail lamp', deps:['quarters','harness'], mesh:'taillamp', torque:t1(4,'sequence',3,'M5'),
       teach:'Stop, tail, indicator and reverse in one cluster bolted into the quarter panel from inside the boot. LEDs draw a tenth of the current of filament bulbs, which is why converting them upsets flasher relays that measure current to detect a blown bulb.' });
-    add({ id:'wipers', name:'Wiper arms, motor & linkage', group:'elec', deps:['windscreen','harness'], mesh:'wipers',
+    if (!scan) add({ id:'wipers', name:'Wiper arms, motor & linkage', group:'elec', deps:['windscreen','harness'], mesh:'wipers',
       teach:'A motor and a crank linkage under the scuttle panel; the arms are splined and handed, and they park to a mark on the screen rather than to a stop. Fit them to the mark, not to where they look right.' });
   }
   if (!race){
@@ -474,7 +475,7 @@ function carTree(v){
       teach:'The front wing is a bolt-on panel — the one big exterior panel on a unibody that is. It bolts along the top to the inner wing, at the back behind the door edge and at the bottom to the sill. The bumper bolts to its leading edge, so the bumper comes off first.' });
     add({ id:'bumperF', name: bf.mesh.type === 'splitter' ? 'Front bumper (with splitter)' : 'Front bumper', group:'body', deps:['wingF','headlamp'], mesh:'bumperF', torque:t1(8,'perimeter',10,'M6'),
       teach:'A plastic skin over a foam block and an aluminium crash beam. The skin is a shape for airflow and pedestrians; the beam is what takes a low-speed impact without touching the structure. It clips into the wing edges and bolts under the headlamps.' });
-    add({ id:'grille', name:'Grille', group:'body', deps:['bumperF'], mesh:'grille', torque:t1(3,'perimeter',6,'M5'),
+    if (!scan) add({ id:'grille', name:'Grille', group:'body', deps:['bumperF'], mesh:'grille', torque:t1(3,'perimeter',6,'M5'),
       teach:'The grille is a trim ring around the hole the radiator breathes through. Block half of it and most cars still cool fine on the move — the lower intake is doing the work.' });
     add({ id:'doorF', name:'Front doors', group:'body', qty:2, each:'Door', end:'F', deps:['chassis'], mesh:'doorF', torque:t(28,'sequence',4,'M10'),
       teach:'Each door is a pressed inner frame with an outer skin, an intrusion beam, the latch and the hinges. It hangs on two hinges on the A-pillar; the striker is set last. A door that is adjusted at the latch to hide a hinge problem will drop again the first time it is slammed. The card, glass and mirror come off it first because their wiring runs through the hinge gap.' });
@@ -499,7 +500,7 @@ function carTree(v){
       teach:'Like the front: a skin, a foam block and a beam. The parking sensors live in the skin and the exhaust tips pass through or under it. It bolts into the quarter edges, so the quarters come off after it.' });
     add({ id:'mirrors', name: mi.mesh.type === 'aero' ? 'Aero door mirrors' : 'Door mirrors', group:'body', qty:2, each:'Door mirror', deps:['doorF'], mesh:'mirrors', torque:t1(6,'sequence',3,'M6'),
       teach:`${mi.teach} Three bolts through the door frame at the sail panel, with the heater and motor wiring going through the door.`, spec:{ 'Fitted':mi.name } });
-    add({ id:'fuelflap', name:'Fuel filler flap', group:'body', deps:['quarters'], mesh:'fuelflap',
+    if (!scan) add({ id:'fuelflap', name:'Fuel filler flap', group:'body', deps:['quarters'], mesh:'fuelflap',
       teach:'A small hinged door in the quarter with a cable or electric release and a cup behind it that catches drips. Which side it is on decides which side of the pump you park at.' });
     /* glazing */
     add({ id:'windscreen', name:'Windscreen', group:'body', deps:['roof','headliner'], mesh:'windscreen',
@@ -510,7 +511,7 @@ function carTree(v){
       teach:'Tempered glass clamped into a regulator inside the door — a scissor or cable mechanism driven by a motor. The glass comes out through the top of the door with the card off and the regulator wound to the access holes.' });
     if (doors4) add({ id:'glassR', name:'Rear door glass', group:'body', qty:2, each:'Door glass', end:'R', deps:['doorR'], mesh:'glassR',
       teach:'Usually a drop glass plus a fixed quarter light in the same door frame, because the wheel arch intrudes into the door and the drop glass can only go so far down.' });
-    else if (!roadster) add({ id:'glassQ', name:'Rear quarter glass', group:'body', qty:2, each:'Quarter glass', deps:['quarters','roof'], mesh:'glassQ',
+    else if (!roadster && ['coupe','stockcar'].includes(v.body)) add({ id:'glassQ', name:'Rear quarter glass', group:'body', qty:2, each:'Quarter glass', deps:['quarters','roof'], mesh:'glassQ',
       teach:'A fixed pane bonded into the quarter panel behind the door. On some coupés it hinges out an inch for ventilation.' });
   }
 
@@ -520,7 +521,7 @@ function carTree(v){
          : 'Moulded carpet over a felt and foam underlay that is most of the car\'s sound deadening. It goes in over the harness and the fuel and brake lines, and before the seats and console that sit on top of it.' });
   if (!race) add({ id:'headliner', name:'Headliner', group:'interior', deps: roadster ? ['chassis'] : ['roof'], mesh:'headliner',
     teach:'A moulded fibreglass board with foam and fabric on its face, holding the grab handles, lights and sun visors. It is bigger than any opening it has to come out through, which is why it comes out before the windscreen goes in.' });
-  else add({ id:'headliner', name:'Roof padding', group:'interior', deps: roadster ? ['chassis'] : ['roof'], mesh:'headliner',
+  else if (!open) add({ id:'headliner', name:'Roof padding', group:'interior', deps: roadster ? ['chassis'] : ['roof'], mesh:'headliner',
     teach:'FIA roll-cage padding on every tube within reach of a helmet, and nothing else overhead.' });
   add({ id:'dash', name: open ? 'Steering wheel display & switchgear' : 'Dashboard & crossbeam', group:'interior', deps: race || open ? ['harness'] : ['heaterbox','harness'], mesh:'dash', torque:t1(22,'sequence',6,'M8'),
     teach: open ? 'Every readout and almost every control is on the wheel itself; the tub has only the master switches.'

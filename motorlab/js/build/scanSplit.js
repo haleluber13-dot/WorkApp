@@ -32,7 +32,7 @@ export function panelFor(P){
   const side = z < 0 ? 1 : 2;
   const up = ny > 0.55, down = ny < -0.45;
   const door = () => doors4 ? (t < cuts.B ? 'doorF.' + side : 'doorR.' + side) : 'doorF.' + side;
-  if (down && y < sill + 0.03) return 'chassis';                 // the floor pan
+  if (down) return 'chassis';                                    // the floor pan and the arch liners
   if (t < cuts.bumperF) return (up && nx < 0.6 && y > waist - 0.02) ? 'bonnet' : 'bumperF';
   if (t > cuts.bumperR){
     if (y >= waist - 0.03 && (up || nx < -0.35)) return pickup && up ? 'bed' : 'bootlid';
@@ -46,7 +46,7 @@ export function panelFor(P){
   }
   if (y > waist + 0.005){                                         // the greenhouse flanks
     if (t < cuts.doorF) return 'roof';                            // A-pillar and cowl
-    if (t < cuts.doorR) return door();                            // door frames
+    if (t < (cuts.frameR ?? cuts.doorR)) return door();           // door frames
     return 'quarters.' + side;                                    // C-pillar
   }
   if (y > sill || t < cuts.doorF || t > cuts.doorR){              // the flanks
@@ -228,6 +228,7 @@ export function splitScan(wrap, v, L, dims, opts = {}){
   cuts.bonnet = Math.max(0.12, Math.min(cuts.bonnet, 0.45)); cuts.doorF = Math.max(cuts.bonnet + 0.01, Math.min(cuts.doorF, 0.5));
   cuts.doorR = Math.max(cuts.doorF + 0.15, Math.min(cuts.doorR, 0.9)); cuts.boot = Math.max(cuts.doorR + 0.02, Math.min(cuts.boot, 0.93));
   cuts.B = Math.max(cuts.doorF + 0.08, Math.min(cuts.B, cuts.doorR - 0.08));
+  cuts.frameR = (!doors4 && L?.pillars?.length >= 3) ? Math.min(cuts.doorR, cuts.B + 0.01) : cuts.doorR;
   /* the shoulder line per slice: the top of the wide part of the section */
   const waistAt = new Float32Array(NS), sillAt = new Float32Array(NS), hwAt = new Float32Array(NS);
   for (let s = 0; s < NS; s++){
@@ -308,6 +309,23 @@ export function splitScan(wrap, v, L, dims, opts = {}){
     label[i] = panelFor(P);
   }
 
+  /* a "wheel" bucket that is only a hub cap or a brake's worth of triangles
+     is not a wheel the generated one should give way to: it is the brake */
+  for (const w of corners){
+    let n = 0, lo = 1e9, hi = -1e9;
+    for (let i = 0; i < nT; i++) if (label[i] === w.id){ n++; const y = C[i*3+1]; if (y < lo) lo = y; if (y > hi) hi = y; }
+    if (!n) continue;
+    const sideN = w.z < 0 ? 1 : 2;
+    if ((hi - lo) < w.r * 1.3){
+      const discId = 'disc' + w.end.toLowerCase() + '.' + sideN;
+      for (let i = 0; i < nT; i++) if (label[i] === w.id) label[i] = discId;
+    } else if (n < 400){
+      /* a few triangles spanning the arch is the arch liner, not a wheel */
+      const liner = (w.end === 'F' ? 'wingF.' : 'quarters.') + sideN;
+      for (let i = 0; i < nT; i++) if (label[i] === w.id) label[i] = liner;
+    }
+  }
+
   /* ---- 5. tidy the cut: small islands join their neighbours -------------- */
   smooth(label, V, nT);
 
@@ -366,8 +384,9 @@ export function splitScan(wrap, v, L, dims, opts = {}){
     if (!recentre.has(id)) continue;
     const box = new THREE.Box3().setFromObject(grp);
     const ctr = box.getCenter(new THREE.Vector3());
-    const corner = corners.find(c => c.id === id);
-    if (corner){ ctr.x = corner.x; ctr.y = (box.min.y + box.max.y) / 2; }   // spin about the real axle
+    /* spin about the scan's own hub: its axles are where its arches are, which
+       is not always where the catalogue's wheelbase puts them */
+    ctr.y = (box.min.y + box.max.y) / 2;
     for (const m of grp.children) m.geometry.translate(-ctr.x, -ctr.y, -ctr.z);
     grp.position.copy(ctr);
     grp.userData.radius = (box.max.y - box.min.y) / 2;
