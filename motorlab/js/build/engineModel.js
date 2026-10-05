@@ -5,6 +5,8 @@
  * bore, stroke, cylinder count and layout.
  */
 import * as THREE from 'three';
+import { INSTANCED, baseId } from '../data/parts.js';
+import { buildExtraParts } from './extra/index.js';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, tag, at, rot,
          boundsOf, slider, epitrochoid, deg, TAU,
          lathe, pistonMesh, rodMesh, counterweight, camLobe, lobeLift, valveMesh, springMesh,
@@ -85,21 +87,84 @@ function cylPosition(e, i, L){
 /* ====================================================================== */
 /* piston engines                                                          */
 /* ====================================================================== */
+/* The maker's signature finish from engines.js: what colour and texture the
+   cam cover, the block and the plenum actually are on the real engine. */
+export function finishMaterials(e){
+  const f = e.finish || {};
+  const hex = (t) => t ? parseInt(String(t).replace('#', ''), 16) : null;
+  const c = f.cover || '', b = f.block || 'alu', pl = f.plenum || '';
+  const ch = hex(f.coverHex);
+  let cover;
+  if (c === 'red' || c === 'black-red') cover = MAT.gloss(ch ?? 0xb0161a);
+  else if (c === 'crackle-red' || c === 'wrinkle-red') cover = MAT.wrinkle(ch ?? 0xa51c17);
+  else if (c === 'wrinkle-black' || c === 'satin-black' || c === 'magnesium-black') cover = MAT.wrinkle(0x1a1c20);
+  else if (c === 'wrinkle-silver') cover = MAT.wrinkle(0x9ea3a9);
+  else if (c === 'crinkle-grey' || c === 'wrinkle-grey' || c === 'textured-dark-grey') cover = MAT.wrinkle(0x5a5e64);
+  else if (c === 'plastic-black') cover = MAT.composite();
+  else if (c === 'black' || c === 'black-grey' || c === 'black-carbon' || c === 'black-billet') cover = MAT.satin(0x1d2025);
+  else if (c === 'chrome') cover = MAT.chrome();
+  else if (c === 'carbon' || c === 'carbon-silver') cover = MAT.carbon();
+  else if (c === 'billet-alu') cover = MAT.steel();
+  else if (c === 'silver' || c === 'natural-alu' || c === 'silver-cast' || c === 'finned-alu' || c === 'silver-housings') cover = MAT.alloy();
+  else if (c === 'beige') cover = MAT.gloss(ch ?? 0xcdbb97);
+  else cover = MAT.alloyDark();
+  let block;
+  const bh = hex(f.blockHex);
+  if (b === 'iron-orange') block = MAT.gloss(bh ?? 0xd9531e);
+  else if (b === 'iron-painted') block = MAT.satin(bh ?? 0x2a2d31);
+  else if (b.startsWith('iron')) block = MAT.iron();
+  else if (b === 'billet-alu') block = MAT.steel();
+  else block = MAT.cast();
+  let plenum = null;
+  if (pl.startsWith('composite') || pl === 'black' || pl === 'airbox' || pl === 'blower-black' || pl === 'bean-can-tb') plenum = MAT.composite();
+  else if (pl === 'carbon') plenum = MAT.carbon();
+  else if (pl === 'red') plenum = MAT.gloss(ch ?? 0xb0161a);
+  else if (pl === 'iron') plenum = MAT.iron();
+  else if (pl === 'iron-orange') plenum = MAT.gloss(bh ?? 0xd9531e);
+  else if (pl === 'chrome-air-cleaner') plenum = MAT.chrome();
+  else if (pl === 'magnesium-hat') plenum = MAT.alloyDark();
+  else if (pl === 'alu-cast' || pl === 'alu' || pl === 'trumpets' || pl === 'slide-polished-trumpets') plenum = MAT.alloy();
+  const heads = f.heads === 'alu-bare' ? MAT.alloy() : null;
+  /* fastener finish by region: gold zinc-chromate on 1990s Japan, black oxide
+     on German engines, bright zinc on everything else */
+  const jp = /toyota|nissan|mazda|honda|subaru|mitsubishi|suzuki|kawasaki|yamaha/i.test(e.maker || '');
+  const de = /bmw|mercedes|porsche|audi|volkswagen|vw/i.test(e.maker || '');
+  const hardware = f.hardware === 'zincYellow' || (f.hardware == null && jp && (e.year || 2000) < 2005) ? MAT.zincYellow()
+                 : f.hardware === 'gold-anodised' ? MAT.brass()
+                 : de ? MAT.black() : MAT.plated();
+  return { cover, block, plenum, heads, hardware, letters: f.letters || 'none', lettersHex: hex(f.lettersHex) };
+}
+
 function buildPiston(e, tree){
   const L = layout(e);
+  const FIN = finishMaterials(e);
   const root = group('engine');
   const nodes = new Map();
   const add = (id, obj) => {
     if (!obj) return;
+    /* a part this engine's tree does not list is not drawn: the tree decides
+       what the engine is made of, and geometry nobody can take off is a lie */
+    if (!tree.byId[id]){ (root.userData.orphans ||= []).push(id); return; }
     tag(obj, id);
     root.add(obj);
     if (!nodes.has(id)) nodes.set(id, []);
     nodes.get(id).push(obj);
   };
+  /* piece n of a quantity part: its own part `<id>.<n>` when the tree lists
+     the id as instanced, otherwise folded into one part under `id` */
+  const bucket = new Map();
+  const each = (id, i, obj) => {
+    if (!obj) return;
+    if (!(has(id) || has(`${id}.1`))) return;        // this engine has no such part
+    if (INSTANCED.has(id)) add(`${id}.${i + 1}`, obj);
+    else { if (!bucket.has(id)) bucket.set(id, group(id)); bucket.get(id).add(obj); }
+  };
+  const flush = (id) => { if (bucket.has(id)){ add(id, bucket.get(id)); bucket.delete(id); } };
   const anim = { pistons:[], rods:[], crank:null, cams:[], lobes:[], valves:[], springs:[],
                  followers:[], pulleys:[], fans:[], flames:[], puffs:[], turbos:[], rotors:[],
                  shake: imbalance(e) };
-  const has = (id) => !!tree.byId[id];
+  const has = (id) => !!(tree.byId[id] || tree.byId[`${id}.1`]);
+  const qtyOf = (id) => tree.byId[id]?.qty || Object.keys(tree.byId).filter(k => k.startsWith(id + '.')).length;
   const airCooled = (e.coolant || '').startsWith('air');
   const ohv = e.cam === 'OHV';
   const pins = pinAngles(e);
@@ -179,7 +244,7 @@ function buildPiston(e, tree){
     bevelThickness:M(4), bevelSize:M(4), bevelSegments:1, curveSegments:1 });
   bgeo.rotateY(Math.PI / 2);                 // extruded along Z; the block runs on X
   bgeo.translate(-L.len / 2, 0, 0);
-  blockG.add(new THREE.Mesh(bgeo, MAT.cast()));
+  blockG.add(new THREE.Mesh(bgeo, FIN.block));
 
   /* the cylinder walls, which show once the block is cut away */
   for (const bank of L.bankAngles.keys()){
@@ -232,7 +297,7 @@ function buildPiston(e, tree){
     const dg = new THREE.ExtrudeGeometry(dShape, { depth:L.deckH - caseBot,
                                                   bevelEnabled:false, curveSegments:16 });
     dg.rotateX(-Math.PI / 2);                    // shape lies flat, thickness up
-    const dm = new THREE.Mesh(dg, MAT.cast());
+    const dm = new THREE.Mesh(dg, FIN.block);
     const dGrp = group('deck');
     dm.position.y = caseBot;
     dGrp.add(dm);
@@ -243,23 +308,36 @@ function buildPiston(e, tree){
   /* Core plugs — the "freeze plugs" — are pressed into the sand-core holes left
      in the water jacket. They are the first thing you look for on a block that
      has been left out in the cold, and they are on the side of every one. */
-  if (!airCooled) for (let i = 0; i < Math.max(2, L.perBank); i++){
-    const cx = (i - (Math.max(2, L.perBank) - 1) / 2) * L.pitch;
-    for (const zs of [-1, 1]){
-      const cp = cyl(L.bore * 0.24, L.bore * 0.24, M(6), MAT.plated(), 18);
+  if (!airCooled && has('coreplugs')){
+    const nCore = qtyOf('coreplugs');
+    const sides = 2;
+    const perSide = Math.ceil(nCore / sides);
+    for (let k = 0; k < nCore; k++){
+      const sideIdx = k % sides, slot = Math.floor(k / sides);
+      const cx = perSide > 1 ? (slot - (perSide - 1) / 2) * (L.len * 0.78 / (perSide - 1)) : 0;
+      const cp = cyl(L.bore * 0.22, L.bore * 0.22, M(6), MAT.plated(), 18);
       rot(cp, Math.PI / 2, 0, 0);
-      blockG.add(at(cp, cx, L.crankR * 0.30, zs * (wCase - M(3))));
+      /* in the water jacket beside the bores — on a vee that is up the outer
+         face of each bank, on an inline it is the block's two flanks */
+      if (L.banks >= 2){
+        const b = sideIdx;
+        const [py, pz] = portAt(b, L.deckH * 0.55, exSide(b) * L.bore * 0.80);
+        cp.rotation.x += (L.bankAngles[b] ?? 0);
+        each('coreplugs', k, at(cp, cx, py, pz));
+      } else {
+        each('coreplugs', k, at(cp, cx, L.deckH * 0.55, (sideIdx ? 1 : -1) * (wCase - M(3))));
+      }
     }
   }
   /* casting ribs down the sides of the crankcase */
   for (let i = 0; i <= L.perBank; i++){
     const rx = (i - L.perBank / 2) * L.pitch;
     for (const zs of [-1, 1])
-      blockG.add(at(box(M(9), L.crankR * 0.70, M(10), MAT.cast()),
+      blockG.add(at(box(M(9), L.crankR * 0.70, M(10), FIN.block),
                     rx, yCase + L.crankR * 0.45, zs * (wCase + M(3))));
   }
   /* the bellhousing flange at the back, where the gearbox bolts on */
-  const bh = tubeMesh(L.bore * 1.28, L.bore * 1.10, M(16), MAT.cast(), 30);
+  const bh = tubeMesh(L.bore * 1.90, L.bore * 1.62, M(16), MAT.machined(), 30);
   rot(bh, 0, 0, Math.PI / 2);
   blockG.add(at(bh, L.len / 2 + M(8), 0, 0));
   for (let k = 0; k < 8; k++){
@@ -269,26 +347,60 @@ function buildPiston(e, tree){
   }
 
   /* the sump rail and main-bearing bulkheads below the crank */
-  const cc = roundBox(L.len, L.crankR * 0.5, wCase * 2.0, 0.02, MAT.cast());
+  const cc = roundBox(L.len, L.crankR * 0.5, wCase * 2.0, 0.02, FIN.block);
   cc.position.y = yCase + L.crankR * 0.22;
   blockG.add(cc);
   add('block', blockG);
 
   /* ---- main bearings + caps ---- */
   const nMains = L.banks >= 2 ? e.cyl / 2 + 1 : e.cyl + 1;
-  const mbG = group('mains'), mcG = group('maincaps');
   for (let i = 0; i < nMains; i++){
     const x = (i - (nMains - 1) / 2) * (L.len / Math.max(1, nMains - 1)) * 0.92;
-    const sh = tubeMesh(L.crankR * 0.62, L.crankR * 0.52, M(16), MAT.bearing(), 18);
-    at(rot(sh, 0, 0, Math.PI/2), x, 0, 0); mbG.add(sh);
+    /* two half-shells per main: the upper sits in the block saddle, the lower
+       in the cap — a tri-metal shell is exactly this, a thin steel-backed arc */
+    for (const [k, start] of [[0, 0], [1, Math.PI]]){
+      const shellMat = MAT.bearing(); shellMat.side = THREE.DoubleSide;
+      const half = new THREE.Mesh(
+        new THREE.CylinderGeometry(L.crankR * 0.60, L.crankR * 0.60, M(16), 18, 1, true, start, Math.PI), shellMat);
+      rot(half, 0, 0, Math.PI / 2);
+      at(half, x, 0, 0);
+      each('mainbearings', i * 2 + k, half);
+    }
+    const cg = group('cap');
     const cap = roundBox(M(38), L.crankR * 0.9, L.bore * 0.95, 0.01, MAT.alloyDark());
-    at(cap, x, -L.crankR * 0.62, 0); mcG.add(cap);
+    at(cap, x, -L.crankR * 0.62, 0); cg.add(cap);
     for (const sgn of [-1, 1]){
       const b = bolt(M(5), M(34), MAT.steel());
-      at(b, x, -L.crankR * 1.05, sgn * L.bore * 0.36); mcG.add(b);
+      at(b, x, -L.crankR * 1.05, sgn * L.bore * 0.36); cg.add(b);
     }
+    each('maincaps', i, cg);
   }
-  add('mainbearings', mbG); add('maincaps', mcG);
+  flush('mainbearings'); flush('maincaps');
+  if (has('thrust')){
+    /* two half-moon washers either side of the centre main take the crank's
+       end float — the load the clutch pedal puts through the release bearing */
+    const ci = Math.floor(nMains / 2);
+    const cx = (ci - (nMains - 1) / 2) * (L.len / Math.max(1, nMains - 1)) * 0.92;
+    for (const [k, sgn] of [-1, 1].entries()){
+      const wm = MAT.bearing(); wm.side = THREE.DoubleSide;
+      const w = new THREE.Mesh(new THREE.RingGeometry(L.crankR * 0.62, L.crankR * 0.82, 20, 1, 0, Math.PI), wm);
+      w.rotation.y = Math.PI / 2;
+      each('thrust', k, at(w, cx + sgn * M(9.5), 0, 0));
+    }
+    flush('thrust');
+  }
+  if (has('oilsquirters')) for (let i = 0; i < e.cyl; i++){
+    /* a jet in the bottom of each bore, on the intake side of the main
+       gallery, aimed up at the underside of the piston crown */
+    const p = cylPosition(e, i, L), b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
+    const [jy, jz] = portAt(b, L.deckH * 0.30, inSide(b) * L.bore * 0.50);
+    const jg = group('jet');
+    jg.add(cyl(M(7), M(7), M(22), MAT.steel(), 10));
+    const noz = cyl(M(2.5), M(2.5), M(28), MAT.steel(), 8);
+    rot(noz, 0, 0, inSide(b) * 0.55); noz.position.set(0, M(20), 0); jg.add(noz);
+    each('oilsquirters', i, at(jg, p.x, jy, jz));
+  }
+  flush('oilsquirters');
 
   /* ---- crankshaft: main journals, rod throws, counterweights ---- */
   const crankG = group('crank');
@@ -306,10 +418,11 @@ function buildPiston(e, tree){
     rot(pin, 0, 0, Math.PI/2); pin.position.set(p.x, L.crankR, 0);
     throwG.add(pin);
     for (const side of [-1, 1]){
-      const web = box(M(15), L.crankR * 1.5, L.crankR * 1.15, MAT.steel());
+      /* only the journals and pins are ground: the webs stay as-forged, dark */
+      const web = box(M(15), L.crankR * 1.5, L.crankR * 1.15, MAT.forged());
       web.position.set(p.x + side * L.pitch * 0.28, L.crankR * 0.45, 0);
       throwG.add(web);
-      const cw = counterweight(L.crankR * 1.62, M(17), MAT.steel());
+      const cw = counterweight(L.crankR * 1.62, M(17), MAT.forged());
       cw.rotation.x = Math.PI;                       // opposite the pin
       cw.position.set(p.x + side * L.pitch * 0.30, 0, 0);
       throwG.add(cw);
@@ -329,20 +442,25 @@ function buildPiston(e, tree){
     const p = cylPosition(e, i, L);
     const pg = group('p' + i);
     pg.add(pistonMesh(L.bore, MAT.alloy(), { dish: e.injection === 'direct' ? 0.12 : e.cr > 11 ? 0.02 : 0.07 }));
-    for (let r = 0; r < 3; r++){
+    /* the rings and the wrist pin are their own parts when the tree lists
+       them (bottom-end module); otherwise they ride on the piston */
+    if (!has('rings')) for (let r = 0; r < 3; r++){
       const ring = torus(L.bore/2 * 0.995, M(1.7), r === 2 ? MAT.iron() : MAT.steel(), 26);
       rot(ring, Math.PI/2, 0, 0);
       ring.position.y = L.bore * (0.146 - r * 0.062);
       pg.add(ring);
     }
-    const wrist = cyl(pinBoreR, pinBoreR, L.bore * 0.66, MAT.steel(), 14);
-    rot(wrist, 0, 0, Math.PI/2); wrist.position.y = -L.bore * 0.045; pg.add(wrist);
+    if (!has('pins')){
+      const wrist = cyl(pinBoreR, pinBoreR, L.bore * 0.66, MAT.steel(), 14);
+      rot(wrist, 0, 0, Math.PI/2); wrist.position.y = -L.bore * 0.045; pg.add(wrist);
+    }
     pg.userData.cylIndex = i;
-    pistG.add(pg);
+    each('pistons', i, pg);
 
     const rg = group('r' + i);
-    rg.add(rodMesh(L.rodLen, L.crankR * 0.66, pinBoreR, MAT.steel()));
-    rodG.add(rg);
+    /* a forged rod is dark and scaly along the beam; only the bores are machined */
+    rg.add(rodMesh(L.rodLen, L.crankR * 0.66, pinBoreR, e.class === 'race' ? MAT.steel() : MAT.forged()));
+    each('rods', i, rg);
 
     anim.pistons.push({ node:pg, i, x:p.x, angle:p.angle, fire:fires[i] });
     anim.rods.push({ node:rg, i, x:p.x, angle:p.angle, fire:fires[i] });
@@ -355,13 +473,14 @@ function buildPiston(e, tree){
     root.add(fh);
     anim.flames.push({ node:flame, mat:flame.material, fire:fires[i] });
   }
-  add('pistons', pistG); add('rods', rodG);
+  flush('pistons'); flush('rods');
 
   /* ---- head gasket + heads ---- */
   const hgG = group('hg'), headG = group('heads'), vcG = group('vc');
   const camG = group('cams'), capG = group('camcaps'), valG = group('valves');
   const plugG = group('plugs'), coilG = group('coils'), injG = group('inj'), railG = group('rail');
   const nBanksHead = L.banks === 4 ? 2 : L.banks;
+  let capIdx = 0;
   for (let b = 0; b < nBanksHead; b++){
     const a = L.bankAngles[b] ?? 0;
     /* place a part in this bank's frame, keeping whatever cylinder position it
@@ -374,7 +493,11 @@ function buildPiston(e, tree){
       return g;
     };
 
-    hgG.add(mk(box(L.len, M(2.2), L.bore*1.5, MAT.gasket()), L.deckH));
+    const hb = group('head' + b);
+    /* the machined deck face: a bright line where the casting was milled flat
+       for the gasket — what makes the block and the head read as two parts */
+    blockG.add(mk(box(L.len * 1.002, M(2.4), L.bore * 1.5 * 1.004, MAT.machined()), L.deckH - M(2.2)));
+    each('headgasket', b, mk(box(L.len, M(2.2), L.bore*1.5, e.class === 'race' ? MAT.gasket() : MAT.mls()), L.deckH));
     /* The head is not a block of metal: its underside is the fire deck, and cut
        into it is a combustion chamber per cylinder with the valves sitting in
        the roof. Pull the head off a real engine and that is the first thing you
@@ -394,7 +517,7 @@ function buildPiston(e, tree){
     const fgeo = new THREE.ExtrudeGeometry(fShape, { depth:fireT, bevelEnabled:false, curveSegments:16 });
     fgeo.rotateX(-Math.PI / 2);
     const fire = new THREE.Mesh(fgeo, MAT.alloy());
-    headG.add(mk(fire, L.deckH));
+    hb.add(mk(fire, L.deckH));
     /* the chamber roof: a shallow dish, pent-roof on a four-valve head and a
        wedge-ish bowl on a two-valve, that the valves close against */
     for (let i = 0; i < L.perBank; i++){
@@ -407,31 +530,34 @@ function buildPiston(e, tree){
                           [chamR * 0.93, cr * 0.30], [chamR, 0],
                           [chamR, cr * 1.5], [0, cr * 1.5]], MAT.alloy(), 26);
       dome.position.x = px;
-      headG.add(mk(dome, L.deckH));
+      hb.add(mk(dome, L.deckH));
     }
     /* the rest of the casting sits on top of the fire deck */
     const headBody = roundBox(L.len, L.bore * 1.32 - fireT, L.bore * 1.5, 0.03, MAT.alloy());
-    headG.add(mk(headBody, L.deckH + fireT + (L.bore * 1.32 - fireT) / 2));
+    hb.add(mk(headBody, L.deckH + fireT + (L.bore * 1.32 - fireT) / 2));
     /* port bosses on each face — the lumps you actually see on a head */
     for (let i = 0; i < L.perBank; i++){
       const px = (i - (L.perBank - 1)/2) * L.pitch;
       for (const [zf, mat] of [[-0.80, MAT.alloy()], [0.80, MAT.hot()]]){
         const port = cyl(L.bore * 0.19, L.bore * 0.22, L.bore * 0.22, mat, 16);
         rot(port, Math.PI/2, 0, 0);
-        headG.add(mk(at(port, px, 0, zf * L.bore), L.deckH + L.bore * 0.46, zf * L.bore));
+        hb.add(mk(at(port, px, 0, zf * L.bore), L.deckH + L.bore * 0.46, zf * L.bore));
       }
       /* spark plug well sunk into the casting */
-      headG.add(mk(at(cyl(L.bore*0.13, L.bore*0.13, L.bore*0.34, MAT.black(), 14), px, 0, 0),
+      hb.add(mk(at(cyl(L.bore*0.13, L.bore*0.13, L.bore*0.34, MAT.black(), 14), px, 0, 0),
                    L.deckH + L.bore * 1.02));
     }
-    /* head bolts */
-    for (let i = 0; i < e.cyl / (L.banks >= 2 ? 2 : 1) + 1; i++){
+    /* head bolts: their own part when the tree lists them, else cast here.
+       mk() keeps the x it is given but takes y and z itself, so the offset
+       across the head has to go through its z argument. */
+    if (!has('headbolts')) for (let i = 0; i < L.perBank + 1; i++){
       for (const sgn of [-1, 1]){
         const bl = bolt(M(6), M(30), MAT.steel());
-        const x = (i - (L.perBank) / 2) * L.pitch + L.pitch/2;
-        headG.add(mk(at(bl, x, 0, sgn * L.bore * 0.62), L.deckH + L.bore * 1.22));
+        const x = (i - L.perBank / 2) * L.pitch;
+        hb.add(mk(at(bl, x, 0, 0), L.deckH + L.bore * 1.22, sgn * L.bore * 0.62));
       }
     }
+    each('head', b, hb);
     if (!ohv){
       const nCams = e.cam === 'SOHC' ? 1 : 2;
       const lobesPer = Math.max(1, Math.floor(e.valvesPerCyl / 2));
@@ -464,7 +590,7 @@ function buildPiston(e, tree){
         anim.cams.push({ node:cg, bank:b, index:c });
         for (let i = 0; i < L.perBank + 1; i++){
           const cap = roundBox(M(30), M(16), M(34), 0.006, MAT.alloyDark());
-          capG.add(mk(at(cap, (i - L.perBank/2) * L.pitch, 0, zc), L.deckH + L.bore*1.12, zc));
+          each('camcaps', capIdx++, mk(at(cap, (i - L.perBank/2) * L.pitch, 0, zc), L.deckH + L.bore*1.12, zc));
         }
       }
     }
@@ -488,11 +614,17 @@ function buildPiston(e, tree){
            and lift it so the seat lands in the roof while the stem tip stays
            where the cam expects it. */
         vg.add(valveMesh(headR, L.bore * 0.038, L.bore * 0.695, intake ? MAT.steel() : MAT.hot()));
-        valG.add(mk(at(vg, p.x, 0, zoff), L.deckH + L.bore * 0.4025, zoff));
+        const va = group('valve');
+        va.add(mk(at(vg, p.x, 0, zoff), L.deckH + L.bore * 0.4025, zoff));
         /* the spring seats on the head and is compressed by the retainer */
         const sp = springMesh(L.bore * 0.115, L.bore * 0.30, 6, L.bore * 0.020, MAT.steel());
         const spHolder = mk(at(sp, p.x, 0, zoff), L.deckH + L.bore * 0.52, zoff);
-        valG.add(spHolder);
+        va.add(spHolder);
+        each('valves', i * nv + v, va);
+        /* the stem seal on top of the guide, and on a DOHC head the bucket the
+           lobe presses on — both sit on this exact valve */
+        each('stemseals', i * nv + v, mk(at(tubeMesh(L.bore * 0.062, L.bore * 0.040, M(7), MAT.rubber(), 12), p.x, 0, zoff), L.deckH + L.bore * 0.50, zoff));
+        if (!ohv) each('buckets', i * nv + v, mk(at(cyl(L.bore * 0.105, L.bore * 0.105, L.bore * 0.085, MAT.steel(), 16), p.x, 0, zoff), L.deckH + L.bore * 0.90, zoff));
         const centre = intake ? CAM.intake : CAM.exhaust;
         anim.valves.push({ node:vg, cyl:i, intake, bank:b, lift:maxLift,
                            phase:-(fires[i] + centre) / 2, duration:CAM.duration,
@@ -503,19 +635,49 @@ function buildPiston(e, tree){
         /* a real plug: terminal, ribbed insulator, hex, thread, ground strap */
         /* the plug is screwed into the chamber, so it sits low enough that
            only its terminal reaches up the well */
-        const pl = sparkPlug(L.bore * 0.98);
-        plugG.add(mk(at(pl, p.x, 0, 0), L.deckH + L.bore * 0.56));
+        const preCh = e.ignition === 'pre-chamber';
+        const nPlug = (e.ignition === 'dual-mag' || preCh) ? 2 : 1;
+        for (let k = 0; k < nPlug; k++){
+          /* the pre-chamber plug is a smaller, offset unit beside the main one */
+          const pl = sparkPlug(L.bore * (preCh && k ? 0.74 : 0.98));
+          const pz = nPlug === 2 ? (k ? 1 : -1) * L.bore * (preCh ? 0.20 : 0.26) : 0;
+          each('plugs', i * nPlug + k, mk(at(pl, p.x, 0, pz), L.deckH + L.bore * 0.56, pz));
+        }
+        /* the tube the plug lives down on a DOHC head, sealed into the cover */
+        if (!ohv) each('plugtubes', i, mk(at(tubeMesh(L.bore * 0.165, L.bore * 0.145, L.bore * 0.56, MAT.alloy(), 16), p.x, 0, 0), L.deckH + L.bore * 0.70));
         /* Coil-on-plug drops down the well onto that terminal, standing about
            a finger's width proud of the cover. A distributor engine has no coil
            here at all — it has eight leads coming from one cap, which is built
            after the heads because it needs to know where every plug ended up. */
-        if (e.ignition !== 'distributor' && e.ignition !== 'dual-mag'){
-          const co = coilPack(L.bore * 0.88);
-          coilG.add(mk(at(co, p.x, 0, 0), L.deckH + L.bore * 1.04));
+        if (e.ignition !== 'distributor' && e.ignition !== 'dual-mag' && e.ignition !== 'wasted-spark'){
+          for (let k = 0; k < nPlug; k++){
+            if (ohv && !airCooled){
+              /* LS/LT style: the plugs are in the outboard face of a pushrod
+                 head, so the coils sit on a bracket along the rocker-cover
+                 edge with a short lead down to each plug */
+              const cz = exSide(b) * L.bore * 0.62;
+              const cg = group('cnp');
+              cg.add(at(box(L.pitch * 0.9, M(3), M(60), MAT.steel()), 0, -M(28), 0));
+              cg.add(coilPack(L.bore * 0.80));
+              cg.add(pipe([[0, -M(10), M(20)], [0, -L.bore * 0.30, L.bore * 0.22], [0, -L.bore * 0.62, L.bore * 0.26]], M(5), MAT.red(), 8));
+              each('coils', i * nPlug + k, mk(at(cg, p.x, 0, cz), L.deckH + L.bore * 1.30, cz));
+            } else {
+              const co = coilPack(L.bore * (preCh && k ? 0.66 : 0.88));
+              const pz = nPlug === 2 ? (k ? 1 : -1) * L.bore * 0.20 : 0;
+              each('coils', i * nPlug + k, mk(at(co, p.x, 0, pz), L.deckH + L.bore * 1.04, pz));
+            }
+          }
         }
       } else {
         const inj = cyl(M(9), M(9), L.bore*0.4, MAT.steel(), 10);
-        injG.add(mk(at(inj, p.x, 0, 0), L.deckH + L.bore*0.90));
+        each('injectors', i, mk(at(inj, p.x, 0, 0), L.deckH + L.bore*0.90));
+        /* glow plug: a slim pencil heater screwed in beside the injector on the
+           intake side, with its hex and terminal standing proud of the head */
+        const gp = group('glow');
+        gp.add(cyl(M(5), M(5), L.bore * 0.46, MAT.steel(), 10));
+        gp.add(at(hexPrism(M(10), M(9), MAT.plated()), 0, L.bore * 0.20, 0));
+        gp.add(at(cyl(M(2.5), M(2.5), M(12), MAT.plated(), 8), 0, L.bore * 0.30, 0));
+        each('glow', i, mk(at(gp, p.x, 0, -L.bore * 0.30), L.deckH + L.bore * 0.72, -L.bore * 0.30));
       }
     }
     if (ohv && airCooled){
@@ -543,8 +705,8 @@ function buildPiston(e, tree){
       }
     } else {
       /* valve cover: a real casting with its bolt rail, ribs and filler cap */
-      const vc = camCoverMesh(L.len * 0.98, L.bore * 1.36, L.bore * 0.34, MAT.alloyDark(),
-                              Math.max(4, e.cyl + 2));
+      const vc = camCoverMesh(L.len * 0.98, L.bore * 1.36, L.bore * 0.34, FIN.cover,
+                              Math.max(4, e.cyl + 2), FIN.hardware);
       vcG.add(mk(vc, L.deckH + L.bore * 1.34));
     }
   }
@@ -593,15 +755,32 @@ function buildPiston(e, tree){
     /* the coil canister it fires through */
     dg.add(at(rot(cyl(L.bore * 0.20, L.bore * 0.20, L.bore * 0.44, MAT.black(), 16), 0, 0, deg(8)),
               dAt.x - L.bore * 0.55, dAt.y + L.bore * 0.52, dAt.z + L.bore * 0.55));
-    coilG.add(dg);
+    each('coils', 0, dg);
+  }
+  /* Wasted spark on a twin: one dual-output coil under the tank, a lead to
+     each plug, both plugs firing together once a revolution. */
+  if (e.ignition === 'wasted-spark' && e.fuel !== 'diesel'){
+    const wg = group('wcoil');
+    const cAt = V3(-L.len * 0.10, L.deckH + L.bore * 1.70, -L.bore * 0.55);
+    wg.add(at(roundBox(L.bore * 0.46, L.bore * 0.28, L.bore * 0.34, 0.006, MAT.black()), cAt.x, cAt.y, cAt.z));
+    for (let i = 0; i < e.cyl; i++){
+      const pcyl = cylPosition(e, i, L);
+      const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
+      const [ty, tz] = portAt(b, L.deckH + L.bore * 1.42, 0);
+      const tx = cAt.x + (i - (e.cyl - 1) / 2) * L.bore * 0.14;
+      wg.add(at(cyl(M(6), M(7), M(16), MAT.plastic(), 10), tx, cAt.y + L.bore * 0.18, cAt.z));
+      wg.add(pipe([[tx, cAt.y + L.bore * 0.24, cAt.z],
+                   [(tx + pcyl.x) / 2, Math.max(cAt.y, ty) + L.bore * 0.30, (cAt.z + tz) / 2],
+                   [pcyl.x, ty + L.bore * 0.08, tz]], M(6), MAT.red(), 8));
+      wg.add(at(lathe([[M(11), 0], [M(11), M(20)], [M(7), M(26)]], MAT.rubber(), 12), pcyl.x, ty, tz));
+    }
+    each('coils', 0, wg);
   }
 
-  add('headgasket', hgG); add('head', headG);
-  if (has('camcaps')) add('camcaps', capG);
-  add('cam', camG); add('valves', valG); add('valvecover', vcG);
-  if (has('plugs')) add('plugs', plugG);
-  if (has('glow'))  add('glow', plugG);
-  if (has('coils')) add('coils', coilG);
+  flush('headgasket'); flush('head');
+  flush('camcaps');
+  add('cam', camG); flush('valves'); flush('stemseals'); flush('buckets'); add('valvecover', vcG);
+  flush('plugs'); flush('plugtubes'); flush('glow'); flush('coils');
 
   /* ---- OHV valvetrain ---- */
   if (ohv){
@@ -626,6 +805,7 @@ function buildPiston(e, tree){
         const centre = which === 'intake' ? CAM.intake : CAM.exhaust;
         const phase = -(fires[i] + centre) / 2;
         const sgn = which === 'intake' ? -1 : 1;
+        const vi = i * 2 + (which === 'intake' ? 0 : 1);     // piece index: cyl n intake, cyl n exhaust
         const lobe = camLobe(baseR, liftR, CAM.duration, lobeW, MAT.steel());
         const holder = group('lobe'); holder.add(lobe);
         holder.position.set(p.x + sgn * lobeW * 0.9, 0, 0);
@@ -651,39 +831,55 @@ function buildPiston(e, tree){
         const lf = cyl(L.bore * 0.062, L.bore * 0.062, L.bore * 0.24, MAT.steel(), 12);
         lf.rotation.x = ang;
         at(lf, px, fy, fz);
-        liftG.add(lf);
+        each('lifters', vi, lf);
 
+        const onHead = openAir || L.banks >= 2;      // the rocker sits on a tilted head
         const prLen = openAir ? yTop - yBot : L.deckH * 0.66;
-        const prMid = openAir ? (yBot + yTop) / 2 : yBot + L.bore * 0.12 + prLen / 2;
-        const [my, mz] = openAir ? portAt(b, prMid, zLoc) : [prMid, fz];
-        const pr = cyl(L.bore * 0.024, L.bore * 0.024, prLen, MAT.steel(), 8);
-        pr.rotation.x = ang;
-        at(pr, px, my, mz);
-        prG.add(pr);
+        let pr;
+        if (!openAir && L.banks >= 2){
+          /* a pushrod V8: the lifter stands in the valley over the cam and the
+             rod leans out to the rocker on the tilted head, so it runs between
+             those two points rather than straight up the middle of the vee */
+          const [ty, tz] = portAt(b, L.deckH + L.bore * 0.86, sgn * L.bore * 0.22);
+          const bot = V3(px, fy + L.bore * 0.12, fz), top = V3(px, ty, tz);
+          const d = top.clone().sub(bot);
+          pr = cyl(L.bore * 0.024, L.bore * 0.024, d.length(), MAT.steel(), 8);
+          pr.quaternion.setFromUnitVectors(V3(0, 1, 0), d.clone().normalize());
+          pr.position.copy(bot).addScaledVector(d, 0.5);
+        } else {
+          const prMid = openAir ? (yBot + yTop) / 2 : yBot + L.bore * 0.12 + prLen / 2;
+          const [my, mz] = openAir ? portAt(b, prMid, zLoc) : [prMid, fz];
+          pr = cyl(L.bore * 0.024, L.bore * 0.024, prLen, MAT.steel(), 8);
+          pr.rotation.x = ang;
+          at(pr, px, my, mz);
+        }
+        each('pushrods', vi, pr);
 
         if (openAir){
           /* each piece is placed by its centre, in the bank's own frame */
+          const tg = group('tube');
           const stand = (obj, yMid) => {
             const [ay, az] = portAt(b, yMid, zLoc);
             obj.rotation.x = ang;
-            return tubeG.add(at(obj, px, ay, az));
+            return tg.add(at(obj, px, ay, az));
           };
           const bootH = L.bore * 0.10;
           stand(tubeMesh(L.bore * 0.100, L.bore * 0.082, prLen - bootH * 1.6, MAT.chrome(), 16),
                 (yBot + yTop) / 2);
           stand(tubeMesh(L.bore * 0.130, L.bore * 0.094, bootH, MAT.rubber(), 14), yBot + bootH * 0.5);
           stand(tubeMesh(L.bore * 0.130, L.bore * 0.094, bootH, MAT.rubber(), 14), yTop - bootH * 0.5);
+          each('pushrodtubes', vi, tg);
         }
 
         const rockR = openAir ? L.deckH + L.bore * 1.06 : L.deckH + L.bore * 0.95;
-        const [ry, rz] = openAir ? portAt(b, rockR, sgn * L.bore * 0.24)
-                                 : [rockR, fz * 1.4];
+        const [ry, rz] = onHead ? portAt(b, rockR, sgn * L.bore * 0.24)
+                                : [rockR, fz * 1.4];
         const rk = box(L.bore * 0.30, L.bore * 0.075, L.bore * 0.09, MAT.steel());
         const rkH = group('rk'); rkH.add(rk);
         rk.position.x = -sgn * L.bore * 0.12;
         rkH.position.set(px, ry, rz);
-        rkH.rotation.x = ang;
-        rkG.add(rkH);
+        rkH.rotation.x = onHead ? (L.bankAngles[b] || 0) : ang;
+        each('rockers', vi, rkH);
         anim.followers.push({ lifter:lf, pushrod:pr, rocker:rkH, phase, duration:CAM.duration,
                               travel:L.bore * 0.055, rockSign:sgn, dir,
                               lifterHome:lf.position.clone(), pushrodHome:pr.position.clone() });
@@ -693,21 +889,22 @@ function buildPiston(e, tree){
         const [ly, lz2] = portAt(b, L.deckH * 0.44, L.bore * 0.66);
         const lb = roundBox(L.bore * 0.58, L.bore * 0.30, L.bore * 0.34, .006, MAT.alloyDark());
         lb.rotation.x = L.bankAngles[b] || 0;
-        liftG.add(at(lb, p.x, ly, lz2));
+        add('block', at(lb, p.x, ly, lz2));   // the lifter block is part of the crankcase casting
       }
     }
     camIn.position.y = camY;
     anim.cams.push({ node:camIn, bank:0, index:0 });
     add('cam', camIn);
-    add('lifters', liftG); add('pushrods', prG); add('rockers', rkG);
-    if (tubeG) add('pushrodtubes', tubeG);
+    flush('lifters'); flush('pushrods'); flush('rockers'); flush('pushrodtubes');
   }
 
   /* ---- timing drive ---- */
   const tG = group('timing');
   const frontX = -L.len/2 - M(18);
   const crankSpr = tubeMesh(L.crankR * 0.7, L.crankR * 0.4, M(12), MAT.steel(), 20);
-  rot(crankSpr, 0, 0, Math.PI/2); crankSpr.position.x = frontX; tG.add(crankSpr);
+  rot(crankSpr, 0, 0, Math.PI/2); crankSpr.position.x = frontX;
+  if (has('crksprocket')) add('crksprocket', crankSpr); else tG.add(crankSpr);
+  let sprIdx = 0;
   if (!ohv){
     for (let b = 0; b < nBanksHead; b++){
       const a = L.bankAngles[b] ?? 0;
@@ -718,11 +915,26 @@ function buildPiston(e, tree){
         const spr = tubeMesh(L.crankR * 1.3, L.crankR * 0.5, M(11), MAT.steel(), 24);
         rot(spr, 0, 0, Math.PI/2);
         spr.position.set(frontX, L.deckH + L.bore * 1.00, zc);
-        g.add(spr); g.rotation.x = a; tG.add(g);
+        g.add(spr); g.rotation.x = a;
+        if (has('camsprockets')) each('camsprockets', sprIdx, g); else tG.add(g);
+        if (has('camseals')){
+          /* the lip seal behind the sprocket, where the cam nose comes through the head */
+          const cs = group('camseal');
+          const sr = tubeMesh(L.crankR * 0.56, L.crankR * 0.42, M(7), MAT.rubber(), 20);
+          rot(sr, 0, 0, Math.PI / 2); sr.position.set(frontX + M(13), L.deckH + L.bore * 1.00, zc);
+          cs.add(sr); cs.rotation.x = a;
+          each('camseals', sprIdx, cs);
+        }
+        sprIdx++;
+        /* the chain runs from the crank sprocket on the centreline up to the
+           cam sprocket in the bank's own frame, so its top end is rotated into
+           world space by the bank angle rather than the whole run being
+           half-rotated and meeting neither sprocket */
+        const w = (y, z) => [frontX, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
         const chain = pipe([[frontX, L.crankR*0.7, 0],
-                            [frontX, L.deckH*0.6, L.bore*0.5*Math.sign(zc||1)],
-                            [frontX, L.deckH + L.bore*1.00, zc]], M(4), MAT.steel(), 6);
-        const cg = group('ch'); cg.add(chain); cg.rotation.x = a * 0.5; tG.add(cg);
+                            w(L.deckH*0.6, L.bore*0.5*Math.sign(zc||1)),
+                            w(L.deckH + L.bore*1.00, zc)], M(4), MAT.steel(), 6);
+        tG.add(chain);
       }
     }
   } else {
@@ -731,10 +943,31 @@ function buildPiston(e, tree){
                  || rot(tubeMesh(L.crankR * 1.0, L.crankR*0.4, M(11), MAT.steel(), 22), 0, 0, Math.PI/2);
     camSpr.position.set(frontX, L.crankR*1.55, 0); tG.add(camSpr);
   }
-  add('timing', tG);
+  add('timing', tG); flush('camsprockets'); flush('camseals');
   add('tensioner', at(box(M(20), M(70), M(16), MAT.plastic()), frontX, L.deckH * 0.55, L.bore * 0.5));
+  /* Belt-driven DOHC: two smooth idler pulleys steer the belt on the side the
+     tensioner is not, one above the other on the long span; then the upper and
+     lower plastic covers, split at the crank-pulley height. */
+  if (has('idlers')){
+    const idler = (r) => { const g = group('idler');
+      g.add(rot(tubeMesh(r, r * 0.42, M(22), MAT.steel(), 24), 0, 0, Math.PI / 2));
+      g.add(rot(cyl(r * 0.40, r * 0.40, M(28), MAT.plated(), 14), 0, 0, Math.PI / 2));
+      g.add(at(rot(hexPrism(M(7), M(7), MAT.plated()), 0, 0, Math.PI / 2), -M(16), 0, 0));
+      return g; };
+    each('idlers', 0, at(idler(M(26)), frontX, L.deckH * 0.78, -L.bore * 0.55));
+    each('idlers', 1, at(idler(M(21)), frontX, L.deckH * 0.26, -L.bore * 0.62));
+    flush('idlers');
+  }
+  if (has('timingcovers')){
+    const tcX = frontX - M(8), split = L.deckH * 0.42;
+    const upper = roundBox(M(12), L.deckH + L.bore * 1.25 - split, L.bore * 1.55, 0.015, MAT.plastic());
+    const lower = roundBox(M(12), split - (-L.crankR * 0.4), L.bore * 1.45, 0.015, MAT.plastic());
+    each('timingcovers', 0, at(upper, tcX, (split + L.deckH + L.bore * 1.25) / 2, 0));
+    each('timingcovers', 1, at(lower, tcX, (split - L.crankR * 0.4) / 2, 0));
+    flush('timingcovers');
+  }
   const fc = roundBox(M(24), L.deckH * 1.5, L.bore * 1.5, 0.02, MAT.alloyDark());
-  add('frontcover', at(rot(fc, 0, Math.PI/2, 0), frontX - M(14), L.deckH * 0.5, 0));
+  add('frontcover', at(fc, frontX - M(14), L.deckH * 0.5, 0));
 
   /* ---- lubrication ---- */
   const opG = group('oilpump');
@@ -756,6 +989,24 @@ function buildPiston(e, tree){
      it — you have to get a strap wrench round one */
   add('oilfilter', at(oilFilterMesh(M(92), M(115), MAT.blue()),
                       L.len * 0.20, -L.crankR * 0.90, outerZ + M(50)));
+  if (has('oilpsensor')){
+    /* the pressure sender screws into the main gallery a hand's width from the
+       filter, its connector pointing out of the block */
+    const ps = group('oilpsensor');
+    ps.add(rot(cyl(M(11), M(13), M(22), MAT.plated(), 12), Math.PI / 2, 0, 0));
+    ps.add(at(roundBox(M(16), M(14), M(14), .003, MAT.black()), 0, 0, M(20)));
+    add('oilpsensor', at(ps, L.len * 0.30, -L.crankR * 0.55, outerZ + M(8)));
+  }
+  if (has('rearhousing')){
+    /* the retainer plate the rear main seal presses into, bolted to the back face */
+    const rh = group('rearhousing');
+    rh.add(roundBox(M(10), L.crankR * 2.3, L.crankR * 2.3, .02, MAT.alloyDark()));
+    for (let k = 0; k < 6; k++){
+      const t = (k / 6) * TAU;
+      rh.add(at(rot(bolt(M(4), M(14), MAT.steel()), 0, 0, -Math.PI / 2), M(6), Math.sin(t) * L.crankR * 0.98, Math.cos(t) * L.crankR * 0.98));
+    }
+    add('rearhousing', at(rh, L.len / 2 + M(20), 0, 0));
+  }
 
   /* Where each bank's primaries collect. On a turbocharged engine the turbine
      housing bolts straight onto this, so the turbo is positioned from it too —
@@ -802,10 +1053,10 @@ function buildPiston(e, tree){
   const intakeG = group('intake');
   /* a high-revving atmospheric engine runs individual throttles with a trumpet
      on each one; everything else runs a plenum and a single throttle body */
-  const itb = e.aspiration === 'na' && e.redline >= 7600;
+  const itb = e.intake ? (e.intake === 'itb' || e.intake === 'slide') : (e.aspiration === 'na' && e.redline >= 7600);
   /* a plenum and its runners are moulded nylon on anything modern; individual
      throttles and their trumpets are machined alloy, and look it */
-  const inletMat = itb ? MAT.alloy() : MAT.composite();
+  const inletMat = itb ? (FIN.plenum || MAT.alloy()) : (FIN.plenum || MAT.composite());
   /* where a runner has to reach the plenum from */
   const plenumMouth = () => [inducY, L.banks >= 2 ? 0 : -L.bore * 0.95];
   if (!itb){
@@ -866,11 +1117,27 @@ function buildPiston(e, tree){
       const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
       const [ry, rz] = railAt(b);
       const [py, pz] = portAt(b, L.deckH + L.bore * 0.44, inSide(b) * L.bore * 0.62);
-      injG.add(pipe([[p.x, ry, rz], [p.x, (ry + py) / 2, (rz + pz) / 2], [p.x, py, pz]],
+      each('injectors', i, pipe([[p.x, ry, rz], [p.x, (ry + py) / 2, (rz + pz) / 2], [p.x, py, pz]],
                     M(9), MAT.plastic(), 8));
     }
-    add('injectors', injG);
+    flush('injectors');
     add('fuelrail', railG);
+    if (has('fpr')){
+      /* the regulator on the end of the rail, its vacuum nipple on top */
+      const [ry, rz] = railAt(0);
+      const fp = group('fpr');
+      fp.add(lathe([[0, 0], [M(26), 0], [M(30), M(14)], [M(30), M(30)], [M(18), M(40)], [0, M(40)]], MAT.alloy(), 20));
+      fp.add(at(cyl(M(3), M(3), M(12), MAT.plated(), 8), 0, M(44), 0));
+      add('fpr', at(fp, L.len * 0.47, ry + M(2), rz));
+    }
+    if (has('fuellines')){
+      const [ry, rz] = railAt(0);
+      const sz = Math.sign(rz || -1);
+      add('fuellines', pipe([[-L.len * 0.46, ry, rz], [-L.len * 0.52, ry - L.bore * 0.6, rz + sz * L.bore * 0.2],
+                             [-L.len * 0.40, -L.crankR * 0.3, sz * (outerZ + M(10))]], M(5), MAT.rubber(), 8));
+      add('fuellines', pipe([[L.len * 0.47, ry + M(42), rz], [L.len * 0.52, ry - L.bore * 0.5, rz + sz * L.bore * 0.2],
+                             [L.len * 0.42, -L.crankR * 0.3, sz * (outerZ + M(10))]], M(5), MAT.rubber(), 8));
+    }
   }
   if (has('hpfp')){
     const [hy, hz] = L.banks >= 2 ? [inducY - L.bore * 0.30, -L.bore * 0.55]
@@ -911,7 +1178,17 @@ function buildPiston(e, tree){
          reach half a bore further again; a turbo centred any closer than that
          plus its own radius is buried in the block. */
       const clearZ = outerZ + size * 1.10;
-      const pos = frontTurbo
+      /* Where the maker actually hangs them (engines.js turboLayout, from
+         realism.md §2.4): a modern vee carries one turbo per bank low and
+         outboard of the head — toward the gearbox end on a mid-engined car —
+         and only the old front-corner layout puts them out ahead of the block. */
+      const tl = e.turboLayout || '';
+      const outboard = frontTurbo && (tl === 'outboardLow' || tl === 'rearOutboard');
+      const pos = outboard
+        ? new THREE.Vector3((tl === 'rearOutboard' ? L.len * 0.22 : L.len * 0.02) + rank * size * 1.6,
+                            L.crankR * 0.55,
+                            side * (outerZ + size * 0.95))
+        : frontTurbo
         ? new THREE.Vector3(frontX - size * 1.15 + rank * size * 0.55,
                             L.crankR * 0.95,
                             side * clearZ)
@@ -989,6 +1266,48 @@ function buildPiston(e, tree){
     }
     add('wastegate', wgG);
 
+    /* Sequential twins (2JZ-GTE): the hardware that hands over from one turbo
+       to two. The exhaust gas control valve is a butterfly in the manifold at
+       the second turbine's mouth, the smaller exhaust bypass valve sits on the
+       same housing, the intake air control valve blanks the second compressor's
+       outlet, and four VSV solenoids on one bracket beside the throttle switch
+       the vacuum that works the three actuators. */
+    if (turbos.length === 2 && e.sequential && has('egcv')){
+      const t2 = turbos[1];
+      const actuator = (r) => lathe([[0, -M(9)], [r, -M(9)], [r + M(2), -M(3)], [r + M(2), M(4)], [r * 0.7, M(9)], [0, M(9)]], MAT.steel(), 18);
+      const flapValve = (dia, len, matBody) => { const g = group('valve');
+        g.add(rot(cyl(dia / 2 + M(4), dia / 2 + M(4), len, matBody, 18), 0, 0, Math.PI / 2));
+        g.add(at(rot(cyl(M(4), M(4), dia + M(30), MAT.steel(), 8), Math.PI / 2, 0, 0), 0, 0, 0));
+        g.add(at(box(M(10), M(26), M(5), MAT.steel()), 0, M(8), dia / 2 + M(14)));
+        return g; };
+      /* EGCV: in the last run of manifold before turbine #2 */
+      const eg = flapValve(t2.hotTube * 1.6, M(44), MAT.hot());
+      const egAt = t2.hotIn.clone().add(V3(M(42), M(10), 0));
+      eg.add(at(actuator(M(22)), 0, M(14), t2.hotTube * 0.8 + M(28)));
+      add('egcv', at(eg, egAt.x, egAt.y, egAt.z));
+      /* EBV: a small bypass on the turbine housing, above the EGCV */
+      const eb = flapValve(t2.hotTube * 0.7, M(30), MAT.hot());
+      eb.add(at(actuator(M(15)), 0, M(10), t2.hotTube * 0.35 + M(20)));
+      add('ebv', at(eb, egAt.x + M(8), egAt.y + t2.size * 0.70, egAt.z + t2.side * M(6)));
+      /* IACV: blanking valve on compressor #2's outlet pipe */
+      const ia = flapValve(t2.coldTube * 1.5, M(40), MAT.alloy());
+      ia.add(at(actuator(M(20)), 0, M(12), t2.coldTube * 0.75 + M(26)));
+      const iaAt = t2.coldOut.clone().add(V3(0, M(46), 0));
+      add('iacv', at(rot(ia, 0, 0, Math.PI / 2), iaAt.x, iaAt.y, iaAt.z));
+      /* VSVs: four black solenoids in a row on one bracket by the throttle */
+      const vsvAt = thrAt.clone().add(V3(M(60), -L.bore * 0.55, -L.bore * 0.40));
+      for (let k = 0; k < 4; k++){
+        const g = group('vsv');
+        /* the shared bracket comes off with the first solenoid */
+        if (k === 0) g.add(at(box(M(120), M(3), M(34), MAT.steel()), M(45), -M(18), 0));
+        g.add(roundBox(M(22), M(34), M(24), 0.004, MAT.plastic()));
+        g.add(at(cyl(M(4), M(4), M(14), MAT.plastic(), 8), 0, M(20), M(6)));
+        g.add(at(rot(cyl(M(4), M(4), M(14), MAT.plastic(), 8), Math.PI / 2, 0, 0), 0, -M(4), M(18)));
+        each('vsv', k, at(g, vsvAt.x - M(45) + k * M(30), vsvAt.y + M(18), vsvAt.z));
+      }
+      flush('vsv');
+    }
+
     /* The charge-air path, as the bi-turbo diagrams draw it: both compressors
        feed ONE intercooler, and ONE pipe comes back off the core to the
        throttle body. Two hot pipes in, one cold pipe out — a second return
@@ -1001,6 +1320,7 @@ function buildPiston(e, tree){
     const icX = frontX - L.bore * 4.60;
     const icZ = L.bore * 1.70;
     const icG = group('ic');
+    const cpG = has('chargepipes') ? group('chargepipes') : icG;
     icG.add(at(coreMesh(L.bore * 3.60, L.bore * 1.05, M(76)), icX, icY, 0));
     const inTank  = V3(icX + L.bore * 0.05,  icY + L.bore * 0.34,  icZ * 0.86);
     const outTank = V3(icX + L.bore * 0.05,  icY + L.bore * 0.34, -icZ * 0.86);
@@ -1016,7 +1336,7 @@ function buildPiston(e, tree){
         const axis2 = tb.coldIn.clone().sub(tb.pos).normalize();
         stub2.quaternion.setFromUnitVectors(V3(0, 1, 0), axis2);
         icG.add(at(stub2, tb.coldIn.x, tb.coldIn.y, tb.coldIn.z));
-        icG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
+        cpG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
                       [tb.coldOut.x - L.bore * 0.50, lowY + L.bore * 0.35, runZ],
                       [tb.coldOut.x - L.bore * 1.10, lowY, runZ],
                       [frontX - L.bore * 0.40, lowY, runZ],
@@ -1050,12 +1370,13 @@ function buildPiston(e, tree){
                    tb.coldTube * 1.05, MAT.alloy(), 12));
     }
     /* and the single cold pipe back from the core to the throttle body */
-    icG.add(pipe([[outTank.x, outTank.y, outTank.z],
+    cpG.add(pipe([[outTank.x, outTank.y, outTank.z],
                   [frontX - L.bore * 0.70, L.deckH * 0.62, -icZ * 1.02],
                   [frontX - L.bore * 0.10, thrAt.y + L.bore * 0.28, -L.bore * 0.90],
                   [thrAt.x - M(70), thrAt.y, thrAt.z]],
                  L.bore * 0.150, MAT.alloy(), 12));
     add('intercooler', icG);
+    if (cpG !== icG) add('chargepipes', cpG);
 
     /* the blow-off valve sits on that cold pipe, right before the throttle,
        because that is the only place the trapped charge has to go */
@@ -1078,6 +1399,9 @@ function buildPiston(e, tree){
                           0, inducY - L.bore * 0.26, 0));
   }
 
+  /* a road engine casts its manifold in iron, which goes brown-grey and rusty; a
+     race or bike engine runs fabricated tube headers that scale and tint */
+  const exMat = (e.class === 'race' || e.class === 'bike' || e.exhaust === 'headers') ? MAT.hot() : MAT.ironHot();
   /* ---- exhaust ---- */
   const exG = group('ex');
   for (let i = 0; i < e.cyl; i++){
@@ -1099,7 +1423,7 @@ function buildPiston(e, tree){
         [p.x, py - L.bore * 0.06, pz + side * L.bore * 0.30],
         [p.x, colY + L.bore * 0.06, side * colZ * 0.94],
         [p.x, colY, side * colZ],
-      ], M(19), MAT.hot(), 8));
+      ], M(19), exMat, 8));
       continue;
     }
     const outZ = pz + side * L.bore * 0.34;
@@ -1114,24 +1438,24 @@ function buildPiston(e, tree){
       [(p.x + colX) / 2, L.crankR * (frontTurbo ? 1.15 : 0.95), side * colZ * 1.08],
       [colX + (frontTurbo ? L.bore * 0.30 : 0), colY, side * colZ * (frontTurbo ? 0.92 : 1)],
       tb ? [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z] : [colX, colY, side * colZ],
-    ], M(16), MAT.hot(), 8));
+    ], M(16), exMat, 8));
   }
   if (sideTurbo && turbos.length){
     /* the log, and one short pipe out of it into each turbine — dropped
        straight down from the log above the turbo, not reached across from
        somewhere else on the engine */
-    exG.add(at(rot(cyl(M(32), M(32), L.len * 0.88, MAT.hot(), 18), 0, 0, Math.PI / 2),
+    exG.add(at(rot(cyl(M(32), M(32), L.len * 0.88, exMat, 18), 0, 0, Math.PI / 2),
                0, colY, colZ));
     for (const tb of turbos)
       exG.add(pipe([[tb.pos.x, colY, colZ],
                     [(tb.pos.x + tb.hotIn.x) / 2, (colY + tb.hotIn.y) / 2, (colZ + tb.hotIn.z) / 2],
-                    [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.94, MAT.hot(), 10));
+                    [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.94, exMat, 10));
   }
   /* the collector itself: a cone that gathers the primaries and hands them on */
   if (!frontTurbo && !sideTurbo)
    for (const side of (L.banks >= 2 ? [-1, 1] : [1]))
     exG.add(at(lathe([[M(26), -M(34)], [M(30), -M(10)], [M(24), M(22)], [M(24), M(34)]],
-                     MAT.hot(), 22).rotateZ(Math.PI / 2),
+                     exMat, 22).rotateZ(Math.PI / 2),
                colX + M(30), colY, side * colZ));
   /* the manifold bolts to a real port flange, not to thin air */
   for (const bk of (L.banks >= 2 ? [-1, 1] : [1])){
@@ -1150,7 +1474,7 @@ function buildPiston(e, tree){
   for (const tb of turbos)
     exG.add(pipe([[colX + M(30), colY, tb.side * colZ],
                     [(colX + tb.hotIn.x) / 2, (colY + tb.hotIn.y) / 2, tb.side * colZ * 1.04],
-                    [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.92, MAT.hot(), 10));
+                    [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.92, exMat, 10));
   add('exmanifold', exG);
 
   /* The downpipe starts where the gas actually leaves: the turbine's axial
@@ -1256,30 +1580,36 @@ function buildPiston(e, tree){
     /* --- crank seals: one in the front cover, one behind the flywheel --- */
     const slG = gk('seals');
     const sealR = L.crankR * 0.62;
-    for (const [sx, depth] of [[frontX - M(14), M(12)], [L.len / 2 + M(26), M(14)]]){
+    for (const [k, [sx, depth]] of [[frontX - M(14), M(12)], [L.len / 2 + M(26), M(14)]].entries()){
       const sl = tubeMesh(sealR * 1.34, sealR, depth, MAT.rubber(), 24);
       sl.rotation.z = Math.PI / 2;
-      slG.add(at(sl, sx, 0, 0));
+      each('seals', k, at(sl, sx, 0, 0));
     }
-    add('seals', slG);
+    flush('seals');
   }
 
   /* ---- cooling / accessories ---- */
   /* the accessories all drive off one belt, so their pulleys have to land on
      one plane — that plane is the crank damper's */
   const beltX = frontX - M(46);
-  const beltRun = [{ y:0, z:0, r:L.crankR * 1.15 }];
+  const beltRun = [{ y:0, z:0, r:L.bore * 0.85 }];
   if (has('waterpump')){
     const wpSize = L.bore * 1.15;
     const wp = waterPumpMesh(wpSize);
     anim.pulleys.push({ node:wp.userData.pulley, ratio:1.5 });
-    add('waterpump', at(wp, beltX + wpSize * 0.34, L.deckH * 0.55, -L.bore * 0.4));
+    /* a vee's pump sits on the centreline of the front cover; an inline's is
+       offset toward the intake side (realism.md §2.2) */
+    const wpZ = L.banks >= 2 ? 0 : -L.bore * 0.4;
+    add('waterpump', at(wp, beltX + wpSize * 0.34, L.deckH * 0.55, wpZ));
+    if (has('fanclutch'))
+      add('fanclutch', at(rot(cyl(M(55), M(46), M(40), MAT.alloyDark(), 20), 0, 0, Math.PI / 2),
+                          beltX - M(34), L.deckH * 0.55, wpZ));
     /* the pump bolts to the block through its own paper gasket — the one every
        diagram draws as a separate orange outline beside the pump */
     const wg = tubeMesh(wpSize * 0.46, wpSize * 0.30, M(3), MAT.gasket(), 24);
     wg.rotation.z = Math.PI / 2;
-    add('wpgasket', at(wg, beltX + wpSize * 0.60, L.deckH * 0.55, -L.bore * 0.4));
-    beltRun.push({ y:L.deckH * 0.55, z:-L.bore * 0.4, r:wpSize * 0.42 });
+    add('wpgasket', at(wg, beltX + wpSize * 0.60, L.deckH * 0.55, wpZ));
+    beltRun.push({ y:L.deckH * 0.55, z:wpZ, r:wpSize * 0.42 });
   }
   if (has('radiator')){
     /* A radiator is not bolted to the front of the engine. It is at the nose of
@@ -1333,7 +1663,8 @@ function buildPiston(e, tree){
   }
 
   /* a harmonic damper, not a disc: V-ribs, bonded rubber ring, bolt circle */
-  const pulley = crankDamper(L.crankR * 1.15, M(46), MAT.iron());
+  /* 150–170 mm across on a road engine: 0.85 of a bore in radius, not half */
+  const pulley = crankDamper(L.bore * 0.85, M(46), MAT.iron());
   at(pulley, frontX - M(46), 0, 0);
   anim.pulleys.push({ node:pulley, ratio:1 });
   add('crankpulley', pulley);
@@ -1366,15 +1697,30 @@ function buildPiston(e, tree){
   const belt = serpentineBelt(beltRun, beltX, M(26), MAT.rubber());
   if (belt) add(tree.byId['accbelt'] ? 'accbelt' : 'crankpulley', belt);
 
-  add('starter', at(starterMesh(L.bore * 1.6), L.len * 0.42, -L.crankR * 0.1, L.bore * 0.85));
+  add('starter', at(starterMesh(L.bore * 1.6), L.len * 0.42, -L.bore * 0.52, e.class === 'bike' ? L.bore * 0.95 : L.bore * 1.42));
+  if (has('mounts')){
+    /* a bracket off each flank of the block onto a rubber mount — the two
+       points the whole engine hangs from */
+    for (const [k, zs] of [-1, 1].entries()){
+      const mg = group('mount');
+      mg.add(roundBox(M(70), M(36), M(26), .006, MAT.alloyDark()));
+      mg.add(at(box(M(60), M(30), M(40), MAT.rubber()), 0, -M(28), zs * M(20)));
+      mg.add(at(roundBox(M(70), M(8), M(80), .004, MAT.steel()), 0, -M(46), zs * M(20)));
+      each('mounts', k, at(mg, L.len * 0.04, L.crankR * 0.35, zs * (wCase + M(28))));
+    }
+    flush('mounts');
+  }
 
   /* the flywheel carries a real starter ring gear — that is what the starter
      pinion engages, and its tooth count sets the cranking ratio */
-  const fw = flywheelMesh(L.bore * 1.05, M(34), MAT.iron(), Math.round(L.bore * 1.05 * 720));
+  /* a ring gear is 280–300 mm across on a car engine: 1.55 bores in radius,
+     not one — and the starter pinion has to sit on it, outside the block */
+  const fwR = L.bore * (e.class === 'bike' ? 1.05 : 1.55);
+  const fw = flywheelMesh(fwR, M(34), MAT.iron(), Math.round(fwR * 720), !has('flywheelbolts'));
   at(fw, L.len/2 + M(28), 0, 0);
   anim.pulleys.push({ node:fw, ratio:1 });
   add('flywheel', fw);
-  const cl = clutchMesh(L.bore * 0.95, M(52), MAT.steel());
+  const cl = clutchMesh(fwR * 0.82, M(52), MAT.steel());
   add('clutch', at(cl, L.len/2 + M(70), 0, 0));
 
   /* ---- sensors, wiring, plumbing ----
@@ -1596,6 +1942,9 @@ function buildPiston(e, tree){
     at(st, frontX + M(14), L.deckH * 0.86, -L.bore * 0.16);
     statOut = st.userData.outlet.clone().applyEuler(st.rotation).add(st.position);
     add(tree.byId['thermostat'] ? 'thermostat' : 'waterpump', st);
+    if (has('ect'))
+      add('ect', at(rot(cyl(M(7), M(9), M(26), MAT.plated(), 10), 0, 0, Math.PI / 2),
+                    st.position.x - M(38), st.position.y + M(8), st.position.z));
     const pumpIn = V3(beltX + L.bore * 0.30, L.deckH * 0.36, -L.bore * 0.82);
     if (has('radiator')){
       const radX = frontX - L.bore * 3.10;      // where the core actually is
@@ -1632,6 +1981,7 @@ function buildPiston(e, tree){
      the engine has to be dipped and filled */
   for (const tb of turbos){
     if (has('turbo')){
+      const tl = group('turbolines');
       /* The feed is a braided line off a gallery boss on the block, and it
          ends on the top of the bearing housing. The drain is a fat hose off
          the bottom of the same housing into the side of the sump, and it has
@@ -1642,35 +1992,42 @@ function buildPiston(e, tree){
          a short drop — one per turbo, not two lines reaching across the log
          from the same spot like rigging */
       const feedAt = V3(tb.pos.x + L.bore * 0.30, L.crankR * 0.55, tb.side * caseZ);
-      add('turbolines', at(rot(cyl(M(11), M(11), M(20), MAT.plated(), 12), 0, 0, Math.PI / 2),
+      tl.add(at(rot(cyl(M(11), M(11), M(20), MAT.plated(), 12), 0, 0, Math.PI / 2),
                       feedAt.x, feedAt.y, feedAt.z + tb.side * M(9)));
-      add('turbolines', braidedLine([feedAt,
+      tl.add(braidedLine([feedAt,
                                 V3((feedAt.x + tb.oilIn.x) / 2, (feedAt.y + tb.oilIn.y) / 2,
                                    tb.side * (caseZ + L.bore * 0.45)),
                                 tb.oilIn], M(5)));
-      add('turbolines', at(hexPrism(M(13), M(11), MAT.plated()), tb.oilIn.x, tb.oilIn.y, tb.oilIn.z));
+      tl.add(at(hexPrism(M(13), M(11), MAT.plated()), tb.oilIn.x, tb.oilIn.y, tb.oilIn.z));
 
       /* the drain flange, on the sump wall below and inboard of the turbo */
       const drainAt = V3(tb.oilOut.x - L.len * 0.06, -L.crankR * 1.42, tb.side * L.bore * 0.58);
-      add('turbolines', hoseRun([tb.oilOut,
+      tl.add(hoseRun([tb.oilOut,
                             V3((tb.oilOut.x + drainAt.x) / 2,
                                (tb.oilOut.y + drainAt.y) / 2,
                                (tb.oilOut.z + drainAt.z) / 2 + tb.side * L.bore * 0.06),
                             drainAt], L.bore * 0.075));
-      add('turbolines', at(rot(cyl(L.bore * 0.13, L.bore * 0.13, M(10), MAT.alloyDark(), 16),
+      tl.add(at(rot(cyl(L.bore * 0.13, L.bore * 0.13, M(10), MAT.alloyDark(), 16),
                           Math.PI / 2, 0, 0),
                       drainAt.x, drainAt.y, drainAt.z));
+          each('turbolines', turbos.indexOf(tb), tl);
+      if (has('heatshields')){
+        /* a stamped shield over the turbine housing so the bonnet and the loom do not cook */
+        const hs = roundBox(tb.size * 1.4, M(2.5), tb.size * 1.2, .01, MAT.plated());
+        each('heatshields', turbos.indexOf(tb), at(hs, tb.pos.x, tb.pos.y + tb.size * 0.78, tb.pos.z));
+      }
     }
     if (has('wastegate'))
       add('wastegate', hoseRun([tb.wgSignal,
                                 tb.pos.clone().add(V3(0, tb.size * 0.62, tb.size * 0.42))],
                                M(4)));
   }
+  flush('turbolines'); flush('heatshields');
   if (has('oilpan'))
     add('dipstick', dipstickMesh([V3(-L.len * 0.30, L.deckH * 0.62, -caseZ - M(26)),
                                 V3(-L.len * 0.26, L.crankR * 0.40, -caseZ - M(16)),
                                 V3(-L.len * 0.20, -L.crankR * 1.55, -L.bore * 0.55)], M(7)));
-  if (has('oilfilter')){
+  if (has('oilfilter') && has('oilcooler')){
     /* the oil cooler: a stacked-plate core on the filter housing, fed and
        returned by two hoses off the block's gallery — the part the tree has
        been calling "filter & cooler" without ever drawing the cooler */
@@ -1754,6 +2111,15 @@ function buildPiston(e, tree){
       add('block', at(mt, frontX + L.len * 0.22, L.crankR * 0.55, sgn * caseZ));
     }
 
+  /* Extra part modules (js/build/extra/*.js) add geometry for the parts they
+     declare in js/data/extra/*.js, using the same helpers and the same frame
+     as everything above, so a part they add lands where the tree says it is. */
+  buildExtraParts({
+    e, L, tree, nodes, root, anim, M, MAT, FIN, has, qtyOf, add, each, flush,
+    portAt, railAt, inSide, exSide, bankSign, cylPosition, cylSlot, firingOrder, fires,
+    frontX, beltX, outerZ, wCase, ohv, airCooled, boosted, turbos: (typeof turbos !== 'undefined' ? turbos : []),
+    geo: { box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, hexPrism, lathe, group, tag, at, rot, V3, TAU, hoseRun, braidedLine },
+  });
   return finalize(e, root, nodes, anim, L);
 }
 
@@ -1763,17 +2129,38 @@ function buildPiston(e, tree){
 function buildRotary(e, tree){
   const R = M(105), ecc = M(15), width = M(80), pitch = width * 1.55;
   const root = group('engine'); const nodes = new Map();
-  const add = (id, obj) => { if (!obj) return; tag(obj, id); root.add(obj);
+  const rBucket = new Map(), rotorSeals = [];
+  const rHas = (id) => !!(tree.byId[id] || tree.byId[`${id}.1`]);
+  /* like the piston builder's each(): a piece becomes its own part when the
+     tree lists the id as instanced. `attached` pieces already hang off another
+     node (a seal on its rotor) and are only registered, not re-parented. */
+  const rEach = (id, i, obj, attached = false) => {
+    if (!obj || !rHas(id)) return;
+    if (INSTANCED.has(id)){
+      const pid = `${id}.${i + 1}`;
+      tag(obj, pid);
+      if (!attached) root.add(obj);
+      if (!nodes.has(pid)) nodes.set(pid, []);
+      nodes.get(pid).push(obj);
+    } else {
+      if (!rBucket.has(id)) rBucket.set(id, group(id));
+      if (attached){ tag(obj, id); if (!nodes.has(id)) nodes.set(id, []); nodes.get(id).push(obj); }
+      else rBucket.get(id).add(obj);
+    }
+  };
+  const rFlush = (id) => { if (rBucket.has(id)){ add(id, rBucket.get(id)); rBucket.delete(id); } };
+  const add = (id, obj) => { if (!obj) return; if (!tree.byId[id]){ (root.userData.orphans ||= []).push(id); return; } tag(obj, id); root.add(obj);
     if (!nodes.has(id)) nodes.set(id, []); nodes.get(id).push(obj); };
   const anim = { pistons:[], rods:[], crank:null, cams:[], lobes:[], valves:[], springs:[],
                  followers:[], pulleys:[], fans:[], flames:[], puffs:[], turbos:[], rotors:[],
                  shake: imbalance(e) };
   const n = e.cyl;
-  const has = (id) => !!tree.byId[id];
+  const has = (id) => !!(tree.byId[id] || tree.byId[`${id}.1`]);
   const xOf = (i) => (i - (n-1)/2) * pitch;
 
   /* side + rotor housings */
   const sideG = group('side'), rhG = group('rh');
+  const rhPieces = Array.from({ length: n }, () => group('rotorhousing'));
   for (let i = 0; i <= n; i++){
     const plate = roundBox(M(14), R*2.3, R*2.0, .02, MAT.alloy());
     at(rot(plate, 0, Math.PI/2, 0), xOf(i) - pitch/2, 0, 0);
@@ -1791,7 +2178,7 @@ function buildRotary(e, tree){
     shape.holes.push(hole);
     const g = new THREE.ExtrudeGeometry(shape, { depth: width, bevelEnabled:false, curveSegments:8 });
     g.rotateY(Math.PI/2); g.translate(xOf(i) - width/2, 0, 0);
-    rhG.add(new THREE.Mesh(g, MAT.iron()));
+    rhPieces[i].add(new THREE.Mesh(g, MAT.iron()));
   }
   /* The housings are the whole story on a Wankel: the intake is a hole in the
      side plate (side port) and the exhaust is a hole in the rotor housing's
@@ -1808,14 +2195,19 @@ function buildRotary(e, tree){
     /* peripheral exhaust port, out through the trochoid wall */
     const ep = portFlange(1, M(27), M(66), M(10), MAT.hot());
     ep.rotation.y = -Math.PI / 2;                    // face out through the wall
-    rhG.add(at(ep, xOf(i), 0, R * 1.06));
+    rhPieces[i].add(at(ep, xOf(i), 0, R * 1.06));
     /* cooling ribs across the top of the housing casting */
     for (let f = 0; f < 5; f++)
-      rhG.add(at(box(width * 0.92, M(5), R * 0.30, MAT.iron()),
+      rhPieces[i].add(at(box(width * 0.92, M(5), R * 0.30, MAT.iron()),
                  xOf(i), R * (0.86 + f * 0.045), 0));
   }
-  add('block', sideG); add('stationary', at(rot(tubeMesh(M(40), M(26), M(20), MAT.steel(), 20), 0,0,Math.PI/2), xOf(0)-pitch/2, 0, 0));
-  add('rotorhousing', rhG);
+  add('block', sideG);
+  for (let i = 0; i < n; i++) rEach('rotorhousing', i, rhPieces[i]);
+  rFlush('rotorhousing');
+  /* one stationary gear per rotor, pressed into the side housing it runs against */
+  for (let i = 0; i < n; i++)
+    rEach('stationary', i, at(rot(tubeMesh(M(40), M(26), M(20), MAT.steel(), 20), 0,0,Math.PI/2), xOf(i) - pitch/2, 0, 0));
+  rFlush('stationary');
 
   /* eccentric shaft */
   const eg = group('eshaft');
@@ -1864,12 +2256,15 @@ function buildRotary(e, tree){
       const rad = rr * 1.16;
       at(rot(seal, t, 0, 0), 0, rad * Math.sin(t), rad * Math.cos(t));
       seal.rotation.x = -t;
-      apexG.add(seal);
-      rg.userData.seals = rg.userData.seals || [];
+      /* the seal rides in its slot on the rotor, so it moves with the rotor
+         and is its own part — rotor n, apex a */
+      const sh = group('apex'); sh.add(seal);
+      sh.userData.rotorIndex = i; sh.userData.apexIndex = a;
+      rotorSeals.push([i * 3 + a, sh, rg]);
     }
     rg.userData.phase = (i / n) * TAU;
     rg.userData.baseX = xOf(i);
-    rotG.add(rg);
+    rEach('pistons', i, rg);
     anim.rotors.push(rg);
     /* each rotor face fires once per shaft revolution */
     const flame = flameMesh(R * 0.30);
@@ -1878,18 +2273,22 @@ function buildRotary(e, tree){
     root.add(flame);
     anim.flames.push({ node:flame, mat:flame.material, fire:(i / n) * TAU, cycle:TAU });
   }
-  add('pistons', rotG); add('apex', apexG);
+  rFlush('pistons');
+  /* apex seals follow their rotor: parent each to its rotor so the animation
+     carries them, but register them as their own parts */
+  for (const [idx, sh, rg] of rotorSeals){ rg.add(sh); rEach('apex', idx, sh, true); }
+  rFlush('apex');
 
-  /* tension bolts */
-  const tb = group('tb');
-  for (let k = 0; k < 12; k++){
-    const t = (k/12) * TAU;
+  /* tension bolts: the long studs that clamp the housing stack together */
+  const NTB = 18;
+  for (let k = 0; k < NTB; k++){
+    const t = (k/NTB) * TAU;
     const b = cyl(M(6), M(6), pitch * (n + 0.9), MAT.steel(), 8);
     rot(b, 0, 0, Math.PI/2);
     at(b, 0, Math.sin(t) * R * 1.05, Math.cos(t) * R * 1.05);
-    tb.add(b);
+    rEach('maincaps', k, b);
   }
-  add('maincaps', tb);
+  rFlush('maincaps');
 
   add('oilpump', at(roundBox(M(80), M(80), M(60), .01, MAT.alloyDark()), xOf(0) - pitch*0.8, -R*0.6, R*0.5));
   add('oilpan', at(roundBox(pitch*(n+0.6), M(90), R*1.4, .02, MAT.alloyDark()), 0, -R*1.15, 0));
@@ -1918,17 +2317,18 @@ function buildRotary(e, tree){
 
   const injG = group('inj'), railG = group('rail');
   for (let i = 0; i < n*2; i++)
-    injG.add(at(cyl(M(8), M(8), M(52), MAT.plastic(), 10), xOf(Math.floor(i/2)) + (i%2?M(24):-M(24)), R*0.25, -R*0.55));
-  add('injectors', injG);
+    rEach('injectors', i, at(cyl(M(8), M(8), M(52), MAT.plastic(), 10), xOf(Math.floor(i/2)) + (i%2?M(24):-M(24)), R*0.25, -R*0.55));
+  rFlush('injectors');
   railG.add(at(rot(cyl(M(13), M(13), pitch*n, MAT.steel(), 12), 0,0,Math.PI/2), 0, R*0.42, -R*0.62));
   add('fuelrail', railG);
 
   const plugG = group('plugs'), coilG = group('coils');
-  for (let i = 0; i < n; i++) for (const s of [-1, 1]){
-    plugG.add(at(rot(cyl(M(7), M(7), M(40), MAT.steel(), 10), 0, 0, Math.PI/2 + s*0.3), xOf(i) + s*M(22), M(10), -R*1.0));
-    coilG.add(at(roundBox(M(26), M(50), M(30), .006, MAT.plastic()), xOf(i) + s*M(26), R*0.9, -R*0.3));
+  for (let i = 0; i < n; i++) for (const [k, s] of [-1, 1].entries()){
+    /* leading plug low, trailing plug high on each rotor housing */
+    rEach('plugs', i * 2 + k, at(rot(cyl(M(7), M(7), M(40), MAT.steel(), 10), 0, 0, Math.PI/2 + s*0.3), xOf(i) + s*M(22), M(10), -R*1.0));
+    rEach('coils', i * 2 + k, at(roundBox(M(26), M(50), M(30), .006, MAT.plastic()), xOf(i) + s*M(26), R*0.9, -R*0.3));
   }
-  add('plugs', plugG); add('coils', coilG);
+  rFlush('plugs'); rFlush('coils');
 
   const exG = group('ex');
   for (let i = 0; i < n; i++)
@@ -1964,6 +2364,11 @@ function buildRotary(e, tree){
     if (has(id)) add(id, at(cyl(M(11), M(11), M(46), MAT.plastic(), 10), x, y, z));
   if (has('ecu')) add('ecu', at(roundBox(M(190), M(45), M(150), .01, MAT.plastic()), 0, R*1.3, -R*1.4));
 
+  buildExtraParts({
+    e, tree, nodes, root, anim, M, MAT, has, qtyOf: (id) => tree.byId[id]?.qty || Object.keys(tree.byId).filter(k => k.startsWith(id + '.')).length,
+    add, each: rEach, flush: rFlush, rotary: { n, R, pitch, width, xOf },
+    geo: { box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, hexPrism, lathe, group, tag, at, rot, V3:(x,y,z)=>new THREE.Vector3(x,y,z), TAU },
+  });
   return finalize(e, root, nodes, anim, { bore:R, deckH:R, len:pitch*n, crankR:ecc, rodLen:R, stroke:M(80) });
 }
 
@@ -2065,7 +2470,7 @@ function explodeDir(id, obj, L){
     o2:new THREE.Vector3(1.0,-0.2,1.2), fuelpump:new THREE.Vector3(-0.8,0.4,0.9),
     block:new THREE.Vector3(0,0,0),
   };
-  const v = (map[id] || new THREE.Vector3(0, 0.8, 0)).clone();
+  const v = (map[baseId(id)] || new THREE.Vector3(0, 0.8, 0)).clone();
   return v.multiplyScalar(L.bore * 1.9);
 }
 
@@ -2091,7 +2496,10 @@ function animate(e, anim, state, L){
   for (const p of anim.pistons){
     const t = th - p.fire;
     const y = slider(L.crankR, L.rodLen, t);
-    p.node.position.set(p.x, y * Math.cos(p.angle), -y * Math.sin(p.angle));
+    /* the bank frame everything else uses: rotation +a about X puts the
+       bore axis along (cos a, sin a) in (y, z), and the piston has to slide
+       along that same axis or it sits ninety degrees across its own bore */
+    p.node.position.set(p.x, y * Math.cos(p.angle), y * Math.sin(p.angle));
     p.node.rotation.x = p.angle;
   }
   for (const r of anim.rods){
@@ -2102,7 +2510,7 @@ function animate(e, anim, state, L){
     const localPinY = pinY * Math.cos(-r.angle) - pinZ * Math.sin(-r.angle);
     const localPinZ = pinY * Math.sin(-r.angle) + pinZ * Math.cos(-r.angle);
     const tilt = Math.atan2(localPinZ, y - localPinY);
-    r.node.position.set(r.x, y * Math.cos(r.angle), -y * Math.sin(r.angle));
+    r.node.position.set(r.x, y * Math.cos(r.angle), y * Math.sin(r.angle));
     r.node.rotation.set(r.angle, 0, 0);
     r.node.rotateX(-tilt);
   }

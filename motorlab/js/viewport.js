@@ -1,6 +1,7 @@
 /* MotorLab — the 3D workspace: scene, camera, picking, ghosting, exploded
  * view, cutaway sectioning, floating labels and the animation loop. */
 import * as THREE from 'three';
+import { baseId } from './data/parts.js';
 import { assetBytes } from './lib/assets.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -389,9 +390,20 @@ export class Viewport {
     this.clipPlane.constant = c.z;   // section straight down the cylinder axis
   }
 
+  /** The objects of one part — or of every piece of a part, when given the
+   *  whole ("pistons" → pistons.1 … pistons.6). */
+  nodesFor(id){
+    if (!this.model) return [];
+    const direct = this.model.nodes.get(id);
+    if (direct?.length) return direct;
+    const out = [];
+    for (const [k, objs] of this.model.nodes) if (k.startsWith(id + '.')) out.push(...objs);
+    return out;
+  }
+
   focusPart(id){
     if (!this.model) return;
-    const objs = this.model.nodes.get(id); if (!objs?.length) return;
+    const objs = this.nodesFor(id); if (!objs?.length) return;
     const b = new THREE.Box3();
     objs.forEach(o => b.expandByObject(o));
     if (b.isEmpty()) return;
@@ -584,7 +596,7 @@ export class Viewport {
     'exmanifold','exhaust','turbo','blower','body','chassis','cage','tank','gearbox','diff']);
   planesFor(id){
     const planes = [];
-    if (this.cutaway && Viewport.CASTINGS.has(id)) planes.push(this.clipPlane);
+    if (this.cutaway && Viewport.CASTINGS.has(baseId(id))) planes.push(this.clipPlane);
     /* front clip off: the shell alone is cut open ahead of the firewall */
     if (this._bayPlane && id === this.model?.shellId) planes.push(this._bayPlane);
     return planes;
@@ -696,11 +708,12 @@ export class Viewport {
          room: it has to stay solid and visible, or picking one up would look
          like destroying it. */
       const inst = this.installed.has(id) || this.bench.has(id);
-      const under = shelled && id !== shellId && !keep.has(id) && !reveal?.has(id)
-                 && !this.bench.has(id);
-      const sel  = this.selected === id;
+      const bid  = baseId(id);
+      const under = shelled && id !== shellId && !keep.has(id) && !keep.has(bid)
+                 && !reveal?.has(id) && !reveal?.has(bid) && !this.bench.has(id);
+      const sel  = this.selected === id || (bid !== id && this.selected === bid);
       const hov  = this.hovered === id;
-      const hl   = this.highlight.has(id);
+      const hl   = this.highlight.has(id) || (bid !== id && this.highlight.has(bid));
       for (const root of objs) root.traverse(o => {
         if (!o.isMesh) return;
         if (under){

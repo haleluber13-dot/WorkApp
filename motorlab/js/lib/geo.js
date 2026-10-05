@@ -166,6 +166,31 @@ export const MAT = {
     color:0x4a4f56, metalness:0.35, roughness:0.86, envMapIntensity:0.35,
     roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.8 }),
     m => dressSurface(m, 'cast', 5, 1.0))),
+  /* forged steel as it comes out of the die and the heat treat: dark grey-
+     brown scale, no polish — the webs of a crank, the beam of a rod */
+  forged: () => mat('forged', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x3b3e43, metalness:0.80, roughness:0.60, envMapIntensity:0.55,
+    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.45 }),
+    m => dressSurface(m, 'cast', 4, 0.6))),
+  /* a multi-layer steel head gasket: bright steel sheets with a dark elastomer
+     coat, seen edge-on as a thin silver line */
+  mls: () => mat('mls', () => new THREE.MeshStandardMaterial({
+    color:0x9ea2a4, metalness:0.90, roughness:0.50, envMapIntensity:0.8 })),
+  /* yellow zinc-chromate: the gold bolts, brackets and clamps on every
+     Japanese engine of the 1990s */
+  zincYellow: () => mat('zincYellow', () => new THREE.MeshStandardMaterial({
+    color:0xc9a84a, metalness:0.95, roughness:0.38, envMapIntensity:1.0 })),
+  /* a cast-iron exhaust manifold after a few hundred heat cycles: brown-grey
+     scale with a rust bloom, darker toward the flanges, no shine at all */
+  ironHot: () => mat('ironHot', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x5a4e46, metalness:0.40, roughness:0.90, envMapIntensity:0.30,
+    roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.9 }),
+    m => dressSurface(m, 'cast', 5, 1.0))),
+  /* a face that has been through the mill: bright, flat, fine tool marks */
+  machined: () => mat('machined', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xc9cdd1, metalness:0.95, roughness:0.28, envMapIntensity:1.1,
+    roughnessMap: withRepeat(machined(), 3), bumpMap: withRepeat(machined(), 3), bumpScale:0.15 }),
+    m => dressSurface(m, 'steel', 3, 0.4))),
   /* forged and machined steel: tool marks, low roughness */
   steel: () => mat('steel', () => scanned(new THREE.MeshStandardMaterial({
     color:0xb2b9c2, metalness:1.00, roughness:0.36, envMapIntensity:0.95,
@@ -293,6 +318,19 @@ export const MAT = {
     color:0xffffff, metalness:0.15, roughness:0.72, envMapIntensity:0.6,
     side:THREE.DoubleSide }),
     m => { m.map = tex('engineBay'); if (!m.map) m.color.set(0xb04a4a); })),
+  /* maker finishes on engine castings (realism.md §1.3): wrinkle paint is a
+     thick textured enamel baked onto cam covers — matte, grainy, never shiny;
+     gloss is sprayed enamel on an iron block or a cover (small-block orange,
+     Ferrari red); satin is the semi-matte black of a modern powder coat */
+  wrinkle: (hex) => mat('wrinkle' + hex, () => new THREE.MeshStandardMaterial({
+    color:hex, metalness:0.06, roughness:0.80, envMapIntensity:0.45,
+    roughnessMap: withRepeat(castGrain(), 7), bumpMap: withRepeat(castGrain(), 7), bumpScale:1.4 })),
+  gloss: (hex) => mat('gloss' + hex, () => new THREE.MeshPhysicalMaterial({
+    color:hex, metalness:0.12, roughness:0.36, clearcoat:0.9, clearcoatRoughness:0.14, envMapIntensity:1.0,
+    bumpMap: withRepeat(castGrain(), 4), bumpScale:0.35 })),
+  satin: (hex) => mat('satin' + hex, () => new THREE.MeshStandardMaterial({
+    color:hex, metalness:0.25, roughness:0.58, envMapIntensity:0.6,
+    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.4 })),
   /* body paint: metallic base under a clearcoat, tinted so the structure shows */
   paint: (colour, opacity = 1) => scanned(new THREE.MeshPhysicalMaterial({
     color:colour, metalness:0.72, roughness:0.26, clearcoat:1, clearcoatRoughness:0.045,
@@ -578,7 +616,7 @@ export function velocityStack(bore, length, mat){
 
 /** A cam cover: raised centre rib, a bolt rail down each side with its
  *  bosses, and the oil filler in the corner. Sits centred on the deck. */
-export function camCoverMesh(len, width, height, mat, bolts = 8){
+export function camCoverMesh(len, width, height, mat, bolts = 8, hardware = null){
   const g = group('camcover');
   const m = mat || MAT.alloyDark();
   const w = width / 2;
@@ -603,7 +641,7 @@ export function camCoverMesh(len, width, height, mat, bolts = 8){
     const x = (i / (bolts - 1) - 0.5) * len * 0.92;
     for (const sd of [-1, 1]){
       g.add(at(cyl(width * 0.055, width * 0.065, height * 0.20, m, 12), x, height * 0.10, sd * w * 0.90));
-      g.add(at(hexPrism(width * 0.058, height * 0.10, MAT.plated()), x, height * 0.24, sd * w * 0.90));
+      g.add(at(hexPrism(width * 0.058, height * 0.10, hardware || MAT.plated()), x, height * 0.24, sd * w * 0.90));
     }
   }
   /* oil filler neck and cap */
@@ -676,7 +714,7 @@ export function crankDamper(radius, width, mat){
 
 /** A flywheel: the friction face, the bolt circle, and a real starter ring
  *  gear with real teeth. Axis along X. */
-export function flywheelMesh(radius, width, mat, teeth = 110){
+export function flywheelMesh(radius, width, mat, teeth = 110, bolts = true){
   const g = group('flywheel');
   const m = mat || MAT.iron();
   const disc = lathe([[radius * 0.14, -width * 0.5], [radius * 0.92, -width * 0.5],
@@ -693,7 +731,7 @@ export function flywheelMesh(radius, width, mat, teeth = 110){
   rot(ring, 0, Math.PI / 2, 0);
   ring.position.x = width * 0.18;
   g.add(ring);
-  g.add(at(boltCircle(radius * 0.28, 8, radius * 0.10, width * 0.20, MAT.plated(), 'xy'),
+  if (bolts) g.add(at(boltCircle(radius * 0.28, 8, radius * 0.10, width * 0.20, MAT.plated(), 'xy'),
            width * 0.42, 0, 0));
   return g;
 }

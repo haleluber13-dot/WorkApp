@@ -86,12 +86,26 @@ export function installedSet(){
   const id = state.engineId;
   const t = tree();
   if (!state.installed[id]) state.installed[id] = t.parts.map(p => p.id);   // start assembled
-  /* The real model arrives after the first build, and it arrives as a part.
-     A part that was not in the tree when this engine was first assembled is
-     not in the saved list, so without this the scan turns up permanently "not
-     fitted" — the one thing you came to look at, switched off. */
-  else if (!state.installed[id].includes('shell') && t.byId.shell)
-    state.installed[id].push('shell');
+  else {
+    /* A saved build from before a part was split into pieces names the old
+       whole ("pistons"); carry that over to every piece, and drop ids the
+       tree no longer has, so the engine does not come up with holes in it. */
+    const list = state.installed[id], have = new Set(list);
+    const pieces = {};
+    for (const p of t.parts) if (p.parent) (pieces[p.parent] ||= []).push(p.id);
+    let changed = false;
+    for (const parent of Object.keys(pieces)) if (have.has(parent)){
+      changed = true; have.delete(parent); pieces[parent].forEach(x => have.add(x));
+    }
+    for (const x of [...have]) if (!t.byId[x] && x !== 'shell'){ have.delete(x); changed = true; }
+    if (changed) state.installed[id] = [...have];
+    /* The real model arrives after the first build, and it arrives as a part.
+       A part that was not in the tree when this engine was first assembled is
+       not in the saved list, so without this the scan turns up permanently "not
+       fitted" — the one thing you came to look at, switched off. */
+    if (!state.installed[id].includes('shell') && t.byId.shell)
+      state.installed[id].push('shell');
+  }
   return new Set(state.installed[id]);
 }
 export function setInstalled(set){ state.installed[state.engineId] = [...set]; save(); }

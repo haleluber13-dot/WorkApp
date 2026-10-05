@@ -497,3 +497,11 @@ body.calm *{animation-duration:.001s !important;transition-duration:.001s !impor
 
 .dash__brake{background:linear-gradient(180deg,#3a1414,#2a0e0e);border-color:#5a2020}
 .dash__brake:active{background:#4a1a1a}
+
+/* piece clusters: one header per quantity part, pieces nested beneath */
+.cluster{margin:2px 0}
+.pitem--cluster{background:var(--bg3);border-left:2px solid var(--line2)}
+.pitem--cluster.open{border-left-color:var(--acc)}
+.pitem__chev{width:14px;display:inline-block;text-align:center;color:var(--ink3)}
+.plist--pieces{margin-left:14px;border-left:1px dashed var(--line);padding-left:4px}
+.plist--pieces .pitem{padding-top:4px;padding-bottom:4px;font-size:12px}

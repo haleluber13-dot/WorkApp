@@ -408,7 +408,16 @@ export function renderPanel(ctx, kind, tab){
     const fitted = parts.filter(p => inst.has(p.id)).length;
     const openKey = kind + ':' + g.id;
     const collapsed = state.ui.groupsOpen[openKey] === false;
-    const list = h('div', { class:'plist' }, ...parts.map(p => partRow(ctx, kind, p, inst)));
+    /* pieces of one part (pistons.1 … pistons.6) sit together under a header
+       with fit-all / remove-all, so hundreds of parts stay navigable */
+    const rows = [], seenParent = new Set();
+    for (const p of parts){
+      if (!p.parent){ rows.push(partRow(ctx, kind, p, inst)); continue; }
+      if (seenParent.has(p.parent)) continue;
+      seenParent.add(p.parent);
+      rows.push(clusterRows(ctx, kind, p.parent, parts.filter(q => q.parent === p.parent), inst));
+    }
+    const list = h('div', { class:'plist' }, ...rows);
     const box = h('div', { class:'grp' + (collapsed ? ' collapsed' : '') },
       h('div', { class:'grp__h', onclick:(e) => {
         state.ui.groupsOpen[openKey] = collapsed; save();
@@ -420,6 +429,42 @@ export function renderPanel(ctx, kind, tab){
     wrap.appendChild(box);
   }
   return wrap;
+}
+
+function clusterRows(ctx, kind, parentId, pieces, inst){
+  const M = model(kind);
+  const fitted = pieces.filter(p => inst.has(p.id)).length;
+  const key = kind + ':' + M.subject.id + ':' + parentId;
+  const open = state.ui.instOpen?.[key] ?? pieces.length <= 8;
+  const name = pieces[0].parentName || parentId;
+  const batch = (fit) => {
+    const i = M.get(); let guard = 0, n = 0;
+    while (guard++ < 200){
+      let moved = false;
+      const order = fit ? pieces.slice().sort((a,b) => a.step - b.step) : pieces.slice().sort((a,b) => b.step - a.step);
+      for (const p of order){
+        if (fit ? canInstall(M.tree, i, p.id) : canRemove(M.tree, i, p.id)){
+          fit ? i.add(p.id) : (i.delete(p.id), setTorqued(p.id, false)); moved = true; n++;
+        }
+      }
+      if (!moved) break;
+    }
+    M.set(i); ctx.viewport.applyInstalled(i);
+    if (n) toast(`${n} ${name.toLowerCase()} ${fit ? 'fitted' : 'removed'}.`, fit ? 'good' : undefined);
+    else { const b = blockers(M.tree, i, pieces[0].id); toast(b.length ? `${fit ? 'Fit' : 'Remove'} ${b[0]} first.` : 'Nothing to do.', 'bad'); }
+    checkMilestones(ctx, kind); ctx.refresh();
+  };
+  const head = h('div', { class:'pitem pitem--cluster' + (open ? ' open' : ''),
+      onclick:() => { (state.ui.instOpen ||= {})[key] = !open; save(); ctx.refresh(); } },
+    h('span', { class:'pitem__st pitem__chev', text: open ? '▾' : '▸' }),
+    h('span', { class:'pitem__n', text:name }),
+    h('span', { class:'pitem__q', text:`${fitted}/${pieces.length}` }),
+    h('button', { class:'pitem__go', title:'Fit every piece',
+      onclick:(ev) => { ev.stopPropagation(); batch(true); } }, 'fit all'),
+    h('button', { class:'pitem__go', title:'Remove every piece',
+      onclick:(ev) => { ev.stopPropagation(); batch(false); } }, 'off all'));
+  const kids = open ? h('div', { class:'plist plist--pieces' }, ...pieces.map(p => partRow(ctx, kind, p, inst))) : null;
+  return h('div', { class:'cluster' }, head, kids);
 }
 
 function partRow(ctx, kind, p, inst){
@@ -444,7 +489,7 @@ function stripAll(ctx, kind){
   confirmDialog('Strip the whole assembly', 'Remove every part in the correct order, down to the foundation?', () => {
     const inst = M.get();
     let guard = 0;
-    while (guard++ < 400){
+    while (guard++ < 5000){
       const next = [...inst].find(id => canRemove(M.tree, inst, id));
       if (!next) break;
       inst.delete(next); setTorqued(next, false);

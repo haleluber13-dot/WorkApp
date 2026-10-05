@@ -1,3 +1,5 @@
+import { extraParts, extraInstanced } from './extra/index.js';
+import { firingOrder } from './engines.js';
 /* MotorLab — procedural part tree.
  * Given an engine spec we generate the full assembly graph: every part, what
  * must be bolted on before it, its fastener count, torque sequence and the
@@ -41,6 +43,129 @@ function boltSpecs(e){
 
 const P = (o) => Object.assign({ group:'block', qty:1, deps:[], removable:true }, o);
 
+
+/* ====================================================================== */
+/* instances — one part per physical piece                                 */
+/* ====================================================================== */
+/* A real engine does not have "pistons ×6"; it has six pistons, each of
+ * which comes out on its own. Any quantity part whose geometry the builder
+ * emits as separate pieces is expanded here into one part per piece, so each
+ * can be removed, inspected, torqued and put on the bench by itself. The set
+ * below is the contract with build/engineModel.js: an id is listed only once
+ * the builder tags every piece individually as `<id>.<n>`. */
+export const INSTANCED = new Set([
+  'pistons', 'rods', 'mainbearings', 'maincaps', 'head', 'headgasket', 'camcaps',
+  'valves', 'plugs', 'coils', 'injectors', 'glow',
+  'lifters', 'pushrods', 'pushrodtubes', 'rockers', 'seals', 'turbolines',
+  'apex', 'rotorhousing', 'stationary',
+  'thrust', 'oilsquirters', 'coreplugs', 'stemseals', 'buckets', 'plugtubes', 'mounts',
+  'heatshields', 'camsprockets', 'camseals',
+]);
+for (const id of extraInstanced()) INSTANCED.add(id);
+
+/* singular names for the pieces */
+const EACH = {
+  pistons:'Piston', rods:'Connecting rod', mainbearings:'Main bearing shell',
+  maincaps:'Main cap', oilsquirters:'Piston cooling jet', thrust:'Thrust washer',
+  valves:'Valve', stemseals:'Valve stem seal', springs:'Valve spring', buckets:'Bucket & shim',
+  lifters:'Lifter', pushrods:'Pushrod', pushrodtubes:'Pushrod tube', rockers:'Rocker arm',
+  camcaps:'Cam cap', camsprockets:'Cam sprocket', camseals:'Cam seal', vvt:'Cam phaser',
+  idlers:'Idler', timingcovers:'Timing cover', seals:'Crank seal', coreplugs:'Core plug',
+  plugtubes:'Spark plug tube', halfmoon:'Half-moon seal', plugs:'Spark plug', glow:'Glow plug',
+  injectors:'Injector', coils:'Ignition coil', head:'Cylinder head', headgasket:'Head gasket',
+  valvecover:'Cam cover', vcgasket:'Cam cover gasket', exgasket:'Exhaust gasket',
+  turbo:'Turbocharger', wastegate:'Wastegate', turbolines:'Turbo oil & coolant lines',
+  heatshields:'Heat shield', mounts:'Engine mount', vsv:'Solenoid valve',
+  apex:'Apex seal', rotorhousing:'Rotor housing', stationary:'Stationary gear',
+};
+const singular = (name) => name.replace(/,.*$/, '').replace(/\s*\(.*\)$/, '').replace(/s$/, '');
+
+/* where in the engine piece n lives, for the name */
+function instanceLabel(base, i, qty, e){
+  const cyl = e.cyl || 1, vpc = e.valvesPerCyl || 2;
+  const banks = (e.layout === 'V' || e.layout === 'F') ? 2 : (e.layout === 'W' ? 4 : 1);
+  const bank = (n) => banks > 1 ? ` · bank ${n}` : '';
+  switch (base){
+    case 'pistons': case 'rods': case 'oilsquirters': case 'plugtubes': case 'glow':
+    case 'rings': case 'pins': case 'injholders': case 'injclamps': case 'quills': case 'injlines':
+      return `cyl ${i}`;
+    case 'rodbearings': return `cyl ${Math.ceil(i / 2)} · ${i % 2 ? 'rod' : 'cap'}`;
+    case 'headbolts': case 'headdowels': case 'cambearings': case 'liftertrays': case 'oilrails':
+      return `#${i}`;
+    case 'plugs': case 'injectors': case 'coils':
+      return qty === cyl ? `cyl ${i}` : `cyl ${Math.ceil(i / (qty / cyl))}${qty > cyl ? (i % 2 ? ' · leading' : ' · trailing') : ''}`;
+    case 'valves': case 'stemseals': case 'springs': case 'buckets':
+    case 'guides': case 'seats': case 'springseats': case 'retainers': case 'fingers': case 'hla':
+    case 'shaftrockers': case 'desmorockers': {
+      const c = Math.ceil(i / vpc), k = (i - 1) % vpc;
+      const side = k < vpc / 2 ? 'intake' : 'exhaust';
+      return `cyl ${c} · ${side}${vpc > 2 ? ' ' + ((k % (vpc / 2)) + 1) : ''}`;
+    }
+    case 'lifters': case 'pushrods': case 'pushrodtubes': case 'rockers':
+      return `cyl ${Math.ceil(i / 2)} · ${i % 2 ? 'intake' : 'exhaust'}`;
+    case 'mainbearings': return `main ${Math.ceil(i / 2)} · ${i % 2 ? 'upper' : 'lower'}`;
+    case 'maincaps': return `main ${i}`;
+    case 'thrust': return i === 1 ? 'front' : 'rear';
+    case 'camcaps': { const perCam = qty / Math.max(1, (e.cam === 'OHV' ? 1 : (e.cam === 'SOHC' ? banks : banks * 2)));
+      return `cam ${Math.ceil(i / perCam)} · cap ${((i - 1) % perCam) + 1}`; }
+    case 'head': case 'headgasket': case 'valvecover': case 'vcgasket': case 'exgasket':
+      return banks > 1 ? `bank ${i}` : '';
+    case 'turbo': case 'wastegate': case 'turbolines': case 'heatshields':
+      return qty === 2 && e.sequential ? (i === 1 ? 'primary (front)' : 'secondary (rear)') : `turbo ${i}`;
+    case 'mounts': return i === 1 ? 'left' : 'right';
+    case 'seals': return i === 1 ? 'front' : 'rear';
+    case 'idlers': return i === 1 ? 'upper' : 'lower';
+    case 'timingcovers': return i === 1 ? 'upper' : 'lower';
+    case 'coreplugs': return `#${i}`;
+    case 'apex': return `rotor ${Math.ceil(i / 3)} · apex ${((i - 1) % 3) + 1}`;
+    case 'rotorhousing': return `rotor ${i}`;
+    case 'stationary': return i === 1 ? 'front' : i === qty ? 'rear' : `intermediate ${i - 1}`;
+    default: return `#${i}`;
+  }
+}
+
+function expandInstances(parts, e){
+  const inst = {};                       // base id -> [instance ids]
+  for (const p of parts){
+    if (!INSTANCED.has(p.id) || !(p.qty >= 1)) continue;   // a single piece still gets its slot
+    inst[p.id] = Array.from({ length: p.qty }, (_, k) => `${p.id}.${k + 1}`);
+  }
+  if (!Object.keys(inst).length) return parts;
+
+  /* which pieces of base `d` does piece `qi` of part `q` sit on? */
+  const resolve = (d, qQty, qi) => {
+    const ids = inst[d]; if (!ids) return [d];
+    if (qi == null) return ids;                         // a whole part rests on every piece
+    const pq = ids.length;
+    if (pq === qQty) return [ids[qi - 1]];              // one-to-one: rod n on piston n
+    if (pq % qQty === 0){ const r = pq / qQty; return ids.slice((qi - 1) * r, qi * r); } // cap n on its two shells
+    if (qQty % pq === 0){ const r = qQty / pq; return [ids[Math.ceil(qi / r) - 1]]; }   // valve n in its head
+    return ids;
+  };
+
+  const out = [];
+  for (const p of parts){
+    if (!inst[p.id]){
+      out.push({ ...p, deps: [...new Set(p.deps.flatMap(d => resolve(d, 1, null)))] });
+      continue;
+    }
+    const qty = p.qty, each = EACH[p.id] || singular(p.name);
+    for (let i = 1; i <= qty; i++){
+      const where = instanceLabel(p.id, i, qty, e);
+      const t = p.torque ? { ...p.torque,
+        count: Math.max(1, Math.round(p.torque.count / qty)),
+        pattern: p.torque.pattern ? { ...p.torque.pattern, count: Math.max(1, Math.round(p.torque.count / qty)) } : undefined } : undefined;
+      out.push({ ...p, id: inst[p.id][i - 1], name: where ? `${each} — ${where}` : `${each} ${i}`,
+        qty: 1, parent: p.id, parentName: p.name, index: i, of: qty, torque: t,
+        deps: [...new Set(p.deps.flatMap(d => resolve(d, qty, i)))] });
+    }
+  }
+  return out;
+}
+
+/** The part a piece belongs to — `pistons` for `pistons.3`, itself otherwise. */
+export const baseId = (id) => (typeof id === 'string' && id.includes('.')) ? id.slice(0, id.indexOf('.')) : id;
+
 /** Bolt pattern used for the torque mini-game. */
 function pattern(kind, count){ return { kind, count }; }
 
@@ -66,11 +191,11 @@ export function buildPartTree(e, opts = {}){
 function pistonTree(e){
   const B = boltSpecs(e);
   const banks   = (e.layout === 'V' || e.layout === 'F') ? 2 : (e.layout === 'W' ? 4 : 1);
-  const heads   = (e.layout === 'V' || e.layout === 'F') ? 2 : 1;   // W16 shares 2 heads
+  const heads   = (e.layout === 'V' || e.layout === 'F' || e.layout === 'W') ? 2 : 1;   // a W16 has two heads, each over two staggered banks
   const perHead = Math.ceil(e.cyl / heads);
   const ohv     = e.cam === 'OHV';
   const cams    = ohv ? 1 : (e.cam === 'SOHC' ? heads : heads * 2);
-  const nMains  = e.layout === 'V' || e.layout === 'F' ? (e.cyl/2) + 1 : e.cyl + 1;
+  const nMains  = (e.layout === 'V' || e.layout === 'F' || e.layout === 'W') ? (e.cyl/2) + 1 : e.cyl + 1;
   const headBoltsPerHead = perHead * (e.fuel === 'diesel' ? 6 : 4) + 2;
   const airCooled = (e.coolant || '').startsWith('air');
   const carb   = e.injection === 'carburettor';
@@ -78,6 +203,9 @@ function pistonTree(e){
   const boosted = e.aspiration !== 'na';
   const turbos = { turbo:1, twinturbo:2, quadturbo:4 }[e.aspiration] || 0;
   const belt = e.camDrive === 'belt';
+  const gearDrive = e.camDrive === 'gear';
+  const bike = e.class === 'bike';
+  const follower = e.follower || (ohv ? 'pushrod' : 'bucket');
   const jets = e.pistonJets !== false && (boosted || e.class === 'race');
   const blown  = e.aspiration === 'supercharged';
 
@@ -153,7 +281,7 @@ function pistonTree(e){
     teach:'Combustion pressure leaks past the rings into the crankcase — blowby — and it has to go somewhere or it pushes oil out of every seal you own. Manifold vacuum pulls it out through the PCV valve and burns it. The valve is a one-way restrictor: under boost the manifold goes positive, the valve slams shut, and the crankcase breathes out of its second hose instead. That is why a boosted engine wants a catch can on that second line — what comes out is oil mist, and it lands on your intercooler core and your intake valves.',
     spec:{ 'Valve':'spring-loaded one-way, flows on vacuum', 'Second breather':'valve cover to turbo inlet', 'Symptom of failure':'oil at the intake, seals weeping' } });
 
-  add({ id:'dipstick', name:'Dipstick & tube', group:'lube', deps:['oilpan'], mesh:'oilpan',
+  if (!bike) add({ id:'dipstick', name:'Dipstick & tube', group:'lube', deps:['oilpan'], mesh:'oilpan',
     teach:'The tube presses into the block on an O-ring — which is both an oil leak and, on some engines, an unmetered air leak if it is missing. Read the stick with the engine level and stopped for a few minutes: check it straight after shutdown and half the oil is still up in the head, so you overfill it, and an overfilled sump gets whipped into froth by the crank.',
     spec:{ 'Seal':'O-ring at the block', 'Read':'engine level, 5 min after shutdown' } });
 
@@ -197,18 +325,18 @@ function pistonTree(e){
       torque:{ nm:B.med.nm, size:'M8', count:e.cyl*2, pattern:pattern('sequence', e.cyl*2), stages:[`${B.med.nm} Nm`] },
       teach:`Rocker ratio multiplies cam lift — a 1.6 rocker turns 8 mm of lobe into 12.8 mm at the valve. Set lash with the lobe on its base circle.` });
   } else {
-    add({ id:'stemseals', name:'Valve guides & stem seals', group:'head', qty:e.cyl*e.valvesPerCyl, deps:['head'], mesh:'valve',
+    add({ id:'stemseals', name:'Valve stem seals', group:'head', qty:e.cyl*e.valvesPerCyl, deps:['head'], mesh:'valve',
       teach:'The guide holds the valve square to its seat; the umbrella seal on top of it meters how much oil gets down the stem. Not zero — the stem needs a film. Too much and you get the puff of blue smoke on the overrun when manifold vacuum sucks oil past the seal, which is the one exhaust-smoke symptom you can diagnose from the driver\'s seat.',
       spec:{ 'Material':'viton, PTFE lip', 'Stem-to-guide':'0.025-0.060 mm', 'Wear limit':'0.08 mm' } });
-    add({ id:'buckets', name:'Bucket tappets & shims', group:'valvetrain', qty:e.cyl*e.valvesPerCyl, deps:['head','valves'], mesh:'lifter',
+    if (follower === 'bucket') add({ id:'buckets', name: e.lash==='hydraulic' ? 'Hydraulic bucket tappets' : 'Bucket tappets & shims', group:'valvetrain', qty:e.cyl*e.valvesPerCyl, deps:['head','valves'], mesh:'lifter',
       teach:'The cam does not touch the valve — it presses on a steel bucket over the spring, with a hardened shim between the two. The shim thickness is the valve clearance: measure the gap cold with a feeler, work out the shim you need, and swap it. On a shim-over-bucket head that means the camshafts come out to do it, which is why lash is checked every 100,000 km and not every service.',
       spec:{ 'Buckets':e.cyl*e.valvesPerCyl, 'Type':'shim-over-bucket', 'Intake lash':'0.15-0.25 mm cold', 'Exhaust lash':'0.25-0.35 mm cold', 'Shim steps':'0.020 mm' } });
-    add({ id:'cam', name: cams>1 ? `Camshafts (${cams})` : 'Camshaft', group:'valvetrain', qty:cams, deps:['head','valves','buckets'], mesh:'cam',
+    add({ id:'cam', name: cams>1 ? `Camshafts (${cams})` : 'Camshaft', group:'valvetrain', qty:cams, deps:follower==='bucket' ? ['head','valves','buckets'] : ['head','valves'], mesh:'cam',
       teach:`${e.cam} — ${cams} camshaft${cams>1?'s':''} running directly in the head. ${e.camProfile==='aggressive'?'This one has a second, wilder lobe set that a rocker switches onto above about 5,800 rpm.':''} Duration decides where the torque peak lands; lift decides how much air gets through once it is open.`,
       spec:{ 'Lobes':e.cyl*e.valvesPerCyl, 'Lift': e.class==='race'?'12–14 mm':e.camProfile==='aggressive'?'11.5 mm':'9–10.5 mm',
              'Duration @1 mm': e.class==='race'?'270–290°':e.camProfile==='aggressive'?'250°':'220–235°',
              'LSA': boosted?'112–116° (wide, less overlap)':'104–110°' } });
-    add({ id:'camcaps', name:'Cam caps / bearing ladder', group:'valvetrain', qty:cams*4, deps:['cam'], mesh:'camcap',
+    add({ id:'camcaps', name:'Cam caps / bearing ladder', group:'valvetrain', qty:cams*(perHead+1), deps:['cam'], mesh:'camcap',
       torque:{ nm:B.cam.nm, size:'M6', count:cams*8, pattern:pattern('centre-out', cams*8),
                stages:['4 Nm seat', `${B.cam.nm} Nm`] },
       teach:'Cam caps clamp down against valve-spring pressure, so pull them down evenly in small steps or you will bend the camshaft. Same rule in reverse when you take them off.' });
@@ -224,11 +352,11 @@ function pistonTree(e){
     spec:{ 'Teeth':'crank : cam = 1 : 2', 'Key':'woodruff, single use if bruised' } });
 
   const timingDeps = ohv ? ['cam','crank'] : ['camcaps','crksprocket'];
-  add({ id:'timing', name: e.class==='race' ? 'Gear/chain timing drive' : (e.cam==='OHV' ? 'Timing chain & gears' : 'Timing chain / belt'),
+  add({ id:'timing', name: gearDrive ? 'Timing gear train' : belt ? 'Timing belt' : e.class==='race' ? 'Gear/chain timing drive' : (e.cam==='OHV' ? 'Timing chain & gears' : 'Timing chain'),
     group:'timing', deps:timingDeps, mesh:'timing',
     teach:`Cam turns at exactly half crank speed on a four-stroke — that is the whole reason a four-stroke needs 720° for one cycle. Line up every timing mark before the tensioner goes in, then turn it over two full crank revolutions by hand and check the marks come back.${e.cr>11?' On an interference engine like this one, getting it wrong bends valves on the first crank.':''}`,
     spec:{ 'Ratio':'2:1 crank:cam', 'Interference': (e.interference ?? (e.cr>10.5 || boosted)) ? 'yes — valves hit pistons' : 'non-interference' } });
-  add({ id:'tensioner', name:'Tensioner & guides', group:'timing', deps:['timing'], mesh:'tensioner',
+  if (!gearDrive) add({ id:'tensioner', name: belt ? 'Belt tensioner' : 'Tensioner & guides', group:'timing', deps:['timing'], mesh:'tensioner',
     teach:'Hydraulic tensioners need oil pressure, so they are slack when the engine is off — always pin or compress them during assembly and release only after everything is timed.' });
   if (belt && !ohv){
     add({ id:'camseals', name:'Camshaft front oil seals', group:'timing', qty:cams, deps:['camcaps'], mesh:'headgasket',
@@ -247,30 +375,31 @@ function pistonTree(e){
       teach:'Two plastic covers, upper and lower, sealed to the head and the front case with soft rubber strips. They keep road grit and oil mist off the belt and nothing else — but a belt run without them picks up a stone and jumps a tooth. The lower one has to be on before the crank pulley goes back over it.',
       spec:{ 'Pieces':2, 'Seals':'moulded rubber strip, re-usable if supple', 'Order':'lower cover, then crank pulley' } });
   }
-  add({ id:'frontcover', name:'Front / timing cover', group:'timing', deps:[belt && !ohv ? 'timingcovers' : 'tensioner'], mesh:'frontcover',
+  add({ id:'frontcover', name: gearDrive ? 'Timing gear cover' : 'Front / timing cover', group:'timing', deps:[belt && !ohv ? 'timingcovers' : gearDrive ? 'timing' : 'tensioner'], mesh:'frontcover',
     torque:{ nm:B.small.nm, size:'M6', count:12, pattern:pattern('perimeter',12), stages:[`${B.small.nm} Nm`] },
     teach:'Carries the front crank seal. Fit the seal to the cover, not the crank, and lubricate the lip — a dry lip tears on the first start.' });
   add({ id:'seals', name:'Front & rear crank seals', group:'timing', qty:2, deps:['frontcover'], mesh:'headgasket',
     teach:'Two lip seals ride on the crank itself: one in the timing cover, one in the block behind the flywheel. Fit them square with a driver, not a hammer and screwdriver, and wet the lip with oil — a dry lip tears on the first start and you are back in there with the gearbox out. The rear one is the reason a clutch job and a rear main seal are always the same job.',
     spec:{ 'Type':'PTFE or nitrile lip seal', 'Front':'in the timing cover', 'Rear':'behind the flywheel', 'Runout limit':'0.05 mm on the sealing land' } });
 
-  add({ id:'coreplugs', name:'Core plugs & galley plugs', group:'block', qty:Math.max(4, e.cyl), deps:['block'], mesh:'block',
+  if (!airCooled) add({ id:'coreplugs', name:'Core plugs & galley plugs', group:'block', qty:Math.max(4, e.cyl), deps:['block'], mesh:'block',
     torque:{ nm:B.med.nm*1.4|0, size:'M16 galley', count:4, pattern:pattern('sequence',4), stages:[`${B.med.nm*1.4|0} Nm`], lube:'thread sealant, not tape' },
     teach:'The cups in the side of the block are not "freeze plugs" — they are the holes the casting sand came out of, and they only pop out in a freeze by luck. They rust from the inside, and the one you cannot see behind the exhaust manifold is the one that goes. Drive a new one in square with a socket the same size as the plug rim, sealant on the edge.',
     spec:{ 'Type':'pressed steel cup / brass', 'Sealant':'anaerobic flange sealant', 'Galley plugs':'NPT or metric taper' } });
 
-  add({ id:'rearhousing', name:'Rear main seal retainer', group:'block', deps:['maincaps'], mesh:'frontcover',
+  if (!bike) add({ id:'rearhousing', name:'Rear main seal retainer', group:'block', deps:['maincaps'], mesh:'frontcover',
     torque:{ nm:B.small.nm, size:'M6', count:6, pattern:pattern('perimeter',6), stages:[`${B.small.nm} Nm`] },
     teach:'The rear lip seal does not sit in the block — it sits in a small alloy plate bolted over the back of the crank, on a gasket or a bead of RTV. Fit the plate first and the seal into the plate afterwards, square to the crank, or you will have a leak you can only reach with the gearbox out.' });
 
-  add({ id:'vcgasket', name:'Head cover gasket & grommets', group:'timing', qty:heads, deps:[ohv?'rockers':'camcaps'], mesh:'headgasket',
+  if (!airCooled) add({ id:'vcgasket', name:'Head cover gasket & grommets', group:'timing', qty:heads, deps:[ohv?'rockers':'camcaps'], mesh:'headgasket',
     teach:'The rubber gasket runs the whole perimeter, and each cover bolt pulls down through a rubber grommet with a metal crush limiter inside it. The limiter is what stops you squashing the gasket flat — it is also why this joint has a torque figure at all when it only holds oil mist.',
     spec:{ 'Gasket':'moulded rubber, re-usable if unsplit', 'Grommets':e.cyl*2+4, 'Limiter':'steel, sets the crush' } });
 
   if (!ohv){
-    add({ id:'plugtubes', name:'Spark plug tubes & seals', group:'head', qty:e.cyl, deps:['head'], mesh:'valve',
+    if (!diesel) add({ id:'plugtubes', name:'Spark plug tubes & seals', group:'head', qty:e.cyl, deps:['head'], mesh:'valve',
       teach:'The plugs sit down deep wells in the middle of the head, and each well is a tube pressed into the casting with a seal where the cam cover meets it. When that seal hardens, oil fills the well and sits around the plug and the coil boot. It shorts the spark to earth, you get a misfire on one cylinder, and the coil you replace to fix it fails again in a month — because the oil is still there.',
       spec:{ 'Tubes':e.cyl, 'Seal':'rubber, in the cam cover', 'Symptom':'oil in the plug wells, single-cylinder misfire' } });
+    if (e.halfmoon || e.id === 'mazda-bp' || e.id === 'i4-16-na' || e.id === 'nissan-rb26' || e.id === 'honda-c30a')
     add({ id:'halfmoon', name:'Half-moon cam-end seals', group:'timing', qty:cams, deps:['head'], mesh:'headgasket',
       teach:'Semicircular rubber plugs that fill the arc at the end of the head where the camshaft passes under the cam cover. The cover gasket runs into them at each end, and that junction is where the oil finds its way out. Set them dry in a clean recess with a dab of RTV at the two corners only — sealant all the way round just squeezes out and blocks a drain.' });
   }
@@ -358,10 +487,10 @@ function pistonTree(e){
     add({ id:'fuelrail', name:'Fuel rail & regulator', group:'fuel', deps:['injectors'], mesh:'fuelrail',
       teach:'The rail is a pressure reservoir that damps the pulse each injector makes. A returnless system regulates at the tank; a return system regulates here and references manifold pressure so the pressure *drop* across the injector stays constant.' });
 
-    add({ id:'fpr', name:'Fuel pressure regulator & damper', group:'fuel', deps:['fuelrail'], mesh:'fuelrail',
+    if (!diesel && !carb) add({ id:'fpr', name:'Fuel pressure regulator & damper', group:'fuel', deps:['fuelrail'], mesh:'fuelrail',
       teach:'A spring-loaded diaphragm holding rail pressure a fixed amount above whatever is in the manifold — vacuum at idle, boost under load. The point is that the pressure DROP across the injector never changes, so a given pulse width always means the same amount of fuel. The little can next to it is a pulsation damper, not a second regulator: it just absorbs the pressure spike each injector makes when it slams shut.',
       spec:{ 'Base pressure':'3.0 bar above manifold', 'Reference':'plenum vacuum/boost line', 'Damper':'passive, no adjustment' } });
-    add({ id:'fuellines', name:'Fuel lines, filter & banjo washers', group:'fuel', deps:['fpr'], mesh:'fuelrail',
+    if (!diesel && !carb) add({ id:'fuellines', name:'Fuel lines, filter & banjo washers', group:'fuel', deps:['fpr'], mesh:'fuelrail',
       torque:{ nm:30, size:'M12 banjo', count:4, pattern:pattern('sequence',4), stages:['30 Nm'], lube:'new crush washers, both faces' },
       teach:'Feed and return, a filter in the feed, and banjo bolts at every joint. The crush washer is the seal — two per banjo, new every time — and the thread is only holding the clamp load. Depressurise the rail before you crack any of it: a hot rail at three bar will spray fuel across an exhaust manifold and light it.',
       spec:{ 'Filter':'inline, direction-marked', 'Washers':'copper or aluminium, one use', 'Before opening':'depressurise and disconnect the battery' } });
@@ -372,14 +501,16 @@ function pistonTree(e){
 
   /* ---- ignition ---- */
   if (!diesel){
-    add({ id:'plugs', name:'Spark plugs', group:'ignition', qty:e.cyl*(e.ignition==='dual-mag'?2:1), deps:['head'], mesh:'plug',
-      torque:{ nm:e.bore>=95?25:20, size:'M12/M14', count:e.cyl*(e.ignition==='dual-mag'?2:1),
-               pattern:pattern('sequence', e.cyl), stages:[`hand tight + ½ turn (${e.bore>=95?25:20} Nm)`], lube:'never on the threads of an alloy head' },
-      teach:`Heat range is about how fast the tip sheds heat, not how hot the spark is. ${boosted?'Boost and more timing want a colder plug and a tighter gap — the spark has to jump through much denser air.':'A colder plug on a stock engine just fouls.'} Gap here: ${boosted?'0.55–0.65':'0.8–1.1'} mm.` });
-    add({ id:'coils', name: e.ignition==='distributor' ? 'Distributor, coil & leads' : e.ignition==='dual-mag' ? 'Magnetos & leads' : 'Ignition coils',
-      group:'ignition', qty:e.ignition==='coil-on-plug'?e.cyl:1, deps:['plugs'], mesh:'coil',
-      teach:`${e.ignition==='distributor'?'One coil, one rotor, one cap: the distributor sends the spark to the right cylinder mechanically. You set base timing by rotating the whole distributor against a timing light.':e.ignition==='dual-mag'?'Two magnetos, two plugs per cylinder, 44 amps of current — nitromethane is extremely hard to light.':'Coil-on-plug: one coil per cylinder, no leads, and the ECU can dwell each one independently. It also lets the ECU cut spark to a single cylinder for misfire detection or launch control.'} Firing order: ${(e.firing||'')}.` });
-  } else {
+    const plugsPer = e.plugsPerCyl || ((e.ignition==='dual-mag' || e.ignition==='pre-chamber') ? 2 : 1);
+    const oneCoil = e.ignition==='distributor' || e.ignition==='dual-mag' || e.ignition==='wasted-spark';
+    add({ id:'plugs', name: e.ignition==='pre-chamber' ? 'Spark plugs (main + pre-chamber)' : 'Spark plugs', group:'ignition', qty:e.cyl*plugsPer, deps:['head'], mesh:'plug',
+      torque:{ nm:e.bore>=95?25:20, size:'M12/M14', count:e.cyl*plugsPer,
+               pattern:pattern('sequence', e.cyl*plugsPer), stages:[`hand tight + ½ turn (${e.bore>=95?25:20} Nm)`], lube:'never on the threads of an alloy head' },
+      teach:`${e.ignition==='pre-chamber'?'Two plugs per cylinder: a conventional plug in the main chamber and a second one inside the pre-chamber, which lights a rich pocket of mixture and jets flame through six holes into the bore. ':''}Heat range is about how fast the tip sheds heat, not how hot the spark is. ${boosted?'Boost and more timing want a colder plug and a tighter gap — the spark has to jump through much denser air.':'A colder plug on a stock engine just fouls.'} Gap here: ${boosted?'0.55–0.65':'0.8–1.1'} mm.` });
+    add({ id:'coils', name: e.ignition==='distributor' ? 'Distributor, coil & leads' : e.ignition==='dual-mag' ? 'Magnetos & leads' : e.ignition==='wasted-spark' ? 'Dual-output coil & leads' : 'Ignition coils',
+      group:'ignition', qty: oneCoil ? 1 : e.cyl*plugsPer, deps:['plugs'], mesh:'coil',
+      teach:`${e.ignition==='distributor'?'One coil, one rotor, one cap: the distributor sends the spark to the right cylinder mechanically. You set base timing by rotating the whole distributor against a timing light.':e.ignition==='dual-mag'?'Two magnetos, two plugs per cylinder, 44 amps of current — nitromethane is extremely hard to light.':'Coil-on-plug: one coil per cylinder, no leads, and the ECU can dwell each one independently. It also lets the ECU cut spark to a single cylinder for misfire detection or launch control.'} Firing order: ${firingOrder(e).join('-')}.` });
+  } else if (e.glow !== false) {
     add({ id:'glow', name:'Glow plugs & controller', group:'ignition', qty:e.cyl, deps:['head'], mesh:'plug',
       teach:'A diesel has no spark. Glow plugs simply pre-heat the chamber so a cold engine will light off; once it is warm they are idle.' });
   }
@@ -426,22 +557,22 @@ function pistonTree(e){
   }
 
   /* ---- accessories ---- */
-  add({ id:'flywheel', name: e.class==='bike' ? 'Clutch basket & primary drive' : 'Flywheel / flexplate', group:'accessory', deps:['seals'], mesh:'flywheel',
+  if (!bike) add({ id:'flywheel', name:'Flywheel / flexplate', group:'accessory', deps:['seals'], mesh:'flywheel',
     torque:{ nm:Math.round(B.main.nm*1.4), size:'M12', count:e.class==='bike'?6:8,
              pattern:pattern('star', e.class==='bike'?6:8), stages:[`${Math.round(B.main.nm*0.6)} Nm`, `${Math.round(B.main.nm*1.4)} Nm`, '+45°'], lube:'thread locker' },
     teach:`Stored rotational inertia. A heavy flywheel makes an engine easy to launch and hard to stall; a light one lets revs rise and fall instantly but will stall in traffic. It also carries the starter ring gear${e.class!=='bike'?' and the crank position reluctor on many engines':''}.` });
-  add({ id:'clutch', name: e.class==='bike' ? 'Clutch pack & pressure plate' : 'Clutch / torque converter', group:'accessory', deps:['flywheel'], mesh:'clutch',
+  if (!bike) add({ id:'clutch', name:'Clutch / torque converter', group:'accessory', deps:['flywheel'], mesh:'clutch',
     torque:{ nm:B.med.nm, size:'M8', count:6, pattern:pattern('star',6), stages:[`${B.med.nm} Nm`] },
     teach:`${e.class==='bike'?'A wet multi-plate pack running in engine oil, with a slipper ramp that backs the plates off under engine braking so the rear wheel does not hop on downshifts.':'The clutch has to hold more torque than the engine makes, but release smoothly. Clamp load, friction coefficient and disc radius are the only three variables you get.'}` });
-  add({ id:'crankpulley', name:'Crank pulley / damper', group:'accessory', deps:['frontcover'], mesh:'pulley',
+  if (!bike) add({ id:'crankpulley', name:'Crank pulley / damper', group:'accessory', deps:['frontcover'], mesh:'pulley',
     torque:{ nm:Math.round(B.main.nm*2.2), size:'M16', count:1, pattern:pattern('single',1),
              stages:[`${Math.round(B.main.nm*1.2)} Nm`, `+${e.fuel==='diesel'?120:90}°`] },
     teach:'Not just a pulley — a harmonic damper. The crank twists and snaps back thousands of times a second; a bonded elastomer ring absorbs that resonance. A solid pulley on a road engine will eventually break the crank.' });
-  add({ id:'alternator', name:'Alternator & belt drive', group:'accessory', deps:['crankpulley'], mesh:'alternator',
+  if (!bike) add({ id:'alternator', name:'Alternator & belt drive', group:'accessory', deps:['crankpulley'], mesh:'alternator',
     teach:`A three-phase alternator rectified to DC, regulated to about 14.2 V. Everything electrical on the vehicle is really running off this, not the battery.`,
     spec:{ 'Output': e.class==='bike'?'350–500 W':'110–180 A', 'Regulated':'14.0–14.6 V' } });
 
-  add({ id:'mounts', name:'Engine mounts & brackets', group:'accessory', qty:2, deps:['block'], mesh:'block',
+  if (!bike) add({ id:'mounts', name:'Engine mounts & brackets', group:'accessory', qty:2, deps:['block'], mesh:'block',
     torque:{ nm:Math.round(B.main.nm*0.9), size:'M12', count:6, pattern:pattern('sequence',6), stages:[`${Math.round(B.main.nm*0.45)} Nm`, `${Math.round(B.main.nm*0.9)} Nm`] },
     teach:'Rubber bonded between two steel plates, working in shear. They are not just holding the weight up — they are absorbing the torque reaction of the engine trying to roll over in its bay every time you open the throttle. Stiffer mounts sharpen the way a car responds and pipe every bit of engine vibration straight into the cabin, which is the whole trade.',
     spec:{ 'Type':'bonded rubber, hydraulic on some', 'Failure':'cracked bond, engine knocks on gear changes' } });
@@ -472,11 +603,11 @@ function pistonTree(e){
   add({ id:'camsensor', name:'Camshaft position sensor', group:'sensors', deps:[ohv ? 'cam' : (belt ? 'camsprockets' : 'cam')], mesh:'sensor',
     teach:'The crank sensor tells the ECU where the pistons are, but the crank turns twice per cycle, so it cannot tell compression stroke from exhaust. This sensor, driven off a camshaft, breaks the tie. Lose it and a wasted-spark engine limps on while a sequential-injection, coil-on-plug engine simply will not start.',
     spec:{ 'Type':'hall or variable reluctance', 'Location':'driven off the intake cam', 'Signal':'one pulse per cam revolution' } });
-  add({ id:'starter', name:'Starter motor', group:'accessory', deps:['flywheel'], mesh:'starter',
+  add({ id:'starter', name:'Starter motor', group:'accessory', deps:[bike ? 'block' : 'flywheel'], mesh:'starter',
     teach:`A series-wound DC motor pulling ${diesel?'400–800':'120–250'} A for a second or two — the single biggest electrical load on the vehicle, which is why starter and battery cables are so thick.` });
 
   /* ---- sensors / management ---- */
-  add({ id:'crksensor', name:'Crank & cam position sensors', group:'sensors', deps:['frontcover'], mesh:'sensor',
+  add({ id:'crksensor', name:'Crank position sensor & reluctor', group:'sensors', deps:['frontcover'], mesh:'sensor',
     teach:'The crank sensor reads a toothed wheel with a gap (60-2 is the classic). The gap tells the ECU where TDC is; the cam sensor tells it which of the two revolutions of the four-stroke cycle it is on. Lose either and the engine will not fire at all.' });
 
   if (e.throttleType === 'cable'){
@@ -504,6 +635,7 @@ function pistonTree(e){
     spec:{ 'Strategy': carb?'—':(e.injection==='direct'?'speed-density + model-based':'speed-density'),
            'Rev limit':`${e.redline} rpm`, 'Protection':'knock retard, lean-cut, overboost cut' } });
 
+  parts.push(...extraParts(e, { B, banks, heads, perHead, ohv, cams, nMains, airCooled, carb, diesel, boosted, turbos, belt, jets, blown, gearDrive, bike, follower }));
   return finish(parts, e);
 }
 
@@ -527,7 +659,7 @@ function rotaryTree(e){
   add({ id:'block', name:'Front stationary housing', group:'block', removable:false, mesh:'block',
     teach:'A rotary has no block in the usual sense: it is a stack of alternating iron rotor housings and aluminium side housings, all clamped together by long tension bolts running the whole length.',
     spec:{ 'Rotors':n, 'Chamber':`${e.chamberCc} cc × ${n*3} faces`, 'Eccentricity':'15 mm' } });
-  add({ id:'stationary', name:'Stationary gears', group:'block', qty:n+1, deps:['block'], mesh:'mainbearing',
+  add({ id:'stationary', name:'Stationary gears', group:'block', qty:n, deps:['block'], mesh:'mainbearing',
     teach:'Bolted to the side housings, these fixed gears mesh with the internal gear in each rotor. That gear pair is what forces the rotor to trace its epitrochoid path at exactly one third of eccentric-shaft speed.' });
   add({ id:'crank', name:'Eccentric shaft (e-shaft)', group:'rotating', deps:['stationary'], mesh:'crank',
     teach:'The rotary equivalent of a crankshaft. Each rotor rides on a 15 mm offset lobe; as the rotor orbits, it drives the shaft. The shaft turns three times for every one turn of a rotor.',
@@ -541,7 +673,7 @@ function rotaryTree(e){
   add({ id:'apex', name:'Apex, side & corner seals', group:'rotating', qty:n*3, deps:['pistons'], mesh:'apexseal',
     teach:'Apex seals are the whole ballgame. Three per rotor, spring-loaded outward, sealing against the housing at up to 25 m/s while carrying combustion pressure. They are the first thing that fails and the reason rotaries get rebuilt.',
     spec:{ 'Apex seals':n*3, 'Material': e.class==='race'?'ceramic / 3 mm steel':'2 mm carbon-steel', 'Corner seals':n*6 } });
-  add({ id:'maincaps', name:'Tension bolts', group:'block', qty:17, deps:['apex'], mesh:'maincap',
+  add({ id:'maincaps', name:'Tension bolts', group:'block', qty:18, deps:['apex'], mesh:'maincap',
     torque:{ nm:32, angle:0, size:'M10', count:17, pattern:pattern('centre-out',17),
              stages:['12 Nm seat','23 Nm','32 Nm'], lube:'engine oil' },
     teach:'Seventeen long bolts clamp the entire stack. Torque them from the centre outwards in three passes — this joint replaces both the main caps and the head bolts of a piston engine, and it seals combustion, coolant and oil all at once.' });
@@ -596,11 +728,25 @@ function rotaryTree(e){
   add({ id:'ecu', name:'ECU & harness', group:'sensors', deps:['crksensor','mapsensor'], mesh:'ecu',
     teach:'Leading and trailing timing, primary/secondary injector staging and sequential boost control all live here.' });
 
+  parts.push(...extraParts(e, { rotary:true, n }));
   return finish(parts, e);
 }
 
 /* ====================================================================== */
+/* Order between core parts and the module parts that go on under them: a
+   core part lists the module parts it must come off after, when they exist. */
+const AFTER = {
+  valves:['guides', 'seats', 'springseats'], buckets:['retainers'], fingers:['retainers'], shaftrockers:['retainers'],
+  cam:['retainers', 'cambearings'], rockers:['rockerstuds', 'pushrodplates'],
+  timingcovers:['timingbelt'], tensioner:['timingbelt'], headgasket:['headdowels'], crksprocket:['crankkey'],
+};
 function finish(parts, e){
+  const have = new Set(parts.map(p => p.id));
+  for (const p of parts){
+    const extra = (AFTER[p.id] || []).filter(d => have.has(d) && !(p.deps || []).includes(d));
+    if (extra.length) p.deps = [...(p.deps || []), ...extra];
+  }
+  parts = expandInstances(parts, e);
   const byId = Object.fromEntries(parts.map(p => [p.id, p]));
   /* dependants (what breaks if you pull this part) */
   for (const p of parts) p.blocks = [];
