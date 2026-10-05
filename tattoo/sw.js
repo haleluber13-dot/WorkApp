@@ -1,7 +1,7 @@
 /* Offline support: precache every app file (shell, lazily loaded modules,
    fonts, vendor libs) so the whole app works offline after the first visit.
    Network first so updates show up immediately. Bump CACHE when files change. */
-const CACHE = "inkform-v1";
+const CACHE = "inkform-v2";
 const SHELL = [
   "./",
   "./index.html",

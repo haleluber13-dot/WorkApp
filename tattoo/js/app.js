@@ -92,19 +92,23 @@ function findRegion(q) {
   if (r) return r;
   r = regions.find((x) => (x.aliases || []).some((a) => norm(a) === n));
   if (r) return r;
-  // token overlap score (side words must agree)
-  const toks = n.split(" ").filter(Boolean);
-  const side = toks.includes("left") ? "left" : toks.includes("right") ? "right" : null;
+  // whole-word overlap score (side words must agree); unknown words never match
+  const STOP = new Set(["left", "right", "my", "the", "on", "of", "a", "an", "and", "side", "part", "body", "area", "spot"]);
+  const toks = n.split(" ").filter((t) => t.length >= 3 && !STOP.has(t));
+  const side = /\bleft\b|\bl\b/.test(n) ? "left" : /\bright\b|\br\b/.test(n) ? "right" : null;
+  if (!toks.length) return null;
   let best = null, bestScore = 0;
   for (const x of regions) {
     if (side && x.side !== side && x.side !== "center") continue;
-    const hay = norm([x.id, x.label, ...(x.aliases || [])].join(" "));
+    const words = new Set(norm([x.id, x.label, ...(x.aliases || [])].join(" ")).split(" "));
     let sc = 0;
-    for (const t of toks) if (t !== "left" && t !== "right" && t !== "my" && t !== "the" && hay.includes(t)) sc += t.length;
-    if (side && x.side === side) sc += 0.5;
+    for (const t of toks) if (words.has(t) || words.has(t.replace(/s$/, ""))) sc += t.length;
+    if (sc && side && x.side === side) sc += 0.5;
     if (sc > bestScore) { bestScore = sc; best = x; }
   }
-  return best;
+  // most of the meaningful words must match
+  const total = toks.reduce((a, t) => a + t.length, 0);
+  return bestScore >= total * 0.6 ? best : null;
 }
 
 function nearestRegionId(p, n) {
@@ -355,8 +359,9 @@ function layoutFloating() {
   const side = (el) => el && !el.hidden && el.offsetParent && getComputedStyle(el).position !== "absolute" ? el.getBoundingClientRect() : null;
   const sideRect = currentTab === "studio" ? side($("#inspector")) : currentTab === "create" ? side($(".create__editor")) : null;
   if (sideRect && sideRect.left > W / 2) right = W - sideRect.left + 18;
-  const mob = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobtabs")) || 0;
-  let bottom = (matchMedia("(max-width: 700px)").matches ? mob : 0) + 14;
+  const tabs = $(".mobtabs");
+  const mob = tabs && getComputedStyle(tabs).display !== "none" ? tabs.offsetHeight : 0;
+  let bottom = mob + 14;
   const obstacles = [];
   const add = (sel) => { const el = typeof sel === "string" ? $(sel) : sel; if (el && el.offsetParent && !el.hidden) obstacles.push(el.getBoundingClientRect()); };
   if (currentTab === "studio") { add(".camerabar"); add("#mobLib"); if (!sideRect) add("#inspector"); }
@@ -421,7 +426,10 @@ const app = {
     };
   },
   listRegions() {
-    return (regions.length ? regions : regionList).map((r) => ({ id: r.id, label: r.label, group: r.group, side: r.side, aliases: r.aliases || [], sizeCm: r.sizeCm }));
+    return (regions.length ? regions : regionList).map((r) => ({
+      id: r.id, label: r.label, group: r.group, side: r.side, aliases: r.aliases || [], sizeCm: r.sizeCm,
+      up: r.up, normal: r.normal, defaultRotation: r.normal && r.up ? rotationForUp(r.normal, r.up) : 0,
+    }));
   },
   listStyles() {
     return (designsMod?.STYLES || []).map((s) => ({ id: s.id, name: s.name, category: s.category, description: s.description, options: s.options }));
@@ -575,6 +583,10 @@ const app = {
       c.normal = viewer.surface.normalAt(hit.point, hit.faceIndex).toArray();
       c.rotation = -t.rotation;
       c.region = nearestRegionId(c.position, c.normal);
+      // a mirrored pair faces each other (but never mirror lettering or drawings)
+      const d = store.design(t.designId), o = d?.params?.opts || {};
+      const hasText = String(d?.style || "").startsWith("lettering") || (o.text && (o.banner || /lettering/.test(d?.style)));
+      if (d && d.kind === "svg" && !hasText) c.flip = !t.flip;
     } else {
       const off = clamp(t.sizeCm * 0.2, 1.5, 4);
       moveAlongSkin(c, off, -off, "camera");

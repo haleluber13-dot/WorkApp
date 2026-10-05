@@ -65,6 +65,8 @@ export const OPTION_HINTS = [
   { say: /\b(?:shadow|outlined?|drop shadow)\b/, keys: ["effect"] },
   { say: /\b(?:sparkles?|glints?)\b/, keys: ["sparkle", "accent"] },
   { say: /\b(?:splatter|splashes?|drips?)\b/, keys: ["splatter"] },
+  // "make the knot thicker" without saying "lines": the style's stroke weight
+  { say: /\b(?:thicker|thinner|bolder|finer|heavier|chunkier|skinnier lines)\b/, keys: ["weight", "thick", "ribbon", "stroke", "line"] },
   { say: /\b(?:rays|sun ?rays|sunburst)\b/, keys: ["ray", "burst"] },
 ];
 

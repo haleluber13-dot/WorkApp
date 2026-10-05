@@ -121,6 +121,7 @@ const COMMON = new Set(("a an the and or but so to of on in at by for with from 
   "font fonts style styles text size sizes angle shade shading petal petals detail details layer layers frame border thorns thorn leaves leaf " +
   "curve swirl banner ribbon scroll arc arched wavy caps flourish outline sparkle sparkles splatter fade older newer version copy mirror " +
   "view zoom front stencil opacity body model tone pale woman man slimmer muscle closer farther further toward towards away center centre middle edge " +
+  "whole hole holy wholly chinese japanese colored coloured colorful " +
   "wing wings star moon moth math path bath boat coat goat fork folk lord ford food foot fool pool tool cool soul sole").split(/\s+/));
 const KNOWN = new Set();
 /** Words that are real vocabulary (subjects, regions, colors…): never corrected. */

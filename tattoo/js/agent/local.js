@@ -103,7 +103,8 @@ function stripPolite(c) {
   let prev;
   do {
     prev = c;
-    c = c.replace(/^(?:ok(?:ay)?|alright|right|hey|hi|yo|so|well|um+|uh+|hmm+|now|also|then|and|but|great|cool|nice|perfect|awesome|thanks|thank you|yes|yeah|yep|sure|please|pls|plz|actually)\b[ ,]*/, "");
+    c = c.replace(/^(?:ok(?:ay)?|alright|right|hey|hi|yo|so|well|um+|uh+|hmm+|now|also|then|and|but|great|cool|nice|perfect|awesome|thanks|thank you|yes|yeah|yep|sure|please|pls|plz|actually|maybe|i think|i guess|hmm maybe|no wait|wait)\b[ ,]*/, "");
+    c = c.replace(/^(?:(?:can|could|shall|should) we|let's|lets|how about we|what if we|we could|i'd like to|i want to|i wanna)\s+(?=(?:try|put|move|make|turn|rotate|see|look|go|do|switch|change|add|get|flip|mirror|copy)\b)/, "");
     c = c.replace(/^(?:(?:can|could|would|will) you(?: please)?|i want you to|go ahead and|please)\s+(?=(?:make|move|rotate|turn|flip|mirror|show|zoom|remove|delete|switch|change|undo|redo|duplicate|copy|resize|scale|color|colour|hide|fade|center|centre|set|take|tilt|shift|nudge|raise|lower|swap|replace|darken|lighten|straighten|erase|clear|reset|focus|write|spell|draw|put|add|place|get|give|create|design|generate|tattoo|ink|show me|try)\b)/, "");
   } while (c !== prev);
   c = c.replace(/\b(?:please|pls|plz|for me|thanks|thank you)\b/g, " ").replace(/\s+/g, " ").trim();
@@ -336,8 +337,11 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     const o = info.opts || {};
     return info.style === "armband" || /\b(?:armband|band|half-sleeve-band|lace-band|border)\b/.test(String(o.form || "")) || /\b(?:armband|band)\b/.test(info.friendly);
   }
-  /** A mirrored copy should face the other way too (pairs of swallows face each other) — but text must stay readable. */
-  async function mirrorArt(dup, designId) {
+  /** A mirrored copy should face the other way too (pairs of swallows face each other) — but text must stay
+      readable. app.duplicateTattoo({mirror:true}) now does this itself, so nothing is left to do here. */
+  async function mirrorArt(dup) { return dup; }
+  // eslint-disable-next-line no-unused-vars
+  async function mirrorArtLegacy(dup, designId) {
     const info = designInfo(designId || dup.designId);
     if (/^lettering/.test(info.style || "") || (info.opts && info.opts.text && !/traditional|neo/.test(info.style || ""))) return dup;
     try { return (await app.updateTattoo(dup.id, { flip: !dup.flip }, { checkpoint: false })) || dup; } catch { return dup; }
@@ -416,7 +420,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       if (re === pats[3] && (findSubjects(v).length || R().find(v, {}) || STYLE_WORDS.test(v) || /\b(?:make|it|move|put|add|change)\b/.test(v))) { v = null; continue; }
       break;
     }
-    if (!v && /^(?:put|place|add|get|ink|tattoo|do|i want|i'd like|give me|can i get)\b/.test(c)) {
+    if (!v && /[a-z]/.test(String(raw)) && /^(?:put|place|add|get|ink|tattoo|do|i want|i'd like|give me|can i get)\b/.test(c)) {
       // a capitalised word that isn't a motif or body part: "put Mom on my wrist", "add Leo on my chest"
       const caps = [...String(raw).matchAll(/(?:^|[^.!?\s]\s+)((?:[A-Z][a-zA-ZÀ-ÿ'’]+)(?:\s+[A-Z][a-zA-ZÀ-ÿ'’]+)*)/g)].map((x) => x[1])
         .filter((w) => !/^(?:I|I'm|I'd|Can|Could|Please|Put|Add|Make|My|The|A|An|Hey|Hi|Ok|Okay|Left|Right)$/.test(w) && !findSubjects(w.toLowerCase()).length && !R().find(w.toLowerCase(), {}) && !STYLE_WORDS.test(w.toLowerCase()) && !findColor(w.toLowerCase()));
@@ -448,7 +452,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     if (/^(?:make|draw|design|create|show)\s+(?:me\s+)?(?:an?|some|another)\b/.test(c)) return true;
     if (/^(?:put|place|add|stick|slap|ink|tattoo|get|give)\s+(?:me\s+)?(?:an?|some|another|one more|two|\d)\b/.test(c)) return true;
     if (intent.letter && !EDIT_START.test(c) && (R().find(c, {}) || /qq\d+qq/.test(c) || /^(?:write|spell)\b/.test(c))) return true;
-    if (tattoos().length && /\b(?:to|onto|around|with|in|inside|on)\s+(?:it|that|this|them|the design|the tattoo)\b/.test(c) && !/\b(?:next to|beside|near|by|under|above|below|over)\s+(?:it|that|this|them)\b/.test(c)) return false;
+    if (tattoos().length && /\b(?:to|onto|with|in|inside|on)\s+(?:it|that|this|them|the design|the tattoo)\b/.test(c) && !/\b(?:next to|beside|near|by|under|above|below|over|around)\s+(?:it|that|this|them)\b/.test(c)) return false;
     if (EDIT_START.test(c)) return false;
     if (/^(?:more|less|fewer|thinner|thicker|bolder|no|without|with|add more)\b/.test(c)) return false;
     // "the rose smaller", "my wolf tattoo": a reference to something already on the body
@@ -718,6 +722,10 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
 
     // ── undo / redo
     let m;
+    if (/^(?:(?:oops|never ?mind|nevermind|no|nah|wait|actually|sorry)[ ,]+)+(?:undo(?: that| it)?|go back|revert(?: it| that)?|put it back|bring it back|cancel that|take (?:that|it) back)$/.test(c0)) {
+      await app.undo();
+      return { done: "undid that", kind: "undo", chips: ["Redo", "Undo", "Show me the front"] };
+    }
     if ((m = /^(?:undo|go back|revert|take (?:that|it) back|oops|never ?mind|nevermind|cancel that|put it back|back)\b(?:\s+(?:that|it|this|the last (?:one|change|thing)))?(?:\s+(\d+|twice|two|three)\s*(?:times|steps|changes)?)?\s*$/.exec(c)) || /^undo\b/.test(c)) {
       const n = m && m[1] ? (m[1] === "twice" || m[1] === "two" ? 2 : m[1] === "three" ? 3 : parseInt(m[1], 10)) : (/\btwice\b/.test(c) ? 2 : 1);
       for (let i = 0; i < clamp(n, 1, 20); i++) await app.undo();
@@ -739,6 +747,14 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
 
     // ── questions about what's there
     if (/^(?:what|which)\s+(?:tattoos|designs)\b|\bhow many tattoos\b|^list\b|^(?:what's|what is) on (?:me|my body)\b|^what do i have\b/.test(c)) return listTattoos();
+    if (/^(?:what'?s|what is|how)\s+(?:the\s+)?(?:biggest|largest|max(?:imum)?|smallest|min(?:imum)?)\b|^how (?:big|small) can (?:it|i|you)\b/.test(c)) {
+      const t = current();
+      const rs = t && (R().get(t.region) || { r: {} }).r.sizeCm;
+      const small = /smallest|min|small can/.test(c);
+      if (!t) return { say: "There's no tattoo yet — want me to add one?", info: true, kind: "info" };
+      return { say: small ? `Fine lines blur when they're too tiny — around ${fmtSize(Math.max(1.5, (rs || 6) * 0.3))} is about the smallest that still heals cleanly ${onWhere(where(t))}. It's ${fmtSize(t.sizeCm)} now.`
+        : `${cap(onWhere(where(t)))}, up to about ${fmtSize((rs || 10) * 1.8)} still sits well (it wraps further around as it grows). It's ${fmtSize(t.sizeCm)} now — want me to go bigger?`, info: true, kind: "info", chips: small ? ["Smaller", "Make it 2 cm"] : ["Bigger", `Make it ${Math.round((rs || 10) * 1.6)} cm`] };
+    }
     if (/^(?:how big|what size|how large)\b/.test(c)) {
       const t = current();
       if (!t) return { say: "There's no tattoo yet — want me to add one?", info: true, kind: "info" };
@@ -751,6 +767,17 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       return { say: `It's ${onWhere(where(t))} — I've zoomed in on it.`, info: true, kind: "camera" };
     }
 
+    // ── remove all except one
+    if ((m = /^(?:clear|remove|delete|erase|wipe|get rid of|take off)\s+(?:all|everything|every tattoo|all (?:the |my |of the |of my )?(?:tattoos|designs|ones)|all of them|them all|the rest)\s+(?:except|but|apart from|other than|besides|aside from|save)\s+(.+)$/.exec(c)) && tattoos().length) {
+      const keep = resolveTarget(m[1]);
+      let keepIds = keep.ids;
+      if (!keepIds) { const reg = findRegion(m[1]); if (reg) keepIds = tattoosAt(reg).map((t) => t.id); }
+      if (!keepIds || !keepIds.length) return { say: `I'm not sure which one to keep — ${listShort()}.`, info: true, kind: "info" };
+      const gone = tattoos().filter((t) => !keepIds.includes(t.id));
+      for (const t of gone) await app.removeTattoo(t.id);
+      remember(tattooById(keepIds[0]));
+      return { done: `removed ${gone.length} tattoo${gone.length === 1 ? "" : "s"} and kept your ${tattooName(tattooById(keepIds[0]))}`, kind: "remove", follow: gone.length > 1 ? `Say “undo” ${gone.length} times to bring them back.` : "Say “undo” to bring it back." };
+    }
     // ── clear all
     if (/^(?:clear|remove|delete|erase|wipe|get rid of)\s+(?:all|everything|every tattoo|all (?:the |my |of the |of my )?(?:tattoos|designs|ink)|them all|it all|the whole thing)\b|^(?:start over|start again|clean slate|blank canvas|reset (?:everything|all|the tattoos)|clear(?: it)?(?: all)?)$/.test(c)) {
       const n = tattoos().length;
@@ -1018,7 +1045,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
 
   function hasNewSubject(c, reg) {
     let s = reg ? reg.rest : c;
-    s = s.replace(/\b(?:copy|duplicate|clone|repeat|another|one more|a second|second|same|the|one|it|that|this|of|on|to|onto|put|add|place|make|give|me|please|and|a|an|too|also|as well|there|here|version)\b/g, " ");
+    s = s.replace(/\b(?:copy|duplicate|clone|repeat|another|one more|a second|second|same|the|one|it|that|this|of|on|to|onto|put|add|place|make|give|me|please|and|a|an|too|also|as well|there|here|version|thing|things|but|exact|exactly|design|tattoo|piece|now|ok|okay|want|i|do|can|you|again|just|like)\b/g, " ");
     return s.replace(/\s+/g, " ").trim().length > 2;
   }
 
@@ -1051,7 +1078,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
 
     // "a small heart next to it / above the rose"
-    const rel = /\b(next to|beside|by|near|under(?:neath)?|below|above|over|on top of|to the (?:left|right) of)\s+(it|that|this|the \w+(?: one| tattoo)?)\b/.exec(s);
+    const rel = /\b(next to|beside|by|near|around|under(?:neath)?|below|above|over|on top of|to the (?:left|right) of)\s+(it|that|this|the \w+(?: one| tattoo)?)\b/.exec(s);
     if (rel && tattoos().length) {
       const tgt = /^(?:it|that|this)$/.test(rel[2]) ? { ids: [current() && current().id] } : resolveTarget(rel[2]);
       const ref = tgt.ids && tattooById(tgt.ids[0]);
@@ -1072,6 +1099,15 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     // body part
     const reg = findRegion(s.trim(), { preferFree: !spec.both });
     if (reg) { spec.regionId = reg.regionId; spec.regionMatch = reg; s = " " + reg.rest + " "; }
+    // "my whole back", "a full back piece", "full chest piece" → big piece on the main area
+    const full = /\b(?:whole|full|entire)\s+(back|chest|stomach|thigh|calf|forearm)\b|\b(back|chest) ?piece\b/.exec(c);
+    if (full) {
+      const area = full[1] || full[2];
+      const id = area === "back" ? "upper_back" : null;
+      if (id && R().has(id)) spec.regionId = id;
+      const rs = (R().get(spec.regionId) || { r: {} }).r.sizeCm;
+      if (rs) spec.fullSize = Math.round(rs * (area === "back" ? 1.5 : 1.35));
+    }
     if (spec.both && spec.regionId && !R().mirrorOf(spec.regionId)) spec.both = false;
     if (spec.both && spec.regionId && R().get(spec.regionId).side === "right") spec.regionId = R().mirrorOf(spec.regionId) || spec.regionId;
 
@@ -1239,6 +1275,9 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     const regionId = spec.regionId || (ref && ref.region) || defaultRegion();
     const args = { designId: design.id, region: regionId };
     if (spec.sizeCm) args.sizeCm = spec.sizeWord ? sizeForWord(spec.sizeCm, (R().get(regionId) || { r: {} }).r.sizeCm) : spec.sizeCm;
+    if (spec.fullSize && (!spec.sizeCm || spec.sizeWord)) args.sizeCm = spec.fullSize;
+    // the spine "region" is only a few cm wide; a piece running down it needs more length than that
+    if (!args.sizeCm && R().conceptOf(regionId) === "spine" && !spec.lettering) args.sizeCm = 11;
     // bands meant to go around a limb: size them to its circumference so they wrap
     let wrapped = false;
     const girth = WRAP_CM[R().conceptOf(regionId)];
@@ -1286,7 +1325,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     if (spec.substitute) notes.push(`I don't have a ${spec.substitute.word.replace(/s$/, "")} design yet, so I used a ${spec.substitute.id === "cat" ? "cat" : spec.substitute.id} — the closest one I have.`);
     else if (spec.subject && !spec.lettering && tattooMatchesSubject(t, spec.subject)) {
       const others = findSubjects(spec.genPrompt || "").filter((x) => x.id !== spec.subject.id && !tattooMatchesSubject(t, x));
-      if (others.length && !/\b(?:sun and moon|moon and sun|sun & moon)\b/.test(spec.genPrompt)) notes.push(`Each design has one main motif, so this is the ${spec.subject.word} — want me to add ${others.map((x) => `a ${x.word}`).join(" and ")} next to it as a separate piece?`);
+      if (others.length && !/\b(?:sun and moon|moon and sun|sun & moon)\b/.test(spec.genPrompt)) notes.push(`Each design has one main motif, so this is the ${spec.subject.word} — want me to add ${others.map((x) => (/[^s]s$/.test(x.word) ? `some ${x.word}` : `a ${x.word}`)).join(" and ")} next to it as a separate piece?`);
     }
     else if (spec.subject && !spec.lettering && !tattooMatchesSubject(t, spec.subject)) {
       const st = styles().find((x) => x.id === info.style);
@@ -1294,7 +1333,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
     const follow = notes.length ? notes.join(" ") : spec.guessedRegion
       ? "I put it there for now — tell me another spot if you'd like."
-      : pick(["Want it bigger or rotated?", "Want to try a different size or angle?", "How does that look? I can move, resize or recolor it.", pair ? "Want them bigger?" : "Want it mirrored on the other side too?"], random);
+      : pick(["Want it bigger or rotated?", "Want to try a different size or angle?", "How does that look? I can move, resize or recolor it.", pair ? "Want them bigger?" : (R().get(t.region) || {}).side === "center" ? "Want to see it from another angle?" : "Want it mirrored on the other side too?"], random);
     return { done: desc, kind: "place", follow, ask: false };
   }
 
@@ -1420,6 +1459,16 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       if (t) {
         if (t.visible === false) { await app.updateTattoo(t.id, { visible: true }); }
         await app.focus(t.id);
+        return { done: `zoomed in on your ${tattooName(t)}`, kind: "camera", lead: false };
+      }
+    }
+    // "show me the dragon up close", "zoom in on the rose"
+    if (/\b(?:zoom|close[- ]?up|up close|closer look|focus|let me see|show me|look at|see)\b/.test(c) && !viewWord) {
+      const tgt = resolveTarget(c);
+      if (tgt.explicit && tgt.ids && tgt.ids.length === 1) {
+        const t = tattooById(tgt.ids[0]);
+        if (t.visible === false) await app.updateTattoo(t.id, { visible: true });
+        await app.focus(t.id); remember(t);
         return { done: `zoomed in on your ${tattooName(t)}`, kind: "camera", lead: false };
       }
     }
@@ -1760,7 +1809,9 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       inkPatch = { ink: "black" }; inkDesc = "switched it to black ink";
     } else if (/\b(?:stencil|outline only|just the outline|transfer)\b/.test(c)) { inkPatch = { ink: "stencil" }; inkDesc = "showing it as a stencil"; }
     else if (/\b(?:original colou?rs?|full colou?r|in colou?r|colou?rful|multicolou?r(?:ed)?|its colou?rs?|normal colou?rs?|default colou?rs?|remove the colou?r tint|back to (?:the )?(?:original|normal))\b/.test(c)) { inkPatch = { ink: "original" }; inkDesc = "back to its original colors"; }
-    else if (col && !/\b(?:skin|background)\b/.test(c)) {
+    else if (col && !/\b(?:skin|background)\b/.test(c) && (await paletteFor(ids, t0, col))) {
+      parts.push(`switched the watercolor palette to ${col.name}`); kind = kind || "design";
+    } else if (col && !/\b(?:skin|background)\b/.test(c)) {
       inkPatch = { ink: "color", color: col.hex }; inkDesc = `made it ${col.name.startsWith("#") ? col.name : col.name}`;
     } else if (/\b(?:darker|deeper|bolder|richer|more saturated|stronger|more solid|more opaque|less transparent|more visible)\b/.test(c) && !/\blines?\b/.test(c)
       && (t0.opacity ?? 1) >= 0.99 && !(t0.age > 0.02) && t0.ink !== "color") {
@@ -1772,6 +1823,22 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     } else if (/\b(?:lighter|fainter|softer|subtler|more subtle|more transparent|see[- ]through|less opaque|less visible|paler|translucent)\b/.test(c) && !/\blines?\b/.test(c)) {
       patchFor.push([(t) => ({ opacity: clamp((t.opacity ?? 1) - 0.2, 0.15, 1) }), "made it lighter"]);
       kind = kind || "opacity"; relative = true;
+    }
+    // "in color" on a design that's already showing its own (black line) colors → redraw it in color if the style can
+    if (inkPatch && inkPatch.ink === "original" && /\b(?:in colou?r|full colou?r|colou?rful|colou?red|add colou?rs?|with colou?rs?)\b/.test(c)) {
+      const info = designInfo(t0.designId);
+      const st = styles().find((x) => x.id === info.style);
+      const opt = st && (st.options || []).find((o) => o.type === "select" && /^(?:render|ink|palette|lines)$/.test(o.key) && (o.choices || []).some((ch) => ch.value === "color"));
+      if (opt && (info.opts || {})[opt.key] !== "color") {
+        const d = await regen(info, { ...(info.opts || {}), [opt.key]: "color" });
+        for (const id of ids) await app.updateTattoo(id, { designId: d.id, ink: "original" });
+        parts.push("redrew it in full color"); kind = kind || "design";
+        inkPatch = null;
+      } else if (t0.ink === "original" && !opt) {
+        say = say || `This ${st ? st.name.replace(/\s*\(.*?\)/g, "").toLowerCase() : ""} design is line work only — I can tint it a single ink color (e.g. “make it red”) or switch to a colorful style like watercolor or traditional.`;
+        chips = ["Make it watercolor", "Make it traditional", "Make it red"];
+        inkPatch = null;
+      }
     }
     if (inkPatch) { patchFor.push([inkPatch, inkDesc]); kind = kind || "ink"; }
     if ((m = /\b(\d+(?:\.\d+)?)\s*(?:%|percent)\s*(?:more\s+)?(?:transparent|see[- ]through|translucent|faded out)\b/.exec(c))) {
@@ -1965,7 +2032,7 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       const inc = /\b(?:more|thicker|bolder|heavier|bigger|larger|wider|increase|add|denser|busier|detailed|complex|intricate|curvier|longer|fatter|stronger|with)\b/.test(c);
       const dec = /\b(?:less|fewer|thinner|finer|lighter|smaller|narrower|decrease|reduce|simpler|simple|cleaner|minimal|delicate|remove|no|without|shorter|weaker|sparser)\b/.test(c);
       const numM = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(?:${hm[0].replace(/s$/, "")}s?)`).exec(c);
-      const optName = hm[0].replace(/^(?:linework|line ?work|line weight)$/, "lines");
+      const optName = hm[0].replace(/^(?:linework|line ?work|line weight|thicker|thinner|bolder|finer|heavier|chunkier|skinnier lines)$/, "lines");
       if (opt.type === "range") {
         const span = (opt.max - opt.min) || 1;
         const stepUnit = opt.step || span / 100;
@@ -2007,8 +2074,24 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
     }
     const addVerb = /\b(?:add|more|less|fewer|no|without|remove|with|give it|put)\b/.test(c) && !/\b(?:bigger|smaller|higher|lower|darker|lighter)\b/.test(c);
     if (hintSame && addVerb) return { say: `It's already set up that way — want a new variation instead?`, chips: ["Another variation", "Change style", "Bigger"], kind: "design" };
-    if (hintNoOpt && addVerb && !/\b(?:lines?|line ?work|outlines?|details?)\b/.test(hintNoOpt)) return { say: `The ${style.name.replace(/\s*\(.*?\)/g, "").toLowerCase()} design doesn't have ${hintNoOpt} I can change — I can make a new variation, switch the style, or add another small design next to it.`, chips: ["Another variation", "Change style", "Add a small star next to it"], kind: "design" };
+    const noun = /complex|detail|intricate|busier|busy|simpler|simple|minimal|cleaner/.test(hintNoOpt || "") ? "a detail level" : /^(?:curv|swirl|flow)/.test(hintNoOpt || "") ? "curves" : hintNoOpt;
+    if (hintNoOpt && (addVerb || /^(?:more|less)\b/.test(c.trim())) && !/\b(?:lines?|line ?work|outlines?)\b/.test(hintNoOpt)) return { say: `The ${style.name.replace(/\s*\(.*?\)/g, "").toLowerCase()} design doesn't have ${noun} I can change — I can make a new variation, switch the style, or add another small design next to it.`, chips: ["Another variation", "Change style", "Add a small star next to it"], kind: "design" };
     return null;
+  }
+
+  // Designs with their own multi-color palettes (watercolor): change the palette, keep the colors alive.
+  const PALETTE_OF = { red: "red", crimson: "red", scarlet: "red", cherry: "red", maroon: "red", burgundy: "red", blue: "blue", "light blue": "blue", "sky blue": "blue", navy: "ocean", "dark blue": "ocean", cobalt: "blue", "royal blue": "blue",
+    teal: "teal", turquoise: "teal", cyan: "teal", aqua: "teal", green: "green", emerald: "green", "dark green": "green", mint: "green", purple: "purple", violet: "purple", lavender: "purple", lilac: "purple", indigo: "purple", plum: "purple",
+    pink: "pink", "hot pink": "pink", magenta: "pink", fuchsia: "pink", orange: "orange", coral: "orange", peach: "orange", yellow: "autumn", gold: "autumn", golden: "autumn", amber: "autumn", black: "black", grey: "black", gray: "black" };
+  async function paletteFor(ids, t, col) {
+    const info = designInfo(t.designId);
+    const st = styles().find((x) => x.id === info.style);
+    const opt = st && st.id === "watercolor" && (st.options || []).find((o) => o.key === "colors" && o.type === "select");
+    const want = opt && PALETTE_OF[col.name];
+    if (!want || !(opt.choices || []).some((ch) => ch.value === want)) return false;
+    const d = await regen(info, { ...(info.opts || {}), colors: want });
+    for (const id of ids) await app.updateTattoo(id, { designId: d.id, ink: "original" });
+    return true;
   }
 
   async function regen(info, opts) {
