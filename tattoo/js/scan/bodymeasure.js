@@ -287,3 +287,34 @@ export function modelLevels(M) {
     ankle: sk.sides[1].ankle[1] / T,
   };
 }
+
+/**
+ * Arm angle as the photo analysis sees it: centre line of the arm run in the
+ * front view between hA − 0.015 and hA − 0.075 (hA: armpit fraction), vs vertical (deg).
+ */
+export function apparentArmAngle(M, hA) {
+  const ys = [], xs = [];
+  for (let k = 0; k <= 6; k++) {
+    const h = hA - 0.015 - k * 0.01;
+    const iv = frontIntervals(slice(M, h * M.top, true));
+    const c = iv.find((s) => s[0] <= 1e-3);
+    const arm = iv.filter((s) => s[0] > 1e-3 && (!c || s[0] > c[1] + 1e-3)).pop();
+    if (!arm) continue;
+    ys.push(h * M.top); xs.push((arm[0] + arm[1]) / 2);
+  }
+  if (ys.length < 3) return null;
+  let my = 0, mx = 0;
+  for (let i = 0; i < ys.length; i++) { my += ys[i]; mx += xs[i]; }
+  my /= ys.length; mx /= ys.length;
+  let sxy = 0, syy = 0;
+  for (let i = 0; i < ys.length; i++) { sxy += (ys[i] - my) * (xs[i] - mx); syy += (ys[i] - my) ** 2; }
+  return Math.atan(Math.abs(sxy / syy)) * 180 / Math.PI;
+}
+
+/** Upper-arm thickness (front view, across the arm) at fraction h of the height (fraction). */
+export function upperArmWidthAt(M, h) {
+  const sd = M.skel.sides[1];
+  const y = h * M.top, S0 = sd.shoulder, E = sd.elbow;
+  const t = Math.min(0.95, Math.max(0.05, (S0[1] - y) / (S0[1] - E[1])));
+  return upperArmWidth(M, t);
+}
