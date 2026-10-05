@@ -6,6 +6,7 @@ import { defaultTune } from './sim/ecu.js';
 import { buildPartTree } from './data/parts.js';
 import { modelFor } from './lib/importModel.js';
 import { buildVehicleTree } from './data/vehicleParts.js';
+import { variantsFor } from './data/vehicleVariants.js';
 
 const KEY = 'motorlab.state.v1';
 const SET = 'motorlab.settings.v1';
@@ -44,6 +45,7 @@ export const state = {
   workspace:'garage',
   installed:{},            // engineId -> [partIds]
   vInstalled:{},           // vehicleId -> [partIds]
+  vVariants:{},            // vehicleId -> { slot: variantId }
   tunes:{},                // engineId -> tune
   fitted:{},               // engineId -> [upgradeIds]
   torqued:{},              // `${engineId}:${partId}` -> true
@@ -112,10 +114,72 @@ export function setInstalled(set){ state.installed[state.engineId] = [...set]; s
 
 export function vInstalledSet(){
   const id = state.vehicleId;
-  if (!state.vInstalled[id]) state.vInstalled[id] = vTree().parts.map(p => p.id);
+  const t = vTree();
+  if (!state.vInstalled[id]) state.vInstalled[id] = t.parts.map(p => p.id);   // start assembled
+  else {
+    /* A build saved before the car came apart panel by panel names the old
+       wholes — 'body', 'wheels', 'seats', 'lights', 'exhaustsys', 'aero'. Carry
+       a saved whole over to every piece of the part it became, drop ids the
+       tree no longer has, and fit anything new the tree gained since, so the
+       car does not come up with holes in it. */
+    const list = state.vInstalled[id], have = new Set(list);
+    const pieces = {};
+    for (const p of t.parts) if (p.parent) (pieces[p.parent] ||= []).push(p.id);
+    let changed = false;
+    for (const parent of Object.keys(pieces)) if (have.has(parent)){
+      changed = true; have.delete(parent); pieces[parent].forEach(x => have.add(x));
+    }
+    /* old coarse ids → the parts they were split into */
+    const SPLIT = {
+      body:['bonnet','wingF','bumperF','grille','doorF','doorR','sills','quarters','roof','bootlid','bumperR','mirrors',
+            'fuelflap','windscreen','rearscreen','glassF','glassR','glassQ','bed','splitter','spoiler','diffuser',
+            'nosecone','sidepods','enginecover','floor','rearwing','halo','nassau'],
+      seats:['seatsF','seatR','belts','dash','carpet','headliner','console','steeringwheel','pedals','doorcardsF','doorcardsR'],
+      lights:['headlamp','taillamp','wipers','horn','washer','ecu'],
+      exhaustsys:['downpipe','cat','midpipe','rearbox'],
+      aero:['splitter','spoiler','diffuser','rearwing'],
+      rad:['fans','hoses','exptank','condenser','accomp','heaterbox'],
+      tank:['fuelpump','fuellines','fillerneck'],
+      axles:['difff'], mcyl:['brakelines'],
+    };
+    for (const [oldId, news] of Object.entries(SPLIT)) if (have.has(oldId) && !t.byId[oldId]){
+      changed = true; have.delete(oldId);
+      for (const n of news){ if (t.byId[n]) have.add(n); (pieces[n] || []).forEach(x => have.add(x)); }
+    }
+    for (const x of [...have]) if (!t.byId[x]){ have.delete(x); changed = true; }
+    /* a part the tree gained since this car was saved — a variant that adds a
+       spoiler, a new panel — starts fitted, like everything else on a car that
+       has not been taken apart */
+    const strippedAny = t.parts.some(p => !have.has(p.id) && (p.parent ? pieces[p.parent].every(x => !have.has(x)) : true) && !isNewPart(p, list));
+    if (!strippedAny) for (const p of t.parts) if (!have.has(p.id)){ have.add(p.id); changed = true; }
+    if (changed) state.vInstalled[id] = [...have];
+  }
   return new Set(state.vInstalled[id]);
 }
+/* was this part absent from a saved list because it was removed, or because
+   it did not exist yet? Anything the tree knows and the list never named at
+   all — by piece or by whole — counts as new. */
+function isNewPart(p, list){
+  const base = p.parent || p.id;
+  return !list.some(x => x === p.id || x === base || x.startsWith(base + '.'));
+}
 export function setVInstalled(set){ state.vInstalled[state.vehicleId] = [...set]; save(); }
+
+/* ---- vehicle variants: "change to a different part" -------------------- */
+/* state.vVariants[vehicleId] = { slot: variantId }. The builders read the
+   mirror on globalThis because they must not import the store. */
+export function syncVariants(){ globalThis.__MOTORLAB_VVARIANTS = (state.vVariants ||= {}); }
+export function vVariant(slot){
+  return variantsFor(vehicle())[slot];
+}
+export function setVVariant(slot, variantId){
+  const id = state.vehicleId;
+  (state.vVariants ||= {})[id] ||= {};
+  if (variantId == null) delete state.vVariants[id][slot]; else state.vVariants[id][slot] = variantId;
+  syncVariants();
+  invalidateTree('veh', id);         // the tree names and includes parts by variant
+  save();
+}
 
 export function tune(){
   const id = state.engineId;
@@ -159,20 +223,22 @@ export function load(){
   } catch {
     state.settings = { ...DEFAULT_SETTINGS };
   }
+  syncVariants();
   return state;
 }
 export function resetAll(){
   try { localStorage.removeItem(KEY); } catch {}
   Object.assign(state, {
-    installed:{}, vInstalled:{}, tunes:{}, fitted:{}, torqued:{}, lessons:{}, quizAnswers:{},
+    installed:{}, vInstalled:{}, vVariants:{}, tunes:{}, fitted:{}, torqued:{}, lessons:{}, quizAnswers:{},
     game:{ xp:0, level:1, credits:DEFAULT_SETTINGS.credits, achievements:[], challenges:{}, builds:0, dynoRuns:0, streak:0 },
     ui:{ groupsOpen:{}, panelTab:{} },
   });
-  invalidateTrees(); save();
+  syncVariants(); invalidateTrees(); save();
 }
 export function resetProject(){
   delete state.installed[state.engineId];
   delete state.vInstalled[state.vehicleId];
+  delete state.vVariants?.[state.vehicleId];
   delete state.tunes[state.engineId];
   delete state.fitted[state.engineId];
   for (const k of Object.keys(state.torqued)) if (k.startsWith(state.engineId + ':')) delete state.torqued[k];
@@ -187,7 +253,7 @@ export function importSave(json){
   if (!data?.state) throw new Error('Not a MotorLab save file');
   Object.assign(state, data.state);
   state.settings = { ...DEFAULT_SETTINGS, ...(data.state.settings || {}) };
-  invalidateTrees(); save();
+  syncVariants(); invalidateTrees(); save();
 }
 
 /* ---- units ------------------------------------------------------------ */
