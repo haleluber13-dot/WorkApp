@@ -1065,9 +1065,10 @@ function buildPiston(e, tree){
   const frontTurbo = hasTurbo && L.banks >= 2;
   const sideTurbo  = hasTurbo && L.banks < 2;
   /* a modern vee hangs its turbos low and outboard, toward the gearbox */
-  const tlOut = frontTurbo && ['outboardLow', 'rearOutboard', 'boxerRear', 'rearCentre'].includes(e.turboLayout);
+  const tlOut = frontTurbo && ['outboardLow', 'rearOutboard', 'boxerRear', 'rearCentre', 'valley'].includes(e.turboLayout);
   const turboX = e.turboLayout === 'rearOutboard' ? L.len * 0.22 : e.turboLayout === 'boxerRear' ? L.len * 0.25
-               : e.turboLayout === 'rearCentre' ? L.len * 0.50 + L.bore * 0.9 : L.len * 0.14;
+               : e.turboLayout === 'rearCentre' ? L.len * 0.50 + L.bore * 0.9
+               : e.turboLayout === 'valley' ? (e.cyl >= 8 && e.aspiration === 'turbo' ? L.len * 0.30 : 0) : L.len * 0.14;
   const colX = tlOut ? turboX - L.bore * 0.3
              : frontTurbo ? frontX - L.len * 0.04
              : sideTurbo ? L.len * 0.06
@@ -1105,7 +1106,7 @@ function buildPiston(e, tree){
   const inletMat = itb ? MAT.alloy() : (FIN.plenum || MAT.composite());   /* throttle bodies are machined alloy whatever the plenum is */
   /* where a runner has to reach the plenum from */
   const plenumMouth = () => [inducY, L.banks >= 2 ? 0 : -L.bore * 1.12];
-  if ((!itb || (boosted && L.banks < 2)) && e.id !== 'i6-30-legend'){   /* boosted ITBs (RB26) breathe from a collector; the 2JZ's chamber is a factory part */
+  if ((!itb || (boosted && L.banks < 2)) && e.id !== 'i6-30-legend' && !has('blower')){   /* boosted ITBs (RB26) breathe from a collector; the 2JZ's chamber is a factory part; a blower is its own plenum */
     const plenum = roundBox(L.len * 0.80, L.bore * (L.banks >= 2 ? 0.72 : 0.46),
                            flat ? L.bore * 1.0 : L.banks >= 2 ? L.bore * 1.45 : L.bore * 0.70, 0.03, inletMat);
     at(plenum, 0, inducY, L.banks >= 2 ? 0 : -L.bore * 1.12);
@@ -1251,8 +1252,11 @@ function buildPiston(e, tree){
          outboard of the head — toward the gearbox end on a mid-engined car —
          and only the old front-corner layout puts them out ahead of the block. */
       const tl = e.turboLayout || '';
-      const outboard = frontTurbo && ['outboardLow', 'rearOutboard', 'boxerRear', 'rearCentre'].includes(tl);
-      const pos = tl === 'boxerRear' && frontTurbo
+      const outboard = frontTurbo && ['outboardLow', 'rearOutboard', 'boxerRear', 'rearCentre', 'valley'].includes(tl);
+      const pos = tl === 'valley' && frontTurbo
+        /* hot-vee or pedestal: the turbo(s) sit in the valley between the heads */
+        ? new THREE.Vector3(turboX + rank * size * 1.8, L.deckH * Math.cos(vAngle) * 1.0 + size * 0.75, 0)
+        : tl === 'boxerRear' && frontTurbo
         /* a Subaru's single turbo sits behind the right head, low, fed by an up-pipe */
         ? new THREE.Vector3(turboX, -L.crankR * 0.1, L.deckH * 0.55)
         : tl === 'rearCentre' && frontTurbo
@@ -1712,9 +1716,14 @@ function buildPiston(e, tree){
        offset toward the intake side (realism.md §2.2) */
     const wpZ = L.banks >= 2 ? 0 : -L.bore * 0.4, wpY = flat ? L.bore * 0.55 : L.deckH * 0.55;
     add('waterpump', at(wp, beltX + wpSize * 0.34, wpY, wpZ));
-    if (has('fanclutch'))
-      add('fanclutch', at(rot(cyl(M(55), M(46), M(40), MAT.alloyDark(), 20), 0, 0, Math.PI / 2),
-                          beltX - M(34), wpY, wpZ));
+    if (has('fanclutch')){
+      /* the viscous coupling on the pump nose, and the seven-blade fan it drives */
+      const fc = group('fanclutch');
+      fc.add(rot(cyl(M(55), M(46), M(40), MAT.alloyDark(), 20), 0, 0, Math.PI / 2));
+      const fb = bladedWheel(L.deckH * 0.48, 7, M(40), MAT.black(), 0.7);
+      rot(fb, 0, 0, Math.PI / 2); fb.position.x = -M(30); fc.add(fb); anim.fans.push(fb);
+      add('fanclutch', at(fc, beltX - M(34), wpY, wpZ));
+    }
     /* the pump bolts to the block through its own paper gasket — the one every
        diagram draws as a separate orange outline beside the pump */
     const wg = tubeMesh(wpSize * 0.46, wpSize * 0.30, M(3), MAT.gasket(), 24);
@@ -2431,7 +2440,7 @@ function buildRotary(e, tree){
     for (let i = 0; i < cnt; i++){
       const t = turboUnit(R * (cnt > 1 ? 0.62 : 0.80));
       anim.turbos.push(t.userData.shaft);
-      at(t, xOf(n-1) + pitch*(0.5 + i*0.55), -R*0.15 + i*R*0.55, R*1.05);
+      at(t, xOf(0) + i * pitch * 0.9, -R*0.15 + i*R*0.55, R*1.30);
       tg.add(t);
     }
     add('turbo', tg);
@@ -2482,7 +2491,7 @@ function buildRotary(e, tree){
   at(pul, xOf(0) - pitch*1.1, 0, 0); anim.pulleys.push({ node:pul, ratio:1 });
   add('crankpulley', pul);
   add('alternator', at(alternatorMesh(R*0.55), xOf(0)-pitch*0.9, R*0.75, -R*0.6));
-  add('starter', at(starterMesh(R*0.62), xOf(n-1)+pitch*0.6, -R*0.35, -R*0.5));
+  add('starter', at(starterMesh(R*0.62), xOf(n-1)+pitch*0.3, -R*0.45, -R*1.25));
   const fw = group('fw'); fw.add(rot(tubeMesh(R*0.95, M(30), M(30), MAT.iron(), 30), 0,0,Math.PI/2));
   at(fw, xOf(n-1) + pitch*0.75, 0, 0); anim.pulleys.push({ node:fw, ratio:1 });
   add('flywheel', fw);
