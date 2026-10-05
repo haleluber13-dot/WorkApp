@@ -399,25 +399,41 @@ export function saliency(rgba, w, h) {
     gaussBlur(a, w, h, Math.max(1, w / 120));
     for (let i = 0; i < n; i++) lab[i * 3 + c] = a[i];
   }
-  // border samples → k-means (k = 4) → background prototypes with weights
+  // border samples → background prototypes. A side whose colours don't appear on the other sides
+  // (e.g. a person's shirt cut off by the bottom edge) is not trusted as background.
   const bw = Math.max(2, Math.round(Math.min(w, h) * 0.04));
+  const sides = [[], [], [], []]; // top, bottom, left, right
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (y < bw) sides[0].push(i); else if (y >= h - bw) sides[1].push(i); else if (x < bw) sides[2].push(i); else if (x >= w - bw) sides[3].push(i);
+  }
+  const protoOf = (idx, K, seed) => {
+    if (!idx.length) return [];
+    const lb = kmeansInit(lab, idx, K, rng(seed));
+    const acc = new Float64Array(K * 4);
+    for (let s = 0; s < idx.length; s++) { const k = lb[s], q = idx[s] * 3; acc[k * 4] += lab[q]; acc[k * 4 + 1] += lab[q + 1]; acc[k * 4 + 2] += lab[q + 2]; acc[k * 4 + 3]++; }
+    const out = [];
+    for (let k = 0; k < K; k++) if (acc[k * 4 + 3] > idx.length * 0.05) out.push([acc[k * 4] / acc[k * 4 + 3], acc[k * 4 + 1] / acc[k * 4 + 3], acc[k * 4 + 2] / acc[k * 4 + 3]]);
+    return out;
+  };
+  const labDist = (q, p) => { const dl = (lab[q] - p[0]) * 0.7, da = lab[q + 1] - p[1], db = lab[q + 2] - p[2]; return Math.sqrt(dl * dl + da * da + db * db); };
+  const sideProtos = sides.map((s, k) => protoOf(s, 3, 3 + k));
   const bidx = [];
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x < bw || y < bw || x >= w - bw || y >= h - bw) bidx.push(y * w + x);
-  const K = 4;
-  const lb = kmeansInit(lab, bidx, K, rng(3));
-  const proto = new Float64Array(K * 4);
-  for (let s = 0; s < bidx.length; s++) { const k = lb[s], q = bidx[s] * 3; proto[k * 4] += lab[q]; proto[k * 4 + 1] += lab[q + 1]; proto[k * 4 + 2] += lab[q + 2]; proto[k * 4 + 3]++; }
-  const protos = [];
-  for (let k = 0; k < K; k++) if (proto[k * 4 + 3] > bidx.length * 0.06) protos.push([proto[k * 4] / proto[k * 4 + 3], proto[k * 4 + 1] / proto[k * 4 + 3], proto[k * 4 + 2] / proto[k * 4 + 3]]);
+  for (let sd = 0; sd < 4; sd++) {
+    const others = sideProtos.filter((_, k) => k !== sd).flat();
+    for (const i of sides[sd]) {
+      let best = 1e9;
+      for (const p of others) { const d = labDist(i * 3, p); if (d < best) best = d; }
+      if (best < 14) bidx.push(i);
+    }
+  }
+  if (bidx.length < 20) for (const s of sides) for (const i of s) bidx.push(i);
+  const protos = protoOf(bidx, 4, 3);
   // distance to nearest background prototype
   const S = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     let best = 1e9;
-    for (const p of protos) {
-      const dl = (lab[i * 3] - p[0]) * 0.7, da = lab[i * 3 + 1] - p[1], db = lab[i * 3 + 2] - p[2];
-      const d = Math.sqrt(dl * dl + da * da + db * db);
-      if (d < best) best = d;
-    }
+    for (const p of protos) { const d = labDist(i * 3, p); if (d < best) best = d; }
     S[i] = best;
   }
   // edge density (local gradient energy)
