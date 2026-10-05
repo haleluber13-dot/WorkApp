@@ -188,7 +188,8 @@ export function lineChart(canvas, { series, xLabel, yLabel, y2Label, xMin, xMax,
     c.fillStyle = '#aab5c8'; c.fillText(s.name, lx + 14, 13);
     lx += c.measureText(s.name).width + 28;
   }
-  if (xLabel){ c.fillStyle='#68758d'; c.textAlign='right'; c.fillText(xLabel, w - pad.r, hgt - 8); }
+  /* the axis name lives in the top strip, so it never collides with the last tick label */
+  if (xLabel){ c.fillStyle='#808ca1'; c.textAlign='right'; c.fillText(xLabel, w - pad.r, 13); }
 }
 function fmtNum(v){
   if (Math.abs(v) >= 1000) return Math.round(v/100)/10 + 'k';
