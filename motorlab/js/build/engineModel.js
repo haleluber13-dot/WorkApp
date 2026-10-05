@@ -1289,12 +1289,73 @@ function buildPiston(e, tree){
   const inletMat = itb ? MAT.alloy() : (FIN.plenum || MAT.composite());   /* throttle bodies are machined alloy whatever the plenum is */
   /* where a runner has to reach the plenum from */
   const plenumMouth = () => [inducY, L.banks >= 2 ? 0 : -L.bore * 1.12];
-  if ((!itb || (boosted && L.banks < 2)) && e.id !== 'i6-30-legend' && !has('blower')){   /* boosted ITBs (RB26) breathe from a collector; the 2JZ's chamber is a factory part; a blower is its own plenum */
-    const plenum = roundBox(L.len * 0.80, L.bore * (L.banks >= 2 ? 0.72 : 0.46),
-                           flat ? L.bore * 1.0 : L.banks >= 2 ? L.bore * 1.45 : L.bore * 0.70, 0.03, inletMat);
-    at(plenum, 0, inducY, L.banks >= 2 ? 0 : -L.bore * 1.12);
+  /* what the plenum is made of decides how it is shaped: glass-filled nylon
+     is moulded in two halves and vibration-welded along a seam, with ribs
+     over the thin faces; a cast-alloy log carries its runners as bulges off
+     a ribbed body with the maker's badge cast into a pad on top */
+  const plenumStyle = inletMat === MAT.composite() ? 'composite'
+                    : (inletMat === MAT.alloy() || inletMat === MAT.alloyDark()) ? 'cast'
+                    : inletMat === MAT.carbon() ? 'carbon' : 'paint';
+  const hasPlenum = (!itb || (boosted && L.banks < 2)) && e.id !== 'i6-30-legend' && !has('blower');
+  const plenumBox = { w:L.len * 0.80, h:L.bore * (L.banks >= 2 ? 0.72 : 0.46),
+                      d: flat ? L.bore * 1.0 : L.banks >= 2 ? L.bore * 1.45 : L.bore * 0.70,
+                      x:0, y:inducY, z: L.banks >= 2 ? 0 : -L.bore * 1.12 };
+  if (hasPlenum){   /* boosted ITBs (RB26) breathe from a collector; the 2JZ's chamber is a factory part; a blower is its own plenum */
+    const { w:pw, h:ph, d:pd, x:px0, y:py0, z:pz0 } = plenumBox;
+    const plenum = roundBox(pw, ph, pd, 0.03, inletMat);
+    at(plenum, px0, py0, pz0);
     intakeG.add(plenum);
+    const topY = py0 + ph / 2;
+    const badge = coverLegend(e, FIN);
+    const badgeText = badge?.lines?.[0] || String(e.maker || '').toUpperCase();
+    if (plenumStyle === 'composite'){
+      /* the weld seam round the middle, where the two mouldings meet */
+      const sy = py0 + ph * 0.10;
+      for (const zs of [-1, 1]) intakeG.add(at(box(pw + M(4), M(3), M(4), inletMat), px0, sy, pz0 + zs * pd / 2));
+      for (const xs of [-1, 1]) intakeG.add(at(box(M(4), M(3), pd + M(4), inletMat), px0 + xs * pw / 2, sy, pz0));
+      /* ribs across the top at every runner, and two along it */
+      for (let i = 0; i < e.cyl; i++){
+        const rx = cylPosition(e, i, L).x;
+        if (Math.abs(rx - px0) < pw / 2 - M(10)) intakeG.add(at(box(M(4), M(7), pd * 0.84, inletMat), rx, topY + M(2), pz0));
+      }
+      for (const zs of [-0.30, 0.30]) intakeG.add(at(box(pw * 0.92, M(7), M(4), inletMat), px0, topY + M(2), pz0 + zs * pd));
+      /* the moulded-in name, flush and the same colour as the plastic */
+      intakeG.add(at(letterPlate([badgeText], pw * 0.26, Math.min(ph * 0.34, pd * 0.20), inletMat,
+                                 { hex:0x5a6068, style:'paint', thickness:M(1.5), flip: L.banks < 2, shadow:false, barMat:inletMat }),
+                     px0 + pw * 0.14, topY + M(6), pz0 + pd * (L.banks < 2 ? -0.02 : 0.0)));
+    } else if (plenumStyle === 'cast'){
+      /* longitudinal cast ribs over the top and down the outer face */
+      for (const zs of [-0.32, 0, 0.32]) intakeG.add(at(box(pw * 0.94, M(6), M(7), inletMat), px0, topY + M(2), pz0 + zs * pd));
+      for (const [k, yy] of [-0.22, 0.12].entries()) intakeG.add(at(box(pw * 0.94, M(7), M(6), inletMat), px0, py0 + yy * ph, pz0 + (L.banks < 2 ? -1 : 1) * (pd / 2 + M(2))));
+      /* the maker's badge cast proud on a pad */
+      intakeG.add(at(letterPlate([badgeText], pw * 0.30, Math.min(ph * 0.36, pd * 0.22), inletMat,
+                                 { hex:0xc8ccd0, style:'cast', thickness:M(3), flip: L.banks < 2 }),
+                     px0 + pw * 0.12, topY + M(6), pz0));
+      /* the throttle flange face at the front end is milled bright */
+      intakeG.add(at(machinedPad(ph * 0.78, pd * 0.78, M(2)).rotateZ(Math.PI / 2), px0 - pw / 2 - M(1), py0, pz0));
+    } else if (plenumStyle === 'paint'){
+      intakeG.add(at(letterPlate([badgeText], pw * 0.30, Math.min(ph * 0.36, pd * 0.22), inletMat,
+                                 { hex:0xd9dde0, style:'silver', thickness:M(2), flip: L.banks < 2 }),
+                     px0 + pw * 0.12, topY + M(4), pz0));
+    }
   }
+  /* where a runner leaves the plenum body: a flared collar (the cast runner
+     root, or the moulded joint) sitting on the surface it comes out of */
+  const runnerCollar = (pts, r) => {
+    if (!hasPlenum) return null;
+    const { w:pw, h:ph, d:pd, x:px0, y:py0, z:pz0 } = plenumBox;
+    const c = new THREE.CatmullRomCurve3(pts.map(q => q.isVector3 ? q : V3(...q)));
+    const inside = (q) => Math.abs(q.x - px0) < pw / 2 && Math.abs(q.y - py0) < ph / 2 && Math.abs(q.z - pz0) < pd / 2;
+    let t = 0;
+    for (let k = 0; k <= 40; k++){ const q = c.getPointAt(k / 40); if (!inside(q)){ t = k / 40; break; } }
+    const tan = c.getTangentAt(Math.min(1, t + 0.02)).normalize();
+    const col = plenumStyle === 'composite'
+      ? lathe([[r * 1.00, -M(6)], [r * 1.30, -M(6)], [r * 1.30, M(8)], [r * 1.12, M(12)], [r * 1.12, M(30)], [r * 1.02, M(34)]], inletMat, 14)
+      : lathe([[r * 1.00, -M(4)], [r * 1.60, -M(4)], [r * 1.42, M(12)], [r * 1.18, M(26)], [r * 1.02, M(32)]], inletMat, 14);
+    col.quaternion.setFromUnitVectors(V3(0, 1, 0), tan);
+    col.position.copy(c.getPointAt(t)).addScaledVector(tan, -M(4));
+    return col;
+  };
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
     const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
@@ -1318,11 +1379,16 @@ function buildPiston(e, tree){
     }
     const topY = itb ? inducY + L.bore * 0.35 : my;      /* trumpets just above the valley floor */
     const zEnd = itb ? pz * 0.75 : mz;
-    intakeG.add(pipe([
+    const runPts = [
       [p.x, topY, zEnd],
       [p.x, (topY + py) / 2, (zEnd + pz) / 2 * 1.25],
       [p.x, py, pz],
-    ], M(17), inletMat, 8));
+    ];
+    intakeG.add(pipe(runPts, M(17), inletMat, 8));
+    if (!itb){
+      const col = runnerCollar(runPts, M(17));
+      if (col) intakeG.add(col);
+    }
     if (itb){
       /* the throttle body, and the bellmouth above it */
       intakeG.add(at(cyl(M(23), M(23), L.bore * 0.20, MAT.alloyDark(), 20),
@@ -1330,6 +1396,15 @@ function buildPiston(e, tree){
       intakeG.add(at(velocityStack(M(46), L.bore * 0.34, MAT.alloy()),
                      p.x, topY + L.bore * 0.38, zEnd));
     }
+  }
+  /* the manifold's flange on the head's milled intake face, on its gasket */
+  if (!itb) for (let b = 0; b < nBanksHead; b++){
+    const sgn = inSide(b);
+    const fl = portFlange(L.perBank, L.bore * 0.27, L.pitch, M(12), plenumStyle === 'composite' ? MAT.composite() : MAT.alloy());
+    fl.rotation.y = sgn > 0 ? -Math.PI / 2 : Math.PI / 2;
+    const [fy, fz] = portAt(b, L.deckH + L.bore * 0.40, sgn * (L.bore * 0.87 + M(5.5)));
+    fl.rotation.x = L.bankAngles[b] || 0;
+    intakeG.add(at(fl, 0, fy, fz));
   }
   add('intake', intakeG);
   /* the throttle body sits on the front of the plenum, where the charge pipe
@@ -1346,8 +1421,24 @@ function buildPiston(e, tree){
                       : V3(frontX - L.bore * 0.10, thrAt.y + L.bore * 0.28, -L.bore * 0.90);
   if (has('throttle')){
     const tG = group('throttle');
-    tG.add(at(rot(cyl(M(38), M(38), M(60), MAT.alloyDark(), 18), 0, 0, Math.PI/2),
-              thrAt.x, thrAt.y, thrAt.z));
+    /* a real throttle body: the bore, a square flange with four bolts and a
+       gasket onto the plenum, the butterfly shaft through it with the drive
+       motor and position sensor hung on the outboard end, and the inlet lip
+       the duct clamps to */
+    const side = Math.sign(thrAt.z || -1);
+    const tb = group('tb');
+    tb.add(rot(cyl(M(38), M(38), M(60), MAT.alloyDark(), 18), 0, 0, Math.PI / 2));
+    tb.add(at(roundBox(M(8), M(102), M(102), M(12), MAT.alloy()), M(34), 0, 0));
+    tb.add(at(machinedPad(M(98), M(98), M(1.5)).rotateZ(Math.PI / 2), M(30), 0, 0));
+    tb.add(at(box(M(2), M(98), M(98), MAT.gasket()), M(39), 0, 0));
+    for (const sy of [-1, 1]) for (const sz of [-1, 1])
+      tb.add(at(rot(bolt(M(4), M(18), FIN.hardware), 0, 0, Math.PI / 2), M(34), sy * M(40), sz * M(40)));
+    tb.add(at(rot(cyl(M(9), M(9), M(96), MAT.alloyDark(), 10), Math.PI / 2, 0, 0), 0, 0, 0));
+    tb.add(at(roundBox(M(48), M(60), M(42), M(6), MAT.plastic()), 0, -M(4), side * M(66)));
+    tb.add(at(rot(cyl(M(10), M(10), M(6), MAT.alloy(), 10), Math.PI / 2, 0, 0), 0, 0, -side * M(50)));
+    tb.add(at(rot(tubeMesh(M(41), M(36), M(10), MAT.alloy(), 20), 0, 0, Math.PI / 2), -M(35), 0, 0));
+    if (boosted) tb.add(at(rot(hoseClamp(M(43)), 0, 0, Math.PI / 2), -M(46), 0, 0));
+    tG.add(at(tb, thrAt.x, thrAt.y, thrAt.z));
     /* On a boosted engine the throttle is fed by the charge pipe coming back
        from the intercooler; the filter is out at the front of the car on the
        compressor's inlet, not bolted to the throttle body. An atmospheric
@@ -1363,6 +1454,27 @@ function buildPiston(e, tree){
     for (let b = 0; b < nBanksHead; b++){
       const [ry, rz] = railAt(b);
       railG.add(at(rot(cyl(M(13), M(13), L.len * 0.9, MAT.steel(), 12), 0, 0, Math.PI/2), 0, ry, rz));
+      /* the feed fitting on the front end, a blanked boss on the back */
+      railG.add(at(hexPrism(M(19), M(14), MAT.steel()).rotateZ(Math.PI / 2), -L.len * 0.45 - M(7), ry, rz));
+      railG.add(at(cyl(M(6), M(6), M(28), MAT.steel(), 10).rotateZ(Math.PI / 2), -L.len * 0.45 - M(26), ry, rz));
+      railG.add(at(hexPrism(M(17), M(10), MAT.steel()).rotateZ(Math.PI / 2), L.len * 0.45 + M(5), ry, rz));
+      /* two brackets a bank, a flat strap from a clamp round the rail down to
+         a bolt in the head's intake face */
+      for (const bx of [-L.len * 0.26, L.len * 0.26]){
+        const [fy, fz] = portAt(b, L.deckH + L.bore * 0.72, inSide(b) * L.bore * 0.84);
+        const A = V3(bx, ry, rz), B = V3(bx, fy, fz);
+        const d = B.clone().sub(A);
+        if (d.length() < M(20)) continue;
+        const bar = box(M(18), d.length(), M(4), MAT.steel());
+        bar.quaternion.setFromUnitVectors(V3(0, 1, 0), d.clone().normalize());
+        bar.position.copy(A).addScaledVector(d, 0.5);
+        railG.add(bar);
+        railG.add(at(tubeMesh(M(16), M(13), M(18), MAT.steel(), 12).rotateZ(Math.PI / 2), A.x, A.y, A.z));
+        const bt = bolt(M(3.5), M(12), FIN.hardware);
+        bt.quaternion.setFromUnitVectors(V3(0, 1, 0), d.clone().normalize().negate());
+        bt.position.copy(B);
+        railG.add(bt);
+      }
     }
     for (let i = 0; i < e.cyl; i++){
       const p = cylPosition(e, i, L);
@@ -2526,8 +2638,27 @@ function buildRotary(e, tree){
   for (let i = 0; i <= n && !has('fronthousing'); i++){
     const plate = roundBox(M(14), R*2.3, R*2.0, .02, MAT.iron());
     /* a side housing is a plate across the shaft (YZ), not a wall along it */
-    at(plate, xOf(i) - pitch/2, 0, 0);
+    const px = xOf(i) - pitch/2;
+    at(plate, px, 0, 0);
     sideG.add(plate);
+    /* an iron is machined where the rotor housing seals against it: a bright
+       face on both sides of every intermediate plate and the inner side of
+       each end plate; the end plates' outer faces carry cast webs out to the
+       stud bosses instead */
+    const ends = (i === 0 ? [1] : i === n ? [-1] : [-1, 1]);
+    for (const sx of ends)
+      sideG.add(at(tubeMesh(R * 1.26, R * 0.34, M(1.5), MAT.machined(), 36).rotateZ(Math.PI / 2), px + sx * M(7.5), 0, 0));
+    if (i === 0 || i === n){
+      const sx = i === 0 ? -1 : 1;
+      for (let k = 0; k < 8; k++){
+        const t = (k / 8) * TAU + Math.PI / 8;
+        const web = box(M(12), R * 0.80, M(11), MAT.iron());
+        web.position.set(px + sx * M(13), Math.cos(t) * R * 0.62, Math.sin(t) * R * 0.62);
+        web.rotation.x = t;
+        sideG.add(web);
+      }
+      sideG.add(at(tubeMesh(R * 0.36, R * 0.22, M(12), MAT.iron(), 24).rotateZ(Math.PI / 2), px + sx * M(13), 0, 0));
+    }
   }
   for (let i = 0; i < n; i++){
     const shape = new THREE.Shape();
@@ -2559,10 +2690,21 @@ function buildRotary(e, tree){
     const ep = portFlange(1, M(27), M(66), M(10), MAT.hot());
     ep.rotation.y = -Math.PI / 2;                    // face out through the wall
     rhPieces[i].add(at(ep, xOf(i), 0, R * 1.06));
-    /* cooling ribs across the top of the housing casting */
-    for (let f = 0; f < 5; f++)
-      rhPieces[i].add(at(box(width * 0.92, M(5), R * 0.30, MAT.iron()),
-                 xOf(i), R * (0.86 + f * 0.045), 0));
+    /* the housing's cast exterior: cooling fins standing along the top and
+       lying along both flanks, a boss cast round every tension bolt where it
+       passes the edge of the casting, and the coolant-passage swell low on
+       each flank where the water runs past the hot side */
+    for (let f = -4; f <= 4; f++)
+      rhPieces[i].add(at(box(width * 0.92, R * 0.20, M(5), MAT.alloy()), xOf(i), R * 1.02 + R * 0.10, f * R * 0.24));
+    for (const zs of [-1, 1]) for (let f = 0; f < 5; f++)
+      rhPieces[i].add(at(box(width * 0.92, M(5), R * 0.16, MAT.alloy()), xOf(i), R * (0.10 + f * 0.19), zs * (R * 1.18 + R * 0.08)));
+    for (let k = 0; k < 18; k++){
+      const t = (k / 18) * TAU;
+      rhPieces[i].add(at(tubeMesh(M(14), M(7), width * 0.98, MAT.alloy(), 10).rotateZ(Math.PI / 2),
+                         xOf(i), Math.sin(t) * R * 1.05, Math.cos(t) * R * 1.05));
+    }
+    for (const zs of [-1, 1])
+      rhPieces[i].add(at(roundBox(width * 0.84, R * 0.34, M(16), M(7), MAT.alloy()), xOf(i), -R * 0.40, zs * (R * 1.18 + M(6))));
   }
   add('block', sideG);
   for (let i = 0; i < n; i++) rEach('rotorhousing', i, rhPieces[i]);
