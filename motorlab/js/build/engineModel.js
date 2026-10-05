@@ -170,6 +170,7 @@ function buildPiston(e, tree){
   /* a boxer: the banks lie flat, so "up the bank" is sideways and anything
      placed in world Y from deckH lands inside the crankcase */
   const flat = L.banks >= 2 && Math.abs(Math.abs(L.bankAngles[0] || 0) - Math.PI / 2) < 0.2;
+  const nitro = e.fuel === 'nitro';
   const pins = pinAngles(e);
   const fires = fireAngles(e);
   const CAM = camTiming(e);
@@ -1101,12 +1102,12 @@ function buildPiston(e, tree){
   const itb = e.intake ? (e.intake === 'itb' || e.intake === 'slide') : (e.aspiration === 'na' && e.redline >= 7600);
   /* a plenum and its runners are moulded nylon on anything modern; individual
      throttles and their trumpets are machined alloy, and look it */
-  const inletMat = itb ? (FIN.plenum || MAT.alloy()) : (FIN.plenum || MAT.composite());
+  const inletMat = itb ? MAT.alloy() : (FIN.plenum || MAT.composite());   /* throttle bodies are machined alloy whatever the plenum is */
   /* where a runner has to reach the plenum from */
   const plenumMouth = () => [inducY, L.banks >= 2 ? 0 : -L.bore * 1.12];
   if ((!itb || (boosted && L.banks < 2)) && e.id !== 'i6-30-legend'){   /* boosted ITBs (RB26) breathe from a collector; the 2JZ's chamber is a factory part */
     const plenum = roundBox(L.len * 0.80, L.bore * (L.banks >= 2 ? 0.72 : 0.46),
-                           L.banks >= 2 ? L.bore * 1.45 : L.bore * 0.70, 0.03, inletMat);
+                           flat ? L.bore * 1.0 : L.banks >= 2 ? L.bore * 1.45 : L.bore * 0.70, 0.03, inletMat);
     at(plenum, 0, inducY, L.banks >= 2 ? 0 : -L.bore * 1.12);
     intakeG.add(plenum);
   }
@@ -1399,12 +1400,27 @@ function buildPiston(e, tree){
     const icZ = icTop ? L.bore * 0.72 : L.bore * 1.70;
     const icG = group('ic');
     const cpG = has('chargepipes') ? group('chargepipes') : icG;
-    if (icTop) icG.add(at(coreMesh(L.bore * 1.6, L.bore * 0.40, L.bore * 0.80), icX, icY, 0));
+    /* a mid- or rear-engined car cools each bank's charge in a core beside the
+       engine, in the side intake, one per turbo */
+    const icSide = e.intercooler === 'side' && L.banks >= 2 && turbos.length > 0;
+    const sideCore = (tb) => V3(tb.pos.x + L.bore * 0.2, L.deckH * 0.62, Math.sign(tb.pos.z || 1) * (outerZ + L.bore * 1.15));
+    if (icSide) for (const tb of turbos){ const c = sideCore(tb); icG.add(at(rot(coreMesh(L.bore * 1.5, L.bore * 1.1, M(70)), 0, Math.PI / 2, 0), c.x, c.y, c.z)); }
+    else if (icTop) icG.add(at(coreMesh(L.bore * 1.6, L.bore * 0.40, L.bore * 0.80), icX, icY, 0));
     else icG.add(at(coreMesh(L.bore * 3.60, L.bore * 1.05, M(76)), icX, icY, 0));
     const inTank  = V3(icX + L.bore * 0.05,  icY + L.bore * 0.34,  icZ * 0.86);
     const outTank = V3(icX + L.bore * 0.05,  icY + L.bore * 0.34, -icZ * 0.86);
     for (const tb of turbos){
       const sgn = Math.sign(tb.pos.z) || 1;
+      if (icSide){
+        const c = sideCore(tb);
+        cpG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
+                      [(tb.coldOut.x + c.x) / 2, Math.max(tb.coldOut.y, c.y - L.bore * 0.3), (tb.coldOut.z + c.z) / 2],
+                      [c.x, c.y - L.bore * 0.45, c.z]], tb.coldTube * 1.05, MAT.alloy(), 12));
+        /* and from the top of the core forward to the throttle */
+        cpG.add(pipe([[c.x, c.y + L.bore * 0.50, c.z], [c.x - L.bore * 0.6, thrAt.y + L.bore * 0.2, sgn * L.bore * 1.1],
+                      [thrAt.x - M(70), thrAt.y, thrAt.z + sgn * M(30)]], L.bore * 0.13, MAT.alloy(), 12));
+        continue;
+      }
       if (icTop){
         /* straight up from the compressor into the tank on its own side */
         cpG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
@@ -1456,7 +1472,8 @@ function buildPiston(e, tree){
                    tb.coldTube * 1.05, MAT.alloy(), 12));
     }
     /* and the single cold pipe back from the core to the throttle body */
-    if (icTop) cpG.add(pipe([[icX - L.bore * 0.9, icY, 0], [thrAt.x - M(40), (icY + thrAt.y) / 2, thrAt.z * 0.5], [thrAt.x - M(70), thrAt.y, thrAt.z]], L.bore * 0.150, MAT.alloy(), 12));
+    if (icSide){ /* each side core already runs to the throttle */ }
+    else if (icTop) cpG.add(pipe([[icX - L.bore * 0.9, icY, 0], [thrAt.x - M(40), (icY + thrAt.y) / 2, thrAt.z * 0.5], [thrAt.x - M(70), thrAt.y, thrAt.z]], L.bore * 0.150, MAT.alloy(), 12));
     else cpG.add(pipe([[outTank.x, outTank.y, outTank.z],
                   [frontX - L.bore * 0.70, L.deckH * 0.62, -icZ * 1.02],
                   [frontX - L.bore * 0.10, thrAt.y + L.bore * 0.28, -L.bore * 0.90],
@@ -1496,6 +1513,13 @@ function buildPiston(e, tree){
     const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
     const side = L.banks >= 2 ? exSide(b) : 1;
     const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, side * L.bore * 0.70);
+    if (nitro){
+      /* zoomies: one short upswept pipe per port, nothing collected */
+      exG.add(pipe([[p.x, py, pz],
+                    [p.x + L.bore * 0.25, py + L.bore * 0.35, pz + side * L.bore * 0.45],
+                    [p.x + L.bore * 0.75, py + L.bore * 1.30, pz + side * L.bore * 0.95]], M(28), MAT.hot(), 10));
+      continue;
+    }
     /* out of the port, down the outside of the engine, then in to the
        collector. Every waypoint is taken off the port's own position — a
        primary that heads for a fixed z runs back through the block. */
@@ -1539,7 +1563,7 @@ function buildPiston(e, tree){
                     [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]], tb.hotTube * 0.94, exMat, 10));
   }
   /* the collector itself: a cone that gathers the primaries and hands them on */
-  if (!frontTurbo && !sideTurbo)
+  if (!frontTurbo && !sideTurbo && !nitro)
    for (const side of (L.banks >= 2 ? [-1, 1] : [1]))
     exG.add(at(lathe([[M(26), -M(34)], [M(30), -M(10)], [M(24), M(22)], [M(24), M(34)]],
                      exMat, 22).rotateZ(Math.PI / 2),
@@ -2433,7 +2457,7 @@ function buildRotary(e, tree){
   for (let i = 0; i < n; i++) for (const [k, s] of [-1, 1].entries()){
     /* leading plug low, trailing plug high on each rotor housing */
     rEach('plugs', i * 2 + k, at(rot(cyl(M(7), M(7), M(40), MAT.steel(), 10), 0, 0, Math.PI/2 - s*0.3), xOf(i) + s*M(22), M(10) + s * M(30), R*1.0));
-    rEach('coils', i * 2 + k, at(roundBox(M(26), M(50), M(30), .006, MAT.plastic()), xOf(i) + s*M(26), R*0.9, R*0.45));
+    rEach('coils', i * 2 + k, at(roundBox(M(26), M(50), M(30), .006, MAT.plastic()), xOf(i) + s*M(26), R*0.55, R*1.10));
   }
   rFlush('plugs'); rFlush('coils');
 

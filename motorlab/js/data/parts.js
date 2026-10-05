@@ -460,7 +460,7 @@ function pistonTree(e){
 
     add({ id:'airbox', name:'Air filter box & turbo inlets', group:'induction', deps:['turbo'], mesh:'intake',
       teach:'The filter and the pipes that get air to the compressor inlets. Inlet restriction is a pressure drop the turbo has to make up by spinning faster and hotter, so a clogged filter costs boost, intake temperature and turbo life all at once. On a boosted engine the crankcase breather also feeds into these pipes, which is why they end up oily inside.' });
-    add({ id:'bov', name:'Blow-off / recirculation valve', group:'induction', deps:['turbo'], mesh:'bov',
+    if (!diesel && !e.mguKw) add({ id:'bov', name:'Blow-off / recirculation valve', group:'induction', deps:['turbo'], mesh:'bov',
       teach:'Close the throttle at boost and the column of air has nowhere to go — it slams back into the compressor wheel. That is surge, and it kills thrust bearings. This valve vents it.' });
     add({ id:'intercooler', name:'Intercooler & charge pipes', group:'induction', deps:['turbo'], mesh:'intercooler',
       teach:'Compressing air heats it; hot air is less dense and knock-prone. A good core drops intake temps 40–60 °C for maybe 0.05 bar of pressure drop — a trade worth taking every time.',
@@ -757,7 +757,7 @@ const AFTER = {
 AFTER.rockers.push('bridges'); AFTER.timingcovers.push('tbguide');
 /* Core parts a module replaces with the factory part on one engine */
 const SUPPRESS = { 'i6-30-legend': ['bov', 'bypasspipe', 'airbox'],
-                   'race-82-nitro': ['injseals', 'wpgasket', 'bypasspipe', 'ect', 'throttle', 'oilcooler', 'pcv', 'coreplugs', 'starter', 'intercooler'],   /* no EFI, no cooling system, external starter */
+                   'race-82-nitro': ['injseals', 'wpgasket', 'bypasspipe', 'ect', 'throttle', 'oilcooler', 'pcv', 'coreplugs', 'starter', 'intercooler', 'exhaust'],   /* no EFI, no cooling system, external starter, zoomies */
                    'ford-dfv': ['injseals'] };                                       /* slide-throttle mechanical injection */
 function finish(parts, e){
   /* module parts skip the P() helper, so give them its defaults */

@@ -299,9 +299,9 @@ export function build(ctx){
     const g = group('plenum');
     const h2 = plenH * 0.64, w2 = plenW * 1.08, l2 = L.len * 0.84;
     const yc = inducY + plenH / 2 - h2 / 2 + M(3);
-    g.add(at(roundBox(l2, h2, w2, M(10), MAT.alloy()), 0, yc, plenZ));
+    g.add(at(roundBox(l2, h2, w2, M(10), ctx.FIN?.plenum || MAT.alloy()), 0, yc, plenZ));
     const fy = yc - h2 / 2 + M(3);
-    g.add(at(roundBox(l2 * 1.02, M(7), w2 * 1.06, M(2), MAT.alloy()), 0, fy, plenZ));
+    g.add(at(roundBox(l2 * 1.02, M(7), w2 * 1.06, M(2), ctx.FIN?.plenum || MAT.alloy()), 0, fy, plenZ));
     g.add(at(box(l2 * 1.01, M(2), w2 * 1.05, MAT.gasket()), 0, fy - M(4.5), plenZ));
     const nb = 7;
     for (let k = 0; k < nb; k++){
