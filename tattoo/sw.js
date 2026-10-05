@@ -1,7 +1,8 @@
 /* Offline support: precache every app file (shell, lazily loaded modules,
-   fonts, vendor libs) so the whole app works offline after the first visit.
+   fonts, vendor libs) so the whole app works offline after the first visit. The face
+   model (vendor/mediapipe, ~16 MB) is cached on first use instead.
    Network first so updates show up immediately. Bump CACHE when files change. */
-const CACHE = "inkform-v4";
+const CACHE = "inkform-v5";
 const SHELL = [
   "./",
   "./index.html",
@@ -57,6 +58,13 @@ const SHELL = [
   "./js/designs/styles-motif.js",
   "./js/designs/styles-pattern.js",
   "./js/designs/styles-pattern2.js",
+  "./js/face/analyze.js",
+  "./js/face/canonical.js",
+  "./js/face/detect.js",
+  "./js/face/face.css",
+  "./js/face/face.js",
+  "./js/face/mesh.js",
+  "./js/face/ui.js",
   "./js/geo/delaunay.js",
   "./js/geo/geo.css",
   "./js/geo/geomaker.js",
@@ -83,6 +91,15 @@ const SHELL = [
   "./js/photo/segment.js",
   "./js/photo/util.js",
   "./js/photo/widgets.js",
+  "./js/scan/bodymeasure.js",
+  "./js/scan/fit.js",
+  "./js/scan/pipeline.js",
+  "./js/scan/preview.js",
+  "./js/scan/scan-worker.js",
+  "./js/scan/scan.css",
+  "./js/scan/scan.js",
+  "./js/scan/silhouette.js",
+  "./js/scan/skin.js",
   "./js/settings.js",
   "./js/sketch/brushes.js",
   "./js/sketch/fill.js",

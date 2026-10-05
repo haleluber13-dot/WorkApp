@@ -192,7 +192,30 @@ function makeCaster(bodyMesh, THREE) {
   const tri = new THREE.Triangle(), bary = new THREE.Vector3();
   const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3();
   const posA = bgeo.attributes.position;
-  return function cast(o, dir) {
+  const qv = new THREE.Vector3(), cpt = {};
+  const idxA = bgeo.index;
+  /** closest surface point + interpolated normal */
+  function closest(q) {
+    qv.set(q[0], q[1], q[2]);
+    const r = bvh.closestPointToPoint(qv, cpt);
+    if (!r) return null;
+    const f = r.faceIndex;
+    const a = idxA ? idxA.getX(f * 3) : f * 3, b = idxA ? idxA.getX(f * 3 + 1) : f * 3 + 1, c = idxA ? idxA.getX(f * 3 + 2) : f * 3 + 2;
+    va.fromBufferAttribute(posA, a); vb.fromBufferAttribute(posA, b); vc.fromBufferAttribute(posA, c);
+    tri.set(va, vb, vc);
+    let n;
+    if (nor) {
+      tri.getBarycoord(r.point, bary);
+      const nx = nor.getX(a) * bary.x + nor.getX(b) * bary.y + nor.getX(c) * bary.z;
+      const ny = nor.getY(a) * bary.x + nor.getY(b) * bary.y + nor.getY(c) * bary.z;
+      const nz = nor.getZ(a) * bary.x + nor.getZ(b) * bary.y + nor.getZ(c) * bary.z;
+      const l = Math.hypot(nx, ny, nz) || 1; n = [nx / l, ny / l, nz / l];
+    } else { const t = new THREE.Vector3(); tri.getNormal(t); n = [t.x, t.y, t.z]; }
+    return { p: [r.point.x, r.point.y, r.point.z], n };
+  }
+  cast.closest = closest;
+  return cast;
+  function cast(o, dir) {
     ray.origin.set(o[0], o[1], o[2]);
     ray.direction.set(dir[0], dir[1], dir[2]).normalize();
     const hit = bvh.raycastFirst(ray, THREE.DoubleSide);
@@ -209,7 +232,7 @@ function makeCaster(bodyMesh, THREE) {
       n = [nx / l, ny / l, nz / l];
     } else n = f ? [f.normal.x, f.normal.y, f.normal.z] : [0, 0, 1];
     return { p: [hit.point.x, hit.point.y, hit.point.z], n };
-  };
+  }
 }
 
 function boundsArrays(bounds, bodyMesh) {
@@ -233,6 +256,7 @@ export function measureHead(cast, bounds) {
   // nose tip: most forward point in the face band
   let nose = null;
   for (const s of prof) if (s.y < top - 0.12 * S && s.y > top - 0.26 * S && (!nose || s.z > nose.z)) nose = s;
+  if (!nose || nose.z < -0.5) nose = prof[Math.floor(prof.length * 0.45)] || { y: top - 0.18 * S, z: 0.1 * S };
   // chin: the biggest forward→back jump below the mouth (ray slips under the jaw onto the neck)
   let chin = null, jump = 0;
   for (let i = 0; i < prof.length - 1; i++) {
@@ -312,12 +336,16 @@ export function fitFaceToHead(object, { bodyMesh, regions, bounds, THREE } = {})
   // vertical mapping through knots: eyes → nose tip → mouth → chin land on the mannequin's
   // (pulled most of the way, so its nose / lips sit under the person's and don't show twice)
   const yn = base[1 * 3 + 1], ym = (base[13 * 3 + 1] + base[14 * 3 + 1]) / 2;
-  const knots = [
-    [yc, head.chinY],
-    [ym, lerp(head.eyeY + ym * sChin, head.mouthY, 0.6)],
-    [yn, lerp(head.eyeY + yn * s, head.noseY, 0.8)],
-    [0, head.eyeY],
-  ];
+  // natural positions (uniform scale, chin on the chin), then pulled toward the mannequin's
+  // features — but no segment may stretch more than ~12% (proportions carry the likeness)
+  const natN = head.eyeY + yn * s, natM = head.eyeY + ym * lerp(s, sChin, 0.6);
+  let Yn = lerp(natN, head.noseY, 0.7);
+  Yn = clamp(Yn, head.eyeY - (head.eyeY - natN) * 1.12, head.eyeY - (head.eyeY - natN) * 0.88);
+  let Ym = lerp(natM, head.mouthY, 0.5);
+  const segM = natN - natM;
+  Ym = clamp(Ym, Yn - segM * 1.12, Yn - segM * 0.88);
+  Ym = Math.max(Ym, head.chinY + 0.25 * (Yn - head.chinY));
+  const knots = [[yc, head.chinY], [ym, Ym], [yn, Yn], [0, head.eyeY]];
   const mapY = monotone(knots, s);
 
   // ---- 2D placement with width compression where the face is wider than the head front
@@ -353,10 +381,9 @@ export function fitFaceToHead(object, { bodyMesh, regions, bounds, THREE } = {})
   const isOval = geo.userData.boundary;
   let zb = new Float32Array(n);
   for (let i = 0; i < n; i++) zb[i] = hitP[i * 3 + 2];
-  for (let it = 0; it < 70; it++) {
+  for (let it = 0; it < 22; it++) {
     const nz = new Float32Array(zb);
     for (let i = 0; i < n; i++) {
-      if (isOval[i]) continue;
       let sum = 0;
       for (const j of adj[i]) sum += zb[j];
       nz[i] = lerp(zb[i], sum / adj[i].length, 0.6);
@@ -393,9 +420,10 @@ export function fitFaceToHead(object, { bodyMesh, regions, bounds, THREE } = {})
   const maxLift = 0.026 * u;
   const P = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
-    const wr = sstep(0.0, 0.55, feather[i]);
-    const target = zb[i] + relief[i] * s * 0.95;
-    const dz = clamp((target - hitP[i * 3 + 2]) * wr, 0, maxLift);
+    const wr = sstep(0.45, 1.0, feather[i]);   // semi-transparent margins hug the skin
+    const target = zb[i] + relief[i] * s * 0.8;
+    // lift only where the head faces forward (a lift on a steep side would stick out of the silhouette)
+    const dz = clamp((target - hitP[i * 3 + 2]) * wr * sstep(0.15, 0.6, hitN[i * 3 + 2]), 0, maxLift);
     for (let k = 0; k < 3; k++) P[i * 3 + k] = hitP[i * 3 + k] + hitN[i * 3 + k] * off;
     P[i * 3 + 2] += dz;
   }
@@ -418,21 +446,23 @@ export function fitFaceToHead(object, { bodyMesh, regions, bounds, THREE } = {})
   }
 
   // ---- coverage: the head must not poke through anywhere inside a triangle (its nose, cheekbones…)
+  //      test sample points against the closest skin point, push out along the skin normal
   {
     const idx = geo.index.array;
     const S = [[1 / 3, 1 / 3, 1 / 3], [0.5, 0.5, 0], [0, 0.5, 0.5], [0.5, 0, 0.5]];
+    const want = off * 0.8;
     for (let it = 0; it < 3; it++) {
       const raise = new Float32Array(n);
       let any = false;
       for (let t = 0; t < idx.length; t += 3) {
         const a = idx[t], b = idx[t + 1], c = idx[t + 2];
+        if (feather[a] < 0.04 && feather[b] < 0.04 && feather[c] < 0.04) continue;   // invisible margin
         for (const [wa, wb, wc] of S) {
-          const x = P[a * 3] * wa + P[b * 3] * wb + P[c * 3] * wc;
-          const y = P[a * 3 + 1] * wa + P[b * 3 + 1] * wb + P[c * 3 + 1] * wc;
-          const z = P[a * 3 + 2] * wa + P[b * 3 + 2] * wb + P[c * 3 + 2] * wc;
-          const h = cast([x, y, zStart], [0, 0, -1]);
+          const q = [0, 1, 2].map((k) => P[a * 3 + k] * wa + P[b * 3 + k] * wb + P[c * 3 + k] * wc);
+          const h = cast.closest(q);
           if (!h) continue;
-          const need = h.p[2] + off * 0.8 / Math.max(0.35, h.n[2]) - z;
+          const depth = (q[0] - h.p[0]) * h.n[0] + (q[1] - h.p[1]) * h.n[1] + (q[2] - h.p[2]) * h.n[2];
+          const need = want - depth;
           if (need > 0) {
             const r = Math.min(need, 0.02 * u);
             if (r > raise[a]) raise[a] = r; if (r > raise[b]) raise[b] = r; if (r > raise[c]) raise[c] = r;
@@ -452,7 +482,7 @@ export function fitFaceToHead(object, { bodyMesh, regions, bounds, THREE } = {})
         }
         r = r2;
       }
-      for (let i = 0; i < n; i++) P[i * 3 + 2] += r[i];
+      for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) P[i * 3 + k] += hitN[i * 3 + k] * r[i];
     }
   }
 
@@ -553,7 +583,7 @@ function solve(M, r) {
 // thickness (m, top / sides) and hairline heights (m relative to the eye line,
 // for a 1.0 head unit) at: sideburn (in front of the ear), over the ear, behind the ear, nape
 const HAIR = {
-  buzz: { top: 0.0026, side: 0.0022, line: [-0.012, 0.03, -0.02, -0.05], hang: false, alpha: 0.9 },
+  buzz: { top: 0.003, side: 0.003, line: [-0.012, 0.03, -0.02, -0.05], hang: false, alpha: 0.72 },
   short: { top: 0.010, side: 0.005, line: [-0.014, 0.028, -0.022, -0.056], hang: false, alpha: 1 },
   medium: { top: 0.016, side: 0.012, line: [-0.03, -0.055, -0.08, -0.095], hang: false, alpha: 1 },
 };
@@ -639,14 +669,17 @@ function buildHair(object, args) {
         const nx = h.n[0] * 0.5 + d[0] * 0.5, ny = h.n[1] * 0.5 + d[1] * 0.5, nz = h.n[2] * 0.5 + d[2] * 0.5;
         const nl = Math.hypot(nx, ny, nz) || 1;
         p = { x: h.p[0], y: h.p[1], z: h.p[2], n: [nx / nl, ny / nl, nz / nl] };
-        inside = (h.p[1] - yh) / band + jag[i] * (Math.abs(th) > thMax ? 2.2 : 0.8);
+        // soft, wider fade at the sides / nape; a slightly irregular front hairline
+        const sideK = sstep(thMax, thMax + 0.5, Math.abs(th));
+        inside = (h.p[1] - yh) / (band * (1 + 1.6 * sideK)) + jag[i] * 0.6 * (1 - sideK);
       } else { p = prev; inside = -9; }
       if (!p) { colP.push(null); colA.push(0); colT.push(0); continue; }
       prev = p;
       const topness = sstep(0.0, 1.2, ph);
       colP.push(p);
       colA.push(sstep(-1, 1.2, inside) * cfg.alpha);
-      colT.push(lerp(cfg.side, cfg.top, topness) * u * sstep(-1.5, 4, inside));
+      // never thinner than the face mask's offset (no fighting where they overlap)
+      colT.push(Math.max(0.0028 * u, lerp(cfg.side, cfg.top, topness) * u * sstep(-1.5, 4, inside)));
     }
     base.push(colP.reverse()); alpha.push(colA.reverse()); thickA.push(colT.reverse());
   }

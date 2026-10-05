@@ -242,6 +242,18 @@ export class Viewer {
     } catch (e) { console.warn("face fit failed", e); }
     this.dirty = true;
   }
+  /* zoom in on the user's face (3/4 view from the right) */
+  focusFace(animate = true) {
+    const h = this.faceObj?.userData?.fit?.head;
+    if (!h) return false;
+    const u = h.u || 1;
+    const target = new THREE.Vector3(0, h.eyeY - 0.03 * u, h.center?.[2] || 0);
+    const tv = Math.tan((this.camera.fov * Math.PI) / 360);
+    const dist = Math.max((0.2 * u) / tv, (0.16 * u) / (tv * this.camera.aspect));
+    const dir = new THREE.Vector3(0.42, 0.06, 1).normalize().multiplyScalar(dist);
+    this.moveCamera(target.clone().add(dir), target, animate);
+    return true;
+  }
   _disposeObj(o) {
     o.traverse?.((c) => {
       c.geometry?.dispose?.();

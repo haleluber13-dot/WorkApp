@@ -5,6 +5,7 @@
 import { detectFaces } from "./detect.js";
 import { FACE_OVAL, RIGHT_EYE, LEFT_EYE, RIGHT_BROW, LEFT_BROW, LIPS } from "./canonical.js";
 
+const DEBUG = () => typeof window !== "undefined" && window.__faceDebug === true;  // dev pages only
 const TEX_MAX = 1024;   // final texture
 const WORK_MAX = 1536;  // analysis crop
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -28,7 +29,7 @@ export async function findFaces(src, { onStatus } = {}) {
   let faces = await detectFaces(src);
   if (faces.length) return { faces, zoomed: false };
   onStatus?.("Looking closer…");
-  for (const n of [2, 3]) {
+  for (const n of Math.max(src.width, src.height) >= 1200 ? [2, 3, 4] : [2, 3]) {
     const found = [];
     const tw = src.width / (n - (n - 1) * 0.3), th = src.height / (n - (n - 1) * 0.3);
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
@@ -74,8 +75,8 @@ export function checkFace(f, src) {
   const eyeY = (ry(eyeR) + ry(eyeL)) / 2, chinY = ry(P(f.pts, 152));
   const pitch = (ry(nose) - eyeY) / Math.max(1, chinY - eyeY);
   if (ipd < 24) return { ok: false, tooSmall: true, roll, yaw, pitch, ipd, warnings: ["Your face is too small in this photo. Take a selfie closer to the camera, so your face fills most of the picture."] };
-  if (ipd < 55) warnings.push("Your face is quite small in this photo — a closer selfie gives a sharper result.");
-  if (Math.abs(yaw) > 0.28) warnings.push("Your head is turned to the side. For the best result look straight at the camera.");
+  if (ipd < 90) warnings.push("Your face is quite small in this photo — a closer selfie gives a sharper result.");
+  if (Math.abs(yaw) > 0.3) warnings.push(Math.abs(yaw) > 0.5 ? "Your head is turned to the side — the far side of your face will look stretched. Look straight at the camera." : "Your head is turned a little. For the best result look straight at the camera.");
   if (pitch < 0.28 || pitch > 0.62) warnings.push(pitch < 0.28 ? "Your head is tilted back — keep it level with the camera." : "Your head is tilted down — keep it level with the camera.");
   if (Math.abs(roll) > (4 * Math.PI) / 180) warnings.push(`Your head was tilted ${Math.round(Math.abs(roll) * 180 / Math.PI)}° — we straightened it.`);
   // over/under exposure of the face box
@@ -340,7 +341,33 @@ export async function buildFace(src, det, { onStatus } = {}) {
 
   // ---------------------------------------------------------------- hair colour (band above / beside the face)
   const hairInfo = sampleHair(lin, R, lm, ec, ipd, skinLin);
-  if (typeof window !== "undefined" && window.__faceDebug) window.__dbgCrop = crop.toDataURL("image/jpeg", 0.8);
+  if (DEBUG()) window.__dbgCrop = crop.toDataURL("image/jpeg", 0.8);
+
+  // ---------------------------------------------------------------- hair over the face edge → skin
+  // strands that fall inside the outline (long hair, fringe at the temples) are replaced by locally
+  // shaded skin in the outer band of the oval, so they don't get painted onto the cheeks
+  if (hairInfo.color) {
+    const hl = hexToRgb(hairInfo.color).map((v) => S2L[v]);
+    const lumOf = (r, g, b) => r * 0.2126 + g * 0.7152 + b * 0.0722;
+    const hL = lumOf(...hl), sL = lumOf(...skinLin);
+    const chr = (r, g, b) => { const t = r + g + b + 1e-5; return [r / t, g / t]; };
+    const hc = chr(...hl), sc = chr(...skinLin);
+    const innerM = polyMask(R, R, [ovalPoly], { blur: ipd * 0.12, scale: 0.72, cx: ec[0], cy: ec[1] + ipd * 0.35 });
+    const browsEyes = polyMask(R, R, feat.slice(0, 4), { blur: ipd * 0.08, scale: 1.0 });
+    for (let i = 0; i < N; i++) {
+      const band = ovalSoft[i] * (1 - innerM[i]) * (1 - browsEyes[i]);
+      if (band < 0.02) continue;
+      const r = lin[i * 3], g2 = lin[i * 3 + 1], b = lin[i * 3 + 2];
+      const l = lumOf(r, g2, b), c = chr(r, g2, b);
+      const dS = Math.abs(Math.log((l + 0.005) / (sL + 0.005))) / 0.6 + Math.hypot(c[0] - sc[0], c[1] - sc[1]) / 0.05;
+      const dH = Math.abs(Math.log((l + 0.005) / (hL + 0.005))) / 0.6 + Math.hypot(c[0] - hc[0], c[1] - hc[1]) / 0.05;
+      const w = clamp((dS - dH) / 1.5, 0, 1) * band;
+      if (w <= 0) continue;
+      const fy = (i / R | 0) / cell - 0.5, fx = (i % R) / cell - 0.5;
+      const k = clamp(Math.exp(sampleGrid(field, G, G, fx, fy)) / Math.max(1e-4, sL), 0.5, 1.6) * expo;
+      for (let ch = 0; ch < 3; ch++) lin[i * 3 + ch] = lerp(lin[i * 3 + ch], skinLin[ch] * k, w);
+    }
+  }
 
   // ---------------------------------------------------------------- texture: photo inside the oval, skin outside
   // colour blends toward the skin tone over the outer ~12% of the oval (hides background at the silhouette)
@@ -417,7 +444,7 @@ function sampleHair(lin, R, lm, ec, ipd, skinLin) {
   };
   const cheek = feat(...skinLin);
   const bangs = mean[0] - cheek[0] < -0.8;
-  if (typeof window !== "undefined") window.__hairDbg = { mean, sd, cheek };
+  if (DEBUG()) window.__hairDbg = { mean, sd, cheek };
 
   let hairY = null;
   const rows = [];
@@ -435,7 +462,7 @@ function sampleHair(lin, R, lm, ec, ipd, skinLin) {
     }
     for (let i = 0; i < rows.length - 3; i++) if (rows[i].f > 0.55 && rows[i + 1].f > 0.55 && rows[i + 2].f > 0.5) { hairY = rows[i].y; break; }
   }
-  if (typeof window !== "undefined") window.__hairRows = rows.map((r) => [toFace(r.y), +r.f.toFixed(2)]);
+  if (DEBUG()) window.__hairRows = rows.map((r) => [toFace(r.y), +r.f.toFixed(2)]);
   if (hairY === null) return { color: null, style: "none", hairline: null, bangs };
   // colour: non-skin pixels above the hairline; a slightly bright percentile (the 3D light adds its own shading)
   const samp = [];

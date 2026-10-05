@@ -277,6 +277,7 @@ export function mountFaceCapture(container, { onDone, onCancel, toast, skinTone 
     g.imageSmoothingQuality = "high";
     g.drawImage(src, view.ox, view.oy, side, side, 0, 0, S, S);
     const accent = getComputedStyle(root).getPropertyValue("--fc-accent").trim() || "#e0455f";
+    if (window.__faceDebug === true) window.__faceBoxes = faces.map((f) => [((f.box.x0 + f.box.x1) / 2 - view.ox) * k / S, ((f.box.y0 + f.box.y1) / 2 - view.oy) * k / S]);
     faces.forEach((f, i) => {
       const pts = new Float32Array(f.pts.length);
       for (let q = 0; q < f.pts.length; q += 3) { pts[q] = (f.pts[q] - view.ox) * k; pts[q + 1] = (f.pts[q + 1] - view.oy) * k; }

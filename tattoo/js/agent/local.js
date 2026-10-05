@@ -1452,6 +1452,10 @@ export function createLocalEngine(app, { random = Math.random } = {}) {
       : /\b(?:right side|my right|from the right|right profile)\b/.test(c) ? "right"
       : /\b(?:side|profile)\b/.test(c) ? (current() && (R().get(current().region) || {}).side === "right" ? "right" : "left")
       : null;
+    // "show me my face", "zoom in on my face"
+    if (/\b(?:zoom|close[- ]?up|closer|focus|show(?: me)?|let me see|see|look at)\b/.test(c) && /\bmy (?:own )?face\b/.test(c) && !/\b(?:put|place|add|tattoo|ink)\b/.test(c)) {
+      if (await app.focus("face")) return { done: "here's your face up close", kind: "camera", lead: false };
+    }
     // "zoom in on it", "show me the tattoo"
     if (/\b(?:zoom|close[- ]?up|up close|closer|focus|show(?: me)?|let me see|see|look at)\b/.test(c) && /\b(?:it|that|this|the tattoo|the design|the one|my tattoo)\b/.test(c) && !viewWord) {
       const tgt = resolveTarget(c);
