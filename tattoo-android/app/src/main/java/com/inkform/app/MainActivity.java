@@ -116,6 +116,9 @@ public class MainActivity extends Activity {
                     else if (path != null && path.endsWith(".css")) r.setMimeType("text/css");
                     else if (path != null && path.endsWith(".svg")) r.setMimeType("image/svg+xml");
                     else if (path != null && path.endsWith(".woff")) r.setMimeType("font/woff");
+                    else if (path != null && path.endsWith(".wasm")) r.setMimeType("application/wasm");
+                    else if (path != null && path.endsWith(".json")) r.setMimeType("application/json");
+                    else if (path != null && path.endsWith(".task")) r.setMimeType("application/octet-stream");
                 }
                 return r;
             }

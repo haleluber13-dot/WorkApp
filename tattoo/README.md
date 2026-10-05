@@ -12,6 +12,12 @@ GitHub Pages is enabled for this repo.
   can spin, zoom and view from any side. Change height, build, muscle,
   shoulders, chest/bust, hips, leg length, arm pose and skin tone; tattoos stay
   where they are on the body when its shape changes.
+- **Your own avatar and face** — *Scan me* builds a body that matches yours
+  from a front + side photo (or a tape measure), and *Add my face* puts your
+  face from a selfie onto the 3D head (MediaPipe face landmarks, on-device).
+  Save several avatars and switch between them.
+- **Projects** — keep separate projects (each with its own body, designs and
+  tattoos), rename, duplicate or delete them; everything autosaves.
 - **Put tattoos anywhere** — tap a design, then tap the body. Drag a tattoo to
   slide it over the skin, drag its round handle to resize and rotate, or pick a
   body part from 75 named spots (inner forearm, behind the ear, ribs, shoulder
@@ -104,6 +110,7 @@ python3 -m http.server 8099      # then open http://localhost:8099/tattoo/
 Third-party code (all vendored, no CDNs): three.js (MIT), three-mesh-bvh (MIT),
 opentype.js (MIT), Anthropic TypeScript SDK (MIT), heic-to/libheif (LGPL-3.0,
 unmodified, loaded only for HEIC photos), game-icons.net drawings (CC BY 3.0 /
-CC0, credited per drawing), fonts under the SIL Open Font License — licenses are next to each in `vendor/` and `fonts/`.
+CC0, credited per drawing), MediaPipe Tasks Vision and the face landmarker model
+(Apache-2.0, loaded only for *Add my face*), fonts under the SIL Open Font License — licenses are next to each in `vendor/` and `fonts/`.
 
 When you change app files, bump `CACHE` in `sw.js` so installed copies update.
