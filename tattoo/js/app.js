@@ -1685,8 +1685,9 @@ addEventListener("drop", (e) => {
 });
 
 /* Photos shared into the Android app ("Share → InkForm 3D"). */
+let sharedReady = false; // photos handed over before start-up finishes wait in the queue
 window.inkSharedReady = async () => {
-  if (!window.InkAndroid?.takeShared) return;
+  if (!sharedReady || !window.InkAndroid?.takeShared) return;
   let list = [];
   try { list = JSON.parse(window.InkAndroid.takeShared() || "[]"); } catch {}
   if (!list.length) return;
@@ -1699,6 +1700,12 @@ window.inkSharedReady = async () => {
     } catch { return null; }
   }))).filter(Boolean);
   if (files.length) openInPhoto(files); else toast("Couldn't open the shared photo");
+};
+/* photos picked for a screen that's gone (the page restarted meanwhile): open them in Photo */
+window.inkOpenFiles = (files) => {
+  if (!files?.length) return;
+  if (sharedReady) openInPhoto(files);
+  else addEventListener("inkready", () => openInPhoto(files), { once: true });
 };
 
 
@@ -2142,8 +2149,10 @@ async function boot() {
   refreshFace();
   syncTattoos();
   if (!store.tattoos.length && currentTab === "studio") setTimeout(() => showTip("welcome"), 900);
+  sharedReady = true;
   window.inkSharedReady?.();
   window.inkReady = true;
+  dispatchEvent(new Event("inkready"));
 }
 
 boot();

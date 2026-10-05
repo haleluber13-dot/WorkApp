@@ -6,6 +6,7 @@ import android.content.ClipData;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
@@ -19,9 +20,11 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.util.Base64;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -43,6 +46,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -65,6 +69,8 @@ public class MainActivity extends Activity {
     private String pendingLang;
     private boolean pendingPartial;
     private Uri cameraUri;
+    private String cameraPath;
+    private WebViewAssetLoader loader;
     private final ArrayList<String> sharedQueue = new ArrayList<>();
     /** Photos picked or shared, served to the page at /picked/<id> straight from the phone (no copying). */
     private final ConcurrentHashMap<String, Uri> served = new ConcurrentHashMap<>();
@@ -75,6 +81,22 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
 
+        loader = new WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
+        if (savedInstanceState != null) {
+            // Android closed the app while the camera / gallery was open: keep the photo it took
+            String cu = savedInstanceState.getString("cameraUri");
+            if (cu != null) cameraUri = Uri.parse(cu);
+            cameraPath = savedInstanceState.getString("cameraPath");
+        }
+        createWeb();
+        // the page itself starts fresh; nothing of the old page state is worth restoring
+        web.loadUrl(HOME);
+        handleShared(getIntent());
+    }
+
+    private void createWeb() {
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#121215"));
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
@@ -90,10 +112,6 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
         s.setTextZoom(100);
-
-        final WebViewAssetLoader loader = new WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-                .build();
 
         web.setWebViewClient(new WebViewClientCompat() {
             @Override
@@ -121,6 +139,18 @@ public class MainActivity extends Activity {
                     else if (path != null && path.endsWith(".task")) r.setMimeType("application/octet-stream");
                 }
                 return r;
+            }
+
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                // the phone stopped the page (usually low memory): start it again instead of closing the app
+                if (view != web) return true;
+                ViewGroup parent = (ViewGroup) web.getParent();
+                if (parent != null) parent.removeView(web);
+                web.destroy();
+                createWeb();
+                web.loadUrl(HOME);
+                return true;
             }
 
             @Override
@@ -154,16 +184,13 @@ public class MainActivity extends Activity {
         });
 
         web.addJavascriptInterface(new Bridge(), "InkAndroid");
-
-        if (savedInstanceState != null) web.restoreState(savedInstanceState);
-        else web.loadUrl(HOME);
-        handleShared(getIntent());
     }
 
     @Override
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
-        web.saveState(out);
+        if (cameraUri != null) out.putString("cameraUri", cameraUri.toString());
+        if (cameraPath != null) out.putString("cameraPath", cameraPath);
     }
 
     @Override
@@ -188,7 +215,7 @@ public class MainActivity extends Activity {
             else if (data.getData() != null) uris.add(data.getData());
         }
         // the camera writes into cameraUri and returns no data
-        if (uris.isEmpty() && cameraUri != null) uris.add(cameraUri);
+        if (uris.isEmpty() && cameraUri != null && cameraPath != null && new File(cameraPath).length() > 0) uris.add(cameraUri);
         return uris;
     }
 
@@ -199,15 +226,21 @@ public class MainActivity extends Activity {
             ArrayList<Uri> uris = resultUris(resultCode, data);
             String id = pickRequestId;
             pickRequestId = null;
-            cameraUri = null;
-            deliver("window.__inkFiles && window.__inkFiles(" + JSONObject.quote(id == null ? "" : id) + ", " + describe(uris) + ")");
+            cameraUri = null; cameraPath = null;
+            if (id == null) {
+                // the app was restarted while picking: open the photos in the Photo tab instead of losing them
+                queueShared(uris);
+                return;
+            }
+            deliver("window.__inkFiles && window.__inkFiles(" + JSONObject.quote(id) + ", " + describe(uris) + ")");
             return;
         }
-        if (requestCode != REQ_FILE || fileCallback == null) return;
+        if (requestCode != REQ_FILE) return;
         ArrayList<Uri> uris = resultUris(resultCode, data);
+        if (fileCallback == null) { cameraUri = null; cameraPath = null; queueShared(uris); return; }
         fileCallback.onReceiveValue(uris.isEmpty() ? null : uris.toArray(new Uri[0]));
         fileCallback = null;
-        cameraUri = null;
+        cameraUri = null; cameraPath = null;
     }
 
     private void deliver(String js) { runOnUiThread(() -> web.evaluateJavascript(js, null)); }
@@ -282,8 +315,16 @@ public class MainActivity extends Activity {
             if (!dir.exists() && !dir.mkdirs()) return null;
             File photo = new File(dir, "photo-" + System.currentTimeMillis() + ".jpg");
             cameraUri = FileProvider.getUriForFile(this, "com.inkform.app.files", photo);
+            cameraPath = photo.getAbsolutePath();
             cam.putExtra(MediaStore.EXTRA_OUTPUT, cameraUri);
+            cam.setClipData(ClipData.newRawUri("", cameraUri));
             cam.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            // when the camera is opened from the chooser the grant above may not reach it: grant every camera app
+            List<ResolveInfo> cams = getPackageManager().queryIntentActivities(cam, PackageManager.MATCH_DEFAULT_ONLY);
+            for (ResolveInfo ri : cams) {
+                grantUriPermission(ri.activityInfo.packageName, cameraUri,
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
             return cam;
         } catch (Exception e) {
             return null;
@@ -305,6 +346,11 @@ public class MainActivity extends Activity {
         } else if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null) {
             uris.add(intent.getData());
         }
+        queueShared(uris);
+    }
+
+    /** Hand photos to the page's Photo tab (picked up at start-up too, so none get lost). */
+    private void queueShared(ArrayList<Uri> uris) {
         if (uris.isEmpty()) return;
         while (uris.size() > 30) uris.remove(uris.size() - 1);
         try {

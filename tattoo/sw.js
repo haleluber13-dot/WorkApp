@@ -2,7 +2,7 @@
    fonts, vendor libs) so the whole app works offline after the first visit. The face
    model (vendor/mediapipe, ~16 MB) is cached on first use instead.
    Network first so updates show up immediately. Bump CACHE when files change. */
-const CACHE = "inkform-v5";
+const CACHE = "inkform-v6";
 const SHELL = [
   "./",
   "./index.html",

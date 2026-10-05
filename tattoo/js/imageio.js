@@ -49,11 +49,38 @@ function loadImg(url) {
   });
 }
 
+/* width × height of a JPEG from its header (no decoding), or null */
+async function jpegSize(blob) {
+  try {
+    const b = new Uint8Array(await blob.slice(0, 512 * 1024).arrayBuffer());
+    if (b[0] !== 0xff || b[1] !== 0xd8) return null;
+    let i = 2;
+    while (i + 9 < b.length) {
+      if (b[i] !== 0xff) { i++; continue; }
+      const m = b[i + 1];
+      if (m === 0xff) { i++; continue; }
+      if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+        return { h: (b[i + 5] << 8) | b[i + 6], w: (b[i + 7] << 8) | b[i + 8] };
+      }
+      if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { i += 2; continue; }
+      i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+    }
+  } catch {}
+  return null;
+}
+
 async function decodeBlob(blob, maxSide) {
   // createImageBitmap applies EXIF rotation ("from-image") and is fast
   if ("createImageBitmap" in window) {
     try {
-      const bmp = await createImageBitmap(blob, { imageOrientation: "from-image" });
+      // huge phone photos (50–200 MP) would need hundreds of MB at full size: decode them smaller
+      const opts = { imageOrientation: "from-image" };
+      const js = blob.size > 4e6 ? await jpegSize(blob) : null;
+      if (js && js.w * js.h > 16e6 && Math.max(js.w, js.h) > maxSide) {
+        opts.resizeWidth = Math.max(1, Math.round(js.w * maxSide / Math.max(js.w, js.h)));
+        opts.resizeQuality = "high";
+      }
+      const bmp = await createImageBitmap(blob, opts);
       const c = toCanvas(bmp, bmp.width, bmp.height, maxSide);
       bmp.close?.();
       return c;

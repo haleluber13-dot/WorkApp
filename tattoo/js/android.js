@@ -63,12 +63,19 @@ if (bridge?.pickFiles) {
   window.__inkFiles = async (id, list) => {
     const input = pending.get(id);
     pending.delete(id);
-    if (!input || !Array.isArray(list) || !list.length) return;
+    if (!Array.isArray(list) || !list.length) return;
     try {
-      const files = await Promise.all(list.map(async (o) => {
-        const blob = await (await fetch(o.url)).blob();
-        return new File([blob], o.name || "photo", { type: o.type || blob.type || "" });
-      }));
+      const files = (await Promise.all(list.map(async (o) => {
+        try {
+          const res = await fetch(o.url);
+          if (!res.ok) return null;
+          const blob = await res.blob();
+          return blob.size ? new File([blob], o.name || "photo", { type: o.type || blob.type || "" }) : null;
+        } catch { return null; }
+      }))).filter(Boolean);
+      if (!files.length) { window.inkApp?.toast?.("Couldn't read that photo — try picking it again", 4000); return; }
+      // the screen that asked is gone (the page restarted meanwhile): open them in Photo instead
+      if (!input || !input.isConnected) { window.inkOpenFiles?.(files); return; }
       const dt = new DataTransfer();
       files.forEach((f) => dt.items.add(f));
       input.files = dt.files;
