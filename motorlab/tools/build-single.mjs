@@ -62,12 +62,15 @@ const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.m
  * for what is left, smallest first, so the file ends up as full as it can be.
  */
 const FIRST = [
+  /* the scanned engines are what the app opens on, so they come first and at
+     the medium tier when assets/models-mid has one */
+  'eng-i6-30-legend', 'eng-v8-57-sb', 'eng-rotary-13b-t', 'eng-f6-30-t',
+  'eng-f4-25-t', 'eng-v8-50-ohv', 'eng-m-triple-765', 'eng-d-v8-66',
   'veh-bmw-m3-e46', 'veh-toyota-supra-a80', 'veh-mazda-rx7', 'veh-porsche-911-gt3',
   'veh-nissan-skyline-r34', 'veh-honda-nsx-na1', 'veh-ford-mustang-gt', 'veh-lambo-v12',
   'veh-bugatti-w16', 'veh-audi-r8', 'veh-ferrari-812', 'veh-maserati-granturismo',
   'veh-subaru-wrx-sti', 'veh-koenigsegg', 'veh-toyota-ae86', 'veh-sportbike',
-  'eng-v8-57-sb', 'eng-i6-30-legend', 'eng-rotary-13b-t', 'eng-f6-30-t',
-  'eng-f4-25-t', 'eng-v12-65-na', 'eng-m-triple-765',
+  'eng-v12-65-na',
 ];
 const candidates = [];
 
@@ -80,6 +83,7 @@ function collect(dir, out = {}, base = dir){
     let rel = relative(`${ROOT}/assets`, full).split(/[\\/]/).join('/');
     if (rel.startsWith('surfaces-lite/')) continue;          // reached via its full-tier twin
     if (rel.startsWith('models-lite/')) continue;            // ditto
+    if (rel.startsWith('models-mid/')) continue;             // ditto
     if (rel.startsWith('thumbs-lite/')) continue;            // ditto
     if (rel.startsWith('parts-lite/')) continue;             // ditto
     if (rel.startsWith('env-lite/')) continue;               // ditto
@@ -103,9 +107,11 @@ function collect(dir, out = {}, base = dir){
        one that is not in the file is simply not fetched, so that vehicle stays
        generated rather than breaking. */
     if (liteTex && rel.startsWith('models/') && rel.endsWith('.glb')){
+      const mid  = join(`${ROOT}/assets`, 'models-mid', rel.slice('models/'.length));
       const lite = join(`${ROOT}/assets`, 'models-lite', rel.slice('models/'.length));
-      if (!existsSync(lite)) continue;
-      candidates.push([rel, lite]);
+      const src2 = existsSync(mid) ? mid : lite;
+      if (!existsSync(src2)) continue;
+      candidates.push([rel, src2]);
       continue;
     }
     out['./assets/' + rel] = `data:${MIME[ext]};base64,` + readFileSync(src).toString('base64');
@@ -117,8 +123,8 @@ try { assets = collect(`${ROOT}/assets`); } catch { assets = {}; }
 
 /* Fill the model budget: the named ones first, then whatever else fits,
    smallest first, so the file carries as many machines as it can hold. */
-const budgetMB = Number((process.argv.find(a => a.startsWith('--model-budget=')) || '=7')
-                        .split('=').pop()) || 7;
+const budgetMB = Number((process.argv.find(a => a.startsWith('--model-budget=')) || '=7.6')
+                        .split('=').pop()) || 7.6;
 let spent = 0;
 const rank = (rel) => {
   const stem = rel.slice('models/'.length, -'.glb'.length);
