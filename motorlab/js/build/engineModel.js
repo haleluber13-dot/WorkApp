@@ -1823,6 +1823,9 @@ function buildPiston(e, tree){
         cpG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
                       ...(flat ? [[tb.coldOut.x, Math.max(L.bore * 2.0, icY + L.bore * 0.25), sgn * (outerZ + tb.size * 0.3)],
                                   [(tb.coldOut.x + icX) / 2, Math.max(L.bore * 2.0, icY + L.bore * 0.25), sgn * (L.deckH + L.bore * 0.6)]]
+                                /* a turbo beside the bank climbs outboard of the head before it comes in over the cover */
+                                : tb.outboard ? [[tb.coldOut.x, icY + L.bore * 0.25, sgn * (outerZ + L.bore * 0.3)],
+                                                 [(tb.coldOut.x + icX) / 2, icY + L.bore * 0.25, sgn * icZ * 1.3]]
                                 : [[(tb.coldOut.x + icX) / 2, Math.max(tb.coldOut.y, icY) + L.bore * 0.25, sgn * icZ * 1.3]]),
                       [icX, icY + L.bore * 0.10, sgn * icZ * 0.9]], tb.coldTube * 1.05, MAT.alloy(), 12));
         continue;
@@ -1862,6 +1865,16 @@ function buildPiston(e, tree){
                        tb.coldIn.y + axis.y * tb.size * 0.30,
                        tb.coldIn.z + axis.z * tb.size * 0.30));
       /* out of the compressor, round the front of the engine, into the core */
+      if (e.turboLayout === 'rearCentre'){
+        /* an F1 unit's charge pipe runs forward along the top of the vee, over
+           the plenum, and drops to the core ahead of the engine */
+        icG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
+                      [tb.coldOut.x - L.bore * 0.3, thrAt.y + L.bore * 0.55, 0],
+                      [thrAt.x, thrAt.y + L.bore * 0.55, sgn * L.bore * 0.3],
+                      [frontX - L.bore * 0.8, thrAt.y + L.bore * 0.30, sgn * icZ * 0.9],
+                      [inTank.x, inTank.y, sgn * Math.abs(inTank.z)]], tb.coldTube * 1.05, MAT.alloy(), 12));
+        continue;
+      }
       icG.add(pipe([[tb.coldOut.x, tb.coldOut.y, tb.coldOut.z],
                     [tb.coldOut.x - L.bore * 0.45,
                      tb.coldOut.y + L.bore * (frontTurbo ? 0.70 : 0.10),
@@ -2046,8 +2059,8 @@ function buildPiston(e, tree){
     exG.add(pipe(flat && turbos.length === 1
       /* a boxer's single turbo sits over the right head: the up-pipe climbs
          outboard of that head's cam cover and comes in over the top */
-      ? [[colX + M(30), colY, tb.side * colZ], [colX + L.bore * 0.2, -L.bore * 0.6, tb.side * (L.deckH + L.bore * 1.75)],
-         [colX + L.bore * 0.2, tb.hotIn.y - L.bore * 0.3, tb.side * (L.deckH + L.bore * 1.75)], [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]]
+      ? [[colX + M(30), colY, tb.side * colZ], [colX + L.bore * 0.2, -L.bore * 0.6, tb.side * (L.deckH + L.bore * 2.1)],
+         [colX + L.bore * 0.2, tb.hotIn.y - L.bore * 0.3, tb.side * (L.deckH + L.bore * 2.1)], [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z]]
       : [[colX + M(30), colY, tb.side * colZ],
                     /* a valley turbo's up-pipe climbs behind the block into the vee, outside the bellhousing plate */
                     valleyT ? [L.len / 2 + L.bore * 0.45, (colY + tb.hotIn.y) / 2, tb.side * colZ * 1.05]
@@ -2638,6 +2651,9 @@ function buildPiston(e, tree){
                  /* under a blower's snout the sensor goes in the housing's flank */
                  : has('blower') ? at(rot(cyl(M(7), M(9), M(26), MAT.plated(), 10), Math.PI / 2, 0, 0),
                            st.position.x, st.position.y - M(4), st.position.z + L.bore * 0.30 + M(13))
+                 /* a vee's housing sits under the throttle mouth, where the charge pipe arrives: sensor in the −Z flank */
+                 : L.banks >= 2 ? at(rot(cyl(M(7), M(9), M(26), MAT.plated(), 10), Math.PI / 2, 0, 0),
+                           st.position.x, st.position.y - M(4), st.position.z - L.bore * 0.30 - M(13))
                       : at(cyl(M(7), M(9), M(26), MAT.plated(), 10),
                            st.position.x, st.position.y + L.bore * 0.30 + M(13), st.position.z));
     const pumpIn = V3(beltX + L.bore * 0.30, L.deckH * 0.36, -L.bore * 0.82);
