@@ -749,7 +749,9 @@ const AFTER = {
 };
 AFTER.rockers.push('bridges'); AFTER.timingcovers.push('tbguide');
 /* Core parts a module replaces with the factory part on one engine */
-const SUPPRESS = { 'i6-30-legend': ['bov', 'bypasspipe', 'airbox'] };
+const SUPPRESS = { 'i6-30-legend': ['bov', 'bypasspipe', 'airbox'],
+                   'race-82-nitro': ['injseals', 'wpgasket', 'bypasspipe', 'ect'],   /* no EFI, no cooling system */
+                   'ford-dfv': ['injseals'] };                                       /* slide-throttle mechanical injection */
 function finish(parts, e){
   const drop = new Set(SUPPRESS[e.id] || []);
   if (drop.size){
