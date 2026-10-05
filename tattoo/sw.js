@@ -1,7 +1,7 @@
 /* Offline support: precache every app file (shell, lazily loaded modules,
    fonts, vendor libs) so the whole app works offline after the first visit.
    Network first so updates show up immediately. Bump CACHE when files change. */
-const CACHE = "inkform-v3";
+const CACHE = "inkform-v4";
 const SHELL = [
   "./",
   "./index.html",
@@ -57,7 +57,32 @@ const SHELL = [
   "./js/designs/styles-motif.js",
   "./js/designs/styles-pattern.js",
   "./js/designs/styles-pattern2.js",
+  "./js/geo/delaunay.js",
+  "./js/geo/geo.css",
+  "./js/geo/geomaker.js",
+  "./js/geo/icons.js",
+  "./js/geo/imgfx.js",
+  "./js/geo/model.js",
+  "./js/geo/render.js",
+  "./js/geo/samples.js",
+  "./js/geo/shapes.js",
+  "./js/geo/templates.js",
+  "./js/imageio.js",
   "./js/ink.js",
+  "./js/photo/adjust.js",
+  "./js/photo/icons.js",
+  "./js/photo/looks.js",
+  "./js/photo/magnetic.js",
+  "./js/photo/mask.js",
+  "./js/photo/output.js",
+  "./js/photo/panels.js",
+  "./js/photo/photo.css",
+  "./js/photo/photostudio.js",
+  "./js/photo/render-worker.js",
+  "./js/photo/seg-worker.js",
+  "./js/photo/segment.js",
+  "./js/photo/util.js",
+  "./js/photo/widgets.js",
   "./js/settings.js",
   "./js/sketch/brushes.js",
   "./js/sketch/fill.js",
@@ -70,6 +95,10 @@ const SHELL = [
   "./js/sketch/ui.js",
   "./js/state.js",
   "./js/viewer.js",
+  "./js/webbank/pack.js",
+  "./js/webbank/sources.js",
+  "./js/webbank/webbank.css",
+  "./js/webbank/webbank.js",
   "./vendor/anthropic/sdk.js",
   "./vendor/bvh/three-mesh-bvh.js",
   "./vendor/opentype/opentype.min.mjs",
@@ -77,6 +106,7 @@ const SHELL = [
   "./vendor/three/addons/RoomEnvironment.js",
   "./vendor/three/three.core.js",
   "./vendor/three/three.module.js",
+  "./vendor/webbank/game-icons.json",
 ];
 
 self.addEventListener("install", (e) => {

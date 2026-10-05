@@ -416,5 +416,5 @@ body.modal-open .ink-assistant .ia-fab, body.lib-open .ink-assistant .ia-fab, bo
 @media (hover: none) { .libitem__del { display: grid; } }
 @media (max-width: 700px) {
   body[data-tab="photo"] .ink-assistant .ia-fab, body[data-tab="sketch"] .ink-assistant .ia-fab,
-  body[data-tab="create"] .view--create.is-geo ~ * .ia-fab { opacity: 0; pointer-events: none; }
+  body[data-tab="create"][data-cmode="geo"] .ink-assistant .ia-fab { opacity: 0; pointer-events: none; }
 }

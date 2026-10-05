@@ -413,7 +413,7 @@ function layoutFloating() {
   // a right-hand side panel (not a full-width bottom sheet) pushes the button left
   const sidePanel = (el) => { const r = el && el.offsetParent && !el.hidden ? el.getBoundingClientRect() : null; return r && r.width < W * 0.6 && r.left > W / 2 && r.height > H * 0.5 ? r : null; };
   const sideRect = currentTab === "studio" ? side($("#inspector"))
-    : currentTab === "create" ? (side($(".create__editor")) || sidePanel($("#geoHost .gm-panel, #geoHost [class*='panel']")))
+    : currentTab === "create" ? (side($(".create__editor")) || sidePanel($("#geoHost .gm-right")))
     : currentTab === "photo" ? sidePanel($("#photoHost .ps-panel")) : null;
   if (sideRect && sideRect.left > W / 2) right = W - sideRect.left + 18;
   const tabs = $(".mobtabs");
@@ -1497,6 +1497,7 @@ async function sendToGeo(blobOrCanvas, name) {
 
 function setCreateMode(mode) {
   const view = $(".view--create");
+  document.body.dataset.cmode = mode;
   view.classList.toggle("is-web", mode === "web");
   view.classList.toggle("is-geo", mode === "geo");
   $("#webHost").hidden = mode !== "web";

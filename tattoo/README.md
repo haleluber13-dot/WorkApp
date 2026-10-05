@@ -30,6 +30,19 @@ GitHub Pages is enabled for this repo.
   armbands, animals, and more — each with its own options and a motif library
   (rose, skull, swallow, wolf, koi, snake, moon, compass…). Or just type
   “mandala with 12 petals” or “Emma in script” and it builds it.
+- **Photo** — upload one or many photos (iPhone HEIC too, or the camera) and cut
+  out exactly what you want: select subject, smart box/loop, lasso, polygon,
+  magnetic lasso, magic wand, keep/erase brushes, remove background, refine
+  edges. Then iPad-style adjustments (18 sliders, auto, filters, curves,
+  levels), tattoo looks (line art, stencil, dotwork, blackwork, sketch,
+  engraving, posterize, watercolor) and crop/straighten.
+- **Web library** (Create tab) — 4,180 offline drawings (animals, plants &
+  flowers, skulls, mythical, nautical…) plus live search of openly licensed
+  art and photos (Openverse, Wikimedia Commons, natural-history plates, The
+  Met). Every image keeps its creator and license, shown with the tattoo.
+- **Geometric maker** (Create tab) — 26 shapes and sacred geometry, each
+  filled with its own photo; low-poly, half & half, mosaic, shattered and
+  wireframe effects; 9 templates.
 - **Sketch** — a full drawing studio: tattoo liner with pressure taper, brush
   pen, shader, dotwork stippling, hatching, pencil, shapes, text, fill,
   mirror/radial symmetry for mandalas, layers, a trace layer, **photo → stencil**
@@ -89,7 +102,8 @@ python3 -m http.server 8099      # then open http://localhost:8099/tattoo/
   see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 Third-party code (all vendored, no CDNs): three.js (MIT), three-mesh-bvh (MIT),
-opentype.js (MIT), Anthropic TypeScript SDK (MIT), fonts under the SIL Open
-Font License — licenses are next to each in `vendor/` and `fonts/`.
+opentype.js (MIT), Anthropic TypeScript SDK (MIT), heic-to/libheif (LGPL-3.0,
+unmodified, loaded only for HEIC photos), game-icons.net drawings (CC BY 3.0 /
+CC0, credited per drawing), fonts under the SIL Open Font License — licenses are next to each in `vendor/` and `fonts/`.
 
 When you change app files, bump `CACHE` in `sw.js` so installed copies update.
