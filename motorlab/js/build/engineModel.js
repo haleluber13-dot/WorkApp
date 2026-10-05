@@ -2131,7 +2131,7 @@ function buildPiston(e, tree){
      declare in js/data/extra/*.js, using the same helpers and the same frame
      as everything above, so a part they add lands where the tree says it is. */
   buildExtraParts({
-    e, L, tree, nodes, root, anim, M, MAT, FIN, has, qtyOf, add, each, flush,
+    e, L, tree, nodes, root, anim, M, MAT, FIN, has, qtyOf, add, each, flush, inducY, thrAt, bovAt, itb,
     portAt, railAt, inSide, exSide, bankSign, cylPosition, cylSlot, firingOrder, fires,
     frontX, beltX, outerZ, wCase, ohv, airCooled, boosted, turbos: (typeof turbos !== 'undefined' ? turbos : []),
     geo: { box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, hexPrism, lathe, group, tag, at, rot, V3, TAU, hoseRun, braidedLine },

@@ -465,7 +465,7 @@ function pistonTree(e){
     qty:heads, deps:[turbos?'intercooler':blown?'intercooler':'head'], mesh:'headgasket',
     teach:'It seals vacuum, not pressure, so a shrunken one leaks air *in* and leans the engine out at idle — the classic hunting idle that no amount of ECU work fixes. On a V engine it also seals coolant and the valley, which is why a failed one can put water in the oil.',
     spec:{ 'Type': boosted ? 'moulded rubber on alloy carrier' : 'composite / rubber-on-steel', 'Re-use':'never' } });
-  add({ id:'intake', name: carb ? 'Intake manifold & carburettor' : 'Intake manifold', group:'induction',
+  add({ id:'intake', name: carb && bike ? 'Intake manifold & carburettor' : 'Intake manifold', group:'induction',
     deps:['intgasket'], mesh:'intake',
     torque:{ nm:B.med.nm, size:'M8', count:e.cyl*2, pattern:pattern('inside-out', e.cyl*2), stages:[`${Math.round(B.med.nm/2)} Nm`, `${B.med.nm} Nm`] },
     teach:`${carb?'A four-barrel carburettor meters fuel with airflow through a venturi — no sensors, no ECU, just physics and jets.':'Runner length tunes torque: long runners use pressure-wave reflection to stuff the cylinder at low rpm, short runners work up top. Plenum volume damps the pulses between cylinders.'}`,
@@ -623,7 +623,7 @@ function pistonTree(e){
     torque:{ nm:B.med.nm*0.5|0, size:'M8', count:3, pattern:pattern('sequence',3), stages:[`${B.med.nm*0.5|0} Nm`] },
     teach:'Every sensor reading the ECU takes is a voltage measured against engine ground, so a corroded strap does not just dim a lamp — it shifts every sensor reading at once and produces faults that make no sense together. The engine sits on rubber mounts, so these braided straps are the only path back to the body and the battery.',
     spec:{ 'Straps':'block to body, head to firewall, gearbox to chassis', 'Test':'voltage drop under cranking, not resistance' } });
-  add({ id:'mapsensor', name: boosted ? 'MAP / MAF & IAT sensors' : 'MAP / MAF sensor', group:'sensors', deps:['intake'], mesh:'sensor',
+  if (!carb) add({ id:'mapsensor', name: boosted ? 'MAP / MAF & IAT sensors' : 'MAP / MAF sensor', group:'sensors', deps:['intake'], mesh:'sensor',
     teach:'Load measurement. Speed-density reads manifold pressure and infers airflow from rpm and VE; a MAF measures mass directly with a heated wire. Everything the fuel table does depends on getting this number right.' });
   if (!diesel)
     add({ id:'knock', name:'Knock sensors', group:'sensors', deps:['block'], mesh:'sensor',
@@ -739,6 +739,7 @@ const AFTER = {
   valves:['guides', 'seats', 'springseats'], buckets:['retainers'], fingers:['retainers'], shaftrockers:['retainers'],
   cam:['retainers', 'cambearings'], rockers:['rockerstuds', 'pushrodplates'],
   timingcovers:['timingbelt'], tensioner:['timingbelt'], headgasket:['headdowels'], crksprocket:['crankkey'],
+  oilfilter:['filterbracket'],
 };
 function finish(parts, e){
   const have = new Set(parts.map(p => p.id));
