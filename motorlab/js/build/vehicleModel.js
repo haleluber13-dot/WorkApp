@@ -59,7 +59,9 @@ function buildCar(v, tree){
   const axF = wb/2, axR = -wb/2;
   /* ride height: springs and dampers set where the body sits over the wheels */
   const rideF = vm('suspF').ride || 0, rideR = vm('suspR').ride || 0;
-  const ride = (rideF + rideR) / 2;
+  /* a scanned body cannot be lowered or lifted, so the ride change moves the
+     generated body and chassis only; the spring and damper still show it */
+  const ride = modelFor('veh', v.id) ? 0 : (rideF + rideR) / 2;
   const floorY = Math.max(rF, rR) * 0.42 + ride;
   const L = BODY_LINES[v.body] || BODY_LINES.sedan;
   const X = (t) => len / 2 - t * len;                     // t: 0 at the nose, 1 at the tail
