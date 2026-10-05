@@ -1,8 +1,8 @@
 /* MotorLab service worker — offline app shell. Bump CACHE when files change. */
-const CACHE = 'motorlab-v8';
+const CACHE = 'motorlab-v9';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
-  './icons/icon.svg',
+  './icons/icon.svg', './icons/icon-maskable-512.png',
   './vendor/three/build/three.module.min.js',
   './vendor/three/examples/jsm/controls/OrbitControls.js',
   './vendor/three/examples/jsm/loaders/OBJLoader.js',
