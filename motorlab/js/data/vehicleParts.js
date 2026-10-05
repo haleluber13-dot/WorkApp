@@ -511,7 +511,7 @@ function carTree(v, opts = {}){
       teach:'Tempered glass clamped into a regulator inside the door — a scissor or cable mechanism driven by a motor. The glass comes out through the top of the door with the card off and the regulator wound to the access holes.' });
     if (doors4) add({ id:'glassR', name:'Rear door glass', group:'body', qty:2, each:'Door glass', end:'R', deps:['doorR'], mesh:'glassR',
       teach:'Usually a drop glass plus a fixed quarter light in the same door frame, because the wheel arch intrudes into the door and the drop glass can only go so far down.' });
-    else if (!roadster && ['coupe','stockcar'].includes(v.body)) add({ id:'glassQ', name:'Rear quarter glass', group:'body', qty:2, each:'Quarter glass', deps:['quarters','roof'], mesh:'glassQ',
+    if (!roadster && ['coupe','stockcar','suv'].includes(v.body)) add({ id:'glassQ', name:'Rear quarter glass', group:'body', qty:2, each:'Quarter glass', deps:['quarters','roof'], mesh:'glassQ',
       teach:'A fixed pane bonded into the quarter panel behind the door. On some coupés it hinges out an inch for ventilation.' });
   }
 

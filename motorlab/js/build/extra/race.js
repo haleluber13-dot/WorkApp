@@ -123,19 +123,21 @@ export function build(ctx){
   }
   if (has('pvrs')){
     const g = group('pvrs');
-    const bx = L.len / 2 + M(68), by = L.deckH * 0.72 + L.bore * 0.20, bl = M(180);
-    g.add(at(rot(cyl(M(30), M(30), bl, MAT.carbon ? MAT.carbon() : MAT.black(), 24), Math.PI / 2, 0, 0), bx, by, 0));
-    for (const s of [-1, 1]) g.add(at(rot(sphereCap(M(30)), s > 0 ? Math.PI / 2 : -Math.PI / 2, 0, 0), bx, by, s * bl / 2));
-    /* regulator and gauge on the +Z end, straps to the bellhousing */
-    const reg = V3(bx, by, bl / 2 + M(40));
-    g.add(at(rot(cyl(M(13), M(13), M(28), MAT.alloy(), 16), Math.PI / 2, 0, 0), reg.x, reg.y, reg.z - M(8)));
-    g.add(at(cyl(M(10), M(10), M(8), MAT.chrome(), 16), reg.x, reg.y + M(18), reg.z - M(8)));
-    for (const s of [-0.3, 0.3]) g.add(at(rot(torus(M(31), M(2.5), MAT.black(), 24), 0, 0, 0), bx, by, s * bl));
-    /* feed lines to the gas-spring galleries at the back of each head */
+    /* The bottle lies along the left flank of the block below the head, where
+       the turbo, its shield and the MGU-H are not (behind the engine they all
+       share the crank axis). Regulator and gauge on the rear end. */
+    const bx = L.len * 0.10, by = L.deckH * 0.55, bz = -(ctx.outerZ + L.bore * 0.45), bl = M(180);
+    g.add(at(rot(cyl(M(30), M(30), bl, MAT.carbon ? MAT.carbon() : MAT.black(), 24), 0, 0, Math.PI / 2), bx, by, bz));
+    for (const s of [-1, 1]) g.add(at(rot(sphereCap(M(30)), 0, 0, s > 0 ? -Math.PI / 2 : Math.PI / 2), bx + s * bl / 2, by, bz));
+    const reg = V3(bx + bl / 2 + M(40), by, bz);
+    g.add(at(rot(cyl(M(13), M(13), M(28), MAT.alloy(), 16), 0, 0, Math.PI / 2), reg.x - M(8), reg.y, reg.z));
+    g.add(at(cyl(M(10), M(10), M(8), MAT.chrome(), 16), reg.x - M(8), reg.y + M(18), reg.z));
+    for (const s of [-0.3, 0.3]) g.add(at(rot(torus(M(31), M(2.5), MAT.black(), 24), 0, Math.PI / 2, 0), bx + s * bl, by, bz));
+    /* feed lines back along the flank to the gas-spring galleries at the back of each head */
     for (let b = 0; b < L.banks; b++){
       const [hy, hz] = pt(b, L.deckH + L.bore * 0.95, 0);
-      g.add(braidedLine([V3(reg.x, reg.y - M(4), reg.z - M(20)),
-                         V3(bx - M(20), by + M(30), hz * 0.6),
+      g.add(braidedLine([V3(reg.x, reg.y + M(10), reg.z + M(10)),
+                         V3(L.len / 2 + M(30), by + L.bore * 0.6, bz * 0.8),
                          V3(L.len / 2 + M(8), hy, hz)], M(3.5)));
     }
     ctx.add('pvrs', g);

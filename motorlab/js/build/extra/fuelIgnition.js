@@ -168,12 +168,14 @@ export function build(ctx){
     g.add(at(rot(hexPrism(M(14), M(8), MAT.plated()), 0, 0, Math.PI / 2), piv.x - size * 0.16, piv.y, piv.z));
     g.add(at(rot(hexPrism(M(14), M(9), MAT.plated()), 0, 0, Math.PI / 2), piv.x + size * 0.16, piv.y, piv.z));
     /* the cast foot the pivot bolt passes through, back to the block */
-    const footZ = -(Math.max(wCase, outerZ - B * 0.30) + M(6));
+    const footZ = ctx.altFootZ ?? -(Math.max(wCase, outerZ - B * 0.30) + M(6));   // the casting face at the pivot's height (core builder)
     g.add(at(box(M(18), R * 0.55, Math.abs(piv.z - footZ) + M(6), MAT.alloyDark()),
              piv.x + size * 0.12, piv.y, (piv.z + footZ) / 2));
     /* the slotted strap from the top ear across to its boss on the engine */
     const eye = V3(ax + size * 0.34, ay + R * 0.94, az);
-    const inner = V3(eye.x, eye.y - R * 0.10, az + B * 0.62);
+    /* the strap's boss sits ON the casting: on a vee that is the leaning bank
+       face at the eye's height (ctx.altFace), on an inline the block flank */
+    const inner = V3(eye.x, eye.y - R * 0.10, ctx.altFace ? ctx.altFace(eye.y - R * 0.10) - M(4) : az + B * 0.62);
     const sdir = inner.clone().sub(eye);
     const strap = box(M(5), M(20), sdir.length() + M(14), MAT.steel());
     strap.position.copy(eye).addScaledVector(sdir, 0.5);
@@ -193,15 +195,18 @@ export function build(ctx){
        either side of the block — the bracket reaches from the flank on that side */
     const F = ctx.oilFilterAt ? ctx.oilFilterAt.clone()
             : V3(L.len * 0.20, -L.crankR * 0.90, (/bmw|mercedes|porsche|audi|volkswagen/i.test(e.maker || '') ? -1 : 1) * (L.banks >= 2 ? wCase + M(70) : outerZ + M(50)));
-    const face = F.x + M(115) * 0.58;
+    /* ctx.filterFwd: the can points forward (a vee's rear-corner filter), so the
+       seal face and the housing are AHEAD of the can, not behind it */
+    const d = ctx.filterFwd ? -1 : 1;
+    const face = F.x + d * M(115) * 0.58;
     const g = group('filterbracket');
-    g.add(at(rot(cyl(M(40), M(40), M(18), MAT.alloyDark(), 26), 0, 0, Math.PI / 2), face + M(9), F.y, F.z));
-    g.add(at(rot(cyl(M(11), M(11), M(10), MAT.steel(), 12), 0, 0, Math.PI / 2), face - M(2), F.y, F.z));   // the threaded spigot
+    g.add(at(rot(cyl(M(40), M(40), M(18), MAT.alloyDark(), 26), 0, 0, Math.PI / 2), face + d * M(9), F.y, F.z));
+    g.add(at(rot(cyl(M(11), M(11), M(10), MAT.steel(), 12), 0, 0, Math.PI / 2), face - d * M(2), F.y, F.z));   // the threaded spigot
     const sgn = Math.sign(F.z) || 1;
     const zA = sgn * (wCase + M(6)), zB = F.z;
-    g.add(at(box(M(28), M(58), Math.max(M(10), Math.abs(zB - zA)), MAT.alloyDark()), face + M(12), F.y, (zA + zB) / 2));
-    g.add(at(roundBox(M(70), M(80), M(12), M(3), MAT.alloyDark()), face + M(12), F.y, zA));
-    g.add(at(rot(hexPrism(M(19), M(10), MAT.plated()), Math.PI / 2, 0, 0), face + M(12), F.y + M(26), zA + sgn * M(10)));
+    g.add(at(box(M(28), M(58), Math.max(M(10), Math.abs(zB - zA)), MAT.alloyDark()), face + d * M(12), F.y, (zA + zB) / 2));
+    g.add(at(roundBox(M(70), M(80), M(12), M(3), MAT.alloyDark()), face + d * M(12), F.y, zA));
+    g.add(at(rot(hexPrism(M(19), M(10), MAT.plated()), Math.PI / 2, 0, 0), face + d * M(12), F.y + M(26), zA + sgn * M(10)));
     add('filterbracket', g);
   }
 
@@ -276,7 +281,8 @@ export function build(ctx){
           const r = o.tb.axialTube * 1.12;
           g.add(at(rot(cyl(r * 1.05, r * 1.05, M(24), MAT.black(), 18), 0, 0, Math.PI / 2), out.x + M(10), out.y, out.z));
           const lead = o.end.clone().addScaledVector(o.axis, o.tb.size * 0.55);
-          g.add(pipe([o.end, lead, V3((lead.x + out.x) / 2, Math.max(lead.y, out.y) + B * 0.15, (lead.z + out.z) / 2),
+          /* a valley turbo's hose climbs over the HPOP and its oil rails at the valley front */
+          g.add(pipe([o.end, lead, V3((lead.x + out.x) / 2, Math.max(lead.y, out.y) + B * (e.turboLayout === 'valley' ? 0.70 : 0.15), (lead.z + out.z) / 2),
                       V3(out.x + M(20), out.y, out.z)], r, MAT.rubber(), 14));
           const cl = hoseClamp(r * 1.02);
           alignY(cl, o.axis); cl.position.copy(o.end.clone().addScaledVector(o.axis, M(8)));
@@ -292,12 +298,15 @@ export function build(ctx){
          housing and in the fan on a vee. Take the box off and the throttle's
          own element is what is left. */
       const bx = B * 1.55, by = B * 0.90, bz = B * 1.00;
-      const side = L.banks >= 2 ? -1 : inSide(0);
+      /* a boxer's box goes on the side away from its alternator (+Z) */
+      const side = L.banks >= 2 ? (ctx.flat ? 1 : -1) : inSide(0);
       /* outboard of the cam cover and its coils: a vee's cover reaches
          sin(a)·(deckH + 1.6·B) plus most of its own half-width */
       const reach = Math.max(...L.bankAngles.map(a => Math.abs(Math.sin(a)) * (L.deckH + B * 1.60) + Math.abs(Math.cos(a)) * B * 0.80));
       const vee = L.banks >= 2;
-      const c = V3(-L.len * 0.30, thrAt.y + (vee ? B * 0.50 : 0), side * (vee ? reach + B * 1.00 : outerZ + B * 1.30));
+      /* a vee's box sits level with the throttle so the duct runs straight
+         across the front of the engine instead of back over the cam sprockets */
+      const c = V3(vee ? thrAt.x : -L.len * 0.30, thrAt.y + (vee ? B * 0.50 : 0), side * (vee ? reach + B * 1.00 : outerZ + B * 1.30));
       g.add(at(airboxMesh(bx, by, bz), c.x, c.y, c.z));
       /* the duct: off the throttle mouth, forward, then across into the box's
          inner face — on a vee it climbs over the cam cover and its coils (and
@@ -305,8 +314,8 @@ export function build(ctx){
       const mouth = V3(thrAt.x - M(40), thrAt.y, thrAt.z);
       const out = vee ? V3(c.x, c.y + by * 0.30, c.z - side * bz * 0.5)
                       : V3(c.x - bx * 0.5 + M(30), c.y, c.z - side * bz * 0.5);
-      g.add(pipe(vee ? [mouth, V3(mouth.x - B * 0.30, mouth.y + B * 0.10, mouth.z),
-                        V3(c.x, thrAt.y + B * 0.95, side * reach * 0.70), out]
+      g.add(pipe(vee ? [mouth, V3(mouth.x - B * 0.10, mouth.y + B * 0.55, mouth.z),
+                        V3(c.x, thrAt.y + B * 1.30, side * reach * 0.70), out]
                      : [mouth, V3(mouth.x - B * 0.55, mouth.y, mouth.z),
                         V3(out.x - B * 0.45, out.y, out.z + (mouth.z - out.z) * 0.45), out], M(36), MAT.rubber(), 14));
       g.add(at(rot(cyl(M(40), M(40), M(24), MAT.black(), 20), Math.PI / 2, 0, 0), out.x, out.y, out.z - side * M(8)));   // the box's outlet stub

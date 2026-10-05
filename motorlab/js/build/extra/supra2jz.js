@@ -239,11 +239,12 @@ export function build(ctx){
       if (has('turbowater')){
         const g = group('turbowater');
         const a = tb.pos.clone().add(V3(-M(24), -M(14), 0));
-        const pts = [a, V3(a.x - M(4), tb.pos.y - tb.size * 0.95, tb.pos.z - M(18)), V3(a.x - M(10), deck * 0.56, caseZ + M(26))];
+        /* down the block side of the turbo to a union BELOW the outlet elbow's run (which is at deck·0.56) */
+        const pts = [a, V3(a.x - M(44), tb.pos.y - tb.size * 0.95, tb.pos.z + M(18)), V3(a.x - M(10), deck * 0.40, caseZ + M(26))];
         g.add(pipe(pts, M(4.5), MAT.steel(), 10));
         g.add(at(roundBox(M(14), M(10), M(14), M(2), MAT.steel()), a.x, a.y, a.z));
         /* the turbo water hose on to the block-side bypass union */
-        g.add(hoseRun([pts[2], V3(pts[2].x - M(6), deck * 0.50, caseZ + M(10)), V3(pts[2].x - M(10), deck * 0.48, caseZ + M(2))], M(6)));
+        g.add(hoseRun([pts[2], V3(pts[2].x - M(6), deck * 0.34, caseZ + M(10)), V3(pts[2].x - M(10), deck * 0.32, caseZ + M(2))], M(6)));
         each('turbowater', k, g);
       }
     });
@@ -289,7 +290,7 @@ export function build(ctx){
   if (has('prestank')){
     /* low on the intake side, by the dipstick and the starter flange */
     const g = group('prestank');
-    const c = V3(L.len * 0.40, L.crankR * 0.70, inZ * (caseZ + M(56)));
+    const c = V3(L.len * 0.22, L.crankR * 0.70, inZ * (caseZ + M(56)));   /* ahead of the starter solenoid */
     const can = cyl(M(22), M(22), M(72), MAT.black(), 20); rot(can, 0, 0, Math.PI / 2); at(can, c.x, c.y, c.z);
     g.add(can);
     for (const sx of [-1, 1]) g.add(at(rot(lathe([[0, 0], [M(22), 0], [M(18), M(6)], [0, M(8)]], MAT.black(), 20), 0, 0, -sx * Math.PI / 2), c.x + sx * M(36), c.y, c.z));
@@ -409,7 +410,7 @@ export function build(ctx){
     /* screwed into the lower fuel inlet union at the fuel pipe support, low on
        the block's intake side behind the starter */
     const g = group('pulsedamper');
-    const p = V3(L.len * 0.42, -L.crankR * 0.62, inZ * (caseZ + M(11)));
+    const p = V3(L.len * 0.26, -L.crankR * 0.62, inZ * (caseZ + M(16)));   /* ahead of the starter, which is on this flank */
     g.add(at(lathe([[0, 0], [M(13), 0], [M(13), M(16)], [M(9), M(22)], [0, M(22)]], MAT.plated(), 18), p.x, p.y - M(22), p.z));
     g.add(at(hexPrism(M(19), M(7), MAT.steel()), p.x, p.y - M(26), p.z));
     g.add(at(box(M(26), M(10), M(14), MAT.alloyDark()), p.x, p.y + M(4), p.z - inZ * M(6)));   // fuel pipe support boss
@@ -518,7 +519,7 @@ export function build(ctx){
   function deg(d){ return d * Math.PI / 180; }
   if (has('ectswitch')){
     const g = group('ectswitch');
-    const p = V3(radX + M(56), radY - M(118), M(168));
+    const p = V3(radX + M(34), radY - M(110), -M(40));   /* in the radiator's lower tank, between the hoses, clear of the charge pipe */
     g.add(at(rot(hexPrism(M(22), M(8), MAT.plated()), 0, 0, Math.PI / 2), p.x, p.y, p.z));
     g.add(at(rot(cyl(M(9), M(9), M(16), MAT.black(), 14), 0, 0, Math.PI / 2), p.x + M(12), p.y, p.z));
     add('ectswitch', g);

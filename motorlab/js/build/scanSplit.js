@@ -281,7 +281,7 @@ export function splitScan(wrap, v, L, dims, opts = {}){
       if (nx > 0.3 && t < 0.55) label[i] = 'windscreen';
       else if (nx < -0.3 && t > 0.45) label[i] = /Tailgate/.test(v.body) || ['hatch','suv','rally','pickup'].includes(v.body) ? 'rearscreen' : 'rearscreen';
       else if (ny > 0.8 && t > cuts.doorF && t < cuts.boot) label[i] = 'roof';   // a sunroof pane
-      else label[i] = doors4 ? (t < cuts.B ? 'glassF.' + side : 'glassR.' + side)
+      else label[i] = doors4 ? (t < cuts.B ? 'glassF.' + side : (v.body === 'suv' && t > cuts.doorR ? 'glassQ.' + side : 'glassR.' + side))
                     : (t < cuts.doorR ? 'glassF.' + side : (v.body === 'roadster' ? 'roof' : 'glassQ.' + side));
       continue;
     }

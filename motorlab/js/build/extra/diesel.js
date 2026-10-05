@@ -83,9 +83,16 @@ export function build(ctx){
     }
     if (has('railvalve')){
       const v = group('railvalve');
-      v.add(at(along(hexPrism(M(24), M(12), MAT.steel())), rx0 - M(10), railY, railZ));
-      v.add(at(along(cyl(M(10), M(10), M(26), tdi ? MAT.plated() : MAT.steel(), 12)), rx0 - M(30), railY, railZ));
-      if (tdi) v.add(at(roundBox(M(18), M(20), M(20), .003, MAT.black()), rx0 - M(50), railY, railZ));
+      if (tdi){
+        /* on the front end of the rail, hanging DOWN from it: the throttle flap
+           body sits just ahead of the rail end at this height */
+        v.add(at(hexPrism(M(24), M(12), MAT.steel()), rx0 - M(4), railY - M(36), railZ));
+        v.add(at(cyl(M(10), M(10), M(26), MAT.plated(), 12), rx0 - M(4), railY - M(60), railZ));
+        v.add(at(roundBox(M(18), M(20), M(20), .003, MAT.black()), rx0 - M(4), railY - M(86), railZ));
+      } else {
+        v.add(at(along(hexPrism(M(24), M(12), MAT.steel())), rx0 - M(10), railY, railZ));
+        v.add(at(along(cyl(M(10), M(10), M(26), MAT.steel(), 12)), rx0 - M(30), railY, railZ));
+      }
       add('railvalve', v);
     }
 
@@ -455,7 +462,7 @@ export function build(ctx){
     const valleyTurbo = tb && Math.abs(tb.pos.z) < B * 1.2 && tb.pos.y > yFloor;
     const px = valleyTurbo ? tb.pos.x : L.len / 2 - B * 0.38;
     const pTop = valleyTurbo ? tb.pos.y - tb.size * 0.85 : plTop + B * 0.10;
-    const pBot = yFloor + B * 0.10;
+    const pBot = yFloor + B * 0.32;          /* its foot sits over the lifter bores, not down among them */
     if (has('turbopedestal')){
       const g = group('pedestal'), h = Math.max(B * 0.4, pTop - pBot);
       g.add(at(lathe([[0, 0], [B * 0.42, 0], [B * 0.34, h * 0.35], [B * 0.30, h * 0.85], [B * 0.40, h], [0, h]], MAT.iron(), 6), px, pBot, 0));
@@ -465,14 +472,18 @@ export function build(ctx){
       /* up-pipes from each exhaust manifold's rear outlet to the pedestal's turbine inlet */
       for (let b = 0; b < 2; b++){
         const s = inSide(b), o = P(b, L.len / 2 - B * 0.30, D + B * 0.30, -s * (B * 0.75 + B * 0.30));
-        const up = P(b, L.len / 2 - B * 0.10, D + B * 1.90, -s * B * 0.60);
-        g.add(pipe([[o.x, o.y, o.z], [up.x, up.y, up.z], [px + B * 0.20, pTop - B * 0.18, s * -B * 0.30]], B * 0.14, MAT.hot(), 10));
+        /* round the back of the head, outboard, then up and in over the top — a
+           straight run cut through the head */
+        const back = P(b, L.len / 2 + B * 0.40, D + B * 1.00, -s * (B * 0.75 + B * 0.50));
+        const up = P(b, L.len / 2 + B * 0.40, D + B * 1.90, -s * B * 0.30);
+        g.add(pipe([[o.x, o.y, o.z], [back.x, back.y, back.z], [up.x, up.y, up.z], [px + B * 0.20, pTop - B * 0.18, s * -B * 0.30]], B * 0.14, MAT.hot(), 10));
       }
       add('turbopedestal', g);
     }
     if (has('ebpv')){
       const g = group('ebpv');
-      const c = valleyTurbo ? tb.hotOut.clone() : V3(px + B * 0.45, pTop + B * 0.20, 0);
+      /* the valve body is the first length of downpipe off the turbine's mouth, not inside the housing */
+      const c = valleyTurbo ? tb.hotOut.clone().addScaledVector(tb.hotOut.clone().sub(tb.pos).normalize(), B * 0.32) : V3(px + B * 0.45, pTop + B * 0.20, 0);
       g.add(at(along(tubeMesh(B * 0.30, B * 0.24, B * 0.30, MAT.hot(), 22)), c.x, c.y, c.z));
       g.add(at(rot(cyl(B * 0.235, B * 0.235, M(2), MAT.steel(), 20), 0, 0.5, Math.PI / 2), c.x, c.y, c.z));   // butterfly
       g.add(at(box(M(6), B * 0.30, M(8), MAT.steel()), c.x, c.y + B * 0.28, c.z + B * 0.20));               // lever
@@ -497,8 +508,9 @@ export function build(ctx){
         /* exhaust in from the filter side (rear) */
         g.add(pipe([[c0.x + len, c0.y, c0.z], [c0.x + len + s * 0.4, c0.y + s * 0.2, c0.z], [c0.x + len + s * 0.7, tb.pos.y, tb.pos.z + E * s * 0.4]], s * 0.22, MAT.hot(), 10));
         for (const k of [0.2, 0.8])
-          g.add(hoseR([V3(c0.x + len * k, c0.y + s * 0.31, c0.z - E * s * 0.25), V3(c0.x + len * k, c0.y + s * 0.70, c0.z - E * s * 0.50),
-                       V3(c0.x + len * k, D + B * 0.10, E * (wCase + M(6)))], M(6)));
+          /* coolant hoses to the block flank BELOW the manifold log, not up through it */
+          g.add(hoseR([V3(c0.x + len * k, c0.y + s * 0.31, c0.z - E * s * 0.25), V3(c0.x + len * k, c0.y + s * 0.30, c0.z - E * s * 0.55),
+                       V3(c0.x + len * k, D - B * 0.45, E * (wCase + M(6)))], M(6)));
         add('egrcooler', g);
       }
       if (has('egrvalve')){
