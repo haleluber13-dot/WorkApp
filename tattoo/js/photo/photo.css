@@ -17,6 +17,7 @@
   position: relative;
   display: grid;
   grid-template-rows: 56px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   width: 100%; height: 100%;
   overflow: hidden;
   background: var(--ps-bg);
@@ -170,13 +171,13 @@
 .photostudio .ps-drop-btns .ps-btn { min-height: 46px; padding: 0 20px; font-size: 15px; border-radius: 12px; }
 .photostudio .ps-muted { color: var(--ps-muted); }
 .photostudio .ps-howto { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; gap: 8px; width: min(560px, 100%); }
-.photostudio .ps-howto li { counter-increment: s; display: flex; align-items: baseline; gap: 10px; color: var(--ps-muted); font-size: 13.5px; }
+.photostudio .ps-howto li { counter-increment: s; display: grid; grid-template-columns: 22px 1fr; align-items: baseline; gap: 10px; color: var(--ps-muted); font-size: 13.5px; }
 .photostudio .ps-howto li::before { content: counter(s); display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--ps-panel-3); color: var(--ps-text); font-weight: 700; font-size: 12px; transform: translateY(1px); }
 .photostudio .ps-howto b { color: var(--ps-text); }
 
 /* ---------------- side panel ---------------- */
-.photostudio .ps-panel { min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--ps-border); background: var(--ps-panel); }
-.photostudio .ps-pn { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.photostudio .ps-panel { min-height: 0; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--ps-border); background: var(--ps-panel); }
+.photostudio .ps-pn { display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; height: 100%; }
 .photostudio .ps-pn-head { display: flex; align-items: center; gap: 6px; padding: 12px 12px 10px 16px; border-bottom: 1px solid var(--ps-border); }
 .photostudio .ps-pn-head h3 { display: flex; align-items: center; gap: 8px; margin: 0 auto 0 0; font-size: 15px; }
 .photostudio .ps-pn-head h3 i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ps-accent); color: var(--ps-accent-ink); font-style: normal; font-size: 12px; }
@@ -325,19 +326,21 @@
 .photostudio .ps-menu-it.danger { color: #ff6b7d; }
 .photostudio .ps-menu-it small { margin-left: auto; color: var(--ps-muted); }
 .photostudio .ps-toast { position: absolute; left: 50%; bottom: 20px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 60; padding: 10px 16px; border-radius: 12px; background: #222; color: #fff; transition: opacity .2s, transform .2s; }
+.photostudio .ps-toast:not(.show) { visibility: hidden; }
 .photostudio .ps-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------------- phone layout (bottom sheet) ---------------- */
 .photostudio.is-phone { grid-template-rows: 50px minmax(0, 1fr); }
 .photostudio.is-phone .ps-top { padding: 0 4px 0 6px; gap: 4px; }
 .photostudio.is-phone .ps-steps { flex: 1; gap: 2px; padding: 3px; }
-.photostudio.is-phone .ps-step { flex: 1; justify-content: center; gap: 5px; padding: 0 6px; height: 36px; font-size: 12.5px; }
+.photostudio.is-phone .ps-step { flex: 1 1 0; min-width: 0; justify-content: center; gap: 4px; padding: 0 3px; height: 36px; font-size: 12px; }
 .photostudio.is-phone .ps-step i { width: 18px; height: 18px; font-size: 11px; }
 .photostudio.is-phone .ps-step .l { display: none; }
 .photostudio.is-phone .ps-step .s { display: inline; }
 .photostudio.is-phone .ps-topacts .ps-ibtn { width: 34px; height: 34px; }
 .photostudio.is-phone .ps-topacts .ps-compare { display: none; }
-.photostudio.is-phone .ps-body { display: flex; flex-direction: column; }
+.photostudio.is-phone .ps-body { display: flex; flex-direction: column; min-width: 0; }
+.photostudio.is-phone .ps-body > * { min-width: 0; width: 100%; }
 .photostudio.is-phone .ps-stage { flex: 1; }
 .photostudio.is-phone .ps-panel { border-left: 0; border-top: 1px solid var(--ps-border); flex: none; max-height: 56%; }
 .photostudio.is-phone .ps-pn.phone { height: auto; min-height: 0; overflow-y: auto; }

@@ -382,25 +382,26 @@ export function autoAdjust(rgba, n, mask = null) {
   const pct = (q) => { let acc = 0; for (let v = 0; v < 256; v++) { acc += H.l[v]; if (acc >= q * total) return v / 255; } return 1; };
   const p1 = pct(0.01), p5 = pct(0.05), p10 = pct(0.1), p50 = pct(0.5), p95 = pct(0.95), p99 = pct(0.99);
   let mr = 0, mg = 0, mb = 0, sat = 0, c = 0;
+  let ca = 0;
   for (let i = 0; i < n; i += 7) {
-    if (mask && mask[i] < 128) continue;
     const j = i * 4, r = rgba[j], g = rgba[j + 1], b = rgba[j + 2];
-    mr += r; mg += g; mb += b;
+    mr += r; mg += g; mb += b; ca++; // colour cast: the whole photo (lighting is global)
+    if (mask && mask[i] < 128) continue;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
     sat += mx ? (mx - mn) / mx : 0; c++;
   }
-  mr /= c; mg /= c; mb /= c; sat /= c;
+  mr /= ca; mg /= ca; mb /= ca; sat /= c || 1;
   const out = {};
   out.exposure = Math.round(clamp((0.47 - p50) * 120, -45, 45));
-  out.blackPoint = p1 > 0.05 ? Math.round(clamp((p1 - 0.02) * 220, 0, 35)) : p1 < 0.004 ? -8 : 0;
+  out.blackPoint = p1 > 0.05 ? Math.round(clamp((p1 - 0.03) * 160, 0, 20)) : p1 < 0.004 ? -6 : 0;
   out.highlights = p99 > 0.96 ? -Math.round(clamp((p99 - 0.88) * 260, 0, 45)) : 0;
   out.shadows = p10 < 0.14 ? Math.round(clamp((0.16 - p10) * 220, 0, 40)) : 0;
   const spread = p95 - p5;
-  out.contrast = spread < 0.65 ? Math.round(clamp((0.72 - spread) * 70, 0, 28)) : 0;
+  out.contrast = spread < 0.65 ? Math.round(clamp((0.72 - spread) * 60, 0, 22)) : 0;
   out.brilliance = 12;
   out.vibrance = sat < 0.25 ? 22 : 10;
   const cast = (mb - mr) / Math.max(1, mr + mb);
-  out.warmth = Math.round(clamp(cast * 160, -22, 22));
+  out.warmth = Math.abs(cast) > 0.05 ? Math.round(clamp(cast * 110, -15, 15)) : 0;
   out.definition = 8;
   return out;
 }

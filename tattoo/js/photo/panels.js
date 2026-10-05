@@ -7,7 +7,7 @@ import { LOOKS, defaultLook } from './looks.js';
 import { REFINE_DEFAULTS } from './mask.js';
 
 export const STEPS = [
-  { id: 'cut', label: 'Cut out', short: 'Cut out', icon: 'stepCut', title: 'Step 1 · Cut out what you want to keep' },
+  { id: 'cut', label: 'Cut out', short: 'Cut', icon: 'stepCut', title: 'Step 1 · Cut out what you want to keep' },
   { id: 'adjust', label: 'Adjust', short: 'Adjust', icon: 'stepAdjust', title: 'Step 2 · Light, colour and filters' },
   { id: 'look', label: 'Tattoo look', short: 'Look', icon: 'stepLook', title: 'Step 3 · Turn it into tattoo art' },
   { id: 'crop', label: 'Crop', short: 'Crop', icon: 'stepCrop', title: 'Step 4 · Crop, rotate, straighten' },
@@ -240,7 +240,7 @@ function lazy(S, jobs) {
     while (i < jobs.length && performance.now() - t0 < 12) { try { jobs[i](); } catch (e) { console.warn(e); } i++; }
     if (i < jobs.length) setTimeout(run, 16);
   };
-  setTimeout(run, 30);
+  run();
 }
 
 function filterAmount(S, compact) {

@@ -11,14 +11,14 @@ const STENCIL = '#3d2c8d';
 export const LOOKS = [
   { id: 'photo', label: 'Photo', desc: 'The photo as it is', controls: [['white', 'Remove white', 0, 100, 0]] },
   { id: 'bw', label: 'Black & grey', desc: 'Tonal shading in one ink', ink: INK, controls: [['density', 'Ink density', 0, 100, 85], ['contrast', 'Contrast', -100, 100, 15], ['cut', 'Skin highlights', 0, 100, 25], ['soft', 'Smoothing', 0, 100, 10]] },
-  { id: 'lineart', label: 'Line art', desc: 'Clean outlines from the edges', ink: INK, controls: [['detail', 'Detail', 0, 100, 55], ['weight', 'Line weight', 0, 100, 35], ['threshold', 'Sensitivity', 0, 100, 50], ['smooth', 'Clean up', 0, 100, 40], ['fill', 'Fill darks', 0, 100, 0]] },
-  { id: 'stencil', label: 'Stencil', desc: 'Thermal stencil outline', ink: STENCIL, controls: [['detail', 'Detail', 0, 100, 45], ['weight', 'Line weight', 0, 100, 30], ['threshold', 'Sensitivity', 0, 100, 45], ['shadows', 'Shadow outlines', 0, 100, 30], ['smooth', 'Clean up', 0, 100, 55]] },
+  { id: 'lineart', label: 'Line art', desc: 'Clean outlines from the edges', ink: INK, controls: [['detail', 'Detail', 0, 100, 55], ['weight', 'Line weight', 0, 100, 35], ['threshold', 'Sensitivity', 0, 100, 55], ['shape', 'Outline shape', 0, 100, 100], ['smooth', 'Clean up', 0, 100, 40], ['fill', 'Fill darks', 0, 100, 0]] },
+  { id: 'stencil', label: 'Stencil', desc: 'Thermal stencil outline', ink: STENCIL, controls: [['detail', 'Detail', 0, 100, 45], ['weight', 'Line weight', 0, 100, 30], ['threshold', 'Sensitivity', 0, 100, 50], ['shape', 'Outline shape', 0, 100, 100], ['shadows', 'Shadow outlines', 0, 100, 30], ['smooth', 'Clean up', 0, 100, 55]] },
   { id: 'dotwork', label: 'Dotwork', desc: 'Stippled shading', ink: INK, controls: [['size', 'Dot size', 0, 100, 35], ['density', 'Density', 0, 100, 60], ['contrast', 'Contrast', -100, 100, 20], ['cut', 'Skin highlights', 0, 100, 20], ['outline', 'Outline', 0, 100, 0]] },
   { id: 'blackwork', label: 'Blackwork', desc: 'Bold solid black', ink: INK, controls: [['threshold', 'Threshold', 0, 100, 50], ['smooth', 'Smoothing', 0, 100, 40], ['specks', 'Remove specks', 0, 100, 40], ['mid', 'Mid-tone lines', 0, 100, 0]] },
-  { id: 'sketch', label: 'Sketch', desc: 'Pencil hatching', ink: INK, controls: [['spacing', 'Line spacing', 0, 100, 40], ['dark', 'Darkness', 0, 100, 60], ['outline', 'Outline', 0, 100, 55], ['rough', 'Roughness', 0, 100, 40]] },
+  { id: 'sketch', label: 'Sketch', desc: 'Pencil hatching', ink: INK, controls: [['spacing', 'Line spacing', 0, 100, 35], ['dark', 'Darkness', 0, 100, 75], ['outline', 'Outline', 0, 100, 70], ['rough', 'Roughness', 0, 100, 40]] },
   { id: 'engraving', label: 'Engraving', desc: 'Line-screen shading', ink: INK, controls: [['spacing', 'Line spacing', 0, 100, 40], ['angle', 'Angle', 0, 180, 35], ['contrast', 'Contrast', -100, 100, 20], ['wave', 'Follow shape', 0, 100, 45]] },
   { id: 'posterize', label: 'Posterize', desc: 'Flat colour tones (neo-trad)', controls: [['tones', 'Tones', 2, 12, 5], ['smooth', 'Smoothing', 0, 100, 50], ['outline', 'Outline', 0, 100, 45], ['sat', 'Saturation', -100, 100, 20]] },
-  { id: 'watercolor', label: 'Watercolor', desc: 'Soft colour bleed on skin', controls: [['bleed', 'Bleed', 0, 100, 55], ['pigment', 'Pigment', 0, 100, 65], ['texture', 'Paper texture', 0, 100, 45], ['outline', 'Outline', 0, 100, 25]] },
+  { id: 'watercolor', label: 'Watercolor', desc: 'Soft colour washes on skin', controls: [['bleed', 'Bleed', 0, 100, 55], ['pigment', 'Pigment', 0, 100, 60], ['washes', 'Wash layers', 0, 100, 55], ['texture', 'Granulation', 0, 100, 50], ['outline', 'Outline', 0, 100, 30]] },
 ];
 
 export function defaultLook(id = 'photo') {
@@ -185,11 +185,14 @@ function blueNoise() {
   return (BLUE = rank);
 }
 
-/** colour-to-alpha against white: returns [r,g,b,a] with white → transparent. */
-function unwhite(r, g, b) {
-  const a = Math.max(1 - r, 1 - g, 1 - b);
-  if (a <= 1e-4) return [0, 0, 0, 0];
-  return [1 - (1 - r) / a, 1 - (1 - g) / a, 1 - (1 - b) / a, a];
+/** A line that traces the edge of the cut-out (inside half survives the mask). px = line width in output px. */
+function shapeOutline(mask, w, h, px) {
+  const n = w * h, f = new Float32Array(n);
+  for (let i = 0; i < n; i++) f[i] = mask[i] / 255;
+  gaussBlur(f, w, h, Math.max(0.6, px * 0.75));
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const v = f[i]; out[i] = v <= 0.02 || v >= 0.98 ? 0 : smoothstep(0.15, 0.55, 1 - Math.abs(v - 0.5) * 2.1); }
+  return out;
 }
 
 /* ---------------- main ---------------- */
@@ -263,6 +266,11 @@ export function renderLook(rgba, w, h, look, geo = {}) {
       }
     }
     thicken(A, w, h, (v('weight') / 100) * 2.6 * k);
+    if (mask && v('shape') > 0) {
+      const lw = (1.2 + (v('weight') / 100) * 3.2) * k * 2;
+      const O = shapeOutline(mask, w, h, lw), o = v('shape') / 100;
+      for (let i = 0; i < n; i++) if (O[i] * o > A[i]) A[i] = O[i] * o;
+    }
     if (id === 'lineart' && v('fill') > 0) {
       const ft = v('fill') / 100 * 0.45;
       for (let i = 0; i < n; i++) A[i] = Math.max(A[i], smoothstep(ft + 0.03, ft - 0.03, G1[i]));
@@ -349,7 +357,7 @@ export function renderLook(rgba, w, h, look, geo = {}) {
     const rough = v('rough') / 100;
     const Lb = Float32Array.from(L);
     gaussBlur(Lb, w, h, 1.2 * k);
-    const TH = [0.78, 0.56, 0.36, 0.2], ANG = [0.785, -0.785, 0, 1.57];
+    const TH = [0.82, 0.62, 0.42, 0.24], ANG = [0.785, -0.785, 0, 1.57];
     const CS = ANG.map(Math.cos), SN = ANG.map(Math.sin), SEG = TH.map((_, l) => 14 + l * 3);
     const ih = (a, b) => { let x = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); x = Math.imul(x ^ (x >>> 13), 1274126177); return ((x ^ (x >>> 16)) >>> 0) / 4294967296; };
     A = new Float32Array(n);
@@ -372,8 +380,8 @@ export function renderLook(rgba, w, h, look, geo = {}) {
           let ph = (u + wob) * invP + ih(seg, l * 7 + 5);
           ph -= Math.floor(ph);
           const dist = Math.abs(ph - 0.5) * P;
-          const press = 0.55 + 0.45 * ih(seg * 31 + l, Math.floor(u * invP));
-          const line = clamp01((0.6 - dist) * k + 0.5) * press;
+          const press = 0.7 + 0.3 * ih(seg * 31 + l, Math.floor(u * invP));
+          const line = clamp01((0.75 - dist) * k + 0.5) * press;
           if (line * m > a) a = line * m;
         }
         A[i] = a * dark;
@@ -383,9 +391,10 @@ export function renderLook(rgba, w, h, look, geo = {}) {
       const { A: lines } = dogLines(L, w, h, 1.1 * k, 0.55, C);
       despeckle(lines, w, h, Math.round(12 * k * k));
       const o = v('outline') / 100;
+      const O = mask ? shapeOutline(mask, w, h, 2.2 * k) : null;
       for (let i = 0; i < n; i++) {
         const gr = 0.75 + 0.25 * hash2((gx + i % w / k) | 0, (gy + (i / w) / k) | 0, 3);
-        A[i] = Math.max(A[i], lines[i] * o * gr);
+        A[i] = Math.max(A[i], Math.max(lines[i], O ? O[i] * 0.9 : 0) * o * gr);
       }
     }
   }
@@ -468,6 +477,7 @@ export function renderLook(rgba, w, h, look, geo = {}) {
         lines = dogLines(Lq, w, h, 1.2 * k, 0.55).A;
         despeckle(lines, w, h, Math.round(25 * k * k));
         thicken(lines, w, h, (v('outline') / 100) * 1.6 * k);
+        if (mask) { const O = shapeOutline(mask, w, h, (1.5 + v('outline') / 100 * 3) * k * 2); for (let i = 0; i < n; i++) if (O[i] > lines[i]) lines[i] = O[i]; }
       }
       for (let i = 0; i < n; i++) {
         const qr = Qr[i], qg = Qg[i], qb = Qb[i];
@@ -485,7 +495,8 @@ export function renderLook(rgba, w, h, look, geo = {}) {
       }
     } else {
       // watercolour: pigment pooling at edges, paper texture, soft granulation
-      const pig = 0.4 + v('pigment') / 100 * 0.9, tex = v('texture') / 100;
+      const pig = 0.25 + v('pigment') / 100 * 0.85, tex = v('texture') / 100, washes = v('washes', 55) / 100;
+      const nW = 3 + Math.round((1 - washes) * 5);
       const Lq = new Float32Array(n);
       for (let i = 0; i < n; i++) Lq[i] = 0.299 * Rs[i] + 0.587 * Gs[i] + 0.114 * Bs[i];
       const Lb2 = Float32Array.from(Lq);
@@ -509,7 +520,11 @@ export function renderLook(rgba, w, h, look, geo = {}) {
           const qr = Rs[i], qg = Gs[i], qb = Bs[i];
           let aa = Math.max(1 - qr, 1 - qg, 1 - qb), rr = 0, gg = 0, bb = 0;
           if (aa > 1e-4) { rr = 1 - (1 - qr) / aa; gg = 1 - (1 - qg) / aa; bb = 1 - (1 - qb) / aa; } else aa = 0;
-          aa = clamp01(aa * pig * (1 + edge * 0.8) * (1 - tex * 0.35 * pn));
+          // layered washes: soft quantisation of the pigment amount
+          if (washes > 0) { const q = aa * nW, fl = Math.floor(q), fr = q - fl; aa = (aa * (1 - washes) + ((fl + smoothstep(0.35, 0.65, fr)) / nW) * washes); }
+          // granulation: pigment settles in the paper texture, more in the darker washes
+          const gr = ih(Math.floor(nx * 3), Math.floor(ny * 3)) - 0.5;
+          aa = clamp01(aa * pig * (1 + edge * 1.1) * (1 - tex * 0.45 * pn) * (1 + tex * 0.35 * gr));
           aa *= smoothstep(0.02, 0.08, aa);
           if (lines && lines[i] > 0) {
             const ol = lines[i] * o * 0.85;

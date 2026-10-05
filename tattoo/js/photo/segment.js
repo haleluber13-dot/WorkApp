@@ -372,9 +372,9 @@ export function grabCut(rgba, w, h, trimap, { iters = 4, K = 5, gamma = 50, seed
 
 /* ======================= saliency: find the subject ======================= */
 
+const S2L = new Float32Array(256).map((_, c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
 function toLab(r, g, b) {
-  const f = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-  const R = f(r), G = f(g), B = f(b);
+  const R = S2L[r | 0], G = S2L[g | 0], B = S2L[b | 0];
   let X = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
   let Y = R * 0.2126 + G * 0.7152 + B * 0.0722;
   let Z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
@@ -388,7 +388,14 @@ function toLab(r, g, b) {
  * Combines: colour distance to the dominant border colours (background model), global colour rarity,
  * a centre prior, and edge density.
  */
-export function saliency(rgba, w, h) {
+export function saliency(rgba0, w0, h0) {
+  // work on a small copy (saliency is a coarse map), then upsample
+  const small = downscaleRGBA(rgba0, w0, h0, 180);
+  if (small.w !== w0 || small.h !== h0) {
+    const s = saliency(small.data, small.w, small.h);
+    return resample(s, small.w, small.h, w0, h0);
+  }
+  const rgba = rgba0, w = w0, h = h0;
   const n = w * h;
   const lab = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { const c = toLab(rgba[i * 4], rgba[i * 4 + 1], rgba[i * 4 + 2]); lab[i * 3] = c[0]; lab[i * 3 + 1] = c[1]; lab[i * 3 + 2] = c[2]; }
@@ -663,8 +670,13 @@ export function runSmartSelect(job) {
   }
   let lab = grabCut(rgba, w, h, trimap, { iters: job.iters || 5 });
   if (job.mode === 'auto' || job.clean) lab = cleanLabels(lab, w, h);
-  const mask = new Uint8Array(w * h);
+  let mask = new Uint8Array(w * h);
   for (let i = 0; i < mask.length; i++) mask[i] = lab[i] ? 255 : 0;
+  if (job.guide) {
+    // edge-aware upsample to the caller's resolution, here in the worker
+    mask = guidedUpsample(mask, w, h, job.guide.rgba, job.guide.w, job.guide.h, { bytes: true });
+    return { mask, ms: Date.now() - t0, up: true };
+  }
   return { mask, ms: Date.now() - t0 };
 }
 

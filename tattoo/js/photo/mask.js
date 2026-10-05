@@ -300,7 +300,7 @@ export function smartRegion(rgba, grad, gradRef, W, H, cx, cy, radius, allow, se
   const sx = clamp(Math.round(cx), 0, W - 1), sy = clamp(Math.round(cy), 0, H - 1);
   const s0 = sy * W + sx;
   const [sr, sg, sb] = seedColor || [rgba[s0 * 4], rgba[s0 * 4 + 1], rgba[s0 * 4 + 2]];
-  const edgeT = gradRef * 0.9;
+  const edgeT = Math.max(gradRef * 0.9, 0.35); // absolute floor: sensor noise is not an edge
   const colT = 55;
   const stack = [s0];
   allow[s0] = 255;
@@ -317,6 +317,15 @@ export function smartRegion(rgba, grad, gradRef, W, H, cx, cy, radius, allow, se
       if (g > edgeT || cd > colT) { allow[j] = Math.round(255 * clamp01(1 - (cd - colT) / 25) * clamp01(1 - (g - edgeT) / edgeT)); if (allow[j] < 1) allow[j] = 1; continue; }
       allow[j] = 255;
       stack.push(j);
+    }
+  }
+  // close pin-holes left by noisy pixels (≥3 of 4 neighbours fully allowed)
+  for (let pass = 0; pass < 2; pass++) {
+    for (let y = y0 + 1; y < y1; y++) for (let x = x0 + 1; x < x1; x++) {
+      const i = y * W + x;
+      if (allow[i] === 255) continue;
+      const c = (allow[i - 1] === 255) + (allow[i + 1] === 255) + (allow[i - W] === 255) + (allow[i + W] === 255);
+      if (c >= 3 && grad[i] < edgeT * 1.6) allow[i] = 255;
     }
   }
   return allow;

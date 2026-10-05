@@ -7,12 +7,13 @@
 //
 // Everything is plain Canvas 2D + typed arrays; heavy segmentation runs in a module Worker with a main-thread fallback.
 
-import { M, clamp, clamp01, rleEncode, rleDecode, rleBytes, resample } from './util.js';
+import { M, clamp, clamp01, rleEncode, rleDecode, rleBytes } from './util.js';
 import { polygonCoverage, applyCoverage, mergeMask, magicWand, removeBackground, stampDab, smartRegion, refineMask, refineIsIdentity, REFINE_DEFAULTS, maskStats, maskContours } from './mask.js';
 import { edgeCost, snapToEdge, livewire, smoothPath } from './magnetic.js';
 import { runSmartSelect, guidedFilter, guidedUpsample } from './segment.js';
 import { makeSource, prepareAdjust, applyAdjust, defaultAdjust, adjustIsIdentity, histogram, autoAdjust } from './adjust.js';
 import { renderLookROI, defaultLook } from './looks.js';
+import { processOutput } from './output.js';
 import { h, ibtn, btn } from './widgets.js';
 import { icon } from './icons.js';
 import { buildPanel, STEPS } from './panels.js';
@@ -182,9 +183,9 @@ export class PhotoStudio {
           btn('photo', touch ? 'Choose photos' : 'Choose photos…', (e) => { e.stopPropagation(); el.file.click(); }, 'ps-accent'),
           touch ? btn('camera', 'Take photo', (e) => { e.stopPropagation(); el.cam.click(); }) : null)),
       h('ol', { class: 'ps-howto' },
-        h('li', {}, h('b', { text: 'Cut out' }), h('span', { text: ' — outline or tap what you want to keep' })),
-        h('li', {}, h('b', { text: 'Adjust' }), h('span', { text: ' — light, colour and filters like a pro photo app' })),
-        h('li', {}, h('b', { text: 'Tattoo look' }), h('span', { text: ' — line art, stencil, dotwork, black & grey…' }))));
+        h('li', {}, h('span', {}, h('b', { text: 'Cut out' }), ' — outline or tap what you want to keep')),
+        h('li', {}, h('span', {}, h('b', { text: 'Adjust' }), ' — light, colour and filters like a pro photo app')),
+        h('li', {}, h('span', {}, h('b', { text: 'Tattoo look' }), ' — line art, stencil, dotwork, black & grey…'))));
     el.empty.querySelector('.ps-drop').addEventListener('click', () => el.file.click());
     el.empty.querySelector('.ps-drop').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.file.click(); } });
 
@@ -287,10 +288,12 @@ export class PhotoStudio {
     this._saveDoc();
     const prev = this.doc;
     let src = d.canvas;
+    const tok = (this._actTok = (this._actTok || 0) + 1);
     if (!src) {
       const done = this.busy('Opening photo…');
       try { src = await decodeImageFile(d.file, { maxSide: SRC_MAX }); }
       finally { done(); }
+      if (tok !== this._actTok || !this.docs.includes(d)) return; // another photo was chosen meanwhile
     }
     if (prev && prev !== d && prev.file) prev.canvas = null; // file-backed photos are re-decoded when needed (memory)
     d.canvas = src;
@@ -526,16 +529,16 @@ export class PhotoStudio {
     if (this.step === 'cut') {
       const sub = this.mode === 'sub';
       const T = {
-        smart: sub ? 'Drag a box or loop around the part to remove' : 'Drag a box or loop around the subject — it snaps to the edges',
-        lasso: sub ? 'Draw around the part to remove' : 'Draw around the outline of what you want to keep',
-        polygon: 'Tap corner points — tap the first point or Finish to close',
-        magnetic: 'Trace slowly along the edge — the line snaps to it',
+        smart: sub ? 'Drag around the part to remove' : 'Drag a box or loop around the subject',
+        lasso: sub ? 'Draw around the part to remove' : 'Draw around what you want to keep',
+        polygon: 'Tap points · tap the first one to close',
+        magnetic: 'Trace along the edge — it snaps',
         wand: sub ? 'Tap a colour to remove it' : 'Tap a colour area to select it',
         brush: sub ? 'Paint over what you don’t want' : 'Paint over what you want to keep',
-        bg: 'Plain background removed — tap the background to pick its colour',
+        bg: 'Tap the background to pick its colour',
       };
       t = T[this.tool] || '';
-      if (!this.rt.touched && this.tool !== 'bg') t = (this.tool === 'smart' ? '✦ Tap “Select subject”, or drag around it' : t);
+      if (!this.rt.touched && this.tool === 'smart') t = this.phone ? '✦ Tap “Subject”, or drag around it' : '✦ Click “Select subject”, or drag around it';
     } else if (this.step === 'adjust') t = '';
     else if (this.step === 'look') t = '';
     else if (this.step === 'crop') t = 'Drag the corners to crop';
@@ -689,8 +692,9 @@ export class PhotoStudio {
     if (!fn || !this.hasImage()) return;
     const done = this.busy('Preparing your tattoo…');
     await new Promise((r) => setTimeout(r, 30));
+    try { await this._waitFull(); } catch { /* render on the main thread instead */ }
     let c = null;
-    try { c = this._renderOutput(); } catch (e) { console.error(e); }
+    try { c = await this._renderOutputAsync(); } catch (e) { console.error(e); }
     done();
     if (!c) { this._toast('Nothing is kept yet — select part of the photo first'); return; }
     try { await fn(c, this.name); } catch (e) { console.error(e); this._toast(e.message || 'Something went wrong'); }
@@ -741,15 +745,23 @@ export class PhotoStudio {
     const lookKey = adjKey + '#' + JSON.stringify(look) + (usesMask ? '#' + this._maskKey() : '');
     return { adjKey, lookKey, lookIdentity, usesMask };
   }
-  _fullReady() {
+  _fullReady(needLook = this.step !== 'cut') {
     const f = this.rt.full, k = this._keys();
     if (f.adjKey !== k.adjKey) return false;
-    if (this.step === 'cut') return true;
-    return f.lookKey === k.lookKey;
+    if (!needLook) return true;
+    return f.lookKey === k.lookKey || (k.lookIdentity && f.lookKey === k.lookKey);
   }
-  _requestFull() {
+  /** Wait (without blocking the UI) until the worker has the full-resolution look ready. */
+  async _waitFull(ms = 30000) {
+    const t0 = performance.now();
+    while (this.rw && this.rt && !this._fullReady(true) && performance.now() - t0 < ms) {
+      this._requestFull(true);
+      if (this._fullReady(true)) break;
+      await new Promise((r) => setTimeout(r, 40));
+    }
+  }
+  _requestFull(needLook = this.step !== 'cut') {
     const rt = this.rt, k = this._keys(), f = rt.full;
-    const needLook = this.step !== 'cut';
     const jobKey = k.adjKey + '|' + (needLook ? k.lookKey : '');
     if (this._inflight === jobKey) return;
     // adjustments alone can be finished here when the photo is unadjusted
@@ -757,12 +769,15 @@ export class PhotoStudio {
     if (f.adjKey === k.adjKey && (!needLook || f.lookKey === k.lookKey)) return;
     if (needLook && f.adjKey === k.adjKey && k.lookIdentity) { f.look = f.adj; f.lookKey = k.lookKey; return; }
     this._inflight = jobKey;
+    clearTimeout(this._stallT);
+    this._stallT = setTimeout(() => { if (this._inflight === jobKey) { console.warn('render worker stalled; rendering on the main thread'); this.rw = null; this._inflight = null; this.requestRender(); } }, 25000);
     const id = (this._rjob = (this._rjob || 0) + 1);
     const msg = { type: 'render', id, doc: rt.rid, adjust: this.st.adjust, adjKey: k.adjKey, wantAdj: f.adjKey !== k.adjKey, look: needLook && !k.lookIdentity ? this.st.look : null, lookKey: k.lookKey };
     if (msg.look && k.usesMask) msg.mask = this._resMask(f).slice();
     try { this.rw.postMessage(msg); } catch { this.rw = null; this._inflight = null; }
   }
   _onRender(d) {
+    if (this._outWait && d.id === this._outWait.id) { if (d.error) this._outWait.rej(new Error(d.error)); else this._outWait.res(d.out); return; }
     this._inflight = null;
     const rt = this.rt;
     if (!rt || d.doc !== rt.rid) return;
@@ -1013,7 +1028,7 @@ export class PhotoStudio {
     c.lineWidth = 4; c.lineCap = 'square';
     const L = Math.min(22, (x1 - x0) / 3, (y1 - y0) / 3);
     c.beginPath();
-    for (const [cx, cy, dx, dy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x1, y1, -1, -1], [x0, y1, 1, -1]]) { c.moveTo(cx + dx * L, cy - dy * 2 + dy * 2); c.moveTo(cx + dx * L, cy); c.lineTo(cx, cy); c.lineTo(cx, cy + dy * L); }
+    for (const [cx, cy, dx, dy] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x1, y1, -1, -1], [x0, y1, 1, -1]]) { c.moveTo(cx + dx * L, cy); c.lineTo(cx, cy); c.lineTo(cx, cy + dy * L); }
     // edge handles
     const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, E = Math.min(14, (x1 - x0) / 5, (y1 - y0) / 5);
     c.moveTo(mx - E, y0); c.lineTo(mx + E, y0); c.moveTo(mx - E, y1); c.lineTo(mx + E, y1);
@@ -1511,8 +1526,8 @@ export class PhotoStudio {
       const timer = setTimeout(() => { this._jobs.delete(id); entry.fallback(); }, 20000);
       this._jobs.set(id, entry);
       try {
-        const copy = { ...job, rgba: job.rgba.slice(), region: job.region ? job.region.slice() : undefined };
-        this.worker.postMessage({ id, job: copy }, [copy.rgba.buffer].concat(copy.region ? [copy.region.buffer] : []));
+        const copy = { ...job, rgba: job.rgba.slice(), region: job.region ? job.region.slice() : undefined, guide: job.guide ? { ...job.guide, rgba: job.guide.rgba.slice() } : undefined };
+        this.worker.postMessage({ id, job: copy }, [copy.rgba.buffer].concat(copy.region ? [copy.region.buffer] : [], copy.guide ? [copy.guide.rgba.buffer] : []));
       } catch { this._jobs.delete(id); entry.fallback(); }
     });
   }
@@ -1558,12 +1573,13 @@ export class PhotoStudio {
         for (let i = 0; i < reg.length; i++) reg[i] = a[i * 4 + 3];
         job.region = reg;
       }
-      const res = await this._runSeg(job);
-      if (this.doc !== doc || !this.rt) return;
-      // edge-aware upsample to the working resolution, inside the box
+      // the edge-aware upsample to the working resolution runs with the segmentation (in the worker)
       const sub = new Uint8ClampedArray(box.w * box.h * 4);
       for (let y = 0; y < box.h; y++) sub.set(rt.rgba.subarray(((box.y + y) * rt.W + box.x) * 4, ((box.y + y) * rt.W + box.x + box.w) * 4), y * box.w * 4);
-      const up = guidedUpsample(res.mask, sw, sh, sub, box.w, box.h, { bytes: true });
+      job.guide = { rgba: sub, w: box.w, h: box.h };
+      const res = await this._runSeg(job);
+      if (this.doc !== doc || !this.rt) return;
+      const up = res.up ? res.mask : guidedUpsample(res.mask, sw, sh, sub, box.w, box.h, { bytes: true });
       const st = maskStats(up, box.w, box.h, 127);
       if (st.empty) { this._toast(poly ? 'Couldn’t find a clear subject there — try a looser box, or the lasso' : 'Couldn’t find a clear subject — drag a box around it'); return; }
       const full = new Uint8Array(rt.W * rt.H);
@@ -1656,8 +1672,14 @@ export class PhotoStudio {
   }
 
   renderThumb(target, { adjust = this.st.adjust, look = null, size = 96 } = {}) {
+    const ck = this.rt.maskVer + '|' + JSON.stringify(this.st.refine) + '|' + size + '|' + JSON.stringify(adjust) + '|' + JSON.stringify(look);
+    this._thumbCache = this._thumbCache || new Map();
+    const hit = this._thumbCache.get(ck);
+    target.width = size; target.height = size;
+    if (hit) { const tc = ctx2d(target); tc.clearRect(0, 0, size, size); tc.drawImage(hit, 0, 0); return; }
+    if (this._thumbCache.size > 120) this._thumbCache.clear();
     const side = this.thumbSource(size * 2).side;
-    const R = look ? Math.min(400, Math.max(size * 2, Math.round(side * 0.42))) : size * 2;
+    const R = look ? Math.min(240, Math.max(size * 2, Math.round(side * 0.3))) : size * 2;
     const T = this.thumbSource(R);
     const S = makeSource(T.rgba, R, R, { k: T.k, gx: T.gx, gy: T.gy, GW: this.rt.W, GH: this.rt.H });
     let px = adjustIsIdentity(adjust) ? T.rgba : applyAdjust(S, prepareAdjust(adjust), new Uint8ClampedArray(T.rgba.length));
@@ -1672,6 +1694,8 @@ export class PhotoStudio {
     tc.clearRect(0, 0, size, size);
     tc.imageSmoothingQuality = 'high';
     tc.drawImage(tmp, 0, 0, size, size);
+    const keep = canvas(size, size); ctx2d(keep).drawImage(target, 0, 0);
+    this._thumbCache.set(ck, keep);
   }
 
   /* ════════════════════════════ crop ════════════════════════════ */
@@ -1834,7 +1858,8 @@ export class PhotoStudio {
 
   /* ════════════════════════════ output ════════════════════════════ */
 
-  _renderOutput() {
+  /** Output, step 1 (main thread): bounds, scale and the source region. Returns { st } or { st, job }. */
+  _outPrep() {
     const rt = this.rt;
     const G = this.geoMatrix();
     const cr = this.cropRect();
@@ -1857,9 +1882,10 @@ export class PhotoStudio {
     // 2) output scale (px per working px): best available, capped at OUT_MAX
     const longW = Math.max(tr.w, tr.h);
     const k = Math.max(0.05, Math.min(rt.fs, OUT_MAX / longW));
-    let layer, LT; // layer canvas + transform (layer px → frame px)
+    const st = { G, cr, tr, k, layer: null, LT: null };
     if (k <= 1.08) {
-      layer = wcv; LT = G; // working resolution is enough
+      st.layer = wcv; st.LT = G; // working resolution is enough
+      return { st };
     } else {
       // region of the source that maps into the trimmed rect (+ margin for filters)
       const IG = M.inv(G);
@@ -1875,24 +1901,19 @@ export class PhotoStudio {
       lx.imageSmoothingQuality = 'high';
       lx.drawImage(rt.src, sx0 * rt.fs, sy0 * rt.fs, rw * rt.fs, rh * rt.fs, 0, 0, lw, lh);
       const px = lx.getImageData(0, 0, lw, lh).data;
-      const S = makeSource(px, lw, lh, { k: kk, gx: sx0, gy: sy0, GW: rt.W, GH: rt.H });
-      const adj = adjustIsIdentity(this.st.adjust) ? px : applyAdjust(S, prepareAdjust(this.st.adjust), new Uint8ClampedArray(px.length));
-      // mask: refined working mask, upsampled; edges re-snapped to the high-res photo when not feathered
       const wm = new Float32Array(rw * rh);
       for (let y = 0; y < rh; y++) for (let x = 0; x < rw; x++) wm[y * rw + x] = m[(sy0 + y) * rt.W + sx0 + x] / 255;
-      let up = resample(wm, rw, rh, lw, lh);
-      if (!(this.st.refine.feather > 0) && kk > 1.3) {
-        const q = guidedFilter(adj, lw, lh, up, Math.max(2, Math.round(kk * 1.5)), 4e-4, Math.max(1, Math.round(kk / 2)));
-        for (let i = 0; i < up.length; i++) { const u = up[i]; if (u > 0.01 && u < 0.99) up[i] = clamp01((q[i] - 0.5) * 1.35 + 0.5) * 0.7 + u * 0.3; }
-      }
-      const mk = new Uint8Array(lw * lh);
-      for (let i = 0; i < mk.length; i++) mk[i] = up[i] * 255 + 0.5;
-      const look = this.st.look.id === 'photo' && !this.st.look.white && (this.st.look.strength ?? 100) >= 100 ? adj : renderLookROI(adj, lw, lh, this.st.look, { k: kk, gx: sx0, gy: sy0, mask: mk });
-      const outPx = new Uint8ClampedArray(lw * lh * 4);
-      for (let i = 0, j = 0; i < lw * lh; i++, j += 4) { outPx[j] = look[j]; outPx[j + 1] = look[j + 1]; outPx[j + 2] = look[j + 2]; outPx[j + 3] = look[j + 3] * mk[i] / 255; }
-      layer = canvas(lw, lh); ctx2d(layer).putImageData(new ImageData(outPx, lw, lh), 0, 0);
-      LT = M.mul(G, M.mul(M.translate(sx0, sy0), M.scale(1 / kk)));
+      st.lw = lw; st.lh = lh;
+      st.LT = M.mul(G, M.mul(M.translate(sx0, sy0), M.scale(1 / kk)));
+      return { st, job: { px, lw, lh, kk, gx: sx0, gy: sy0, GW: rt.W, GH: rt.H, wm, rw, rh, adjust: this.st.adjust, look: this.st.look, feather: this.st.refine.feather } };
     }
+  }
+
+  /** Output, step 3 (main thread): draw into the trimmed canvas, trim exactly, pad 2%. */
+  _outFinish(st, outPx) {
+    const { cr, tr, k } = st;
+    let { layer, LT } = st;
+    if (outPx) { layer = canvas(st.lw, st.lh); ctx2d(layer).putImageData(new ImageData(outPx, st.lw, st.lh), 0, 0); }
     // 3) draw into the trimmed output (frame px * k), then trim exactly + 2% padding
     const ow = Math.max(1, Math.round(tr.w * k)), oh = Math.max(1, Math.round(tr.h * k));
     const oc = canvas(ow, oh), ox = ctx2d(oc);
@@ -1918,6 +1939,35 @@ export class PhotoStudio {
     fx.drawImage(oc, b2.x, b2.y, b2.w, b2.h, Math.round(pad * sc), Math.round(pad * sc), Math.round(b2.w * sc), Math.round(b2.h * sc));
     out.dataset && (out.dataset.name = this.name);
     return out;
+  }
+
+  /** Synchronous output (getResult). */
+  _renderOutput() {
+    const p = this._outPrep();
+    if (!p) return null;
+    return this._outFinish(p.st, p.job ? processOutput(p.job) : null);
+  }
+
+  /** Same, with the heavy part in the render worker when available (keeps the UI responsive). */
+  async _renderOutputAsync() {
+    const p = this._outPrep();
+    if (!p) return null;
+    if (!p.job) return this._outFinish(p.st, null);
+    let outPx = null;
+    if (this.rw) {
+      try {
+        outPx = await new Promise((res, rej) => {
+          const id = (this._rjob = (this._rjob || 0) + 1);
+          this._outWait = { id, res, rej };
+          const j = p.job;
+          this.rw.postMessage({ type: 'output', id, job: j }, [j.px.buffer, j.wm.buffer]);
+          setTimeout(() => rej(new Error('timeout')), 60000);
+        });
+      } catch (e) { console.warn('output worker failed, rendering here', e); outPx = null; }
+      finally { this._outWait = null; }
+    }
+    if (!outPx) { const q = this._outPrep(); if (!q) return null; return this._outFinish(q.st, q.job ? processOutput(q.job) : null); }
+    return this._outFinish(p.st, outPx);
   }
 }
 

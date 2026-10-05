@@ -394,6 +394,12 @@ function updateInset() {
   layoutFloating();
 }
 addEventListener("resize", () => updateInset());
+// tools inside tabs build their own toolbars: keep the AI button clear of them
+{
+  let t = 0;
+  new MutationObserver(() => { clearTimeout(t); t = setTimeout(layoutFloating, 150); })
+    .observe(document.querySelector(".views"), { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "class"] });
+}
 
 /* Place the floating AI button where it covers nothing: beside side panels,
    above bottom sheets, toolbars and primary buttons. */
@@ -404,7 +410,11 @@ function layoutFloating() {
   const fw = fab.offsetWidth || 90, fh = fab.offsetHeight || 52;
   let right = 18;
   const side = (el) => el && !el.hidden && el.offsetParent && getComputedStyle(el).position !== "absolute" ? el.getBoundingClientRect() : null;
-  const sideRect = currentTab === "studio" ? side($("#inspector")) : currentTab === "create" ? side($(".create__editor")) : null;
+  // a right-hand side panel (not a full-width bottom sheet) pushes the button left
+  const sidePanel = (el) => { const r = el && el.offsetParent && !el.hidden ? el.getBoundingClientRect() : null; return r && r.width < W * 0.6 && r.left > W / 2 && r.height > H * 0.5 ? r : null; };
+  const sideRect = currentTab === "studio" ? side($("#inspector"))
+    : currentTab === "create" ? (side($(".create__editor")) || sidePanel($("#geoHost .gm-panel, #geoHost [class*='panel']")))
+    : currentTab === "photo" ? sidePanel($("#photoHost .ps-panel")) : null;
   if (sideRect && sideRect.left > W / 2) right = W - sideRect.left + 18;
   const tabs = $(".mobtabs");
   const mob = tabs && getComputedStyle(tabs).display !== "none" ? tabs.offsetHeight : 0;
@@ -413,7 +423,8 @@ function layoutFloating() {
   const add = (sel) => { const el = typeof sel === "string" ? $(sel) : sel; if (el && el.offsetParent && !el.hidden) obstacles.push(el.getBoundingClientRect()); };
   if (currentTab === "studio") { add(".camerabar"); add("#mobLib"); if (!sideRect) add("#inspector"); }
   if (currentTab === "sketch") { add(".sketchbar"); $$(".sketchpad .sp-bottombar, .sketchpad [class*='bottom']").forEach(add); }
-  if (currentTab === "create") { add(".create__actions"); }
+  if (currentTab === "create") { add(".create__actions"); $$("#geoHost [class*='toolbar'], #geoHost [class*='outbar'], #geoHost [class*='actions']").forEach(add); }
+  if (currentTab === "photo") { add("#photoHost .ps-outbar"); $$("#photoHost [class*='strip']").forEach(add); }
   for (let i = 0; i < 6; i++) {
     const r = { left: W - right - fw, right: W - right, top: H - bottom - fh, bottom: H - bottom };
     const hit = obstacles.find((o) => o.width && o.height && o.left < r.right && o.right > r.left && o.top < r.bottom && o.bottom > r.top);

@@ -4,6 +4,7 @@
 // Messages out: { id, doc, adjKey, lookKey, adj?: Uint8ClampedArray, look?: Uint8ClampedArray } | { id, error }
 import { makeSource, prepareAdjust, applyAdjust, adjustIsIdentity } from './adjust.js';
 import { renderLookROI } from './looks.js';
+import { processOutput } from './output.js';
 
 let S = null; // { doc, src, w, h, adjKey, adj, identity }
 
@@ -12,6 +13,11 @@ self.onmessage = (e) => {
   try {
     if (m.type === 'src') {
       S = { doc: m.doc, w: m.w, h: m.h, src: makeSource(m.rgba, m.w, m.h, { k: 1, GW: m.GW, GH: m.GH }), adjKey: null, adj: null };
+      return;
+    }
+    if (m.type === 'output') {
+      const out = processOutput(m.job);
+      self.postMessage({ id: m.id, out }, [out.buffer]);
       return;
     }
     if (m.type !== 'render') return;

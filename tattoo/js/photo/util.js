@@ -90,9 +90,34 @@ function boxesForGauss(sigma, n) {
   return sizes.map((s) => Math.max(0, (s - 1) >> 1));
 }
 
-/** Approximate gaussian blur (3 box passes), in place. Returns `a`. */
+/** Approximate gaussian blur (3 box passes), in place. Returns `a`. Large sigmas run at half resolution. */
 export function gaussBlur(a, w, h, sigma, tmp) {
   if (!(sigma > 0.35)) return a;
+  if (sigma >= 3.5 && w >= 16 && h >= 16) {
+    const hw = w >> 1, hh = h >> 1;
+    const s = new Float32Array(hw * hh);
+    for (let y = 0; y < hh; y++) {
+      const r0 = 2 * y * w, r1 = r0 + w;
+      for (let x = 0; x < hw; x++) s[y * hw + x] = (a[r0 + 2 * x] + a[r0 + 2 * x + 1] + a[r1 + 2 * x] + a[r1 + 2 * x + 1]) * 0.25;
+    }
+    gaussBlur(s, hw, hh, Math.sqrt(Math.max(0.1, sigma * sigma - 0.5)) / 2);
+    // bilinear upsample back into a
+    const sx = hw / w, sy = hh / h;
+    for (let y = 0; y < h; y++) {
+      let fy = (y + 0.5) * sy - 0.5; if (fy < 0) fy = 0;
+      let y0 = fy | 0; if (y0 > hh - 1) y0 = hh - 1;
+      const y1 = y0 < hh - 1 ? y0 + 1 : y0, ty = fy - y0;
+      const o0 = y0 * hw, o1 = y1 * hw, o = y * w;
+      for (let x = 0; x < w; x++) {
+        let fx = (x + 0.5) * sx - 0.5; if (fx < 0) fx = 0;
+        let x0 = fx | 0; if (x0 > hw - 1) x0 = hw - 1;
+        const x1 = x0 < hw - 1 ? x0 + 1 : x0, tx = fx - x0;
+        const top = s[o0 + x0] + (s[o0 + x1] - s[o0 + x0]) * tx, bot = s[o1 + x0] + (s[o1 + x1] - s[o1 + x0]) * tx;
+        a[o + x] = top + (bot - top) * ty;
+      }
+    }
+    return a;
+  }
   const t = tmp || new Float32Array(w * h);
   const acc = new Float64Array(Math.max(w, h));
   for (const r of boxesForGauss(sigma, 3)) {

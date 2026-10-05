@@ -776,7 +776,7 @@ export function fxShatter(src, fx = {}, ink = "#141414") {
 }
 
 /* ------------------------------------------------- background removal */
-export function removePlainBackground(src, tol = 0.16) {
+export function removePlainBackground(src, tol = 0.14) {
   const work = fitCanvas(src, 520);
   const w = work.width, h = work.height;
   const d = ctx2d(work).getImageData(0, 0, w, h).data;
@@ -797,22 +797,43 @@ export function removePlainBackground(src, tol = 0.16) {
     if (it === 5) cents = cents.filter((c, k) => acc[k][3] > border.length * 0.1);
   }
   const near = (j) => { let m = 9; for (const c of cents) m = Math.min(m, cdist(d[j], d[j + 1], d[j + 2], c)); return m; };
+  // edge barrier: colour gradient magnitude on a lightly blurred copy
+  const lumA = new Float32Array(w * h), cA = new Float32Array(w * h), cB = new Float32Array(w * h);
+  for (let i = 0, j = 0; i < w * h; i++, j += 4) {
+    lumA[i] = (0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]) / 255;
+    cA[i] = (d[j] - d[j + 1]) / 255; cB[i] = (d[j + 1] - d[j + 2]) / 255;
+  }
+  const bl = [gauss(lumA, w, h, 1), gauss(cA, w, h, 1), gauss(cB, w, h, 1)];
+  const edge = new Float32Array(w * h);
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    let m = 0;
+    for (const B of bl) { const gx = B[i + 1] - B[i - 1], gy = B[i + w] - B[i - w]; m += gx * gx + gy * gy; }
+    edge[i] = Math.sqrt(m);
+  }
+  const eThr = 0.022 + tol * 0.16;
   const bg = new Uint8Array(w * h);
   const stack = [];
-  for (const i of border) if (!bg[i] && d[i * 4 + 3] > 10 && near(i * 4) < tol) { bg[i] = 1; stack.push(i); }
-  for (const i of border) if (d[i * 4 + 3] <= 10) { bg[i] = 1; stack.push(i); }
+  for (const i of border) if (!bg[i] && (d[i * 4 + 3] <= 10 || near(i * 4) < tol)) { bg[i] = 1; stack.push(i); }
   while (stack.length) {
     const i = stack.pop();
-    const x = i % w, y = (i / w) | 0, j = i * 4;
+    const x = i % w, y = (i / w) | 0;
     const nb = [x > 0 ? i - 1 : -1, x < w - 1 ? i + 1 : -1, y > 0 ? i - w : -1, y < h - 1 ? i + w : -1];
     for (const k of nb) {
       if (k < 0 || bg[k]) continue;
       const q = k * 4;
       if (d[q + 3] <= 10) { bg[k] = 1; stack.push(k); continue; }
-      const dn = near(q);
-      const step = cdist(d[q], d[q + 1], d[q + 2], [d[j], d[j + 1], d[j + 2]]);
-      if (dn < tol || (step < tol * 0.22 && dn < tol * 2)) { bg[k] = 1; stack.push(k); }
+      if (edge[k] > eThr) continue;
+      if (near(q) < tol) { bg[k] = 1; stack.push(k); }
     }
+  }
+  // the barrier pixels themselves: take them if they look like background
+  for (let pass = 0; pass < 2; pass++) for (let i = 0; i < w * h; i++) {
+    if (bg[i]) continue;
+    const x = i % w, y = (i / w) | 0;
+    let n = 0;
+    if (x > 0 && bg[i - 1]) n++; if (x < w - 1 && bg[i + 1]) n++; if (y > 0 && bg[i - w]) n++; if (y < h - 1 && bg[i + w]) n++;
+    if (n >= 2 && near(i * 4) < tol * 1.3) bg[i] = 1;
   }
   // drop small foreground specks
   const lab = new Int32Array(w * h).fill(-1);
@@ -831,7 +852,12 @@ export function removePlainBackground(src, tol = 0.16) {
   const big = Math.max(...sizes, 0);
   const F = new Float32Array(w * h);
   for (let i = 0; i < w * h; i++) F[i] = !bg[i] && sizes[lab[i]] >= Math.max(30, big * 0.02) ? 1 : 0;
-  // fill holes fully enclosed by the subject (eyes etc.) are kept as they are; soften the edge
+  // close small bites in the outline (dilate then erode), then soften the edge
+  const R = Math.max(1, Math.round(Math.max(w, h) * 0.006));
+  const dil = gauss(F, w, h, R);
+  for (let i = 0; i < w * h; i++) dil[i] = dil[i] > 0.12 ? 1 : 0;
+  const ero = gauss(dil, w, h, R);
+  for (let i = 0; i < w * h; i++) F[i] = Math.max(F[i], ero[i] > 0.88 ? 1 : 0);
   const Fs = gauss(F, w, h, 0.9);
   for (let i = 0; i < w * h; i++) Fs[i] = smooth(0.35, 0.85, Fs[i]);
   // apply the mask to the full-resolution picture

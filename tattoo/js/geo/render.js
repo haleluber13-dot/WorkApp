@@ -140,7 +140,8 @@ export class Renderer {
     const breakout = eff.fillKind === "photo" && res && shape.fill.breakout && res.hasAlpha;
     let og = g, layer = null;
     if (breakout) { layer = makeCanvas(W, H); og = ctx2d(layer); og.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); }
-    drawOutline(og, geom, shape, eff);
+    const mk = () => { const c2 = makeCanvas(W, H), g2 = ctx2d(c2); g2.setTransform(s, 0, 0, s, -x0 * s, -y0 * s); return { c: c2, g: g2 }; };
+    drawOutline(og, geom, shape, eff, mk);
     og.fillStyle = eff.ink;
     for (const sp of geom.solids) { og.beginPath(); sp.forEach(([x, y], i) => (i ? og.lineTo(x, y) : og.moveTo(x, y))); og.closePath(); og.fill(); }
     if (geom.dots.length) {
@@ -304,27 +305,59 @@ function lineStyle(g, w, style, ink) {
   else g.setLineDash([]);
 }
 
-function drawOutline(g, geom, shape, eff) {
+function isConvex(poly) {
+  let sign = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length], c = poly[(i + 2) % poly.length];
+    const z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (Math.abs(z) < 1e-9) continue;
+    if (!sign) sign = Math.sign(z); else if (Math.sign(z) !== sign) return false;
+  }
+  return true;
+}
+/* Exact offset rings by stroking: outside = dilate(r2) − dilate(r1); inside = band(r2) − band(r1). */
+function ringLayer(mk, path, rule, r1, r2, inside, ink) {
+  const { c, g } = mk();
+  g.lineJoin = "round"; g.lineCap = "round"; g.strokeStyle = ink; g.fillStyle = ink;
+  const pass = (r) => {
+    if (inside) { g.save(); g.clip(path, rule); g.lineWidth = 2 * r; g.stroke(path); g.restore(); }
+    else { g.lineWidth = 2 * r; g.stroke(path); g.fill(path, rule); }
+  };
+  pass(r2);
+  g.globalCompositeOperation = "destination-out";
+  if (r1 > 0) pass(r1);
+  g.globalCompositeOperation = "source-over";
+  return c;
+}
+
+function drawOutline(g, geom, shape, eff, mk) {
   const L = shape.line || {};
   const w = eff.lineW;
   const ink = eff.ink;
   if (w > 0) {
     g.save();
+    const crisp = geom.regions.every((r) => r.length <= 40 || isConvex(r));
     lineStyle(g, w, L.style, ink);
+    if (!crisp) g.lineJoin = "round";
     const p = new Path2D();
     if (geom.strokeRegions) polysToPath(geom.regions, true, p);
     for (const l of geom.lines) polysToPath([l.pts], l.closed, p);
     g.stroke(p);
     const thin = Math.max(1, w * (L.thin ?? 0.5));
+    const region = polysToPath(geom.regions, true);
+    const blit = (c) => { g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(c, 0, 0); g.restore(); };
     if (L.double && geom.regions.length && geom.strokeRegions) {
-      const d = -((L.gap ?? 10) + w / 2 + thin / 2);
-      lineStyle(g, thin, L.style, ink);
-      g.stroke(polysToPath(offsetRegions(geom, d), true));
+      const gap = L.gap ?? 10;
+      if (crisp) {
+        lineStyle(g, thin, L.style, ink);
+        g.stroke(polysToPath(offsetRegions(geom, -(gap + w / 2 + thin / 2)), true));
+      } else blit(ringLayer(mk, region, geom.rule, w / 2 + gap, w / 2 + gap + thin, true, ink));
     }
     if (L.offset > 0 && geom.regions.length) {
-      const d = L.offset + w / 2 + thin / 2;
-      lineStyle(g, thin, L.style, ink);
-      g.stroke(polysToPath(offsetRegions(geom, d), true));
+      if (crisp) {
+        lineStyle(g, thin, L.style, ink);
+        g.stroke(polysToPath(offsetRegions(geom, L.offset + w / 2 + thin / 2), true));
+      } else blit(ringLayer(mk, region, geom.rule, w / 2 + L.offset, w / 2 + L.offset + thin, false, ink));
     }
     g.restore();
   }
