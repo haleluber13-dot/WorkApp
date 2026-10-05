@@ -1356,6 +1356,7 @@ export function compressorWheel(radius, blades, width, mat, opts = {}){
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
+    ensureUV(geo, 5);
     return new THREE.Mesh(geo, mat);
   };
   for (let i = 0; i < blades; i++){
@@ -1615,6 +1616,7 @@ export function scrollHousing(rHub, rOuter, width, mat, opts = {}){
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setIndex(idx);
+  ensureUV(g, 5);
   const scroll = new THREE.Mesh(g, mat);
   scroll.userData.throat = {                    // where the pipe joins it
     angle: dir * TAU * turns,
