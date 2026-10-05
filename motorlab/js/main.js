@@ -87,8 +87,9 @@ function lowEndDevice(){
 async function boot(){
   globalThis.__ml_stage?.('app script running');
   load();
-  /* phones keep the balanced look (shadows, SMAA) now that draw calls are halved;
-     only the per-part thumbnails are skipped there */
+  /* a desktop-class machine gets the full pipeline (ambient occlusion, SMAA,
+     soft shadows) unless the quality was chosen by hand; phones keep balanced */
+  if (state.settings.qualityAuto && !lowEndDevice() && state.settings.quality === 'balanced') state.settings.quality = 'high';
   /* a thumbnail render per part is a few hundred extra renders on a phone */
   if (state.settings.partPicsAuto !== false && lowEndDevice()) state.settings.partPics = false;
   globalThis.__ml_stage?.('saved state loaded');
