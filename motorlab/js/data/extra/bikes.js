@@ -142,7 +142,7 @@ export function parts(e, ctx){
       teach:'The boxer is the one bike here with a car-type alternator: it sits on top of the crankcase at the front, above the crank, driven by a short belt off the front of the crankshaft. Everything else in this garage makes its electricity with a stator and a magnet rotor on the end of the crank.',
       spec:{ 'Location':'top front of the crankcase', 'Drive':'poly-V belt from the crank', 'Src':'special.md 3d · PRESS(largiader) H' } });
     add({ id:'altbelt', name:'Alternator belt (ELAST 4PK592) & crank pulley', group:'accessory',
-      deps:['topalternator', 'frontcover'], mesh:'pulley',
+      deps:['topalternator', 'block'], mesh:'pulley',
       teach:'A stretch ("ELAST") poly-V belt with no tensioner and no adjustment. It is fitted by walking it onto the pulley with a tool while the engine is turned, and it is cut off to remove it — it is never re-used. A slipping belt here shows up as a charge light, not a squeal.',
       spec:{ 'Belt':'ELAST 4PK592, non-adjustable', 'Tensioner':'none', 'Fitting':'walked on with a tool; replace, never re-fit', 'Src':'special.md 3d · PRESS(largiader) H' } });
     add({ id:'beltcover', name:'Front engine cover (belt cover)', group:'accessory', deps:['altbelt'], mesh:'frontcover',
@@ -270,7 +270,7 @@ export function parts(e, ctx){
   /* ---------------- Ducati: desmodromic valvetrain ---------------- */
   if ((e.follower === 'desmo' || e.valvetrain === 'desmodromic') && !ctx.ohv){
     const n = e.cyl * (e.valvesPerCyl || 4);
-    add({ id:'desmorockers', name:'Desmo rockers (opening + closing)', group:'valvetrain', qty:n,
+    add({ id:'desmorockers', name:'Desmo rocker pairs (opening + closing)', group:'valvetrain', qty:n,
       deps:['valves'], mesh:'rocker',
       teach:'Each valve has two rockers and two lobes. The opening rocker sits over the valve and the opening lobe pushes it down. The closing rocker hooks under split half-rings on the stem and the closing lobe lifts it, pulling the valve shut — so no valve spring decides how fast the valve closes, and valve float cannot happen. A light return spring on each closing rocker only takes up slack at cranking speed. There are two clearances to set per valve, opening and closing, each with its own shim.',
       spec:{ 'Rockers':`${n} opening + ${n} closing`, 'Shims':'opening and closing, two clearances per valve', 'Src':'special.md 3b · PRESS H' } });

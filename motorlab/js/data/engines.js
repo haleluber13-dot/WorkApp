@@ -281,7 +281,7 @@ export const ENGINES = [
       blurb:'The most-built V8 in history. Simple enough to rebuild on a kitchen table and the reason "swap a small-block into it" is a complete sentence.' }),
 
   /* ---------------- race ---------------- */
-  E({ id:'race-16-v6h', name:'1.6 V6 Turbo Hybrid Power Unit', maker:'Formula 1', layout:'V', cyl:6, bankAngle:90,
+  E({ id:'race-16-v6h', name:'1.6 V6 Turbo Hybrid Power Unit', maker:'Formula 1', layout:'V', cyl:6, bankAngle:90, turboLayout:'rearCentre',
       displacement:1600, bore:80, stroke:53, cr:14.0, redline:15000, tqPeak:10500, hpPeak:12500,
       aspiration:'turbo', injection:'direct', boostTarget:2.6, spoolRpm:5000, firing:'V6',
       fuel:'race', class:'race', idle:4000, valvetrain:'pneumatic', hybrid:true, dryWeight:145,

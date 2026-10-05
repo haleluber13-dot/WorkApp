@@ -45,7 +45,7 @@ export function parts(e, ctx){
   /* the turbo branch of pistonTree already has an airbox; atmospheric and
      supercharged EFI engines breathe through one too */
   if (efi && !turbos && !bike && !(blown && e.class === 'race') && e.intake !== 'slide' && e.intake !== 'hat')
-    add({ id:'airbox', name:'Air filter box & intake duct', group:'induction', deps:['throttle'], mesh:'intake',
+    add({ id:'airbox', name:'Air filter box & intake duct', group:'induction', deps:[itb ? 'intake' : 'throttle'], mesh:'intake',
       teach:'A moulded box round a pleated paper element, a snorkel that takes cool air from ahead of the radiator, and a rubber duct to the throttle body. The box is not decoration: it is a resonator tuned to quieten intake roar and it keeps hot under-bonnet air off the element. A filter that never sees service costs power quietly — restriction across the element is a pressure the pistons have to pull against on every intake stroke. Check that the duct clips are home after a service: an unmetered leak after a mass-air-flow meter will make the engine run lean and hunt at idle.',
       spec:{ 'Element':'pleated paper, dry', 'Service':'inspect every 15,000 km, replace at 30–60,000 km', 'Leak check':'every clamp and clip between the meter and the throttle' } });
 

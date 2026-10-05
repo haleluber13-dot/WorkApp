@@ -186,7 +186,7 @@ export function build(ctx){
      from the block flank — the main builder hangs the filter at
      (0.2·len, −0.9·crankR, outerZ + 50 mm), axis along the crank, seal face aft */
   if (has('filterbracket')){
-    const F = V3(L.len * 0.20, -L.crankR * 0.90, outerZ + M(50));
+    const F = V3(L.len * 0.20, -L.crankR * 0.90, (/bmw|mercedes|porsche|audi|volkswagen/i.test(e.maker || '') ? -1 : 1) * (L.banks >= 2 ? wCase + M(70) : outerZ + M(50)));
     const face = F.x + M(115) * 0.58;
     const g = group('filterbracket');
     g.add(at(rot(cyl(M(40), M(40), M(18), MAT.alloyDark(), 26), 0, 0, Math.PI / 2), face + M(9), F.y, F.z));
