@@ -52,3 +52,49 @@ export async function saveToPhone(name, href) {
   }
   return !!bridge.saveFile(name, b64, mime);
 }
+
+/* File uploads: route every <input type="file"> through the phone's own picker
+   (gallery, Google Photos, Drive, camera). Picked files are streamed to the page
+   from /picked/<id> and handed to the input exactly as if the browser had picked
+   them, so every tool (Photo, Geometric maker, Sketch, Import) just works. */
+if (bridge?.pickFiles) {
+  const pending = new Map();
+  let seq = 0;
+  window.__inkFiles = async (id, list) => {
+    const input = pending.get(id);
+    pending.delete(id);
+    if (!input || !Array.isArray(list) || !list.length) return;
+    try {
+      const files = await Promise.all(list.map(async (o) => {
+        const blob = await (await fetch(o.url)).blob();
+        return new File([blob], o.name || "photo", { type: o.type || blob.type || "" });
+      }));
+      const dt = new DataTransfer();
+      files.forEach((f) => dt.items.add(f));
+      input.files = dt.files;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (e) {
+      console.error("picked files failed", e);
+    }
+  };
+  const openPicker = (input) => {
+    const id = "p" + (++seq);
+    pending.set(id, input);
+    bridge.pickFiles(id, input.accept || "", !!input.multiple, input.hasAttribute("capture"));
+  };
+  // programmatic input.click() (also inputs that aren't in the page)
+  const origClick = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function () {
+    if (this.type === "file" && !this.disabled) { openPicker(this); return; }
+    return origClick.call(this);
+  };
+  // taps on the input itself or on its <label>
+  document.addEventListener("click", (e) => {
+    const input = e.target;
+    if (input instanceof HTMLInputElement && input.type === "file" && !input.disabled) {
+      e.preventDefault();
+      openPicker(input);
+    }
+  }, true);
+}

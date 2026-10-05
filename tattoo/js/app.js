@@ -71,6 +71,23 @@ function thumbOf(d) {
    block downloads). */
 function download(name, href, { preview = true, text = null } = {}) {
   const isImg = /\.(png|jpe?g|svg)$/i.test(name);
+  // inside claude.ai: use the viewer's own save (works in the Claude apps too)
+  if (!isAndroidApp && window.claude?.use) {
+    (async () => {
+      let dl = null;
+      try { dl = await window.claude.use("downloads"); } catch {}
+      if (!dl) { showSaveSheet({ name, href, isImg, text }); return; }
+      try {
+        const blob = await (await fetch(href)).blob();
+        await dl.save({ filename: name, data: blob });
+        toast("Saved");
+      } catch (e) {
+        if (e?.code === "declined") return;
+        showSaveSheet({ name, href, isImg, text });
+      }
+    })();
+    return;
+  }
   if (isAndroidApp) {
     // the Android app saves straight to the phone (Pictures / Downloads)
     saveToPhone(name, href).then((ok) => toast(ok ? (isImg ? "Saved to your Gallery (Pictures/InkForm)" : "Saved to Downloads") : "Couldn't save the file"))
@@ -92,6 +109,7 @@ function showSaveSheet({ name, href, isImg, text }) {
     : `<textarea readonly rows="8" aria-label="Project file contents"></textarea><p class="muted small">If it didn't download, copy this text and keep it in a note — paste it back with Import.</p>`;
   if (!isImg) $("#saveBody textarea").value = text || "";
   $("#saveCopy").hidden = isImg;
+  $("#saveDl").hidden = false;
   $("#saveDl").onclick = () => { try { const a = document.createElement("a"); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch {} };
   m.hidden = false;
   document.body.classList.add("modal-open");
@@ -1581,6 +1599,59 @@ $("#fileDesigns").addEventListener("change", async (e) => {
   if (added) { toast(`Added ${added} design${added > 1 ? "s" : ""} — tap one, then tap the body`); if (last) startPlacing(last.id); }
 });
 
+/* Paste a copied photo anywhere (Photo and Sketch handle their own paste). */
+addEventListener("paste", (e) => {
+  if (currentTab === "photo" || currentTab === "sketch") return;
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+  const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/"));
+  if (!files.length) return;
+  e.preventDefault();
+  openInPhoto(files);
+});
+
+/* Some embedded viewers (e.g. a page opened inside a chat app) block the
+   photo picker silently. If tapping an upload button doesn't open anything,
+   explain what to do instead of leaving the user wondering. */
+if (!isAndroidApp && window.top !== window) {
+  let lastAway = 0, hinted = false;
+  addEventListener("blur", () => { lastAway = Date.now(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) lastAway = Date.now(); });
+  const watch = (input) => {
+    const t0 = Date.now();
+    let changed = false;
+    input.addEventListener("change", () => {
+      changed = true;
+      // the picker did work after all (slow phone): close the help if it's showing
+      if (hinted && $("#saveTitle").textContent.startsWith("Photo picker")) $("#saveClose").click();
+    }, { once: true });
+    setTimeout(() => {
+      if (hinted || changed || lastAway >= t0) return;
+      hinted = true;
+      showUploadHelp();
+    }, 1600);
+  };
+  const orig = HTMLInputElement.prototype.click;
+  HTMLInputElement.prototype.click = function () {
+    if (this.type === "file") watch(this);
+    return orig.call(this);
+  };
+  document.addEventListener("click", (e) => { if (e.target instanceof HTMLInputElement && e.target.type === "file") watch(e.target); }, true);
+}
+function showUploadHelp() {
+  $("#saveTitle").textContent = "Photo picker blocked here";
+  $("#saveBody").innerHTML = `<p>This view (for example the Claude app) doesn't allow picking photos. You can still add them:</p>
+    <ul style="margin:0;padding-left:20px;line-height:1.6">
+      <li><b>Open this page in Chrome or Safari</b> — copy the link from the share menu and paste it in your browser; uploads work there.</li>
+      <li><b>Paste a photo</b> — copy a photo in your gallery, then come back and paste (long-press → Paste, or Ctrl+V).</li>
+      <li><b>Use the InkForm Android app</b> — uploads, the camera and “Share → InkForm 3D” all work.</li>
+      <li>Or pick a drawing from <b>Create → Web library</b>.</li>
+    </ul>`;
+  $("#saveCopy").hidden = true;
+  $("#saveDl").hidden = true;
+  $("#saveModal").hidden = false;
+  document.body.classList.add("modal-open");
+}
+
 /* Drag pictures onto the app from the computer. */
 addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.items || [])].some((i) => i.kind === "file")) e.preventDefault(); });
 addEventListener("drop", (e) => {
@@ -1597,12 +1668,15 @@ window.inkSharedReady = async () => {
   let list = [];
   try { list = JSON.parse(window.InkAndroid.takeShared() || "[]"); } catch {}
   if (!list.length) return;
-  const files = list.map((o) => {
-    const bin = atob(o.b64), bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new File([bytes], o.name || "photo", { type: o.type || "" });
-  });
-  openInPhoto(files);
+  const files = (await Promise.all(list.map(async (o) => {
+    try {
+      if (o.url) { const blob = await (await fetch(o.url)).blob(); return new File([blob], o.name || "photo", { type: o.type || blob.type || "" }); }
+      const bin = atob(o.b64 || ""), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new File([bytes], o.name || "photo", { type: o.type || "" });
+    } catch { return null; }
+  }))).filter(Boolean);
+  if (files.length) openInPhoto(files); else toast("Couldn't open the shared photo");
 };
 
 /* ════════════════════════════════════════════════════════════════════════

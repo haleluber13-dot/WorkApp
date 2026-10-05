@@ -11,7 +11,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.database.Cursor;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -41,6 +43,8 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * InkForm 3D for Android: the tattoo designer web app, bundled in the APK and
@@ -52,6 +56,7 @@ import java.util.ArrayList;
 public class MainActivity extends Activity {
     private static final String HOME = "https://appassets.androidplatform.net/assets/www/index.html";
     private static final int REQ_FILE = 11;
+    private static final int REQ_PICK = 13;
     private static final int REQ_MIC = 12;
 
     private WebView web;
@@ -61,6 +66,9 @@ public class MainActivity extends Activity {
     private boolean pendingPartial;
     private Uri cameraUri;
     private final ArrayList<String> sharedQueue = new ArrayList<>();
+    /** Photos picked or shared, served to the page at /picked/<id> straight from the phone (no copying). */
+    private final ConcurrentHashMap<String, Uri> served = new ConcurrentHashMap<>();
+    private String pickRequestId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,6 +98,17 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClientCompat() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                String p0 = request.getUrl().getPath();
+                if (p0 != null && p0.startsWith("/picked/") && "appassets.androidplatform.net".equals(request.getUrl().getHost())) {
+                    Uri u = served.get(p0.substring(8));
+                    if (u == null) return new WebResourceResponse("text/plain", "utf-8", 404, "Not found", null, null);
+                    try {
+                        String type = getContentResolver().getType(u);
+                        return new WebResourceResponse(type == null ? "application/octet-stream" : type, null, getContentResolver().openInputStream(u));
+                    } catch (Exception e) {
+                        return new WebResourceResponse("text/plain", "utf-8", 404, "Not found", null, null);
+                    }
+                }
                 WebResourceResponse r = loader.shouldInterceptRequest(request.getUrl());
                 if (r != null) {
                     String path = request.getUrl().getPath();
@@ -157,33 +176,74 @@ public class MainActivity extends Activity {
         handleShared(intent);
     }
 
+    private ArrayList<Uri> resultUris(int resultCode, Intent data) {
+        ArrayList<Uri> uris = new ArrayList<>();
+        if (resultCode != RESULT_OK) return uris;
+        if (data != null) {
+            ClipData clip = data.getClipData();
+            if (clip != null) for (int i = 0; i < clip.getItemCount(); i++) uris.add(clip.getItemAt(i).getUri());
+            else if (data.getData() != null) uris.add(data.getData());
+        }
+        // the camera writes into cameraUri and returns no data
+        if (uris.isEmpty() && cameraUri != null) uris.add(cameraUri);
+        return uris;
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQ_FILE || fileCallback == null) return;
-        Uri[] result = null;
-        if (resultCode == RESULT_OK) {
-            ArrayList<Uri> uris = new ArrayList<>();
-            if (data != null) {
-                ClipData clip = data.getClipData();
-                if (clip != null) for (int i = 0; i < clip.getItemCount(); i++) uris.add(clip.getItemAt(i).getUri());
-                else if (data.getData() != null) uris.add(data.getData());
-            }
-            // the camera writes into cameraUri and returns no data
-            if (uris.isEmpty() && cameraUri != null) uris.add(cameraUri);
-            if (!uris.isEmpty()) result = uris.toArray(new Uri[0]);
+        if (requestCode == REQ_PICK) {
+            ArrayList<Uri> uris = resultUris(resultCode, data);
+            String id = pickRequestId;
+            pickRequestId = null;
+            cameraUri = null;
+            deliver("window.__inkFiles && window.__inkFiles(" + JSONObject.quote(id == null ? "" : id) + ", " + describe(uris) + ")");
+            return;
         }
-        fileCallback.onReceiveValue(result);
+        if (requestCode != REQ_FILE || fileCallback == null) return;
+        ArrayList<Uri> uris = resultUris(resultCode, data);
+        fileCallback.onReceiveValue(uris.isEmpty() ? null : uris.toArray(new Uri[0]));
         fileCallback = null;
         cameraUri = null;
     }
 
+    private void deliver(String js) { runOnUiThread(() -> web.evaluateJavascript(js, null)); }
+
+    /** JSON list of {url, name, type} for files the page can fetch from /picked/<id>. */
+    private String describe(ArrayList<Uri> uris) {
+        JSONArray a = new JSONArray();
+        for (Uri u : uris) {
+            try {
+                String id = UUID.randomUUID().toString();
+                served.put(id, u);
+                JSONObject o = new JSONObject();
+                o.put("url", "/picked/" + id);
+                o.put("name", displayName(u));
+                String type = getContentResolver().getType(u);
+                o.put("type", type == null ? "" : type);
+                a.put(o);
+            } catch (Exception ignored) { }
+        }
+        return a.toString();
+    }
+
+    private String displayName(Uri u) {
+        try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) { String n = c.getString(0); if (n != null && !n.isEmpty()) return n; }
+        } catch (Exception ignored) { }
+        String n = u.getLastPathSegment();
+        return n == null ? "photo" : n.replaceAll(".*/", "");
+    }
+
     // ── picking files: gallery / photos / drive, several at once, or the camera ──
     private Intent buildChooser(WebChromeClient.FileChooserParams params) {
-        boolean multiple = params.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE;
+        return buildChooser(params.getAcceptTypes(), params.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE, params.isCaptureEnabled());
+    }
+
+    private Intent buildChooser(String[] accepts, boolean multiple, boolean capture) {
         ArrayList<String> mimes = new ArrayList<>();
         boolean images = false;
-        for (String a : params.getAcceptTypes()) {
+        for (String a : accepts) {
             for (String t : a.split(",")) {
                 t = t.trim().toLowerCase();
                 if (t.isEmpty()) continue;
@@ -205,7 +265,7 @@ public class MainActivity extends Activity {
         pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple);
 
         Intent camera = images ? cameraIntent() : null;
-        if (camera != null && params.isCaptureEnabled()) return camera;
+        if (camera != null && capture) return camera;
         Intent chooser = Intent.createChooser(pick, images ? "Add photos" : "Choose a file");
         if (camera != null) chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{camera});
         return chooser;
@@ -243,28 +303,12 @@ public class MainActivity extends Activity {
             uris.add(intent.getData());
         }
         if (uris.isEmpty()) return;
-        new Thread(() -> {
-            int n = 0;
-            for (Uri u : uris) {
-                if (n >= 30) break;
-                try (InputStream in = getContentResolver().openInputStream(u)) {
-                    if (in == null) continue;
-                    ByteArrayOutputStream buf = new ByteArrayOutputStream();
-                    byte[] chunk = new byte[65536];
-                    int r; long total = 0;
-                    while ((r = in.read(chunk)) > 0) { buf.write(chunk, 0, r); total += r; if (total > 60L * 1024 * 1024) break; }
-                    JSONObject o = new JSONObject();
-                    String name = u.getLastPathSegment();
-                    o.put("name", name == null ? "photo" : name.replaceAll(".*/", ""));
-                    String type = getContentResolver().getType(u);
-                    o.put("type", type == null ? "" : type);
-                    o.put("b64", Base64.encodeToString(buf.toByteArray(), Base64.NO_WRAP));
-                    synchronized (sharedQueue) { sharedQueue.add(o.toString()); }
-                    n++;
-                } catch (Exception ignored) { }
-            }
-            runOnUiThread(() -> web.evaluateJavascript("window.inkSharedReady && window.inkSharedReady()", null));
-        }).start();
+        while (uris.size() > 30) uris.remove(uris.size() - 1);
+        try {
+            JSONArray list = new JSONArray(describe(uris));
+            synchronized (sharedQueue) { for (int i = 0; i < list.length(); i++) sharedQueue.add(list.getJSONObject(i).toString()); }
+        } catch (Exception ignored) { }
+        deliver("window.inkSharedReady && window.inkSharedReady()");
     }
 
     @Override
@@ -406,7 +450,22 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public String platform() { return "android"; }
 
-        /** Photos shared into the app, as a JSON array of {name, type, b64}; empties the queue. */
+        /** Open the phone's own picker (gallery, Google Photos, files, camera) for an <input type=file>. */
+        @JavascriptInterface
+        public void pickFiles(String requestId, String accept, boolean multiple, boolean capture) {
+            runOnUiThread(() -> {
+                try {
+                    pickRequestId = requestId;
+                    startActivityForResult(buildChooser(accept == null ? new String[0] : accept.split(","), multiple, capture), REQ_PICK);
+                } catch (Exception e) {
+                    pickRequestId = null;
+                    deliver("window.__inkFiles && window.__inkFiles(" + JSONObject.quote(requestId) + ", [])");
+                    Toast.makeText(MainActivity.this, "Couldn't open the photo picker", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+
+        /** Photos shared into the app, as a JSON array of {url, name, type}; empties the queue. */
         @JavascriptInterface
         public String takeShared() {
             synchronized (sharedQueue) {
