@@ -466,7 +466,7 @@ function applySettings(){
       state.settings.environment = 'neutral'; save();
     }
   });
-  viewport.ground.visible = s.showGrid;
+  (viewport.grid || viewport.ground).visible = s.showGrid;   /* the grid only; the studio floor stays */
   viewport.key.castShadow = s.showShadows;
   viewport.onQualityFallback = () => {
     if (state.settings.quality !== 'high') return;
