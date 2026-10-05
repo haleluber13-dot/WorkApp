@@ -113,7 +113,7 @@ export function render(ctx, tab){
         { value:'balanced', label:'Balanced — reflections and shadows (recommended)' },
         { value:'high', label:'High — adds ambient occlusion and bloom; needs a real GPU' },
         { value:'fast', label:'Fast — for older phones and laptops' },
-      ], s.quality, (v) => set('quality', v))),
+      ], s.quality, (v) => { set('qualityAuto', false); set('quality', v); })),
       slider({ label:'Reflections', min:0, max:2, step:0.05, value:s.reflections ?? 0.85,
         format:(v) => v.toFixed(2) + '×', onInput:(v) => setQuiet('reflections', v) }),
       note('Reflections come from an environment map, not a texture. Turning them down makes metal look like painted plastic — which is exactly why a part with nothing to reflect never looks real.'),

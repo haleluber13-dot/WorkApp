@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { INSTANCED, baseId } from '../data/parts.js';
 import { buildExtraParts } from './extra/index.js';
+import { mergeStatic } from './mergeStatic.js';
 import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, tag, at, rot,
          boundsOf, slider, epitrochoid, deg, TAU,
          lathe, pistonMesh, rodMesh, counterweight, camLobe, lobeLift, valveMesh, springMesh,
@@ -2548,6 +2549,8 @@ function finalize(e, root, nodes, anim, L){
       o.userData.explodeDir = explodeDir(id, o, L);
     }
   }
+  /* bake the static meshes of every part into as few draw calls as possible */
+  try { mergeStatic(nodes, anim); } catch (err){ console.warn('mergeStatic', err); }
   const bounds = boundsOf(root);
   anim.rootNode = root;
   anim.homePos = root.position.clone();

@@ -53,8 +53,40 @@ try { void localStorage.length; } catch {
                  get length(){ return mem.size; } };
   try { Object.defineProperty(globalThis, 'localStorage', { value: shim, configurable: true }); } catch {}
 }
+/* Whatever stops the app from starting is shown on the page, not swallowed
+   into a black screen: the message is what a bug report needs. */
+let booted = false;
+function showFatal(err, title = 'MotorLab could not start'){
+  const msg = (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err);
+  let box = document.getElementById('fatal');
+  if (!box){
+    box = document.createElement('div'); box.id = 'fatal';
+    box.style.cssText = 'position:fixed;inset:auto 12px 12px 12px;z-index:99999;background:#1a1d24;color:#eee;border:1px solid #f26b1d;border-radius:10px;padding:14px;font:13px/1.4 system-ui,sans-serif;max-height:60vh;overflow:auto;box-shadow:0 8px 30px rgba(0,0,0,.6)';
+    document.body.appendChild(box);
+  }
+  box.innerHTML = `<b style="color:#f26b1d">${title}</b><pre style="white-space:pre-wrap;margin:8px 0;font-size:11px;opacity:.9"></pre>
+    <button id="fatalReload" style="margin-right:8px">Reload</button><button id="fatalReset">Reset saved data and reload</button>
+    <button id="fatalClose" style="float:right">×</button>`;
+  box.querySelector('pre').textContent = msg.slice(0, 1200);
+  box.querySelector('#fatalReload').onclick = () => location.reload();
+  box.querySelector('#fatalReset').onclick = () => { try { localStorage.clear(); } catch {} location.reload(); };
+  box.querySelector('#fatalClose').onclick = () => box.remove();
+}
+addEventListener('error', (ev) => { if (!booted) showFatal(ev.error || ev.message); });
+addEventListener('unhandledrejection', (ev) => { if (!booted) showFatal(ev.reason); });
+addEventListener('motorlab:gl-lost', () => showFatal('The graphics context was lost — the device ran out of graphics memory or the GPU reset. Reload; if it happens again, set Render quality to Fast in Settings.', 'Graphics stopped'));
+
+/* a phone or a small laptop starts on the fast preset unless you chose otherwise */
+function lowEndDevice(){
+  const ua = navigator.userAgent || '';
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+  const cores = navigator.hardwareConcurrency || 8, mem = navigator.deviceMemory || 8;
+  return mobile || cores <= 4 || mem <= 4;
+}
+
 async function boot(){
   load();
+  if (state.settings.qualityAuto && lowEndDevice() && state.settings.quality !== 'fast') state.settings.quality = 'fast';
   loadStoredUpdates();
   globalThis.__MOTORLAB_GENERATED = state.ui.generated ||= {};
   invalidateTrees();
@@ -514,8 +546,9 @@ function credits(){
 }
 
 /* ---------------------------------------------------------------------- */
-if (document.readyState === 'loading') addEventListener('DOMContentLoaded', boot);
-else boot();
+const start = () => boot().then(() => { booted = true; }).catch((err) => { console.error(err); showFatal(err); });
+if (document.readyState === 'loading') addEventListener('DOMContentLoaded', start);
+else start();
 
 try {
   if ('serviceWorker' in navigator && navigator.serviceWorker)

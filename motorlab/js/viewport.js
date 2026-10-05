@@ -18,6 +18,10 @@ export class Viewport {
   constructor(canvas, labelHost){
     this.canvas = canvas; this.labelHost = labelHost;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:false, powerPreference:'high-performance' });
+    /* a phone that runs out of graphics memory drops the context and shows a
+       black canvas with no explanation — say what happened instead */
+    canvas.addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); dispatchEvent(new CustomEvent('motorlab:gl-lost')); });
+    canvas.addEventListener('webglcontextrestored', () => dispatchEvent(new CustomEvent('motorlab:gl-restored')));
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;

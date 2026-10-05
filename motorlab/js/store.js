@@ -13,7 +13,7 @@ const SET = 'motorlab.settings.v1';
 export const DEFAULT_SETTINGS = {
   /* look */
   theme:'workshop', accent:'#ff7a1a', units:'metric', powerUnit:'hp',
-  showGrid:true, showShadows:true, quality:'balanced', fov:42, reflections:0.85, bodyOpacity:1.0,
+  showGrid:true, showShadows:true, quality:'balanced', qualityAuto:true, fov:42, reflections:0.85, bodyOpacity:1.0,
   environment:'garage', backdrop:false,
   /* behaviour */
   /* ghost off by default: the first thing you see should be the machine, not
