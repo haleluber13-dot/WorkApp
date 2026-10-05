@@ -15,8 +15,19 @@ function friendly(msg, cause) {
 }
 
 async function fetchModel(onProgress) {
-  const res = await fetch(BASE + "face_landmarker.task");
-  if (!res.ok) throw new Error("model HTTP " + res.status);
+  let res = await fetch(BASE + "face_landmarker.task").catch(() => null);
+  if (!res?.ok) {
+    // hosts that won't serve a .task file get a base64 text copy instead
+    const alt = await fetch(BASE + "face_landmarker.task.b64.txt").catch(() => null);
+    if (alt?.ok) {
+      const bin = atob((await alt.text()).trim());
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      onProgress?.(1);
+      return out;
+    }
+  }
+  if (!res?.ok) throw new Error("model HTTP " + (res ? res.status : "network"));
   const total = +res.headers.get("content-length") || 3758596;
   if (!res.body || !res.body.getReader) return new Uint8Array(await res.arrayBuffer());
   const reader = res.body.getReader();
