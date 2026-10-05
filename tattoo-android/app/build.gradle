@@ -1,0 +1,57 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "com.inkform.app"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.inkform.app"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    signingConfigs {
+        release {
+            // keystore path and passwords come from the environment / local.properties (never committed)
+            def ks = System.getenv("INKFORM_KEYSTORE") ?: project.findProperty("inkformKeystore")
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv("INKFORM_KEYSTORE_PASSWORD") ?: project.findProperty("inkformKeystorePassword")
+                keyAlias "inkform"
+                keyPassword System.getenv("INKFORM_KEYSTORE_PASSWORD") ?: project.findProperty("inkformKeystorePassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release.storeFile ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    lint { checkReleaseBuilds false; abortOnError false }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // the web app lives in ../tattoo and is copied in at build time
+    sourceSets { main { assets.srcDirs += ["$buildDir/generated/webassets"] } }
+    androidResources { noCompress += ["js", "css", "woff", "mjs", "svg", "json", "webmanifest"] }
+}
+
+def copyWeb = tasks.register("copyWebApp", Sync) {
+    from("$rootDir/../tattoo") {
+        exclude "dev/**", "artifact.html", "sw.js", "*.md"
+    }
+    into "$buildDir/generated/webassets/www"
+}
+tasks.named("preBuild") { dependsOn copyWeb }
+
+dependencies {
+    implementation "androidx.webkit:webkit:1.12.1"
+}

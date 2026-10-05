@@ -11,6 +11,7 @@ import { SETTINGS, SETTING_BY_KEY, SKIN_TONES, INK_SWATCHES, createSettingsPanel
 import { Viewer } from "./viewer.js";
 import { tattooFrame } from "./decal.js";
 import { designCanvas, inkCanvas, forgetDesign } from "./ink.js";
+import { isAndroidApp, saveToPhone } from "./android.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -70,6 +71,12 @@ function thumbOf(d) {
    block downloads). */
 function download(name, href, { preview = true, text = null } = {}) {
   const isImg = /\.(png|jpe?g|svg)$/i.test(name);
+  if (isAndroidApp) {
+    // the Android app saves straight to the phone (Pictures / Downloads)
+    saveToPhone(name, href).then((ok) => toast(ok ? (isImg ? "Saved to your Gallery (Pictures/InkForm)" : "Saved to Downloads") : "Couldn't save the file"))
+      .catch(() => toast("Couldn't save the file"));
+    return;
+  }
   try {
     const a = document.createElement("a");
     a.href = href; a.download = name;
@@ -1423,6 +1430,20 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "-" || e.key === "_") app.updateTattoo(t.id, { scaleBy: 1 / 1.08 });
   else if (e.key.toLowerCase() === "f") app.focus(t.id);
 });
+
+/* Android back button: close the top-most thing; false = nothing left to close. */
+window.inkBack = () => {
+  if (!$("#confirmModal").hidden) { $("#confirmNo").click(); return true; }
+  if (!$("#saveModal").hidden) { $("#saveClose").click(); return true; }
+  if (!$("#settingsModal").hidden) { closeSettings(); return true; }
+  if (assistant?.isOpen) { assistant.close(); return true; }
+  if (!$("#bodyPop").hidden) { $("#bodyPop").hidden = true; return true; }
+  if (document.body.classList.contains("lib-open")) { closeLib(); return true; }
+  if (placingDesignId) { stopPlacing(); return true; }
+  if (currentTab === "studio" && store.selectedId) { app.selectTattoo(null); return true; }
+  if (currentTab !== "studio") { showTab("studio"); return true; }
+  return false;
+};
 
 /* ════════════════════════════════════════════════════════════════════════
    boot

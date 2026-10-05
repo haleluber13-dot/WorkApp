@@ -1,7 +1,7 @@
 /* Offline support: precache every app file (shell, lazily loaded modules,
    fonts, vendor libs) so the whole app works offline after the first visit.
    Network first so updates show up immediately. Bump CACHE when files change. */
-const CACHE = "inkform-v2";
+const CACHE = "inkform-v3";
 const SHELL = [
   "./",
   "./index.html",
@@ -28,6 +28,7 @@ const SHELL = [
   "./js/agent/local.js",
   "./js/agent/regions.js",
   "./js/agent/vocab.js",
+  "./js/android.js",
   "./js/app.js",
   "./js/body/core.js",
   "./js/body/index.js",
