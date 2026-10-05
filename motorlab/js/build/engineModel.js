@@ -435,9 +435,10 @@ function buildPiston(e, tree){
       const zf = zs * halfD;
       for (let i = 0; i <= L.perBank; i++){
         const rx = (i - L.perBank / 2) * L.pitch;
-        fg.add(at(box(M(9), caseH * 0.74, M(8), FIN.block), rx, caseBot + caseH * 0.40, zf + zs * M(3)));
+        fg.add(at(box(M(12), caseH * 0.74, M(12), FIN.block), rx, caseBot + caseH * 0.40, zf + zs * M(4)));
+        fg.add(at(cyl(M(6), M(6), caseH * 0.74, FIN.block, 8), rx, caseBot + caseH * 0.40, zf + zs * M(10)));
       }
-      fg.add(at(cyl(M(7), M(7), L.len * 0.97, FIN.block, 8).rotateZ(Math.PI / 2), 0, caseBot + caseH * 0.26, zf + zs * M(3)));
+      fg.add(at(cyl(M(9), M(9), L.len * 0.97, FIN.block, 8).rotateZ(Math.PI / 2), 0, caseBot + caseH * 0.26, zf + zs * M(4)));
       fg.add(at(box(L.len * 0.97, M(6), M(9), FIN.block), 0, caseBot + caseH * 0.78, zf + zs * M(3)));
     }
     if (L.banks < 2 || b === L.bankAngles.length - 1){

@@ -375,7 +375,7 @@ function buildCar(v, tree){
  * crowned roof, a tapering nose, hips over the rear arches and tumblehome.
  * t runs 0 at the front bumper to 1 at the tail.
  * -------------------------------------------------------------------- */
-const BODY_LINES = {
+export const BODY_LINES = {
   /* A car is not one rounded form. It is a flat-sided lower body with a hard
      shoulder line along the top of it, a narrower greenhouse sitting on that
      shoulder with pillars holding up a roof panel, and glass filling the gaps
@@ -472,13 +472,15 @@ const BODY_LINES = {
     cuts:{ bonnet:0.26, doorF:0.30, doorR:0.66, boot:0.86 },
   },
   suv: {
-    sill :[[0,0.161],[0.10,0.118],[0.35,0.105],[0.65,0.105],[0.90,0.118],[1,0.174]],
-    wide :[[0,0.71],[0.09,0.76],[0.22,0.93],[0.38,0.98],[0.60,0.99],[0.78,0.98],[0.92,0.92],[1,0.87]],
-    waist:[[0,0.36],[0.07,0.48],[0.18,0.530],[0.30,0.545],[0.50,0.565],[0.72,0.575],[0.90,0.580],[1,0.52]],
-    roof :[[0,0.22],[0.24,0.52],[0.31,0.74],[0.40,0.94],[0.47,1.00],[0.80,1.00],[0.90,0.94],[0.97,0.76],[1,0.50]],
-    pillars:[[0.295,0.415],[0.565,0.565],[0.845,0.805]],
-    ghW:0.86, squL:5.8, squG:4.0,
-    cuts:{ bonnet:0.26, doorF:0.30, doorR:0.72, boot:0.88 },
+    /* JM Tucson proportions: high beltline (~0.63 of height), a bonnet a third
+       of the length, a blunt nose, fast A-pillar, upright C-pillar and tailgate */
+    sill :[[0,0.150],[0.10,0.112],[0.35,0.102],[0.65,0.102],[0.90,0.112],[1,0.160]],
+    wide :[[0,0.80],[0.08,0.86],[0.20,0.96],[0.36,0.99],[0.60,1.00],[0.80,0.99],[0.93,0.95],[1,0.90]],
+    waist:[[0,0.40],[0.06,0.52],[0.16,0.585],[0.30,0.600],[0.50,0.615],[0.72,0.625],[0.92,0.635],[1,0.60]],
+    roof :[[0,0.26],[0.30,0.56],[0.36,0.76],[0.43,0.94],[0.49,1.00],[0.84,1.00],[0.92,0.96],[0.97,0.82],[1,0.62]],
+    pillars:[[0.335,0.455],[0.585,0.585],[0.865,0.835]],
+    ghW:0.88, squL:5.8, squG:4.2,
+    cuts:{ bonnet:0.31, doorF:0.34, doorR:0.72, boot:0.90 },
   },
   pickup: {
     sill :[[0,0.161],[0.10,0.124],[0.40,0.118],[0.70,0.118],[0.92,0.130],[1,0.174]],

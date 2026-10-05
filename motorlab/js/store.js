@@ -142,26 +142,31 @@ export function vInstalledSet(){
       tank:['fuelpump','fuellines','fillerneck'],
       axles:['difff'], mcyl:['brakelines'],
     };
-    for (const [oldId, news] of Object.entries(SPLIT)) if (have.has(oldId) && !t.byId[oldId]){
-      changed = true; have.delete(oldId);
+    /* a legacy save is one that names an id the tree no longer has; in it, a
+       whole that is absent was taken off deliberately, so the parts it became
+       stay off, and a whole that is present brings all of them with it */
+    const legacy = list.some(x => !t.byId[x] && !pieces[x]);
+    if (legacy) for (const [oldId, news] of Object.entries(SPLIT)) if (have.has(oldId)){
+      changed = true; if (!t.byId[oldId]) have.delete(oldId);
       for (const n of news){ if (t.byId[n]) have.add(n); (pieces[n] || []).forEach(x => have.add(x)); }
     }
+    const newToOld = {};
+    for (const [oldId, news] of Object.entries(SPLIT)) for (const n of news) newToOld[n] ||= oldId;
     for (const x of [...have]) if (!t.byId[x]){ have.delete(x); changed = true; }
     /* a part the tree gained since this car was saved — a variant that adds a
-       spoiler, a new panel — starts fitted, like everything else on a car that
-       has not been taken apart */
-    const strippedAny = t.parts.some(p => !have.has(p.id) && (p.parent ? pieces[p.parent].every(x => !have.has(x)) : true) && !isNewPart(p, list));
-    if (!strippedAny) for (const p of t.parts) if (!have.has(p.id)){ have.add(p.id); changed = true; }
+       spoiler, a panel that did not exist — starts fitted, like everything
+       else on a car that has not been taken apart */
+    for (const p of t.parts){
+      if (have.has(p.id)) continue;
+      const base = p.parent || p.id;
+      const named = list.some(x => x === p.id || x === base || x.startsWith(base + '.'));
+      if (named) continue;
+      if (legacy && newToOld[base]) continue;
+      have.add(p.id); changed = true;
+    }
     if (changed) state.vInstalled[id] = [...have];
   }
   return new Set(state.vInstalled[id]);
-}
-/* was this part absent from a saved list because it was removed, or because
-   it did not exist yet? Anything the tree knows and the list never named at
-   all — by piece or by whole — counts as new. */
-function isNewPart(p, list){
-  const base = p.parent || p.id;
-  return !list.some(x => x === p.id || x === base || x.startsWith(base + '.'));
 }
 export function setVInstalled(set){ state.vInstalled[state.vehicleId] = [...set]; save(); }
 
