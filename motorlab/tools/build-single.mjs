@@ -46,7 +46,7 @@ const skip = arg('skip'), omit = arg('omit');
 const liteTex = !process.argv.includes('--full-tex');
 
 /* inline every runtime asset so the single file needs no server at all */
-const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.obj':'text/plain', '.mtl':'text/plain',
+const MIME = { '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.obj':'text/plain', '.mtl':'text/plain',
                '.glb':'model/gltf-binary', '.hdr':'image/vnd.radiance',
                /* the recorded engine loops */
                '.mp3':'audio/mpeg',
