@@ -62,6 +62,7 @@ export function designCanvas(design, res = 1024) {
     const ctx = c.getContext("2d", { willReadFrequently: true });
     ctx.drawImage(img, px, px, cw, ch);
     c.isImage = design.kind === "image" || !!design.image;
+    c.keyWhite = design.style !== "photo"; // photo cut-outs are already transparent where the user wants
     c.artW = cw; c.artH = ch; c.pad = px;
     return c;
   })();
@@ -134,7 +135,7 @@ export function inkCanvas(base, look) {
   const sat = (look.saturation ?? 1) * (1 - age * 0.55);
   const density = (look.density ?? 0.92) * (1 - age * 0.3) * (look.opacity ?? 1);
   const thr = look.whiteThreshold ?? 0.86;
-  const keyWhite = base.isImage && look.removeWhite !== false;
+  const keyWhite = base.isImage && base.keyWhite !== false && look.removeWhite !== false;
   // old black ink drifts toward a soft blue-green grey
   const oldR = 38, oldG = 58, oldB = 62;
 

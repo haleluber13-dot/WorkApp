@@ -702,9 +702,10 @@ function onSettingChanged({ key }) {
     $("#camSpin")?.classList.toggle("on", !!S("scene.autoRotate"));
   }
   if (key.startsWith("ink.") || key === "place.units") syncTattoos();
-  if (key.startsWith("ui.")) { applyTheme(); viewer?.applySettings(store.settings); }
+  if (key.startsWith("ui.")) { applyTheme(); viewer?.applySettings(store.settings); photo?.setSettings?.({ theme: document.documentElement.dataset.theme }); }
   if (key === "place.units") { updateBodyChip(); renderBodyPop(); }
   if (key.startsWith("sketch.") && pad) pad.setSettings(sketchSettings());
+  if (key === "skin.tone") photo?.setSettings?.({ skinColor: S("skin.tone") });
   if (key === "skin.tone" && !$("#bodyPop").contains(document.activeElement)) renderBodyPop();
 }
 
@@ -821,7 +822,7 @@ async function saveShot() {
    ════════════════════════════════════════════════════════════════════════ */
 let currentTab = "studio";
 function showTab(tab) {
-  if (!["studio", "create", "sketch"].includes(tab)) tab = "studio";
+  if (!["studio", "create", "sketch", "photo"].includes(tab)) tab = "studio";
   currentTab = tab;
   if (tab !== "studio" && placingDesignId) stopPlacing();
   document.body.dataset.tab = tab;
@@ -829,6 +830,7 @@ function showTab(tab) {
   $$(".tabs [data-tab], .mobtabs [data-tab]").forEach((b) => { b.classList.toggle("on", b.dataset.tab === tab); b.setAttribute("aria-selected", String(b.dataset.tab === tab)); });
   if (tab === "create") initCreate();
   if (tab === "sketch") initSketch();
+  if (tab === "photo") initPhoto();
   if (tab === "studio") viewer?._resize();
   requestAnimationFrame(layoutFloating);
   try { if (location.hash.replace(/^#\/?/, "") !== tab) history.replaceState(null, "", "#" + tab); } catch {}
@@ -1398,6 +1400,39 @@ $("#sketchNew").addEventListener("click", async () => {
   if (!pad.isEmpty?.() && !(await askConfirm("Start a new sketch? The current drawing will be cleared — save it to your designs first if you want to keep it.", "Start new"))) return;
   pad.clear(); $("#sketchName").value = "My sketch";
 });
+
+/* ════════════════════════════════════════════════════════════════════════
+   Photo tab: cut out part of a photo, pro adjustments, tattoo looks
+   ════════════════════════════════════════════════════════════════════════ */
+let photo = null, photoInit = null;
+function initPhoto() {
+  if (photoInit) return photoInit;
+  photoInit = (async () => {
+    try {
+      const m = await import("./photo/photostudio.js");
+      const asDesign = (canvas, name) => app.addImageDesign({ name: name || "Photo tattoo", image: canvas.toDataURL("image/png"), width: canvas.width, height: canvas.height, style: "photo" });
+      photo = new m.PhotoStudio($("#photoHost"), {
+        settings: { skinColor: S("skin.tone"), theme: document.documentElement.dataset.theme },
+        toast,
+        onUse(canvas, name) {
+          const d = asDesign(canvas, name);
+          showTab("studio");
+          try { app.placeTattoo({ designId: d.id, region: freeRegion() }); if (Date.now() - (showTip.last || 0) > 800) toast("Placed — drag it anywhere on the body"); }
+          catch (e) { toast(e.message); }
+        },
+        onSave(canvas, name) { asDesign(canvas, name); toast("Saved to your designs"); },
+        onSketch(canvas, name) { const d = asDesign(canvas, name); app.openSketch(d.id); },
+        onExport(canvas, name) { download(`${(name || "photo-tattoo").replace(/[^\w-]+/g, "-")}.png`, canvas.toDataURL("image/png")); },
+      });
+      window.inkPhoto = photo;
+    } catch (e) {
+      console.error(e);
+      $("#photoHost").innerHTML = `<p class="muted" style="padding:20px">The photo studio couldn't load: ${esc(e.message)}</p>`;
+    }
+  })();
+  return photoInit;
+}
+$("#fromPhoto").addEventListener("click", () => { closeLib(); showTab("photo"); });
 
 /* ════════════════════════════════════════════════════════════════════════
    keyboard

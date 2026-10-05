@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="fonts/fonts.css">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="js/sketch/sketch.css">
+<link rel="stylesheet" href="js/photo/photo.css">
 <link rel="stylesheet" href="js/agent/agent.css">
 <script type="importmap">
 { "imports": {
@@ -33,6 +34,7 @@
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button role="tab" data-tab="studio"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.6"/><path d="M8 9.5h8l-1 6h-1.6l-.6 6h-1.6l-.6-6H9z"/></svg><span>Studio</span></button>
     <button role="tab" data-tab="create"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L21 9l-5.3 4.1L17.5 20 12 16.3 6.5 20l1.8-6.9L3 9l6.8-.7z"/></svg><span>Create</span></button>
+    <button role="tab" data-tab="photo"><svg viewBox="0 0 24 24"><path d="M4 7h3l2-2.5h6L17 7h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zm8 3a4 4 0 100 8 4 4 0 000-8z"/></svg><span>Photo</span></button>
     <button role="tab" data-tab="sketch"><svg viewBox="0 0 24 24"><path d="M3 21l1.2-4.6L16.6 4a2 2 0 012.8 0l.6.6a2 2 0 010 2.8L7.6 19.8z"/></svg><span>Sketch</span></button>
   </nav>
   <div class="topbar__actions">
@@ -52,6 +54,7 @@
         <button data-ltab="placed">On body <span class="count" id="placedCount">0</span></button>
       </div>
       <div class="panel__body" data-lpane="library">
+        <button class="btn fromphoto" id="fromPhoto" type="button"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M4 7h3l2-2.5h6L17 7h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zm8 3a4 4 0 100 8 4 4 0 000-8z"/></svg> Use a photo</button>
         <form class="quickgen" id="quickGen" autocomplete="off">
           <input id="quickPrompt" type="text" placeholder="Describe a tattoo…" aria-label="Describe a tattoo">
           <button class="btn btn--accent" type="submit">Make</button>
@@ -119,6 +122,11 @@
     </div>
   </section>
 
+  <!-- ───────────── Photo: cut out + pro adjustments ───────────── -->
+  <section class="view view--photo" data-view="photo" hidden>
+    <div class="photohost" id="photoHost"></div>
+  </section>
+
   <!-- ───────────── Sketch ───────────── -->
   <section class="view view--sketch" data-view="sketch" hidden>
     <div class="sketchhost" id="sketchHost"></div>
@@ -134,6 +142,7 @@
 <nav class="mobtabs" aria-label="Sections">
   <button data-tab="studio"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.6"/><path d="M8 9.5h8l-1 6h-1.6l-.6 6h-1.6l-.6-6H9z"/></svg>Studio</button>
   <button data-tab="create"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.3L21 9l-5.3 4.1L17.5 20 12 16.3 6.5 20l1.8-6.9L3 9l6.8-.7z"/></svg>Create</button>
+  <button data-tab="photo"><svg viewBox="0 0 24 24"><path d="M4 7h3l2-2.5h6L17 7h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1zm8 3a4 4 0 100 8 4 4 0 000-8z"/></svg>Photo</button>
   <button data-tab="sketch"><svg viewBox="0 0 24 24"><path d="M3 21l1.2-4.6L16.6 4a2 2 0 012.8 0l.6.6a2 2 0 010 2.8L7.6 19.8z"/></svg>Sketch</button>
   <button data-open="settings"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Settings</button>
 </nav>

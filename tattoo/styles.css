@@ -264,6 +264,9 @@ body.placing .bodychip { visibility: hidden; }
 
 /* ── sketch ──────────────────────────────────────────────────────────── */
 .view--sketch { display: flex; flex-direction: column; }
+.photohost { position: absolute; inset: 0; }
+.fromphoto { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+.fromphoto svg { fill: currentColor; }
 .sketchhost { flex: 1; min-height: 0; position: relative; }
 .sketchbar { display: flex; gap: 8px; padding: 8px 12px; background: var(--panel); border-top: 1px solid var(--border); align-items: center; }
 .sketchbar input { flex: 1; max-width: 260px; }
