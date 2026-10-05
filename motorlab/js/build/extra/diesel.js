@@ -94,9 +94,9 @@ export function build(ctx){
            the rockers and crossheads (bank frame = scene frame on an inline) */
         for (let i = 0; i < e.cyl; i++){
           const x = cylPosition(e, i, L).x, g = group('clamp');
-          g.add(at(roundBox(B * 0.42, B * 0.06, B * 0.16, .004, MAT.steel()), x + B * 0.14, D + B * 1.13, 0));
-          g.add(at(tubeMesh(B * 0.11, B * 0.08, B * 0.06, MAT.steel(), 14), x, D + B * 1.13, 0));
-          g.add(at(bolt(M(6), M(26), MAT.plated()), x + B * 0.30, D + B * 1.16, 0));
+          g.add(at(roundBox(B * 0.42, B * 0.06, B * 0.16, .004, MAT.steel()), x + B * 0.14, D + B * 1.36, 0));
+          g.add(at(tubeMesh(B * 0.11, B * 0.08, B * 0.26, MAT.steel(), 14), x, D + B * 1.23, 0));    // fork down onto the injector shoulder
+          g.add(at(bolt(M(6), M(26), MAT.plated()), x + B * 0.30, D + B * 1.39, 0));
           each('injclamps', i, g);
         }
       } else {
@@ -104,9 +104,9 @@ export function build(ctx){
         for (let k = 0; k < Math.ceil(e.cyl / 2); k++){
           const xa = cylPosition(e, 2 * k, L).x, xb = cylPosition(e, Math.min(e.cyl - 1, 2 * k + 1), L).x;
           const xm = (xa + xb) / 2, g = group('clamp');
-          g.add(at(roundBox(Math.abs(xb - xa) + B * 0.24, B * 0.07, B * 0.18, .004, MAT.steel()), xm, D + B * 1.13, 0));
-          for (const x of [xa, xb]) g.add(at(tubeMesh(B * 0.12, B * 0.085, B * 0.08, MAT.steel(), 14), x, D + B * 1.12, 0));
-          g.add(at(bolt(M(6), M(28), MAT.plated()), xm, D + B * 1.18, 0));
+          g.add(at(roundBox(Math.abs(xb - xa) + B * 0.24, B * 0.07, B * 0.18, .004, MAT.steel()), xm, D + B * 1.36, 0));
+          for (const x of [xa, xb]) g.add(at(tubeMesh(B * 0.12, B * 0.085, B * 0.26, MAT.steel(), 14), x, D + B * 1.23, 0));
+          g.add(at(bolt(M(6), M(28), MAT.plated()), xm, D + B * 1.41, 0));
           each('injclamps', k, g);
         }
       }
@@ -392,9 +392,9 @@ export function build(ctx){
       for (let i = 0; i < e.cyl; i++){
         const b = bankOf(i), x = cylPosition(e, i, L).x;
         const g = group('clamp');
-        g.add(at(roundBox(B * 0.36, B * 0.06, B * 0.15, .004, MAT.steel()), x + B * 0.12, D + B * 1.12, 0));
-        g.add(at(tubeMesh(B * 0.11, B * 0.08, B * 0.06, MAT.steel(), 14), x, D + B * 1.12, 0));
-        g.add(at(bolt(M(6), M(26), MAT.plated()), x + B * 0.26, D + B * 1.15, 0));
+        g.add(at(roundBox(B * 0.36, B * 0.06, B * 0.15, .004, MAT.steel()), x + B * 0.12, D + B * 1.36, 0));
+        g.add(at(tubeMesh(B * 0.11, B * 0.08, B * 0.26, MAT.steel(), 14), x, D + B * 1.23, 0));
+        g.add(at(bolt(M(6), M(26), MAT.plated()), x + B * 0.26, D + B * 1.39, 0));
         each('injclamps', i, inBank(b, g, 0, 0, 0));
       }
       flush('injclamps');

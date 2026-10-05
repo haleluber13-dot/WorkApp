@@ -1070,6 +1070,22 @@ function buildPiston(e, tree){
     const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
     const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, inSide(b) * L.bore * 0.70);
     const [my, mz] = plenumMouth();
+    if (itb && L.banks < 2){
+      /* Individual throttles on an inline engine come straight off the intake
+         face of the head and lean out over the intake side — the row of
+         trumpets on an RB26 or an S54 stands beside the cam cover, not on it. */
+      const lean = deg(40), sgn = inSide(b);
+      const dir = V3(0, Math.cos(lean), sgn * Math.sin(lean));
+      const root = V3(p.x, py, pz);
+      const body = root.clone().addScaledVector(dir, L.bore * 0.46);
+      const mouth = root.clone().addScaledVector(dir, L.bore * 0.80);
+      intakeG.add(pipe([[root.x, root.y, root.z], [body.x, body.y, body.z]], M(17), inletMat, 8));
+      const tb = cyl(M(23), M(23), L.bore * 0.22, MAT.alloyDark(), 20);
+      tb.rotation.x = sgn * lean; tb.position.copy(body); intakeG.add(tb);
+      const vs = velocityStack(M(46), L.bore * 0.34, MAT.alloy());
+      vs.rotation.x = sgn * lean; vs.position.copy(mouth); intakeG.add(vs);
+      continue;
+    }
     const topY = itb ? L.deckH + L.bore * 1.62 : my;
     const zEnd = itb ? pz * 0.55 : mz;
     intakeG.add(pipe([

@@ -371,19 +371,19 @@ export function build(ctx){
   if (has('geartrain')){
     for (let b = 0; b < L.banks; b++){
       const [gy, gz] = pt(b, L.deckH * 0.88, 0);
-      const x = -L.len / 2 - M(9);
+      const x = -L.len / 2 - M(8);              // between the block face and the cam-drive plane
       const g = group('compound');
-      g.add(at(rot(tubeMesh(M(31), M(9), M(6), MAT.steel(), 34), 0, 0, Math.PI / 2), x - M(1), gy, gz));
-      g.add(at(rot(tubeMesh(M(20), M(9), M(6), MAT.steel(), 26), 0, 0, Math.PI / 2), x + M(5), gy, gz));
+      g.add(at(rot(tubeMesh(M(31), M(9), M(3.5), MAT.steel(), 34), 0, 0, Math.PI / 2), x - M(1.5), gy, gz));
+      g.add(at(rot(tubeMesh(M(20), M(9), M(3), MAT.steel(), 26), 0, 0, Math.PI / 2), x + M(1.8), gy, gz));
       /* teeth, as a fine ring of bumps on the big gear */
       for (let k = 0; k < 36; k++){
         const a = (k / 36) * TAU;
-        g.add(at(box(M(6), M(3), M(3), MAT.steel()), x - M(1), gy + Math.sin(a) * M(32), gz + Math.cos(a) * M(32)));
+        g.add(at(box(M(3.5), M(3), M(3), MAT.steel()), x - M(1.5), gy + Math.sin(a) * M(32), gz + Math.cos(a) * M(32)));
       }
       /* the twelve torsion bars in the hub */
       for (let k = 0; k < 12; k++){
         const a = (k / 12) * TAU;
-        g.add(at(rot(cyl(M(1.6), M(1.6), M(12), MAT.plated(), 6), 0, 0, Math.PI / 2), x - M(5), gy + Math.sin(a) * M(14), gz + Math.cos(a) * M(14)));
+        g.add(at(rot(cyl(M(1.6), M(1.6), M(6.5), MAT.plated(), 6), 0, 0, Math.PI / 2), x, gy + Math.sin(a) * M(14), gz + Math.cos(a) * M(14)));
       }
       ctx.each('geartrain', b, g);
     }
@@ -425,10 +425,10 @@ export function build(ctx){
   }
   if (has('meteringunit')){
     const g = group('metering');
-    const mx = -L.len / 2 + L.bore * 0.85, my = L.deckH * 0.90, ml = M(90);
+    const mx = -L.len / 2 + L.bore * 1.25, my = L.deckH + L.bore * 0.08, ml = M(90);
     g.add(at(rot(cyl(M(26), M(26), ml, MAT.alloy(), 22), 0, 0, Math.PI / 2), mx, my, 0));
     g.add(at(rot(cyl(M(30), M(30), M(14), MAT.alloyDark(), 22), 0, 0, Math.PI / 2), mx - ml / 2 - M(4), my, 0));
-    g.add(at(rot(cyl(M(10), M(10), M(26), MAT.steel(), 12), 0, 0, Math.PI / 2), mx - ml / 2 - M(22), my, 0));   // drive coupling
+    g.add(at(rot(cyl(M(10), M(10), M(12), MAT.steel(), 12), 0, 0, Math.PI / 2), mx - ml / 2 - M(17), my, 0));   // drive coupling
     /* the throttle-linked metering cam lever on top */
     g.add(at(box(M(10), M(26), M(6), MAT.steel()), mx + M(20), my + M(36), 0));
     /* one line per cylinder, from the head of the unit to its injector */

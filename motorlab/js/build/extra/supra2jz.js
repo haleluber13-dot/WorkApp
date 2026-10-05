@@ -118,22 +118,22 @@ export function build(ctx){
     s.lineTo(-zH, y0 + r); s.quadraticCurveTo(-zH, y0, -zH + r, y0);
     for (const sz of [-1, 1]){ const h = new THREE.Path(); h.absarc(sz * camZ, camY, M(27), 0, Math.PI * 2, true); s.holes.push(h); }
     const pl = plateYZ(s, M(2.5), MAT.steel());
-    pl.position.x = frontX + M(6.5);
+    pl.position.x = frontX + M(9);          // behind the belt and the pulleys, in front of the cam seals
     g.add(pl);
     /* the timing marks the cam pulley marks line up with */
     for (const sz of [-1, 1])
-      g.add(at(box(M(1.5), M(9), M(2.5), MAT.chrome()), frontX + M(6), camY + M(33), sz * camZ));
+      g.add(at(box(M(1.5), M(9), M(2.5), MAT.chrome()), frontX + M(8.2), camY + M(33), sz * camZ));
     for (const [yy, zz] of [[deck + M(8), -zH + M(8)], [deck + M(8), zH - M(8)], [headTop, -zH + M(8)], [headTop, zH - M(8)]])
-      g.add(boltAt(V3(frontX + M(5), yy, zz), V3(-1, 0, 0), M(3.5), M(8)));
+      g.add(at(rot(hexPrism(M(8), M(2), MAT.steel()), 0, 0, Math.PI / 2), frontX + M(8), yy, zz));   // low flange heads: the belt runs right over them
     add('tbcover4', g);
   }
 
   if (has('tbguide')){
     /* dished washer on the crank nose, cup facing forward */
-    const gd = lathe([[M(24), 0], [M(33), 0], [M(35), M(1.2)], [M(35.5), M(2.2)], [M(34), M(2.2)], [M(32), M(1.2)], [M(24), M(1.2)]],
+    const gd = lathe([[M(24), 0], [M(33), 0], [M(35), M(0.8)], [M(35.5), M(1.4)], [M(34), M(1.4)], [M(32), M(0.8)], [M(24), M(0.8)]],
                      MAT.steel(), 32);
     rot(gd, 0, 0, Math.PI / 2);                    // its +Y (the cup) now points to −X, the front
-    add('tbguide', at(gd, frontX - M(6.2), 0, 0));
+    add('tbguide', at(gd, frontX - M(7), 0, 0));    // right at the belt's front edge
   }
 
   if (has('tbplate')){
@@ -147,7 +147,7 @@ export function build(ctx){
   /* ================================================================== */
   /* accessory drive (M/T tensioner damper)                              */
   /* ================================================================== */
-  const brkAt = V3(beltX + M(24), deck * 0.62, L.bore * 0.72);
+  const brkAt = V3(beltX + M(10), deck * 0.62, L.bore * 0.72);   // ahead of the front cover face
   if (has('dbtbracket')){
     const g = group('dbtbracket');
     g.add(at(roundBox(M(8), M(46), M(30), M(4), MAT.steel()), brkAt.x, brkAt.y, brkAt.z));
@@ -158,7 +158,7 @@ export function build(ctx){
     /* gas strut from the bracket up to the drive belt tensioner arm */
     const g = group('dbtdamper');
     const a = V3(brkAt.x - M(10), brkAt.y + M(16), brkAt.z - M(4));
-    const b = V3(beltX + M(14), deck * 0.96 - M(8), M(16));
+    const b = V3(beltX + M(1), deck * 0.96 - M(18), M(16));
     const d = b.clone().sub(a), len = d.length();
     const body = cyl(M(9), M(9), len * 0.58, MAT.black(), 16);
     orient(body, d); body.position.copy(a).addScaledVector(d, 0.29);
@@ -338,11 +338,11 @@ export function build(ctx){
   if (has('subthrottle')){
     /* the TRAC sub-throttle actuator on the outboard face of the throttle body */
     const g = group('subthrottle');
-    g.add(at(roundBox(M(36), M(34), M(20), M(4), MAT.black()), thr.x, thr.y, thr.z + inZ * M(52)));
-    g.add(at(rot(cyl(M(9), M(9), M(10), MAT.alloyDark(), 14), Math.PI / 2, 0, 0), thr.x, thr.y, thr.z + inZ * M(41)));
-    g.add(at(box(M(14), M(12), M(10), MAT.plastic()), thr.x + M(14), thr.y + M(22), thr.z + inZ * M(52)));
+    g.add(at(roundBox(M(36), M(20), M(34), M(4), MAT.black()), thr.x, thr.y + M(52), thr.z));
+    g.add(at(cyl(M(9), M(9), M(10), MAT.alloyDark(), 14), thr.x, thr.y + M(41), thr.z));
+    g.add(at(box(M(14), M(10), M(12), MAT.plastic()), thr.x + M(14), thr.y + M(66), thr.z + M(8)));
     for (const [dx, dy] of [[-1, -1], [-1, 1], [1, -1], [1, 1]])
-      g.add(at(rot(cyl(M(2.5), M(2.5), M(3), MAT.steel(), 8), Math.PI / 2, 0, 0), thr.x + dx * M(14), thr.y + dy * M(13), thr.z + inZ * M(63)));
+      g.add(at(cyl(M(2.5), M(2.5), M(3), MAT.steel(), 8), thr.x + dx * M(14), thr.y + M(63), thr.z + dy * M(13)));
     add('subthrottle', g);
   }
   if (has('subtps')){
@@ -355,7 +355,7 @@ export function build(ctx){
   }
   if (has('iaccheck')){
     const g = group('iaccheck');
-    const p = V3(-L.len * 0.33, inducY - chH / 2 - M(10), plenZ + inZ * M(24));
+    const p = V3(-L.len * 0.27, inducY - chH / 2 - M(10), plenZ + inZ * M(24));
     g.add(at(rot(cyl(M(7), M(7), M(20), MAT.alloyDark(), 12), Math.PI / 2, 0, 0), p.x, p.y, p.z));
     g.add(at(rot(tubeMesh(M(9), M(6), M(2), MAT.copper ? MAT.copper() : MAT.plated(), 14), Math.PI / 2, 0, 0), p.x, p.y, p.z - inZ * M(11)));
     g.add(at(rot(cyl(M(4), M(4), M(12), MAT.plated(), 10), Math.PI / 2, 0, 0), p.x, p.y, p.z + inZ * M(15)));
@@ -435,23 +435,24 @@ export function build(ctx){
   const pumpIn = V3(beltX + L.bore * 0.30, deck * 0.36, -L.bore * 0.82);
   if (has('waterinlet')){
     const g = group('waterinlet');
-    const p = V3(pumpIn.x + M(10), pumpIn.y - M(18), pumpIn.z + M(16));
-    g.add(at(roundBox(M(30), M(22), M(36), M(5), MAT.alloy()), p.x, p.y, p.z));
-    g.add(pipe([p.clone().add(V3(-M(4), M(4), -M(14))), pumpIn.clone().add(V3(M(3), -M(4), M(2))), pumpIn], M(11), MAT.alloy(), 12));
+    const p = V3(pumpIn.x + M(10), deck * 0.31, inZ * (L.bore * 1.02));   // outboard of the lower timing cover and idler
+    g.add(at(roundBox(M(30), M(22), M(26), M(5), MAT.alloy()), p.x, p.y, p.z));
+    g.add(pipe([p.clone().add(V3(-M(2), M(4), -inZ * M(4))), pumpIn.clone().add(V3(M(2), -M(2), inZ * M(4))), pumpIn], M(10), MAT.alloy(), 12));
     for (const dz of [-M(12), M(12)]) g.add(boltAt(V3(p.x, p.y - M(12), p.z + dz), V3(0, -1, 0), M(3.5), M(6)));
     add('waterinlet', g);
   }
   if (has('wbypass')){
     /* No.1: water outlet down to the pump, on O-rings */
+    /* (the model's pump sits ahead of the alternator, so the pipe drops from
+       the outlet into the front corner of the block instead of all the way down) */
     each('wbypass', 0, pipe([V3(woAt.x - M(8), woAt.y - M(14), woAt.z - inZ * M(4)),
-                             V3(-half - M(4), deck - M(4), inZ * L.bore * 0.80),
-                             V3(-half - M(10), deck * 0.84, inZ * L.bore * 0.68),
-                             V3(beltX + M(44), deck * 0.76, inZ * L.bore * 0.60)], M(7), MAT.steel(), 10));
+                             V3(-half + M(17), deck + M(4), inZ * L.bore * 0.84),
+                             V3(-half + M(12), deck - M(3), inZ * L.bore * 0.68)], M(7), MAT.steel(), 10));
     /* No.2: along the intake flank of the block into the pump */
     each('wbypass', 1, (() => {
       const g = group('wbp2');
       const y = deck * 0.44, z = inZ * (caseZ + M(7));
-      g.add(pipe([V3(beltX + M(40), y - M(6), inZ * (L.bore * 0.80)), V3(-half + M(10), y, z), V3(-L.len * 0.08, y, z)], M(7), MAT.steel(), 10));
+      g.add(pipe([V3(-half - M(13), y - M(6), inZ * (L.bore * 0.93)), V3(-half + M(10), y, z), V3(-L.len * 0.08, y, z)], M(7), MAT.steel(), 10));
       g.add(at(box(M(20), M(16), M(4), MAT.steel()), -L.len * 0.30, y, z - inZ * M(6)));
       g.add(boltAt(V3(-L.len * 0.30, y, z + inZ * M(-4)), V3(0, 0, inZ), M(3), M(6)));
       g.add(hoseRun([V3(-L.len * 0.08, y, z), V3(-L.len * 0.02, y + M(10), z + inZ * M(6)), V3(L.len * 0.03, y + M(24), z + inZ * M(6))], M(7)));
@@ -460,11 +461,11 @@ export function build(ctx){
     /* No.3: with the No.2 air tube on the No.2 turbo, taking the heater hose */
     if (T.length >= 2){
       const tb = T[1];
-      const a = tb.pos.clone().add(V3(-tb.size * 1.05, tb.size * 0.50, tb.size * 0.30));
+      const a = tb.pos.clone().add(V3(-M(46), M(14), -M(9)));        // under the IACV, outboard of the manifold log
       each('wbypass', 2, (() => {
         const g = group('wbp3');
-        g.add(pipe([a, V3(a.x - M(36), a.y + M(40), a.z - M(6)), V3(a.x - M(80), deck + L.bore * 0.86, exZ * L.bore * 1.40)], M(6.5), MAT.steel(), 10));
-        g.add(at(roundBox(M(14), M(14), M(12), M(2), MAT.steel()), a.x, a.y, a.z));
+        g.add(pipe([a, V3(a.x - M(40), a.y + M(68), a.z - M(2)), V3(a.x - M(85), deck + L.bore * 0.90, exZ * L.bore * 1.28)], M(6.5), MAT.steel(), 10));
+        g.add(at(roundBox(M(12), M(12), M(12), M(2), MAT.steel()), a.x, a.y, a.z));
         return g;
       })());
     } else {
@@ -473,10 +474,10 @@ export function build(ctx){
     /* No.4: intake side under the plenum, feeding the IAC valve and the throttle body */
     each('wbypass', 3, (() => {
       const g = group('wbp4');
-      const y = railY + M(42), z = inZ * (L.bore * 1.49);
-      g.add(pipe([V3(-L.len * 0.20, y, z), V3(-L.len * 0.40, y, z), V3(thr.x + M(6), y + M(8), z - inZ * M(10)),
-                  V3(thr.x, thr.y - M(40), thr.z + inZ * M(24))], M(6.5), MAT.steel(), 10));
-      for (const x of [-L.len * 0.24, -L.len * 0.36]) g.add(at(box(M(10), M(18), M(4), MAT.steel()), x, y + M(10), z - inZ * M(4)));
+      const y = railY + M(25), z = inZ * (L.bore * 1.49);   // under the VSV bracket by the throttle
+      g.add(pipe([V3(-L.len * 0.20, y, z), V3(-L.len * 0.485, y, z), V3(thr.x - M(15), y + M(7), thr.z + inZ * M(23)),
+                  V3(thr.x - M(13), thr.y - M(42), thr.z + inZ * M(3))], M(6.5), MAT.steel(), 10));
+      for (const x of [-L.len * 0.24, -L.len * 0.36]) g.add(at(box(M(10), M(18), M(4), MAT.steel()), x, y - M(10), z - inZ * M(4)));
       return g;
     })());
     flush('wbypass');
@@ -585,23 +586,23 @@ export function build(ctx){
   /* ================================================================== */
   /* head ancillaries: EGR, hangers, cam sensor, knock sensor            */
   /* ================================================================== */
-  const egrAt = V3(half + M(10), deck + L.bore * 0.68, exZ * L.bore * 0.33);
+  const egrAt = V3(half + M(10), deck + L.bore * 0.35, exZ * L.bore * 0.33);   // below the No.2 cam sensor
   if (has('egrcooler')){
     const g = group('egrcooler');
-    g.add(at(roundBox(M(18), M(72), M(58), M(5), MAT.alloy()), egrAt.x, egrAt.y, egrAt.z));
-    for (let k = 0; k < 5; k++) g.add(at(box(M(4), M(66), M(3), MAT.alloy()), egrAt.x + M(10), egrAt.y, egrAt.z - M(22) + k * M(11)));
+    g.add(at(roundBox(M(18), M(54), M(58), M(5), MAT.alloy()), egrAt.x, egrAt.y, egrAt.z));
+    for (let k = 0; k < 5; k++) g.add(at(box(M(4), M(48), M(3), MAT.alloy()), egrAt.x + M(10), egrAt.y, egrAt.z - M(22) + k * M(11)));
     for (let k = 0; k < 8; k++){
-      const yy = egrAt.y + (k % 4 - 1.5) * M(20), zz = egrAt.z + (k < 4 ? -1 : 1) * M(25);
+      const yy = egrAt.y + (k % 4 - 1.5) * M(15), zz = egrAt.z + (k < 4 ? -1 : 1) * M(25);
       g.add(boltAt(V3(egrAt.x + M(9), yy, zz), V3(1, 0, 0), M(2.5), M(6)));
     }
     add('egrcooler', g);
   }
   if (has('egrvalve')){
     const g = group('egrvalve');
-    const v = V3(egrAt.x + M(34), egrAt.y + M(20), egrAt.z - M(10));
+    const v = V3(egrAt.x + M(44), egrAt.y + M(10), egrAt.z + M(12));
     g.add(at(lathe([[0, -M(16)], [M(18), -M(16)], [M(20), -M(4)], [M(20), M(6)], [M(13), M(14)], [0, M(14)]], MAT.alloyDark(), 20), v.x, v.y, v.z));
     g.add(at(cyl(M(4), M(4), M(10), MAT.plated(), 8), v.x, v.y + M(18), v.z));
-    g.add(pipe([V3(egrAt.x + M(12), egrAt.y + M(20), egrAt.z - M(10)), v.clone().add(V3(-M(14), 0, 0))], M(10), MAT.alloy(), 10));
+    g.add(pipe([V3(egrAt.x + M(12), v.y, v.z), v.clone().add(V3(-M(18), 0, 0))], M(10), MAT.alloy(), 10));
     /* the EGR pipe over the back of the head into the chamber's rear end */
     g.add(pipe([v.clone().add(V3(0, M(14), 0)), V3(v.x - M(10), inducY + M(26), v.z - M(26)),
                 V3(chL / 2 + M(36), inducY + M(30), plenZ + M(10)), V3(chL / 2 + M(8), inducY + M(6), plenZ)], M(8), MAT.steel(), 12));
@@ -633,13 +634,15 @@ export function build(ctx){
     for (const dx of [-M(11), M(11)]) g.add(boltAt(V3(-half + M(34) + dx, headTop - M(8), exZ * (L.bore * 0.91 + M(5))), V3(0, 0, exZ), M(4), M(8)));
     add('hangerfront', g);
   }
-  const cmpAt = V3(half + M(2), camY - M(14), inZ * camZ);
+  /* No.1 (the core 'camsensor', valvetrain module) reads the intake cam at
+     the rear of the head; No.2 sits beside it on the exhaust cam, same height */
+  const cmpAt = V3(half + M(3), deck + L.bore * 0.86, exZ * camZ);
   if (has('camsensor2')){
     const g = group('camsensor2');
-    g.add(at(roundBox(M(5), M(30), M(22), M(4), MAT.black()), cmpAt.x + M(2), cmpAt.y, cmpAt.z));
-    g.add(at(rot(cyl(M(10), M(10), M(22), MAT.black(), 16), 0, 0, Math.PI / 2), cmpAt.x + M(14), cmpAt.y, cmpAt.z));
-    g.add(at(box(M(12), M(14), M(16), MAT.plastic()), cmpAt.x + M(30), cmpAt.y + M(2), cmpAt.z));
-    for (const dy of [-M(11), M(11)]) g.add(boltAt(V3(cmpAt.x + M(5), cmpAt.y + dy, cmpAt.z + inZ * M(7)), V3(1, 0, 0), M(2.5), M(5)));
+    g.add(at(roundBox(M(5), M(30), M(18), M(2), MAT.black()), cmpAt.x, cmpAt.y, cmpAt.z));                 // flange
+    g.add(at(rot(cyl(M(9), M(9), M(24), MAT.black(), 14), 0, 0, Math.PI / 2), cmpAt.x - M(12), cmpAt.y, cmpAt.z));   // body, into the head
+    g.add(at(box(M(18), M(14), M(16), MAT.plastic()), cmpAt.x + M(12), cmpAt.y + M(4), cmpAt.z));          // connector
+    for (const dy of [-M(10), M(10)]) g.add(boltAt(V3(cmpAt.x + M(4), cmpAt.y + dy, cmpAt.z), V3(1, 0, 0), M(2.5), M(5)));
     add('camsensor2', g);
   }
   if (has('hangerrear')){
@@ -649,12 +652,12 @@ export function build(ctx){
     s.moveTo(-M(20), 0); s.lineTo(M(20), 0); s.lineTo(M(14), M(70)); s.absarc(0, M(70), M(15), 0, Math.PI, false); s.lineTo(-M(20), 0);
     const hole = new THREE.Path(); hole.absarc(0, M(70), M(8), 0, Math.PI * 2, true); s.holes.push(hole);
     const pl = plateYZ(s, M(5), MAT.steel());
-    pl.position.set(half + M(1), cmpAt.y + M(18), inZ * (camZ + M(6)));
+    pl.position.set(half + M(1), cmpAt.y + M(16), 0);      // centred over both cam sensors
     g.add(pl);
-    for (const dz of [-M(10), M(10)]) g.add(boltAt(V3(half + M(7), cmpAt.y + M(28), inZ * (camZ + M(6)) + dz), V3(1, 0, 0), M(4), M(8)));
+    for (const dz of [-M(10), M(10)]) g.add(boltAt(V3(half + M(7), cmpAt.y + M(26), dz), V3(1, 0, 0), M(4), M(8)));
     /* the head ground strap under the same bolts */
-    g.add(pipe([V3(half + M(8), cmpAt.y + M(26), inZ * (camZ + M(14))), V3(half + M(40), cmpAt.y + M(10), inZ * (camZ + M(40))),
-                V3(half + M(60), cmpAt.y - M(30), inZ * (camZ + M(70)))], M(4), MAT.copper ? MAT.copper() : MAT.plated(), 8));
+    g.add(pipe([V3(half + M(8), cmpAt.y + M(24), inZ * M(14)), V3(half + M(40), cmpAt.y + M(34), inZ * (camZ + M(30))),
+                V3(half + M(60), cmpAt.y + M(10), inZ * (camZ + M(70)))], M(4), MAT.copper ? MAT.copper() : MAT.plated(), 8));
     add('hangerrear', g);
   }
   if (has('knock2')){
