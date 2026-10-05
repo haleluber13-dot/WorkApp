@@ -625,10 +625,11 @@ function buildCar(v, tree){
       if (v.body === 'suv'){
         /* the JM's grille: a dark mesh opening with two horizontal chrome bars
            and the badge on the upper one, between the headlamps */
-        const gw = sp.z(X(0.02), gyy) * 1.1, gh = hgt * 0.075;
-        gg.add(at(roundBox(M(30), gh, gw, .01, MAT.black()), X(0.016), gyy, 0));
-        for (const k of [-0.28, 0.30]) gg.add(at(roundBox(M(24), M(22), gw * 0.98, .006, MAT.chrome()), X(0.012), gyy + gh * k, 0));
-        gg.add(at(rot(cyl(M(44), M(44), M(14), MAT.chrome(), 24), 0, 0, Math.PI/2), X(0.008), gyy + gh * 0.30, 0));   // the badge
+        const xN = X(0.012), gw = sp.z(xN, gyy) * 0.98, gh = hgt * 0.075;
+        gg.add(at(roundBox(M(4), gh, gw, .01, MAT.black()), xN + M(2), gyy, 0));                                   // the dark opening on the face
+        const mesh = coreMesh(gw * 0.94, gh * 0.84, M(10), {}, 18); gg.add(at(mesh, xN + M(4), gyy, 0));
+        for (const k of [-0.28, 0.30]) gg.add(at(roundBox(M(8), M(22), gw * 0.98, .006, MAT.chrome()), xN + M(8), gyy + gh * k, 0));
+        gg.add(at(rot(cyl(M(44), M(44), M(6), MAT.chrome(), 24), 0, 0, Math.PI/2), xN + M(13), gyy + gh * 0.30, 0));   // the badge, on the upper bar
       } else if (grille){ grille.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); gg.add(at(grille, X(0.028), gyy, 0)); }
       else gg.add(at(rot(coreMesh(wid * 0.44, hgt * 0.12, M(40), {}, 22), 0, Math.PI/2, 0), X(0.03), gyy, 0));
       add('grille', gg);
@@ -1320,6 +1321,7 @@ function shellProbe(sections){
 
 function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cuts, lightV, mirrorV){
   const out = new Map();
+  const race = ['formula','stockcar','dragster','awd-rally','drift','audi-quattro-s1','nns'].includes(v.id);
   const give = (id, obj) => { if (!obj) return; if (!out.has(id)) out.set(id, []); out.get(id).push(obj); };
   const sp = shellProbe(sections);
   if (!sp.secAt(0)) return out;
@@ -1340,14 +1342,14 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
   const side1 = (s) => s < 0 ? 1 : 2;
 
   /* --- panel gaps: a 5 mm dark line lying in the skin ------------------- */
-  const seam = (id, pts, r = M(5)) => pts.length > 1 && give(id, pipe(pts, r, gap, 5));
+  const seam = (id, pts, r = M(7)) => pts.length > 1 && give(id, pipe(pts, r, gap, 5));
   const runV = (t, y0, y1, side, n = 9) => {
     const out2 = [], x = X(t);
     for (let i = 0; i <= n; i++){
       const y = y0 + (y1 - y0) * (i / n);
       if (y > sp.top(x) - M(20) || y < sp.bot(x) + M(10)) continue;
       if (sp.z(x, y) < M(60)) continue;
-      out2.push(sp.p(x, y, side, M(3)).toArray());
+      out2.push(sp.p(x, y, side, M(1)).toArray());
     }
     return out2;
   };
@@ -1382,6 +1384,20 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       seam(id, pts);
     }
   }
+  /* door handles: a dark recess with the grip over it, near each door's rear edge */
+  for (const side of [-1, 1]){
+    const doorEnd = doors4 ? cuts.B : cuts.doorR;
+    const handles = [[cuts.doorF, doorEnd, 'doorF.' + side1(side)]];
+    if (doors4) handles.push([cuts.B, cuts.doorR, 'doorR.' + side1(side)]);
+    for (const [t0, t1, id] of handles){
+      const th = t1 - (t1 - t0) * 0.16, x = X(th), hy = waist(th) - hgt * (v.body === 'suv' ? 0.085 : 0.075);
+      if (sp.z(x, hy) < M(300)) continue;
+      const g = group('handle');
+      g.add(sp.p(x, hy, side, 0) && at(roundBox(M(130), M(44), M(6), .01, dark), x, hy, side * (sp.z(x, hy) + M(2))));
+      g.add(at(roundBox(M(110), M(26), M(16), .006, v.body === 'suv' ? MAT.satin(0x2f3236) : carPaint(v.colour, 1)), x + M(5), hy + M(4), side * (sp.z(x, hy) + M(10))));
+      give(id, g);
+    }
+  }
   const arc = (t) => {
     const c = sp.secAt(X(t)); if (!c) return null;
     const n = c.squ || 2.6;
@@ -1403,13 +1419,14 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
   for (const [ax, r, idBase] of [[axF, rF, 'wingF'], [axR, rR, 'quarters']])
     for (const side of [-1, 1]){
       const pts = [];
+      const flare = v.body === 'suv' ? 1.25 : 1.30, lipR = v.body === 'suv' ? M(20) : M(13);
       for (let i = 0; i <= 16; i++){
         const th = Math.PI * (0.07 + 0.86 * (i / 16));
-        const x = ax + r * 1.30 * Math.cos(th);
-        const y = Math.max(sp.bot(x) + M(10), r + r * 1.24 * Math.sin(th));
+        const x = ax + r * flare * Math.cos(th);
+        const y = Math.max(sp.bot(x) + M(10), r + r * (flare - 0.06) * Math.sin(th));
         pts.push(sp.p(x, y, side, M(2)).toArray());
       }
-      give(idBase + '.' + side1(side), pipe(pts, M(13), rubber, 6));
+      give(idBase + '.' + side1(side), pipe(pts, lipR, v.body === 'suv' ? CLAD() : rubber, 6));
     }
 
   /* --- lower body: the skirt line on the sills, the bumper strips -------- */
@@ -1436,89 +1453,118 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
     }
   }
 
-  /* --- lights: a lens in a dark housing, one part per corner -------------
-     The lamps sit just under the bonnet's leading edge and the boot's trailing
-     edge, and the lens sits flush in the skin: the housing runs back into the
-     body from the first station where the skin is wide enough to hold it. */
+  /* --- lights: moulded housings seated into the body corners -------------
+     A lamp is not a box: it is a surface on the skin. Each one is built as a
+     strip that follows the loft itself — across the end face from the grille
+     outward, round the corner and back along the wing or quarter — lifted a
+     few millimetres so it reads as a separate moulding sitting in the paint.
+     The dark housing rim is the same strip a little larger and a little
+     lower, the clear lens over it, the reflectors just under the lens. */
+  for (const m of [lensF, lensR, amber]) m.side = THREE.DoubleSide;
+  const skinStrip = (side, y0, y1, tWrap, zInner, tail, lift, mat, taper = 0, tCap = tail ? 1 : 0) => {
+    const xCap = X(tCap), dir = tail ? -1 : 1;
+    const nCap = 5, nFl = 9, N = nCap + nFl;
+    const rows = [];
+    const row = (u, xAt, zAt) => {
+      const sh = 1 - taper * Math.max(0, (u - 0.35) / 0.65);
+      const yc = (y0 + y1) / 2, h = (y1 - y0) * sh;
+      const r = [];
+      for (let j = 0; j <= 6; j++){
+        let y = yc - h / 2 + h * (j / 6);
+        const x = xAt(y);                                  // keep the strip on the skin, under the panel's top edge
+        y = Math.min(y, sp.top(x) - M(18)); y = Math.max(y, sp.bot(x) + M(18));
+        r.push(new THREE.Vector3(x, y, side * zAt(y)));
+      }
+      rows.push(r);
+    };
+    for (let i = 0; i <= nCap; i++) row(i / N, () => xCap + dir * lift, (y) => zInner + (Math.max(zInner, sp.z(xCap, y)) - zInner) * (i / nCap));
+    for (let i = 1; i <= nFl; i++){ const t = tCap + dir * tWrap * (i / nFl), x = X(t); row((nCap + i) / N, () => x, (y) => sp.z(x, y) + lift); }
+    return patch(rows, mat);
+  };
   const hhF = hgt * 0.072, rhR = hgt * 0.062;
   const lampY = Math.min(waist(0.06) - hgt * 0.045, Math.min(sp.top(X(0.045)), sp.top(X(0.075))) - hhF * 0.60 - M(30));
   const tailY = Math.min(waist(0.95) - hgt * 0.035, Math.min(sp.top(X(0.945)), sp.top(X(0.975))) - rhR * 0.62 - M(30));
+  const suv = v.body === 'suv';
+  const chromeD = MAT.chrome(); chromeD.side = THREE.DoubleSide;
+  /* the end face a lamp is set into: the first station wide enough to carry
+     it (a dropping bonnet nose puts that a little behind the bumper tip) */
   const faceT = (y, zAbs, fromTail) => {
     for (let i = 0; i <= 120; i++){ const t = fromTail ? 1 - i * 0.002 : i * 0.002; if (sp.z(X(t), y) >= zAbs) return t; }
     return fromTail ? 0.94 : 0.06;
   };
+  const tHead = faceT(lampY, M(220), false), xHead = X(tHead);
+  const tYs = suv ? floorY + hgt * 0.455 : tailY;
+  const tTail = faceT(tYs, M(220), true), xTail = X(tTail);
   for (const side of [-1, 1]){
-    const zf = sp.z(X(0.06), lampY), zr = sp.z(X(0.945), tailY);
-    if (zf > M(60)){
+    const zNose = sp.z(xHead, lampY), zTail = sp.z(xTail, tYs);
+    if (zNose > M(60)){
       const hl = group('headlamp');
-      const suv = v.body === 'suv';
-      const hz = suv ? zf * 0.50 : zf * 0.44, hh = suv ? hgt * 0.10 : hhF, zc = suv ? zf * 0.60 : zf * 0.52;
-      const tFace = faceT(lampY, zc + hz * 0.56 + M(10), false);
-      /* the housing runs back into the body; on the SUV's dropping nose a deep
-         one would break through the bonnet, so it is a shallow flush unit */
-      const xFace = X(tFace), depth = suv ? M(50) : Math.max(M(90), X(tFace) - X(0.085));
-      hl.add(at(roundBox(depth, hh * 1.20, hz * 1.12, .012, dark), xFace - depth/2 - M(4), lampY, side * zc));
-      hl.add(at(roundBox(M(14), hh, hz, .006, lensF), xFace - M(4), lampY, side * zc));
+      const hh = suv ? hgt * 0.095 : hhF;
+      const zIn = suv ? zNose * 0.50 : zNose * 0.40;            // the inner edge, beside the grille
+      const tWrap = suv ? 0.085 : 0.045;                         // how far it reaches back onto the wing
+      hl.add(skinStrip(side, lampY - hh * 0.60, lampY + hh * 0.60, tWrap * 1.06, zIn - M(14), false, M(1.5), dark, 0.42, tHead));
+      hl.add(skinStrip(side, lampY - hh * 0.50, lampY + hh * 0.50, tWrap, zIn, false, M(5), lensF, 0.45, tHead));
+      /* the reflectors and the indicator sit on the skin, under the lens */
+      const xr = xHead + M(3);
+      const bowl = (y, z, r) => { const c = cyl(r, r * 0.7, M(3), chromeD, 16); c.rotation.z = Math.PI/2; c.position.set(xr, y, side * z); hl.add(c); };
       if (lt === 'led'){
-        for (const k of [-1, 0, 1]) hl.add(at(rot(cyl(hh * 0.16, hh * 0.16, M(60), MAT.chrome(), 12), 0, 0, Math.PI/2), xFace - M(45), lampY + hh*0.12, side * zc + k * hz * 0.28));
-        hl.add(at(roundBox(M(14), hh * 0.12, hz * 0.9, .004, new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffffff, emissiveIntensity:1.6 })), xFace - M(2), lampY - hh*0.36, side * zc));
+        for (const k of [0.25, 0.5, 0.75]) bowl(lampY + hh * 0.12, zIn + (zNose - zIn) * k, hh * 0.15);
+        hl.add(at(roundBox(M(2), hh * 0.10, (zNose - zIn) * 0.8, .003, new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xffffff, emissiveIntensity:1.6, side:THREE.DoubleSide })), xr, lampY - hh * 0.34, side * (zIn + zNose) / 2));
       } else if (lt === 'xenon'){
-        for (const k of [-1, 1]) hl.add(at(rot(cyl(hh * 0.32, hh * 0.32, M(56), MAT.chrome(), 14), 0, 0, Math.PI/2), xFace - M(45), lampY, side * zc + k * hz * 0.28));
-      } else {
-        hl.add(at(rot(cyl(hh * 0.44, hh * 0.30, M(50), MAT.chrome(), 18), 0, 0, Math.PI/2), xFace - M(42), lampY, side * zc));
-      }
-      if (suv){
-        /* the lens wraps round the corner onto the wing */
-        const zs = sp.z(xFace - M(90), lampY);
-        hl.add(at(roundBox(M(180), hh * 0.9, M(12), .006, lensF), xFace - M(90), lampY, side * (zs + M(2))));
-        hl.add(at(roundBox(M(16), hh * 0.26, hz * 0.5, .004, amber), xFace - M(2), lampY - hh * 0.30, side * (zc + hz * 0.22)));
-      } else {
-      const tInd = faceT(lampY - hgt * 0.058, zf * 0.84 + zf * 0.09, false);
-      hl.add(at(roundBox(M(14), hgt * 0.030, zf * 0.16, .006, amber), X(tInd) - M(6), lampY - hgt * 0.058, side * zf * 0.84));
-      }
+        for (const k of [0.3, 0.7]) bowl(lampY, zIn + (zNose - zIn) * k, hh * 0.30);
+      } else bowl(lampY, (zIn + zNose) / 2, hh * 0.42);
+      hl.add(skinStrip(side, lampY - hh * 0.46, lampY - hh * 0.12, tWrap * 0.95, zNose - M(10), false, M(6), amber, 0.3, tHead));   // the indicator round the corner
       give('headlamp.' + side1(side), hl);
     }
-    if (zr > M(60)){
+    if (zTail > M(60)){
       const tl = group('taillamp');
-      const suv = v.body === 'suv';
-      let rz = suv ? zr * 0.20 : zr * 0.42, zc = suv ? zr * 0.80 : zr * 0.54;
-      const rh = suv ? hgt * 0.24 : rhR;
       const lensT = suv ? lensR.clone() : lensR; if (suv) lensT.emissiveIntensity = 0.45;
-      const tY = suv ? floorY + hgt * 0.45 : tailY;
-      let tFace = faceT(tY, zc + rz * 0.57 + M(10), true);
-      let xFace = X(tFace), depth = Math.max(M(80), X(0.93) - xFace);
-      if (suv){
-        /* the tall cluster sits in the corner of the near-vertical tail face,
-           so it is sized to the face it is actually set into */
-        const zFace = sp.z(xFace + M(10), tY);
-        zc = zFace * 0.76; rz = zFace * 0.19;
-        tFace = faceT(tY, zc + rz * 0.57 + M(10), true); xFace = X(tFace);
-        depth = M(36);                     // a flush cluster: a shallow housing, nothing poking through the corner
-      }
-      tl.add(at(roundBox(depth, rh * 1.24, rz * 1.14, .012, dark), xFace + depth/2 + M(4), tY, side * zc));
-      tl.add(at(roundBox(M(14), rh, rz, .006, lensT), xFace + M(4), tY, side * zc));
-      if (suv){
-        /* the cluster wraps onto the quarter: a second lens on the flank, and
-           the clear reverse/indicator sections stacked in it */
-        const zs = sp.z(xFace - M(50), tY);
-        tl.add(at(roundBox(M(80), rh * 0.96, M(10), .006, lensT), xFace - M(50), tY, side * (zs + M(1))));
-        tl.add(at(roundBox(M(16), rh * 0.22, rz * 0.9, .004, MAT.glass()), xFace + M(5), tY + rh * 0.12, side * zc));
-        tl.add(at(roundBox(M(16), rh * 0.18, rz * 0.9, .004, amber), xFace + M(5), tY - rh * 0.14, side * zc));
-      } else
-      tl.add(at(roundBox(M(12), rh * 0.4, rz * 0.3, .004, MAT.glass()), xFace + M(3), tailY - rh*0.28, side * zr * 0.30));   // the reverse lamp
+      const tY = tYs;
+      const rh = suv ? hgt * 0.25 : rhR * 1.1;
+      const zT = zTail;
+      const zIn = suv ? zT * 0.70 : zT * 0.36, tWrap = suv ? 0.05 : 0.035;
+      tl.add(skinStrip(side, tY - rh * 0.58, tY + rh * 0.58, tWrap * 1.08, zIn - M(14), true, M(1.5), dark, 0.3, tTail));
+      tl.add(skinStrip(side, tY - rh * 0.50, tY + rh * 0.50, tWrap, zIn, true, M(5), lensT, 0.35, tTail));
+      /* reverse and indicator sections stacked in the cluster */
+      const clear = MAT.glass(); clear.side = THREE.DoubleSide;
+      tl.add(skinStrip(side, tY + rh * 0.12, tY + rh * 0.30, tWrap * 0.5, zIn + M(6), true, M(6), clear, 0, tTail));
+      tl.add(skinStrip(side, tY - rh * 0.30, tY - rh * 0.12, tWrap * 0.5, zIn + M(6), true, M(6), amber, 0, tTail));
       give('taillamp.' + side1(side), tl);
     }
   }
 
-  /* --- lower intakes in the bumper -------------------------------------- */
-  const gy = floorY + hgt * 0.20;
-  const gz = sp.z(X(0.035), gy);
-  const iy = Math.max(floorY + hgt * 0.10, sp.bot(X(0.028)) + hgt * 0.045 + M(20));
-  if (gz > M(80) && iy < gy) for (const side of [-1, 1])
-    give('bumperF', at(roundBox(M(70), hgt * 0.09, gz * 0.34, .01, dark), X(0.028), iy, side * sp.z(X(0.028), iy) * 0.66));
+  /* --- the front face: intake, fog lamps and plate -------------------------
+     Nothing can be cut out of the loft, so an opening is drawn as a dark
+     recess panel lying on the skin with its mesh standing just proud of it. */
+  {
+    const iy0 = Math.max(floorY + hgt * 0.115, sp.bot(sp.noseX) + hgt * 0.06);
+    const xN = X(faceT(iy0, M(300), false)) ;
+    const iy = iy0;
+    const iz = sp.z(xN, iy), ih = hgt * (suv ? 0.085 : 0.075);
+    const onFace = (m, y, z, lift) => { m.position.set(xN + lift, y, z); return m; };
+    if (iz > M(200)){
+      const ig = group('intake');
+      ig.add(onFace(roundBox(M(4), ih * 1.1, iz * 1.05, .01, dark), iy, 0, M(2)));
+      const mesh = coreMesh(iz * 0.98, ih * 0.9, M(12), {}, 22); onFace(mesh, iy, 0, M(5)); ig.add(mesh);
+      give('bumperF', ig);
+      /* fog lamps in the lower corners, on anything that is not a race car */
+      if (!race) for (const side of [-1, 1]){
+        const fz = side * iz * 0.76, fy = iy + ih * 0.9;
+        const ring = cyl(ih * 0.32, ih * 0.32, M(6), dark, 20); ring.rotation.z = Math.PI/2; ig.add(onFace(ring, fy, fz, M(3)));
+        const lens = cyl(ih * 0.26, ih * 0.26, M(6), lensF, 20); lens.rotation.z = Math.PI/2; ig.add(onFace(lens, fy, fz, M(7)));
+      }
+      /* the number plate on its plinth, between the grille and the intake */
+      const py = iy + ih * 0.95 + M(70);
+      if (sp.z(xN, py) > M(300)){
+        ig.add(onFace(roundBox(M(10), M(135), M(540), .01, dark), py, 0, M(5)));
+        ig.add(onFace(roundBox(M(4), M(112), M(520), .005, MAT.satin(0xf0f0ea)), py, 0, M(12)));
+      }
+    }
+  }
 
   /* --- mirrors ---------------------------------------------------------- */
-  const mt = cuts.doorF + 0.03, my = waist(mt) + hgt * 0.012;
+  const mt = cuts.doorF + (v.body === 'suv' ? 0.045 : 0.03), my = waist(mt) + hgt * 0.012;
+  const mk = v.body === 'suv' ? 1.3 : 1;
   const mz = sp.z(X(mt), my);
   if (mz > M(120)) for (const side of [-1, 1]){
     const g2 = group('mirror');
@@ -1528,8 +1574,8 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       g2.add(at(roundBox(M(8), M(56), M(100), .01, MAT.chrome()), -M(36), M(40), side * M(120)));
     } else {
       g2.add(at(rot(cyl(M(14), M(20), M(58), dark, 10), 0, 0, deg(78)), M(16), -M(16), side * M(24)));
-      g2.add(at(roundBox(M(62), M(88), M(150), .03, carPaint(v.colour, 1)), 0, 0, side * M(64)));
-      g2.add(at(roundBox(M(14), M(74), M(128), .01, MAT.chrome()), -M(28), 0, side * M(66)));
+      g2.add(at(roundBox(M(62) * mk, M(88) * mk, M(150) * mk, .03, carPaint(v.colour, 1)), 0, 0, side * M(64) * mk));
+      g2.add(at(roundBox(M(14), M(74) * mk, M(128) * mk, .01, MAT.chrome()), -M(28) * mk, 0, side * M(66) * mk));
     }
     give('mirrors.' + side1(side), at(g2, X(mt), my, side * (mz - M(10))));
   }
@@ -1569,10 +1615,10 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       for (const t of [0.48, 0.69, 0.89]){ const x = X(t), c = sp.secAt(x); rails.add(at(box(M(90), M(36), M(40), MAT.satin(0x25282c)), x, sp.top(x) + M(16), side * c.wTop * 0.74)); }
     }
     give('roof', rails);
-    /* the short mast aerial at the back of the roof */
-    const ax = X(0.86);
-    give('roof', at(rot(cyl(M(5), M(7), M(190), MAT.black(), 8), 0, 0, deg(-35)), ax - M(50), sp.top(ax) + M(80), 0));
-    give('roof', at(cyl(M(16), M(18), M(14), MAT.black(), 12), ax, sp.top(ax) + M(6), 0));
+    /* a short bee-sting aerial at the back of the roof */
+    const ax = X(0.87);
+    give('roof', at(rot(cyl(M(4), M(11), M(80), MAT.black(), 10), 0, 0, deg(-40)), ax - M(26), sp.top(ax) + M(38), 0));
+    give('roof', at(roundBox(M(60), M(14), M(30), .005, MAT.black()), ax, sp.top(ax) + M(6), 0));
     /* a lip spoiler over the rear glass, on the tailgate */
     const tl = cuts.boot + 0.012, xl = X(tl), cl = sp.secAt(xl);
     give('bootlid', at(rot(roundBox(M(150), M(26), cl.wTop * 1.42, .01, carPaint(v.colour, 1)), 0, 0, deg(10)), xl - M(40), sp.top(xl) + M(10), 0));
@@ -1581,6 +1627,9 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
     give('bootlid', at(roundBox(M(14), M(40), M(260), .01, MAT.chrome()), tailX - M(8), hy + M(60), 0));
     give('bootlid', at(roundBox(M(10), M(150), M(560), .01, dark), tailX - M(6), hy - M(70), 0));
     give('bootlid', at(roundBox(M(6), M(110), M(520), .005, MAT.satin(0xf0f0ea)), tailX - M(10), hy - M(70), 0));
+    /* the rear bumper's upper step, where the tailgate meets it */
+    const sy = waist(1) - hgt * 0.17, sz = sp.z(tailX, sy);
+    give('bumperR', at(roundBox(M(50), M(34), sz * 1.9, .01, CLAD()), tailX - M(14), sy, 0));
   }
 
   /* --- the rear valance and the fuel flap -------------------------------- */

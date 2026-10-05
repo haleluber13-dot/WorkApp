@@ -244,7 +244,9 @@ export function build(ctx){
         sp.add(at(rot(cyl(M(8), M(8), M(16), MAT.plated(), 12), Math.PI / 2, 0, 0), b * 0.12, 0, M(14)));   // pressure switch
         for (const [dx, dy] of [[-0.16, 0.10], [0.16, 0.10], [0, -0.11]])
           sp.add(at(rot(bolt(M(3), M(8), MAT.steel()), Math.PI / 2, 0, 0), dx * b, dy * b, M(9)));
-        each('vtecspool', bk, inBank(a, sp, L.len / 2 - b * 0.40, L.deckH + b * 0.55, b * 0.75 + M(8)));
+        /* on the head's rear end face (on a vee the inner face at this height carries the fuel rail) */
+        each('vtecspool', bk, L.banks >= 2 ? inBank(a, sp, L.len / 2 + M(30), L.deckH + b * 0.60, b * 0.20)
+                                           : inBank(a, sp, L.len / 2 - b * 0.40, L.deckH + b * 0.55, b * 0.75 + M(8)));
       }
       flush('vtecspool');
     }

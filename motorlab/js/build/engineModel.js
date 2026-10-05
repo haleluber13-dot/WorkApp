@@ -1242,7 +1242,7 @@ function buildPiston(e, tree){
                     : e.class === 'bike' ? V3(0, -L.crankR * 0.90, wCase + M(60))
                     /* an inline's is forward on the flank: between the mount and the downpipe there is no room */
                     /* a vee's at the rear corner of the pan rail, behind the Y-pipe's drop */
-                    : V3(L.banks >= 2 ? L.len / 2 + M(20) : -L.len * 0.28, -L.crankR * 0.90, filterZ);
+                    : V3(L.banks >= 2 ? L.len / 2 + M(45) : -L.len * 0.28, -L.crankR * 0.90, filterZ);
   /* at a vee's rear corner the can points forward (seal face aft would put the
      housing in the clutch) */
   const filterFwd = L.banks >= 2 && !flat;
@@ -1824,7 +1824,7 @@ function buildPiston(e, tree){
                       ...(flat ? [[tb.coldOut.x, Math.max(L.bore * 2.0, icY + L.bore * 0.25), sgn * (outerZ + tb.size * 0.3)],
                                   [(tb.coldOut.x + icX) / 2, Math.max(L.bore * 2.0, icY + L.bore * 0.25), sgn * (L.deckH + L.bore * 0.6)]]
                                 /* a turbo beside the bank climbs outboard of the head before it comes in over the cover */
-                                : tb.outboard ? [[tb.coldOut.x, icY + L.bore * 0.25, sgn * (outerZ + L.bore * 0.3)],
+                                : tb.outboard && !valleyT ? [[tb.coldOut.x, icY + L.bore * 0.25, sgn * (outerZ + L.bore * 0.85)],      /* outside the outer row of coils too */
                                                  [(tb.coldOut.x + icX) / 2, icY + L.bore * 0.25, sgn * icZ * 1.3]]
                                 : [[(tb.coldOut.x + icX) / 2, Math.max(tb.coldOut.y, icY) + L.bore * 0.25, sgn * icZ * 1.3]]),
                       [icX, icY + L.bore * 0.10, sgn * icZ * 0.9]], tb.coldTube * 1.05, MAT.alloy(), 12));
@@ -2222,6 +2222,7 @@ function buildPiston(e, tree){
      chain and the damper ahead of the cover */
   const beltX = frontX - M(L.banks >= 2 && !flat ? 80 : 46);
   const beltRun = [{ y:0, z:0, r:L.bore * 0.85 }];
+  let pumpAt = V3(beltX + L.bore * 1.15 * 0.34, L.deckH * 0.55, -L.bore * 0.4);     // where the pump body is (the hoses aim at it)
   if (has('waterpump')){
     const wpSize = L.bore * 1.15;
     const wp = waterPumpMesh(wpSize);
@@ -2232,8 +2233,8 @@ function buildPiston(e, tree){
     const wpZ = L.banks >= 2 ? 0 : -L.bore * 0.4, wpY = flat ? L.bore * 0.95 : L.deckH * (L.banks >= 2 ? 0.62 : 0.55);
     /* a bike's pump is low on the right-hand case ahead of the cylinders,
        driven off the oil pump — at belt height it sat inside the clutch basket */
-    if (e.class === 'bike') add('waterpump', at(wp, frontX - M(20), -L.crankR * 0.6, L.bore * 1.3));
-    else add('waterpump', at(wp, beltX + wpSize * 0.34, wpY, wpZ));
+    pumpAt = e.class === 'bike' ? V3(frontX - M(20), -L.crankR * 0.6, L.bore * 1.3) : V3(beltX + wpSize * 0.34, wpY, wpZ);
+    add('waterpump', at(wp, pumpAt.x, pumpAt.y, pumpAt.z));
     if (has('fanclutch')){
       /* the viscous coupling on the pump nose, and the seven-blade fan it drives */
       const fc = group('fanclutch');
@@ -2656,7 +2657,8 @@ function buildPiston(e, tree){
                            st.position.x, st.position.y - M(4), st.position.z - L.bore * 0.30 - M(13))
                       : at(cyl(M(7), M(9), M(26), MAT.plated(), 10),
                            st.position.x, st.position.y + L.bore * 0.30 + M(13), st.position.z));
-    const pumpIn = V3(beltX + L.bore * 0.30, L.deckH * 0.36, -L.bore * 0.82);
+    const pumpIn = e.class === 'bike' ? V3(pumpAt.x, pumpAt.y - L.bore * 0.2, pumpAt.z + L.bore * 0.45)
+                                      : V3(beltX + L.bore * 0.30, L.deckH * 0.36, -L.bore * 0.82);
     if (has('radiator') && e.class !== 'bike'){
       const radX = frontX - L.bore * 3.10;      // where the core actually is
       add('radiator', hoseRun([statOut,
@@ -2695,7 +2697,8 @@ function buildPiston(e, tree){
                                 V3(L.len / 2 - L.bore * 0.30, midY + (hy - midY) * 0.35, midZ + dz),
                                 V3(L.len * 0.24, midY, midZ + dz),
                                 ...(vee ? [] : [V3(-L.len * 0.30, L.deckH * 0.60, midZ + L.bore * 0.05 + dz)]),
-                                V3(beltX + L.bore * 0.42, L.deckH * 0.50 - i * M(30), -L.bore * 0.62)],
+                                e.class === 'bike' ? V3(pumpAt.x + L.bore * 0.2, pumpAt.y + L.bore * 0.2 - i * M(30), pumpAt.z + L.bore * 0.3)
+                                                   : V3(beltX + L.bore * 0.42, L.deckH * 0.50 - i * M(30), -L.bore * 0.62)],
                                L.bore * 0.055));
   }
 
@@ -2765,15 +2768,19 @@ function buildPiston(e, tree){
     const cool = coreMesh(L.bore * 1.30, L.bore * 0.72, M(52), { body:MAT.alloyDark() }, 14);
     /* on the filter's side of the block (the filter's own hoses feed it) */
     const cs = Math.sign(oilFilterAt.z) || 1;
-    const coolZ = cs * (outerZ + L.bore * 0.55);
-    add('oilcooler', at(cool, L.len * 0.06, -L.crankR * 0.75, coolZ));
-    add('oilcooler', hoseRun([V3(oilFilterAt.x, -L.crankR * 0.90, cs * (outerZ + M(20))),
-                              V3(L.len * 0.16, -L.crankR * 0.72, coolZ),
-                              V3(L.len * 0.06 + L.bore * 0.55, -L.crankR * 0.62, coolZ)],
+    /* a boxer's cooler hangs under the barrel band on the case flank, at the
+       filter's height — outerZ there is the far end of the cam cover */
+    const coolZ = flat ? oilFilterAt.z : cs * (outerZ + L.bore * 0.55);
+    const coolY = flat ? oilFilterAt.y : -L.crankR * 0.75;
+    add('oilcooler', at(cool, L.len * 0.06, coolY, coolZ));
+    add('oilcooler', hoseRun([V3(oilFilterAt.x + (flat ? M(105) : 0), flat ? coolY : -L.crankR * 0.90, flat ? coolZ : cs * (outerZ + M(20))),   /* (a boxer's leaves behind the filter housing) */
+                              V3(L.len * 0.16, coolY + L.crankR * 0.03, coolZ),
+                              V3(L.len * 0.06 + L.bore * 0.55, coolY + L.crankR * 0.13, coolZ)],
                              L.bore * 0.055));
-    add('oilcooler', hoseRun([V3(L.len * 0.06 - L.bore * 0.55, -L.crankR * 0.62, coolZ),
-                              V3(L.len * 0.00, -L.crankR * 0.20, coolZ * 0.92),
-                              V3(L.len * 0.06, L.crankR * 0.45, cs * (caseZ + M(4)))], L.bore * 0.055));
+    add('oilcooler', hoseRun([V3(L.len * 0.06 - L.bore * 0.55, coolY + L.crankR * 0.13, coolZ),
+                              V3(L.len * 0.00, flat ? coolY + L.bore * 0.15 : -L.crankR * 0.20, coolZ * 0.92),
+                              flat ? V3(L.len * 0.06, -(L.bore * 0.80 + M(20)), cs * (caseZ + M(4)))
+                                   : V3(L.len * 0.06, L.crankR * 0.45, cs * (caseZ + M(4)))], L.bore * 0.055));
   }
   if (has('valvecover')){
     /* the filler cap and the breather both live on the cam cover, because that
@@ -2831,9 +2838,11 @@ function buildPiston(e, tree){
   }
   if (has('bov'))
     /* the signal line that tells it the throttle has shut */
+    /* up off the valve's top, over the cold pipe, down onto the throttle body's
+       side — the cold pipe runs into the throttle mouth, so the top is not free */
     add('bov', hoseRun([bovAt.clone().add(V3(0, M(58), 0)),
-                        bovAt.clone().lerp(thrAt, 0.5).add(V3(0, L.bore * 0.34, 0)),
-                        thrAt.clone().add(V3(M(40), M(46), 0))], M(4)));
+                        bovAt.clone().lerp(thrAt, 0.5).add(V3(0, L.bore * 0.50, -M(20))),
+                        thrAt.clone().add(V3(M(46), M(40), -M(44)))], M(4)));
 
   /* the catalyst, in the downpipe where it has to be to light off, with the
      lambda sensors already sitting either side of it */

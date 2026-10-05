@@ -374,7 +374,7 @@ export function build(ctx){
   }
   if (has('coils3')){
     for (let i = 0; i < n; i++)
-      ctx.each('coils3', i, at(roundBox(M(22), M(50), M(30), .006, MAT.plastic()), xOf(i), R * 0.9, -R * 0.3));
+      ctx.each('coils3', i, at(roundBox(M(22), M(50), M(30), .006, MAT.plastic()), xOf(i), R * 1.18, -R * 0.12));   /* on top of the housing, clear of the intake runners */
     ctx.flush('coils3');
   }
   if (has('teletrumpets')){

@@ -84,11 +84,11 @@ export function build(ctx){
     if (has('railvalve')){
       const v = group('railvalve');
       if (tdi){
-        /* on the front end of the rail, hanging DOWN from it: the throttle flap
-           body sits just ahead of the rail end at this height */
-        v.add(at(hexPrism(M(24), M(12), MAT.steel()), rx0 - M(4), railY - M(36), railZ));
-        v.add(at(cyl(M(10), M(10), M(26), MAT.plated(), 12), rx0 - M(4), railY - M(60), railZ));
-        v.add(at(roundBox(M(18), M(20), M(20), .003, MAT.black()), rx0 - M(4), railY - M(86), railZ));
+        /* hanging DOWN off the rail's rear end: the throttle flap body sits
+           ahead of the front end at this height and the alternator under it */
+        v.add(at(hexPrism(M(24), M(12), MAT.steel()), rx1 - M(4), railY - M(36), railZ));
+        v.add(at(cyl(M(10), M(10), M(26), MAT.plated(), 12), rx1 - M(4), railY - M(60), railZ));
+        v.add(at(roundBox(M(18), M(20), M(20), .003, MAT.black()), rx1 - M(4), railY - M(86), railZ));
       } else {
         v.add(at(along(hexPrism(M(24), M(12), MAT.steel())), rx0 - M(10), railY, railZ));
         v.add(at(along(cyl(M(10), M(10), M(26), MAT.steel(), 12)), rx0 - M(30), railY, railZ));
