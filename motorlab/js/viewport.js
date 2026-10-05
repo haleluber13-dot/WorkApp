@@ -244,8 +244,13 @@ export class Viewport {
     this.scene.background = this.composer ? this._fogColor() : this.bgColor.clone();
   }
 
-  /** The fog colour: what the tone mapper turns into the backdrop colour. */
+  /** The fog colour. Drawn straight to the canvas, three mixes fog in after
+   *  tone mapping, in display colour, so it is simply the backdrop colour.
+   *  Through the composer the frame is linear until the OutputPass, fog and
+   *  clear colour included, so both go in as the colour the tone mapper will
+   *  turn INTO the backdrop colour. */
   _fogColor(){
+    if (!this.composer) return this.bgColor.clone();
     const exp = this.renderer.toneMappingExposure;
     const tm = this.renderer.toneMapping;
     if (!this._fogCache || this._fogCache.exp !== exp || this._fogCache.tm !== tm || !this._fogCache.bg.equals(this.bgColor)){
@@ -301,6 +306,7 @@ export class Viewport {
       this.ssaoPass = null;
     }
     this._applyBackdrop();
+    this.scene.fog.color.copy(this._fogColor());
   }
 
   /** 'fast' | 'balanced' | 'high' — see TIERS in lib/studio.js. */
@@ -336,7 +342,7 @@ export class Viewport {
     whenTextures(() => {
       const maps = surface('floor', 40, false);
       const mat = this.floorRig.floorMat;
-      if (maps.normalMap){ mat.normalMap = maps.normalMap; mat.normalScale = new THREE.Vector2(0.18, 0.18); }
+      if (maps.normalMap){ mat.normalMap = maps.normalMap; mat.normalScale = new THREE.Vector2(0.07, 0.07); }
       if (maps.roughnessMap) mat.roughnessMap = maps.roughnessMap;
       mat.needsUpdate = true;
       if (this._subject) fitFloor(this.floorRig, this._subject.box, this._subject.floorY);
@@ -1036,6 +1042,7 @@ export class Viewport {
         this.composer?.dispose?.();
         this.composer = null; this.ssaoPass = null;
         this._applyBackdrop();
+        this.scene.fog.color.copy(this._fogColor());
         this.onQualityFallback?.();
       }
     } catch { /* readPixels unavailable; leave the pipeline alone */ }

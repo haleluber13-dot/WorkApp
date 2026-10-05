@@ -199,7 +199,7 @@ export function buildFloor(){
     ? radialTexture(1024, [[0, 1.0], [0.08, 0.90], [0.18, 0.50], [0.35, 0.22], [0.60, 0.09], [1.0, 0.04]])
     : null;
   const mat = new THREE.MeshStandardMaterial({
-    color: LOOK.floor, roughness: 0.88, metalness: 0.0, envMapIntensity: 0.22, map: vignette });
+    color: LOOK.floor, roughness: 0.90, metalness: 0.0, envMapIntensity: 0.16, map: vignette });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(1, 128), mat);
   floor.name = 'floor';
   floor.rotation.x = -Math.PI / 2;
