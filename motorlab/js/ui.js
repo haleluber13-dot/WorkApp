@@ -110,12 +110,14 @@ export function slider({ label, min, max, step = 1, value, format = (v)=>v, onIn
   return h('div', { class:'slrow' }, h('label', { text:label }), input, out);
 }
 export function toggle(label, value, onChange){
-  const b = h('button', { class:'btn btn--sm' + (value ? ' btn--pri' : ''),
-                          onclick:() => onChange(!value) }, value ? 'On' : 'Off');
+  const b = h('button', { class:'switch', type:'button', role:'switch',
+                          'aria-checked': value ? 'true' : 'false', 'aria-label': label,
+                          title: value ? 'On' : 'Off', onclick:() => onChange(!value) });
   /* its own row rather than a slider row: a setting's name is a sentence, not
      a 118-pixel column, and wrapping it into three lines beside a switch is
      how a settings page becomes unreadable */
-  return h('div', { class:'tglrow' }, h('label', { text:label }), b);
+  const lab = h('label', { text:label, onclick:() => onChange(!value) });
+  return h('div', { class:'tglrow' }, lab, b);
 }
 
 /* ---- charts ----------------------------------------------------------- */
@@ -126,7 +128,8 @@ export function lineChart(canvas, { series, xLabel, yLabel, y2Label, xMin, xMax,
   const c = canvas.getContext('2d');
   c.setTransform(dpr, 0, 0, dpr, 0, 0);
   c.clearRect(0, 0, w, hgt);
-  const pad = { l:44, r:series.some(s => s.axis === 2) ? 44 : 12, t:12, b:26 };
+  /* a strip above the plot holds the legend, so no curve runs through it */
+  const pad = { l:44, r:series.some(s => s.axis === 2) ? 44 : 12, t:24, b:26 };
   const plotW = w - pad.l - pad.r, plotH = hgt - pad.t - pad.b;
   const xs = series.flatMap(s => s.points.map(p => p[0]));
   const x0 = xMin ?? Math.min(...xs), x1 = xMax ?? Math.max(...xs);
@@ -139,8 +142,8 @@ export function lineChart(canvas, { series, xLabel, yLabel, y2Label, xMin, xMax,
   const X = (v) => pad.l + ((v - x0) / (x1 - x0 || 1)) * plotW;
   const Y = (v, ax = 1) => { const a = axes[ax-1] || axes[0]; return pad.t + plotH - ((v - a.lo) / (a.hi - a.lo || 1)) * plotH; };
 
-  c.strokeStyle = '#1c2433'; c.lineWidth = 1;
-  c.fillStyle = '#68758d'; c.font = '10px ui-monospace,monospace';
+  c.strokeStyle = '#1a202b'; c.lineWidth = 1;
+  c.fillStyle = '#808ca1'; c.font = '10px ui-monospace,monospace';
   if (grid) for (let i = 0; i <= 5; i++){
     const yy = pad.t + (i/5) * plotH;
     c.beginPath(); c.moveTo(pad.l, yy); c.lineTo(pad.l + plotW, yy); c.stroke();
@@ -157,13 +160,14 @@ export function lineChart(canvas, { series, xLabel, yLabel, y2Label, xMin, xMax,
   for (let i = 0; i <= 5; i++){
     const xx = pad.l + (i/5) * plotW;
     c.fillText(fmtNum(x0 + (i/5) * (x1 - x0)), xx, hgt - 8);
-    if (grid && i){ c.beginPath(); c.moveTo(xx, pad.t); c.lineTo(xx, pad.t + plotH); c.strokeStyle = '#161d29'; c.stroke(); c.strokeStyle='#1c2433'; }
+    if (grid && i){ c.beginPath(); c.moveTo(xx, pad.t); c.lineTo(xx, pad.t + plotH); c.strokeStyle = '#141922'; c.stroke(); c.strokeStyle='#1a202b'; }
   }
   for (const m of markers){
     c.strokeStyle = m.colour || '#ff7a1a'; c.setLineDash([3,3]);
     c.beginPath(); c.moveTo(X(m.x), pad.t); c.lineTo(X(m.x), pad.t + plotH); c.stroke();
     c.setLineDash([]);
-    if (m.label){ c.fillStyle = m.colour || '#ff7a1a'; c.textAlign='left'; c.fillText(m.label, X(m.x)+4, pad.t+10); }
+    /* the marker's label sits at the foot of the plot, clear of the legend and the peaks it marks */
+    if (m.label){ c.fillStyle = m.colour || '#ff7a1a'; const right = X(m.x) > pad.l + plotW * 0.7; c.textAlign = right ? 'right' : 'left'; c.fillText(m.label, X(m.x) + (right ? -5 : 5), pad.t + plotH - 6); }
   }
   for (const s of series){
     if (!s.points.length) continue;
@@ -177,12 +181,12 @@ export function lineChart(canvas, { series, xLabel, yLabel, y2Label, xMin, xMax,
     }
   }
   /* legend */
-  c.textAlign = 'left'; let lx = pad.l + 4;
+  c.textAlign = 'left'; let lx = pad.l;
   for (const s of series){
     if (!s.name) continue;
-    c.fillStyle = s.colour; c.fillRect(lx, pad.t + 2, 9, 3);
-    c.fillStyle = '#9aa8c0'; c.fillText(s.name, lx + 13, pad.t + 6);
-    lx += c.measureText(s.name).width + 30;
+    c.fillStyle = s.colour; c.fillRect(lx, 9, 10, 3);
+    c.fillStyle = '#aab5c8'; c.fillText(s.name, lx + 14, 13);
+    lx += c.measureText(s.name).width + 28;
   }
   if (xLabel){ c.fillStyle='#68758d'; c.textAlign='right'; c.fillText(xLabel, w - pad.r, hgt - 8); }
 }

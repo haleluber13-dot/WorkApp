@@ -41,22 +41,39 @@ export const CALIPER_UV = { u0:0.0, u1:0.3594, v0:0.5957, v1:0.7090 };
 /** And where the pleated filter element sits in the engine-bay sheet. */
 export const FILTER_UV = { u0:0.016, u1:0.984, v0:0.719, v1:0.953 };
 
-/* Photogrammetry-scanned PBR surfaces, CC0, from ambientCG. These carry the
- * micro-detail a generated material cannot invent: the grain of a casting, the
- * tool marks on machined steel, the heat scale on an exhaust, the tooth of
- * rubber. Metals take only the normal and roughness so MotorLab keeps its own
- * palette; the rest take the colour too. */
+/* PBR surfaces, CC0, from ambientCG (credits in assets/surfaces/CREDITS.md).
+ * These carry the micro-detail a generated material cannot invent: the grain
+ * of a sand casting, the tool marks on a machined face, the scale on a forged
+ * crank, the knit of a braided hose, the baked skin of wrinkle enamel. Every
+ * set has a normal, a roughness and a colour map; which of them a material
+ * takes is decided in geo.js (metals mostly keep MotorLab's own palette and
+ * use the normal and roughness only). The same file names exist at 256 px in
+ * assets/surfaces-lite/, which the single-file build swaps in by name.
+ *
+ * tools/fetch-surfaces.py downloads and prepares them; the roughness maps are
+ * levelled there to the real surface's value, so a material that takes one
+ * runs roughness 1.0 and reads the truth off the map. */
 const SURFACES = {
-  cast:    { nrm:'cast_nrm.jpg',    rgh:'cast_rgh.jpg',    col:'cast_col.jpg' },
-  steel:   { nrm:'steel_nrm.jpg',   rgh:'steel_rgh.jpg',   col:'steel_col.jpg' },
-  hot:     { nrm:'hot_nrm.jpg',     rgh:'hot_rgh.jpg',     col:'hot_col.jpg' },
-  rubber:  { nrm:'rubber_nrm.jpg',  rgh:'rubber_rgh.jpg',  col:'rubber_col.jpg' },
-  plastic: { nrm:'plastic_nrm.jpg', rgh:'plastic_rgh.jpg', col:'plastic_col.jpg' },
-  leather: { nrm:'leather_nrm.jpg', rgh:'leather_rgh.jpg', col:'leather_col.jpg' },
-  asphalt: { nrm:'asphalt_nrm.jpg', rgh:'asphalt_rgh.jpg', col:'asphalt_col.jpg' },
-  brushed: { nrm:'brushed_nrm.jpg', rgh:'brushed_rgh.jpg' },
-  paint:   { nrm:'paint_nrm.jpg',   rgh:'paint_rgh.jpg' },
-  floor:   { nrm:'floor_nrm.jpg',   rgh:'floor_rgh.jpg',   col:'floor_col.jpg' },
+  cast:     { nrm:'cast_nrm.jpg',     rgh:'cast_rgh.jpg',     col:'cast_col.jpg' },     // sand-cast aluminium
+  iron:     { nrm:'iron_nrm.jpg',     rgh:'iron_rgh.jpg',     col:'iron_col.jpg' },     // cast iron
+  rust:     { nrm:'rust_nrm.jpg',     rgh:'rust_rgh.jpg',     col:'rust_col.jpg' },     // heat-cycled iron, rust bloom
+  hot:      { nrm:'hot_nrm.jpg',      rgh:'hot_rgh.jpg',      col:'hot_col.jpg' },      // heat-scaled steel
+  machined: { nrm:'machined_nrm.jpg', rgh:'machined_rgh.jpg', col:'machined_col.jpg' }, // fine tool marks
+  steel:    { nrm:'steel_nrm.jpg',    rgh:'steel_rgh.jpg',    col:'steel_col.jpg' },    // brushed steel
+  forged:   { nrm:'forged_nrm.jpg',   rgh:'forged_rgh.jpg',   col:'forged_col.jpg' },   // forging scale
+  zinc:     { nrm:'zinc_nrm.jpg',     rgh:'zinc_rgh.jpg',     col:'zinc_col.jpg' },     // galvanised spangle
+  powder:   { nrm:'powder_nrm.jpg',   rgh:'powder_rgh.jpg',   col:'powder_col.jpg' },   // black powder coat
+  wrinkle:  { nrm:'wrinkle_nrm.jpg',  rgh:'wrinkle_rgh.jpg',  col:'wrinkle_col.jpg' },  // wrinkle enamel
+  braid:    { nrm:'braid_nrm.jpg',    rgh:'braid_rgh.jpg',    col:'braid_col.jpg' },    // stainless braid
+  rubber:   { nrm:'rubber_nrm.jpg',   rgh:'rubber_rgh.jpg',   col:'rubber_col.jpg' },
+  plastic:  { nrm:'plastic_nrm.jpg',  rgh:'plastic_rgh.jpg',  col:'plastic_col.jpg' },
+  leather:  { nrm:'leather_nrm.jpg',  rgh:'leather_rgh.jpg',  col:'leather_col.jpg' },
+  asphalt:  { nrm:'asphalt_nrm.jpg',  rgh:'asphalt_rgh.jpg',  col:'asphalt_col.jpg' },
+  /* generated, not scanned: a faint brushed grain, the orange peel of sprayed
+     paint, and the workshop floor */
+  brushed:  { nrm:'brushed_nrm.jpg',  rgh:'brushed_rgh.jpg' },
+  paint:    { nrm:'paint_nrm.jpg',    rgh:'paint_rgh.jpg' },
+  floor:    { nrm:'floor_nrm.jpg',    rgh:'floor_rgh.jpg',    col:'floor_col.jpg' },
 };
 const SURF_DIR = './assets/surfaces/';
 
@@ -87,21 +104,29 @@ export function repeated(key, rx, ry = rx){
   return c;
 }
 
-/** The maps for one scanned surface, tiled `r` times. Any of them may be null.
- *  `colour` opts in to the scan's own colour, which metals do not want. */
+/** The maps for one surface, tiled `r` times — a number, or [rx, ry] when the
+ *  grain should run with the part (tool marks along a shaft, braid along a
+ *  hose). Any of them may be null. `colour` opts in to the scan's own colour,
+ *  which bare metals mostly do not want. */
 export function surface(name, r = 2, colour = false){
   const spec = SURFACES[name];
   if (!spec) return {};
+  const [rx, ry] = Array.isArray(r) ? r : [r, r];
   const out = {};
-  const nrm = repeated('surf_' + name + '_nrm', r);
-  const rgh = repeated('surf_' + name + '_rgh', r);
+  const nrm = repeated('surf_' + name + '_nrm', rx, ry);
+  const rgh = repeated('surf_' + name + '_rgh', rx, ry);
   if (nrm) out.normalMap = nrm;
   if (rgh) out.roughnessMap = rgh;
   if (colour){
-    const col = repeated('surf_' + name + '_col', r);
+    const col = repeated('surf_' + name + '_col', rx, ry);
     if (col) out.map = col;
   }
   return out;
+}
+
+/** True when the surface library has at least one map of `name` loaded. */
+export function hasSurface(name){
+  return loaded.has('surf_' + name + '_nrm') || loaded.has('surf_' + name + '_rgh');
 }
 
 /** Load every map. Safe to call more than once; resolves even if all fail. */

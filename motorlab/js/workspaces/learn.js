@@ -95,7 +95,7 @@ function renderProgress(ctx, wrap){
   add(wrap,
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:'Rank' }), chip(lv.title, 'acc')),
-      h('h3', { style:{ fontSize:'22px', marginBottom:'4px' }, text:`Level ${lv.lvl}` }),
+      h('h3', { class:'display', text:`Level ${lv.lvl}` }),
       bar(lv.progress),
       kv('XP', `${s.xp}${lv.next ? ` / ${lv.next.xp}` : ''}`),
       lv.next ? kv('To next rank', `${lv.toNext} XP — ${lv.next.title}`) : kv('Rank', 'Maximum'),

@@ -77,7 +77,7 @@ function renderMap(ctx, wrap){
     const d = DISCIPLINE_BY_ID[r.discipline];
     add(wrap, h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:d.name }), chip(MONTHS[(r.month||1)-1], 'acc')),
-      h('h3', { style:{ fontSize:'15px', marginBottom:'4px' }, text:r.name }),
+      h('h3', { class:'title', text:r.name }),
       h('div', { class:'tiny muted', style:{ marginBottom:'8px' }, text:`${r.series} · ${r.circuit}` }),
       para(r.notes),
       kv('Location', `${r.city}, ${r.country}`),

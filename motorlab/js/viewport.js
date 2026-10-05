@@ -10,9 +10,26 @@ import { surface, whenTextures } from './lib/textures.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
+import { TIERS, LOOK, buildRig, fitRig, buildFloor, fitFloor, ssaoFor, preToneMapped } from './lib/studio.js';
+
+/* Ambient occlusion reads a normal+depth pass of the scene. A ghosted part is
+ * drawn as a faint wireframe, but the normal pass would draw it solid and it
+ * would then shade the parts around it as if it were still there; the glass
+ * shell and the contact blob are see-through for the same reason. Leave them
+ * out of that one pass. */
+class StudioSSAOPass extends SSAOPass {
+  overrideVisibility(){
+    super.overrideVisibility();
+    this.scene.traverse((o) => {
+      if (!o.isMesh || !o.visible) return;
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!m) return;
+      if (m.wireframe || (m.transparent && m.opacity < 0.5)) o.visible = false;
+    });
+  }
+}
 
 export class Viewport {
   constructor(canvas, labelHost){
@@ -27,11 +44,12 @@ export class Viewport {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.localClippingEnabled = true;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.02;
+    this.renderer.toneMappingExposure = LOOK.exposure;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0b0e14);
-    this.scene.fog = new THREE.Fog(0x0b0e14, 6, 26);
+    this.bgColor = new THREE.Color(LOOK.background);
+    this.scene.background = this.bgColor.clone();
+    this.scene.fog = new THREE.Fog(LOOK.background, 6, 26);
 
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.02, 200);
     this.camera.position.set(1.6, 1.1, 2.2);
@@ -44,8 +62,7 @@ export class Viewport {
     this.controls.maxPolarAngle = Math.PI * 0.92;
 
     this._environment();
-    this._lights();
-    this._ground();
+    this._studio();
     this._buildComposer('high');
 
     this.model = null;
@@ -99,9 +116,20 @@ export class Viewport {
     this.envMap = pmrem.fromScene(room, 0.03).texture;
     this.roomEnv = this.envMap;
     this.scene.environment = this.envMap;
-    this.scene.environmentIntensity = 0.85;
     room.dispose?.();
     pmrem.dispose();
+    /* Two things set the environment level: the per-environment gain (a
+       photograph of a room is as bright as that room was) and the Reflections
+       setting, which writes scene.environmentIntensity directly. Make the
+       property the product of the two, so switching rooms keeps the setting
+       and the setting keeps the room's gain. 0.85 is the setting's default. */
+    this._envGain = LOOK.envGain.neutral;
+    this._envUser = 1;
+    Object.defineProperty(this.scene, 'environmentIntensity', {
+      configurable: true,
+      get: () => this._envGain * this._envUser,
+      set: (v) => { this._envUser = (Number(v) || 0) / 0.85; },
+    });
   }
 
   /** Light the scene with a real place.
@@ -118,12 +146,13 @@ export class Viewport {
     /* these are photographs of real rooms, so they arrive at whatever
        brightness that room happened to be; each is scaled to sit at the same
        working level as the generated one */
-    const GAIN = { garage:2.1, studio:1.3, neutral:0.85 };
+    const GAIN = LOOK.envGain;
     const fall = () => {
       this._envId = 'neutral';
       this.scene.environment = this.roomEnv;
-      this.scene.environmentIntensity = GAIN.neutral;
-      this.scene.background = null;
+      this._envGain = GAIN.neutral;
+      this._floorEnv(this.roomEnv);
+      this._applyBackdrop();
       this.needsRender = true;
       return false;
     };
@@ -133,9 +162,9 @@ export class Viewport {
     const apply = (tex) => {
       this._envId = id;
       this.scene.environment = tex;
-      this.scene.environmentIntensity = GAIN[id] ?? 1.2;
-      if (this.envBackdrop){ this.scene.background = tex; this.scene.backgroundBlurriness = 0.55; }
-      else this.scene.background = null;
+      this._envGain = GAIN[id] ?? GAIN.other;
+      this._floorEnv(tex);
+      this._applyBackdrop();
       this.needsRender = true;
       return true;
     };
@@ -181,13 +210,48 @@ export class Viewport {
     });
   }
 
+  /* In this three.js a material that leans on scene.environment gets the
+   * scene's intensity, not its own: the floor would mirror the room as hard
+   * as the chrome does and the whole scene would read as ice. The floor
+   * carries its own copy of the map, so its own, much lower, intensity
+   * applies. */
+  _floorEnv(tex){
+    const mat = this.floorRig?.floorMat;
+    if (!mat) return;
+    mat.envMap = tex;
+    mat.needsUpdate = true;
+  }
+
   /** Show the environment behind the model as well as in its reflections. */
   setBackdrop(on){
     this.envBackdrop = !!on;
-    const tex = this._envCache?.get(this._envId);
-    this.scene.background = (on && tex) ? tex : null;
-    if (on && tex) this.scene.backgroundBlurriness = 0.55;
+    this._applyBackdrop();
     this.needsRender = true;
+  }
+
+  /** What is behind the model: the blurred room when the backdrop is on and
+   *  the room has loaded, the studio colour otherwise. The studio colour is
+   *  display-referred; when the frame goes through the composer it is cleared
+   *  into a linear buffer and tone-mapped on the way out, so it has to go in
+   *  as the colour that comes OUT as the one we want. */
+  _applyBackdrop(){
+    const tex = this.envBackdrop ? this._envCache?.get(this._envId) : null;
+    if (tex){
+      this.scene.background = tex;
+      this.scene.backgroundBlurriness = 0.55;
+      return;
+    }
+    this.scene.background = this.composer ? this._fogColor() : this.bgColor.clone();
+  }
+
+  /** The fog colour: what the tone mapper turns into the backdrop colour. */
+  _fogColor(){
+    const exp = this.renderer.toneMappingExposure;
+    const tm = this.renderer.toneMapping;
+    if (!this._fogCache || this._fogCache.exp !== exp || this._fogCache.tm !== tm || !this._fogCache.bg.equals(this.bgColor)){
+      this._fogCache = { exp, tm, bg: this.bgColor.clone(), color: preToneMapped(this.bgColor, exp, tm) };
+    }
+    return this._fogCache.color.clone();
   }
 
   /* Ambient occlusion darkens the creases where parts meet, which is what makes
@@ -196,83 +260,134 @@ export class Viewport {
     this.composer?.dispose?.();
     this.composer = null;
     this.ssaoPass = null;
+    this.bloomPass = null;
     this._verified = false;
-    /* Only the top tier goes through a render pipeline. Everything below it
-     * renders straight to the canvas, which always works — the realism comes
-     * from the environment map and the materials, not from the post-passes. */
-    if (quality !== 'high') return;
+    this._checks = 0;
+    const tier = TIERS[quality] || TIERS.balanced;
+    /* 'fast' renders straight to the canvas, which always works. The other two
+     * go through a pipeline: scene → (ambient occlusion) → tone mapping → SMAA.
+     * The realism still comes from the lights, the environment map and the
+     * materials; the passes are what stop it looking like a game. */
+    if (!tier.composer) { this._applyBackdrop(); return; }
     try {
       const r = this.canvas.parentElement.getBoundingClientRect();
       const w = Math.max(2, r.width | 0), h = Math.max(2, r.height | 0);
-      const composer = new EffectComposer(this.renderer);
-      composer.setPixelRatio(1);
-      composer.setSize(w, h);
-      const ssao = new SSAOPass(this.scene, this.camera, w, h);
-      ssao.kernelRadius = 0.05;
-      ssao.minDistance = 0.0008;
-      ssao.maxDistance = 0.08;
-      composer.addPass(ssao);
-      this.ssaoPass = ssao;
-      const bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.30, 0.7, 0.92);
-      composer.addPass(bloom);
+      const pr = this.renderer.getPixelRatio();
+      /* a multisampled colour buffer keeps the geometry edges clean before SMAA
+         ever sees them; the half-float type keeps the highlights for the tone
+         mapper */
+      const target = new THREE.WebGLRenderTarget(w, h, {
+        type: THREE.HalfFloatType, samples: this.renderer.capabilities.isWebGL2 ? tier.msaa : 0 });
+      const composer = new EffectComposer(this.renderer, target);
+      composer.setPixelRatio(pr);        // (re)sizes the targets to w·pr × h·pr
+      composer.addPass(new RenderPass(this.scene, this.camera));
+      if (tier.ssao){
+        /* SSAOPass multiplies its occlusion over whatever the RenderPass left
+           in the buffer — it does not draw the scene itself */
+        const ssao = new StudioSSAOPass(this.scene, this.camera, w, h);
+        ssao.kernelRadius = 0.05;
+        ssao.minDistance = 0.00002;
+        ssao.maxDistance = 0.0015;
+        composer.addPass(ssao);
+        this.ssaoPass = ssao;
+      }
       composer.addPass(new OutputPass());
-      composer.addPass(new SMAAPass(w, h));
+      if (tier.smaa) composer.addPass(new SMAAPass(w, h));
       this.composer = composer;
-      this.bloomPass = bloom;
+      this._syncSSAO();
     } catch (err){
       console.warn('Post-processing unavailable, falling back to direct rendering', err);
       this.composer = null;
+      this.ssaoPass = null;
     }
+    this._applyBackdrop();
   }
 
+  /** 'fast' | 'balanced' | 'high' — see TIERS in lib/studio.js. */
   setQuality(quality){
+    const tier = TIERS[quality] || TIERS.balanced;
     this.quality = quality;
-    this.renderer.setPixelRatio(quality === 'fast' ? 1 : Math.min(devicePixelRatio, quality === 'high' ? 2 : 1.5));
-    this.renderer.shadowMap.enabled = quality !== 'fast';
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, tier.pixelRatio));
+    this.renderer.shadowMap.enabled = tier.shadows;
     this._buildComposer(quality);
+    this._fitStudio();
     this.resize();
   }
 
-  _lights(){
-    this.scene.add(new THREE.HemisphereLight(0xa8c0e0, 0x232833, 0.45));
-    const key = new THREE.DirectionalLight(0xfff4e6, 2.9);
-    key.position.set(3.4, 5.2, 2.6);
-    key.castShadow = true;
-    key.shadow.mapSize.set(4096, 4096);
-    const d = 5;
-    key.shadow.camera.left = -d; key.shadow.camera.right = d;
-    key.shadow.camera.top = d;  key.shadow.camera.bottom = -d;
-    key.shadow.bias = -0.0004;
-    key.shadow.normalBias = 0.012;
-    key.shadow.radius = 3;
-    this.scene.add(key); this.key = key;
-    const rim = new THREE.DirectionalLight(0x86b6ff, 1.5); rim.position.set(-4.2, 2.4, -3.6);
-    this.scene.add(rim);
-    const fill = new THREE.PointLight(0xffb070, 0.6, 16); fill.position.set(0, 1.4, 3.2);
-    this.scene.add(fill);
-  }
+  /** The current tier's settings. */
+  tier(){ return TIERS[this.quality] || TIERS.high; }
 
-  _ground(){
-    const g = new THREE.Group();
-    /* a real workshop floor, off a scan, so the shadows land on something */
-    /* a workshop floor is matte. It has to stay matte, or the environment
-       mirrors in it and the whole scene reads as ice. */
-    const floorMat = new THREE.MeshStandardMaterial({
-      color:0x11141b, roughness:1.0, metalness:0.0, envMapIntensity:0.22 });
+  /* The studio: a three-point rig plus an overhead pool of light, and a dark
+   * floor that takes the shadows. Both are re-fitted to every model that is
+   * set, so an engine and a car each get a rig and a shadow map scaled to
+   * themselves. `ground` is the whole floor group (main.js and the track hide
+   * it as one); `grid` is just the grid inside it. */
+  _studio(){
+    this.rig = buildRig();
+    this.scene.add(this.rig.group);
+    this.key = this.rig.key;
+    this.floorRig = buildFloor();
+    this.ground = this.floorRig.group;
+    this.grid = this.floorRig.gridHolder;
+    this.scene.add(this.ground);
+    this._floorEnv(this.scene.environment);
+    /* a scanned concrete surface, used only for its grain: a faint normal map
+       breaks the sheen up so the floor reads as a real surface, not a mirror */
     whenTextures(() => {
-      const maps = surface('floor', 40, true);
-      if (maps.normalMap){ floorMat.normalMap = maps.normalMap;
-                           floorMat.normalScale = new THREE.Vector2(0.30, 0.30); }
-      if (maps.map){ floorMat.map = maps.map; floorMat.color.setHex(0x272c34); }
-      floorMat.needsUpdate = true;
+      const maps = surface('floor', 40, false);
+      const mat = this.floorRig.floorMat;
+      if (maps.normalMap){ mat.normalMap = maps.normalMap; mat.normalScale = new THREE.Vector2(0.18, 0.18); }
+      if (maps.roughnessMap) mat.roughnessMap = maps.roughnessMap;
+      mat.needsUpdate = true;
+      if (this._subject) fitFloor(this.floorRig, this._subject.box, this._subject.floorY);
       this.needsRender = true;
     });
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(24, 64), floorMat);
-    floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; g.add(floor);
-    const grid = new THREE.GridHelper(24, 48, 0x2a3446, 0x1a212c);
-    grid.material.transparent = true; grid.material.opacity = .55;
-    grid.position.y = 0.001; g.add(grid);
-    this.ground = g; this.scene.add(g);
+    this._fitStudio();
+  }
+
+  /** Fit lights, shadow camera, floor and fog to the current model (or to a
+   *  default engine-sized subject when there is none). */
+  _fitStudio(){
+    let box;
+    if (this.model){
+      box = new THREE.Box3().setFromObject(this.model.root);
+      if (box.isEmpty()) box = null;
+    }
+    if (!box) box = new THREE.Box3(new THREE.Vector3(-0.5, -0.4, -0.35), new THREE.Vector3(0.5, 0.4, 0.35));
+    const rootY = this.model?.root.position.y || 0;
+    /* the car on the lift has been raised: the floor stays where it was */
+    const base = box.clone().translate(new THREE.Vector3(0, -rootY, 0));
+    const floorY = Math.min(0, base.min.y);
+    const sub = fitRig(this.rig, box, floorY, this.tier());
+    const floorRadius = fitFloor(this.floorRig, base, floorY);
+    this._subject = { box: base, floorY, c: sub.c, r: sub.r, size: sub.size, floorRadius, rootY };
+    /* the fog closes in at the edge of the slab, so the floor melts into the
+       backdrop instead of ending */
+    this.scene.fog.near = Math.max(1.2, sub.r * 3.5);
+    this.scene.fog.far = floorRadius * 0.85;
+    this.scene.fog.color.copy(this._fogColor());
+    this._syncSSAO();
+    this.needsRender = true;
+  }
+
+  /** Ambient occlusion measures in the camera's depth range and uses its
+   *  projection; both change with the subject and the zoom. */
+  _syncSSAO(){
+    const ssao = this.ssaoPass;
+    if (!ssao) return;
+    const r = this._subject?.r || 0.6;
+    const s = ssaoFor(r, this.camera.near, this.camera.far);
+    ssao.kernelRadius = s.kernelRadius;
+    ssao.minDistance = s.minDistance;
+    ssao.maxDistance = s.maxDistance;
+    const u = ssao.ssaoMaterial.uniforms;
+    u.cameraNear.value = this.camera.near;
+    u.cameraFar.value = this.camera.far;
+    u.cameraProjectionMatrix.value.copy(this.camera.projectionMatrix);
+    u.cameraInverseProjectionMatrix.value.copy(this.camera.projectionMatrixInverse);
+    const d = ssao.depthRenderMaterial.uniforms;
+    d.cameraNear.value = this.camera.near;
+    d.cameraFar.value = this.camera.far;
   }
 
   _bindInput(){
@@ -367,6 +482,7 @@ export class Viewport {
     this.selected = null; this.hovered = null;
     this._clearLabels();
     if (opts.fit !== false) this.frame();
+    this._fitStudio();
     this.applyInstalled(this.installed);
     if (this.bench.size){ this._ensureBench(); this.benchNode.visible = true; this._applyBench(); }
   }
@@ -377,20 +493,32 @@ export class Viewport {
     if (this.interior) return;
     if (!this.model) return;
     const b = new THREE.Box3().setFromObject(this.model.root);
+    if (b.isEmpty()) return;
     const size = b.getSize(new THREE.Vector3());
     const c = b.getCenter(new THREE.Vector3());
-    const r = Math.max(size.x, size.y, size.z) * 0.62;
-    const dist = r / Math.tan((this.camera.fov * Math.PI/180)/2) * 1.25;
+    /* fit the bounding sphere into the narrower of the two fields of view,
+       with a little air around it */
+    const R = Math.max(0.1, size.length() / 2);
+    const vFov = this.camera.fov * Math.PI / 180;
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * (this.camera.aspect || 1));
+    const dist = R / Math.sin(Math.min(vFov, hFov) / 2) * 1.04;
     this.controls.target.copy(c);
-    /* A three-quarter from about chest height. Higher than this and every car
-       reads as a floor plan of itself; the roof fills the frame and the shape
-       of the flanks, which is what you actually recognise a car by, goes flat. */
-    const dir = new THREE.Vector3(0.94, 0.30, 0.80).normalize();
+    /* A three-quarter view. An engine is looked at from a little above, the
+       way it sits on a stand in front of you; a car from about chest height —
+       higher than that and every car reads as a floor plan of itself, the roof
+       fills the frame and the shape of the flanks, which is what you actually
+       recognise a car by, goes flat. */
+    const vehicle = Math.max(size.x, size.z) > 2.4;
+    const dir = vehicle ? new THREE.Vector3(0.94, 0.30, 0.80) : new THREE.Vector3(0.90, 0.46, 0.80);
+    dir.normalize();
     this.camera.position.copy(c).addScaledVector(dir, dist);
-    this.camera.near = Math.max(0.01, dist/220); this.camera.far = dist*24;
+    /* near is set from the subject, not the distance: zooming in on a bolt
+       must not clip the engine behind it, and the far plane has to reach the
+       far edge of the floor and the fog */
+    this.camera.near = THREE.MathUtils.clamp(R * 0.012, 0.005, 0.05);
+    this.camera.far = Math.max(60, R * 120);
     this.camera.updateProjectionMatrix();
     this.controls.update();
-    this.ground.position.y = Math.min(0, b.min.y);
     this.clipPlane.constant = c.z;   // section straight down the cylinder axis
   }
 
@@ -675,6 +803,7 @@ export class Viewport {
       root.position.y = from + (to - from) * (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
       this.needsRender = true;
       if (k < 1 && this.service !== undefined) requestAnimationFrame(step);
+      else this._fitStudio();          // the shadow camera follows the car up the lift
     };
     step();
   }
@@ -694,7 +823,7 @@ export class Viewport {
   _applyMaterials(){
     if (!this.model) return;
     const ghostMat = this._ghostMat || (this._ghostMat = new THREE.MeshBasicMaterial({
-      color:0x5d7ea8, wireframe:true, transparent:true, opacity:0.20 }));
+      color:0x7ea3d4, wireframe:true, transparent:true, opacity:0.26, fog:false }));
     /* An engine with a real model wears it as a shell over the generated one.
        Rendering both leaves a scan and the machine it was scanned from in the
        same cubic foot of space, tangled together. While the shell is on, it
@@ -825,10 +954,42 @@ export class Viewport {
     const r = this.canvas.parentElement.getBoundingClientRect();
     if (!r.width || !r.height) return;
     this.renderer.setSize(r.width, r.height, false);
-    this.composer?.setSize(r.width, r.height);
-    this.ssaoPass?.setSize(r.width, r.height);
+    if (this.composer){
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setSize(r.width, r.height);
+    }
     this.camera.aspect = r.width / r.height;
     this.camera.updateProjectionMatrix();
+    this._syncSSAO();
+  }
+
+  /* Per-frame housekeeping for the look: the occlusion pass follows the
+   * camera, the fog follows the exposure slider, and the contact shadow lets
+   * go of a car that has been lifted off the floor. */
+  _syncLook(){
+    if (this.ssaoPass){
+      const u = this.ssaoPass.ssaoMaterial.uniforms;
+      if (u.cameraNear.value !== this.camera.near || u.cameraFar.value !== this.camera.far
+          || !u.cameraProjectionMatrix.value.equals(this.camera.projectionMatrix)) this._syncSSAO();
+    }
+    if (this._lookExposure !== this.renderer.toneMappingExposure){
+      this._lookExposure = this.renderer.toneMappingExposure;
+      this.scene.fog.color.copy(this._fogColor());
+      if (this.scene.background?.isColor) this._applyBackdrop();
+    }
+    const sub = this._subject;
+    if (sub && this.model){
+      const y = this.model.root.position.y;
+      if (y !== sub.rootY){
+        /* the lift: shadow camera and rig follow, floor and fog stay */
+        if (!this._liftFitAt || performance.now() - this._liftFitAt > 120){
+          this._liftFitAt = performance.now();
+          this._fitStudio();
+        }
+      }
+      const lift = Math.max(0, y - (sub.rootY || 0));
+      this.floorRig.contact.material.opacity = LOOK.contactOpacity * THREE.MathUtils.clamp(1 - lift / (sub.r * 1.2), 0, 1);
+    }
   }
 
   start(){
@@ -846,6 +1007,7 @@ export class Viewport {
       this.model?.update?.(s);
       this.controls.update();
       this._updateLabels();
+      this._syncLook();
       if (this.composer){ this.composer.render(dt); this._verifyComposer(); }
       else this.renderer.render(this.scene, this.camera);
     };
@@ -865,13 +1027,15 @@ export class Viewport {
       const gl = this.renderer.getContext();
       const w = this.renderer.domElement.width, h = this.renderer.domElement.height;
       if (!w || !h) return;
-      const px = new Uint8Array(4 * 256);
-      gl.readPixels((w >> 1) - 8, (h >> 1) - 8, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const px = new Uint8Array(4 * 1024);
+      gl.readPixels((w >> 1) - 16, (h >> 1) - 16, 32, 32, gl.RGBA, gl.UNSIGNED_BYTE, px);
       let sum = 0;
       for (let i = 0; i < px.length; i += 4) sum += px[i] + px[i+1] + px[i+2];
       if (sum === 0){
         console.warn('MotorLab: this GPU returned an empty frame from the render pipeline — using direct rendering instead.');
+        this.composer?.dispose?.();
         this.composer = null; this.ssaoPass = null;
+        this._applyBackdrop();
         this.onQualityFallback?.();
       }
     } catch { /* readPixels unavailable; leave the pipeline alone */ }

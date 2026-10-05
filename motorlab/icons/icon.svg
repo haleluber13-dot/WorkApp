@@ -1,10 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#0d1017"/>
-  <g fill="none" stroke="#ff7a1a" stroke-width="26" stroke-linecap="round">
-    <circle cx="256" cy="256" r="150"/>
-    <circle cx="256" cy="256" r="52"/>
-    <path d="M256 60v58M256 394v58M60 256h58M394 256h58
-             M117 117l41 41M354 354l41 41M395 117l-41 41M158 354l-41 41"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161b24"/>
+      <stop offset="1" stop-color="#0b0e13"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="2"/>
+  <g fill="none" stroke="#ff7a1a" stroke-linecap="round">
+    <circle cx="256" cy="256" r="150" stroke-width="30"/>
+    <path stroke-width="34" d="M256 50v62M256 400v62M50 256h62M400 256h62
+             M110 110l44 44M358 358l44 44M402 110l-44 44M154 358l-44 44"/>
+    <circle cx="256" cy="256" r="60" stroke-width="28"/>
   </g>
-  <circle cx="256" cy="256" r="16" fill="#22d3ee"/>
+  <circle cx="256" cy="256" r="20" fill="#22d3ee"/>
 </svg>

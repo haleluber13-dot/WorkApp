@@ -1,8 +1,13 @@
-/* Downscale and re-encode PBR maps for the web.
+/* Downscale and re-encode PBR maps for the web — the fallback when there is
+ * no Python with Pillow and numpy around for tools/fetch-surfaces.py, which
+ * is the proper way to prepare assets/surfaces: it also rebuilds the normal
+ * maps from the displacement and levels the roughness. This one just resizes.
  *
  * A 1K JPEG is 300-500 KB; at the size these tile across a casting or a tyre
  * that is entirely wasted. There is no image library here, so the browser does
- * the work: decode, draw to a canvas at the target size, re-encode.
+ * the work: decode, draw to a canvas at the target size, re-encode. Keep to
+ * 512 px for assets/surfaces and 256 px for assets/surfaces-lite, same names
+ * in both, so the single-file build can swap them by name.
  *
  *   node tools/resize-maps.mjs <out-dir> <name>=<file>:<size>[:<quality>] ...
  */

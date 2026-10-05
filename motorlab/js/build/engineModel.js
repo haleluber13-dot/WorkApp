@@ -18,7 +18,7 @@ import { MAT, box, roundBox, cyl, tubeMesh, sphere, torus, pipe, bolt, group, ta
          superchargerMesh, oilFilterMesh, serpentineBelt,
          connectorShell, sensorMesh, loomMesh, hoseClamp, braidedLine, dipstickMesh,
          fillerCap, thermostatMesh, groundStrap, canBody, heatShield, pcvValve,
-         engineMount } from '../lib/geo.js';
+         engineMount, letterPlate, nutOnStud, machinedPad, castRib, camCoverTopAt } from '../lib/geo.js';
 import { firingOrder } from '../data/engines.js';
 import { partMesh } from '../lib/partModels.js';
 import { modelFor, fitToLength } from '../lib/importModel.js';
@@ -134,6 +134,51 @@ export function finishMaterials(e){
                  : f.hardware === 'gold-anodised' ? MAT.brass()
                  : de ? MAT.black() : MAT.plated();
   return { cover, block, plenum, heads, hardware, letters: f.letters || 'none', lettersHex: hex(f.lettersHex) };
+}
+
+/* The casting number raised on the block's flank: the engine's own code and a
+   part number derived from it, so it is stable from build to build. */
+export function castingNumber(e){
+  const code = String(e.name || e.id || '').split(/\s+/)[0].toUpperCase();
+  let h = 7;
+  for (const ch of String(e.id || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const num = String(10000 + (h % 90000));
+  return `${code}  ${num.slice(0, 5)}-${String(h % 100).padStart(2, '0')}`;
+}
+/* What the cam cover says. engines.js names the lettering style (bare metal,
+   painted, the M stripes, the Chevrolet script…); the words come from the
+   maker and the engine, the way they are cast on the real cover. */
+export function coverLegend(e, FIN){
+  const lt = FIN.letters || 'none';
+  if (lt === 'none') return null;
+  const maker = String(e.maker || '').toUpperCase();
+  const nv = (e.valvesPerCyl || 2) * (e.cyl || 1);
+  const dohc = e.cam === 'DOHC';
+  const tri = String(e.finish?.tricolour || '#0066B1 #1C3E94 #E22718').split(/\s+/);
+  const styleHex = { red:0xc8202a, 'paint-red':0xb22222, silver:0xd9dde0, grey:0x9a9ea3,
+                     'chrome-blue':0x8fc1f0, bare:0xd4d8dc, cast:0xb4b8bc }[lt];
+  const hex = FIN.lettersHex ?? styleHex ?? 0xd4d8dc;
+  const metalStyle = ['bare', 'cast', 'silver', 'chrome-blue'].includes(lt) ? lt : 'paint';
+  switch (lt){
+    case 'm-tricolour': return { lines:['M TwinPower Turbo'], hex:0xd9dde0, style:'silver', stripes:tri };
+    case 'script':      return { lines:['Chevrolet'], hex:0xe8ecef, style:'chrome', script:true };
+    case 'builder-plaque': return { lines:[maker, 'HANDCRAFTED'], hex:0xd9dde0, style:'silver' };
+    case 'trident':     return { lines:['MASERATI'], hex, style:'bare' };
+    case 'TDI':         return { lines:['TDI'], hex:0xd9dde0, style:'silver' };
+    case 'COSWORTH': case 'PORSCHE': case 'BMW': return { lines:[lt], hex, style:'bare' };
+  }
+  if (/bmw/i.test(maker)) return { lines:['BMW', 'M POWER'], hex, style:metalStyle, stripes:e.finish?.tricolour ? tri : null };
+  if (/toyota|lexus/i.test(maker)) return { lines:['TOYOTA', dohc ? `TWIN CAM ${nv}` : `${nv} VALVE`], hex, style:metalStyle };
+  if (/nissan/i.test(maker)) return { lines:['NISSAN', dohc ? `TWIN CAM ${nv} VALVE` : `${nv} VALVE`], hex, style:metalStyle };
+  if (/honda/i.test(maker)) return { lines:[/vtec/i.test(e.name || '') ? 'VTEC' : 'HONDA', dohc ? 'DOHC' : 'SOHC'], hex, style:metalStyle };
+  if (/mazda/i.test(maker)) return { lines:['MAZDA', dohc ? `DOHC ${nv} VALVE` : ''], hex, style:metalStyle };
+  if (/subaru/i.test(maker)) return { lines:['SUBARU', 'BOXER'], hex, style:metalStyle };
+  if (/audi|volkswagen|vw/i.test(maker)) return { lines:[/tfsi|fsi/i.test(e.name || '') ? (e.name.match(/T?FSI/i) || ['FSI'])[0].toUpperCase() : maker], hex, style:metalStyle };
+  if (/mercedes/i.test(maker)) return { lines:['AMG'], hex, style:metalStyle };
+  if (/chevrolet|gm/i.test(maker)) return { lines:[/corvette|ls|lt/i.test(e.name || '') ? 'CORVETTE' : 'CHEVROLET'], hex, style:metalStyle };
+  if (/ford/i.test(maker)) return { lines:[/cosworth/i.test(e.name || '') ? 'COSWORTH' : /coyote/i.test(e.name || '') ? 'COYOTE' : 'FORD'], hex, style:metalStyle };
+  if (/formula|group|top fuel/i.test(maker)) return null;
+  return { lines:[maker], hex, style:metalStyle };
 }
 
 function buildPiston(e, tree){
@@ -313,6 +358,9 @@ function buildPiston(e, tree){
   /* Core plugs — the "freeze plugs" — are pressed into the sand-core holes left
      in the water jacket. They are the first thing you look for on a block that
      has been left out in the cold, and they are on the side of every one. */
+  /* the cylinder case's flank: the deck slab's outer face, in the bank frame */
+  const halfD = L.bore * (L.banks >= 2 ? 0.80 : 0.72);
+  const caseH = L.deckH - caseBot;
   if (!airCooled && has('coreplugs')){
     const nCore = qtyOf('coreplugs');
     const sides = 2;
@@ -322,34 +370,116 @@ function buildPiston(e, tree){
       const cx = perSide > 1 ? (slot - (perSide - 1) / 2) * (L.len * 0.78 / (perSide - 1)) : 0;
       const cp = cyl(L.bore * 0.22, L.bore * 0.22, M(6), MAT.plated(), 18);
       rot(cp, Math.PI / 2, 0, 0);
+      /* the boss the plug is pressed into stays on the block when the plug
+         comes out — a ring of casting round a hole into the water jacket */
+      const boss = tubeMesh(L.bore * 0.275, L.bore * 0.215, M(8), FIN.block, 18);
+      rot(boss, Math.PI / 2, 0, 0);
       /* in the water jacket beside the bores — on a vee that is up the outer
          face of each bank, on an inline it is the block's two flanks */
       if (L.banks >= 2){
         const b = sideIdx;
-        const [py, pz] = portAt(b, L.deckH * 0.55, exSide(b) * L.bore * 0.80);
+        const [py, pz] = portAt(b, L.deckH * 0.55, exSide(b) * (halfD + M(1)));
+        const [by, bz] = portAt(b, L.deckH * 0.55, exSide(b) * (halfD - M(1)));
         cp.rotation.x += (L.bankAngles[b] ?? 0);
+        boss.rotation.x += (L.bankAngles[b] ?? 0);
+        blockG.add(at(boss, cx, by, bz));
         each('coreplugs', k, at(cp, cx, py, pz));
       } else {
-        each('coreplugs', k, at(cp, cx, L.deckH - L.crankR * 1.3, (sideIdx ? 1 : -1) * (wCase - M(3))));
+        const zs = sideIdx ? 1 : -1;
+        blockG.add(at(boss, cx, caseBot + caseH * 0.60, zs * (halfD - M(1))));
+        each('coreplugs', k, at(cp, cx, caseBot + caseH * 0.60, zs * (halfD + M(1))));
       }
     }
   }
-  /* casting ribs down the sides of the crankcase */
-  for (let i = 0; i <= L.perBank; i++){
-    const rx = (i - L.perBank / 2) * L.pitch;
-    for (const zs of [-1, 1])
-      blockG.add(at(box(M(9), L.crankR * 0.70, M(10), FIN.block),
-                    rx, yCase + L.crankR * 0.45, zs * (wCase + M(3))));
+
+  /* ---- the casting dressed as a casting ----
+   * A block is not a smooth extrusion. It is webbed and ribbed wherever the
+   * foundry needed stiffness or the cores needed support, swollen where the
+   * water jacket runs, and bright only where something bolts to it. All of
+   * this is cast-in detail on the one block part — none of it comes off. */
+  const bike = e.class === 'bike';
+  const nMainsB = L.banks >= 2 ? e.cyl / 2 + 1 : e.cyl + 1;
+  const mainX = (i) => (i - (nMainsB - 1) / 2) * (L.len / Math.max(1, nMainsB - 1)) * 0.92;
+  const skirtTop = L.crankR * 0.55, skirtH = skirtTop - yCase;
+  /* main-bearing bulkheads: a vertical swelling down each skirt at every main,
+     where the saddle's load is carried down into the pan rail */
+  for (let i = 0; i < nMainsB; i++){
+    const rx = mainX(i);
+    for (const zs of [-1, 1]){
+      blockG.add(at(box(M(26), skirtH * 0.94, M(8), FIN.block), rx, yCase + skirtH * 0.5, zs * (wCase + M(3))));
+      blockG.add(at(cyl(M(11), M(13), skirtH * 0.94, FIN.block, 10), rx, yCase + skirtH * 0.5, zs * (wCase + M(5))));
+    }
   }
-  /* the bellhousing flange at the back, where the gearbox bolts on */
-  const bh = tubeMesh(L.bore * 1.90, L.bore * 1.62, M(16), MAT.machined(), 30);
-  rot(bh, 0, 0, Math.PI / 2);
-  /* a bike has no bellhousing: its gearbox lives inside the same cases */
-  if (e.class !== 'bike') blockG.add(at(bh, L.len / 2 + M(8), 0, 0));
-  for (let k = 0; k < 8 && e.class !== 'bike'; k++){
-    const t = (k / 8) * TAU;
-    blockG.add(at(rot(bolt(M(8), M(20), MAT.steel()), 0, 0, -Math.PI / 2),
-                  L.len / 2 + M(16), Math.sin(t) * L.bore * 1.76, Math.cos(t) * L.bore * 1.76));
+  /* the pan rail: a flange along the bottom of the skirts, a cast lug above
+     every pan bolt, and the machined face the pan gasket seals against */
+  const railW = wCase + M(8);
+  const panW = L.bore * 1.70, panLen = L.len * 0.94;
+  blockG.add(at(box(L.len, M(14), railW * 2, FIN.block), 0, yCase + M(7), 0));
+  blockG.add(at(machinedPad(L.len * 1.002, railW * 2 * 1.004, M(2)), 0, yCase - M(0.5), 0));
+  {
+    const nPan = Math.max(4, Math.round(panLen / 0.085));
+    for (let i = 0; i < nPan; i++){
+      const x = (i / (nPan - 1) - 0.5) * panLen * 0.92;
+      for (const zs of [-1, 1])
+        blockG.add(at(cyl(M(8), M(10), M(24), FIN.block, 10), x, yCase + M(24), zs * (wCase + M(3))));
+    }
+  }
+  /* the cylinder case flanks: a cast web at every bore boundary, the belly
+     line where the water jacket swells the wall, a ledge along the join to
+     the skirt, and the casting number raised on its own pad */
+  for (let b = 0; b < L.bankAngles.length; b++){
+    const fg = group('flank');
+    fg.rotation.x = L.bankAngles[b] ?? 0;
+    const sides = L.banks >= 2 ? [exSide(b)] : [-1, 1];
+    for (const zs of sides){
+      const zf = zs * halfD;
+      for (let i = 0; i <= L.perBank; i++){
+        const rx = (i - L.perBank / 2) * L.pitch;
+        fg.add(at(box(M(9), caseH * 0.74, M(8), FIN.block), rx, caseBot + caseH * 0.40, zf + zs * M(3)));
+      }
+      fg.add(at(cyl(M(7), M(7), L.len * 0.97, FIN.block, 8).rotateZ(Math.PI / 2), 0, caseBot + caseH * 0.26, zf + zs * M(3)));
+      fg.add(at(box(L.len * 0.97, M(6), M(9), FIN.block), 0, caseBot + caseH * 0.78, zf + zs * M(3)));
+    }
+    if (L.banks < 2 || b === L.bankAngles.length - 1){
+      const zs = L.banks >= 2 ? exSide(b) : 1;
+      const pad = letterPlate([castingNumber(e)], L.bore * 0.62, L.bore * 0.12, FIN.block,
+                              { hex:0xcfd3d6, style:'cast', thickness:M(2.5), flip: zs < 0, align:'left', barMat:FIN.block });
+      pad.rotation.x = zs * Math.PI / 2;
+      fg.add(at(pad, -L.len * 0.24, caseBot + caseH * 0.60, zs * (halfD + M(1))));
+    }
+    blockG.add(fg);
+  }
+  /* the front face is milled flat for the front cover; a bright line shows
+     between the two castings where the gasket sits */
+  blockG.add(at(machinedPad(caseBot - yCase, wCase * 2 * 1.004, M(2.4)).rotateZ(Math.PI / 2),
+                -L.len / 2 - M(1.2), (yCase + caseBot) / 2, 0));
+  /* the bellhousing flange at the back, where the gearbox bolts on: a cast
+     plate round over the crank and tapering to the pan rail, webbed back onto
+     the block, with its machined face and the ring of bolts */
+  if (!bike){
+    const Rf = L.bore * 1.90;
+    const s2 = new THREE.Shape();
+    s2.absarc(0, 0, Rf, deg(-12), deg(192), false);
+    s2.lineTo(-wCase * 1.04, yCase); s2.lineTo(wCase * 1.04, yCase); s2.closePath();
+    const hole = new THREE.Path(); hole.absarc(0, 0, L.crankR * 0.70, 0, TAU, true); s2.holes.push(hole);
+    const pg = new THREE.ExtrudeGeometry(s2, { depth:M(14), bevelEnabled:false, curveSegments:20 });
+    pg.rotateY(Math.PI / 2);
+    blockG.add(at(new THREE.Mesh(pg, FIN.block), L.len / 2 - M(2), 0, 0));
+    const bh = tubeMesh(Rf, Rf * 0.84, M(3), MAT.machined(), 30);
+    rot(bh, 0, 0, Math.PI / 2);
+    blockG.add(at(bh, L.len / 2 + M(13.5), 0, 0));
+    for (const t of [-72, -36, 0, 36, 72].map(deg)){
+      const rIn = L.crankR * 1.2, rOut = Rf * 0.94;
+      const web = box(M(64), rOut - rIn, M(10), FIN.block);
+      web.position.set(L.len / 2 - M(34), Math.cos(t) * (rIn + rOut) / 2, Math.sin(t) * (rIn + rOut) / 2);
+      web.rotation.x = t;
+      blockG.add(web);
+    }
+    for (let k = 0; k < 8; k++){
+      const t = (k / 8) * TAU + Math.PI / 8;
+      blockG.add(at(rot(bolt(M(6), M(20), FIN.hardware), 0, 0, -Math.PI / 2),
+                    L.len / 2 + M(12), Math.sin(t) * L.bore * 1.76, Math.cos(t) * L.bore * 1.76));
+    }
   }
 
   /* the sump rail and main-bearing bulkheads below the crank */
@@ -543,25 +673,65 @@ function buildPiston(e, tree){
        tub — a rail round the edge up to the cover face — so that with the cam
        cover off the camshafts, caps and followers are what you see, not a slab. */
     const solidTop = L.bore * (ohv ? 1.05 : 0.80);
-    const headBody = roundBox(L.len, solidTop - fireT, L.bore * 1.5, 0.03, FIN.heads || MAT.alloy());
+    const headMat = FIN.heads || MAT.alloy();
+    const headBody = roundBox(L.len, solidTop - fireT, L.bore * 1.5, 0.03, headMat);
     hb.add(mk(headBody, L.deckH + fireT + (solidTop - fireT) / 2));
-    if (!ohv){
-      const railTop = L.bore * 1.26, railH = railTop - solidTop, wall = L.bore * 0.09;
-      for (const sz of [-1, 1]) hb.add(mk(at(box(L.len, railH, wall, FIN.heads || MAT.alloy()), 0, 0, 0), L.deckH + solidTop + railH / 2, sz * (L.bore * 0.75 - wall / 2)));
-      for (const sx of [-1, 1]) hb.add(mk(at(box(wall, railH, L.bore * 1.5, FIN.heads || MAT.alloy()), sx * (L.len / 2 - wall / 2), 0, 0), L.deckH + solidTop + railH / 2));
+    /* The cam box: an open tub above the spring pockets, its rail milled flat
+       for the cover with a bolt boss at every cover fixing. A pushrod head
+       gets the same tub for its rockers; an air-cooled twin has rocker boxes
+       instead and no rail at all. */
+    const railTop = L.bore * 1.32, wall = L.bore * 0.09;
+    const nCoverBolts = Math.max(4, e.cyl + 2), coverLen = L.len * 0.98;
+    if (!(ohv && airCooled)){
+      const railH = railTop - solidTop;
+      for (const sz of [-1, 1]){
+        hb.add(mk(at(box(L.len, railH, wall, headMat), 0, 0, 0), L.deckH + solidTop + railH / 2, sz * (L.bore * 0.75 - wall / 2)));
+        hb.add(mk(at(machinedPad(L.len * 1.002, wall * 1.05, M(2)), 0, 0, 0), L.deckH + railTop - M(1), sz * (L.bore * 0.75 - wall / 2)));
+        /* a cast web from the rail down the outer face at every cover bolt */
+        for (let i = 0; i < nCoverBolts; i++){
+          const bx = (i / (nCoverBolts - 1) - 0.5) * coverLen * 0.92;
+          hb.add(mk(at(cyl(L.bore * 0.065, L.bore * 0.075, railH * 0.98, headMat, 10), bx, 0, 0), L.deckH + solidTop + railH * 0.49, sz * L.bore * 0.612));
+        }
+      }
+      for (const sx of [-1, 1]){
+        hb.add(mk(at(box(wall, railH, L.bore * 1.5, headMat), sx * (L.len / 2 - wall / 2), 0, 0), L.deckH + solidTop + railH / 2));
+        hb.add(mk(at(machinedPad(wall * 1.05, L.bore * 1.5 * 1.002, M(2)), sx * (L.len / 2 - wall / 2), 0, 0), L.deckH + railTop - M(1)));
+      }
+      /* the spring pockets: a raised rim round every valve in the tub floor */
+      const nvv = Math.max(2, e.valvesPerCyl), perSideV = Math.max(1, Math.floor(nvv / 2));
+      for (let i = 0; i < L.perBank; i++){
+        const px = (i - (L.perBank - 1) / 2) * L.pitch;
+        for (let v = 0; v < nvv; v++){
+          const intake = v < perSideV, j = intake ? v : v - perSideV;
+          const zoff = (intake ? -1 : 1) * L.bore * 0.21 + (perSideV > 1 ? (j - (perSideV - 1) / 2) * L.bore * 0.19 : 0);
+          hb.add(mk(at(tubeMesh(L.bore * 0.14, L.bore * 0.12, L.bore * 0.035, headMat, 14), px, 0, 0), L.deckH + solidTop + L.bore * 0.0175, zoff));
+        }
+      }
     }
-    /* port bosses on each face — the lumps you actually see on a head */
+    /* the port faces: the inlet ports swell the intake face into a row of
+       rounded bulges, the exhaust ports stand out as square bosses, and both
+       faces are milled flat along the ports for their manifold flanges */
     for (let i = 0; i < L.perBank; i++){
       const px = (i - (L.perBank - 1)/2) * L.pitch;
-      for (const [zf, mat] of [[inSide(b) * 0.80, MAT.alloy()], [exSide(b) * 0.80, MAT.hot()]]){
+      for (const [zf, mat, ex] of [[inSide(b), MAT.alloy(), false], [exSide(b), MAT.hot(), true]]){
         const port = cyl(L.bore * 0.19, L.bore * 0.22, L.bore * 0.22, mat, 16);
         rot(port, Math.PI/2, 0, 0);
-        hb.add(mk(at(port, px, 0, zf * L.bore), L.deckH + L.bore * 0.46, zf * L.bore));
+        hb.add(mk(at(port, px, 0, 0), L.deckH + L.bore * 0.40, zf * L.bore * 0.84));
+        const lump = ex ? roundBox(L.bore * 0.46, L.bore * 0.44, L.bore * 0.12, L.bore * 0.03, headMat)
+                        : roundBox(L.bore * 0.42, L.bore * 0.40, L.bore * 0.12, L.bore * 0.14, headMat);
+        hb.add(mk(at(lump, px, 0, 0), L.deckH + L.bore * 0.40, zf * (L.bore * 0.75 + L.bore * 0.06)));
       }
+      /* cast ribs between the ports on both faces */
+      if (i + 1 < L.perBank) for (const zf of [inSide(b), exSide(b)])
+        hb.add(mk(at(box(M(7), (solidTop - fireT) * 0.72, M(8), headMat), px + L.pitch / 2, 0, 0),
+                  L.deckH + fireT + (solidTop - fireT) * 0.5, zf * (L.bore * 0.75 + M(3))));
       /* spark plug well sunk into the casting */
       hb.add(mk(at(cyl(L.bore*0.13, L.bore*0.13, L.bore*0.34, MAT.black(), 14), px, 0, 0),
                    L.deckH + L.bore * 1.02));
     }
+    for (const zf of [inSide(b), exSide(b)])
+      hb.add(mk(at(machinedPad(L.len * 0.97, L.bore * 0.48, M(2.5)).rotateX(Math.PI / 2), 0, 0, 0),
+                L.deckH + L.bore * 0.40, zf * (L.bore * 0.87 + M(1.25))));
     /* head bolts: their own part when the tree lists them, else cast here.
        mk() keeps the x it is given but takes y and z itself, so the offset
        across the head has to go through its z argument. */
@@ -727,9 +897,17 @@ function buildPiston(e, tree){
         }
       }
     } else {
-      /* valve cover: a real casting with its bolt rail, ribs and filler cap */
+      /* valve cover: a real casting — twin humps over the cams with the plug
+         wells in a trough between them on a twin-cam, one raised centre on
+         anything else — with its bolt rail, breather box and the maker's
+         lettering on top. The legend reads from the side you would stand on. */
+      const wells = [...Array(e.cyl).keys()]
+        .filter(i => (L.banks >= 2 ? cylSlot(e, i, L).bank % 2 : 0) === b)
+        .map(i => cylPosition(e, i, L).x);
       const vc = camCoverMesh(L.len * 0.98, L.bore * 1.36, L.bore * 0.34, FIN.cover,
-                              Math.max(4, e.cyl + 2), FIN.hardware);
+                              Math.max(4, e.cyl + 2), FIN.hardware,
+                              { dohc: !ohv && e.cam !== 'SOHC', wells, legend: coverLegend(e, FIN),
+                                flip: L.banks >= 2 ? bankSign(b) < 0 : false, flipSides: L.banks < 2 });
       vcG.add(mk(vc, L.deckH + L.bore * 1.34));
     }
   }
@@ -1019,8 +1197,12 @@ function buildPiston(e, tree){
   opG.add(rv);
   add('oilpump', opG);
   add('pickup', pipe([[0,-L.crankR*0.9,0],[0,-L.crankR*1.6,L.bore*0.25],[L.len*0.15,-L.crankR*1.9,L.bore*0.3]], M(9), MAT.steel()));
-  const pan = oilPanMesh(L.len * 0.94, L.bore * 1.35, L.crankR * (e.drySump ? 0.6 : 1.5), MAT.alloyDark());
-  add('oilpan', at(pan, 0, -L.crankR * (e.drySump ? 1.45 : 1.9), 0));
+  /* the pan hangs off the block's pan rail through its gasket: flange top a
+     gasket's thickness under the rail, as wide as the skirts it bolts under */
+  const panDepth = L.crankR * (e.drySump ? 0.6 : 1.38);
+  const panY = yCase - M(3) - panDepth * 0.50;
+  const pan = oilPanMesh(panLen, panW, panDepth, MAT.alloyDark());
+  add('oilpan', at(pan, 0, panY, 0));
   /* the filter screws into a boss on the block's flank, so it stands clear of
      it — you have to get a strap wrench round one */
   const deMaker = /bmw|mercedes|porsche|audi|volkswagen/i.test(e.maker || '');
@@ -1116,7 +1298,7 @@ function buildPiston(e, tree){
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
     const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
-    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, inSide(b) * L.bore * 0.70);
+    const [py, pz] = portAt(b, L.deckH + L.bore * 0.40, inSide(b) * L.bore * 0.70);
     const [my, mz] = plenumMouth();
     if (itb && L.banks < 2){
       /* Individual throttles on an inline engine come straight off the intake
@@ -1510,14 +1692,32 @@ function buildPiston(e, tree){
 
   /* a road engine casts its manifold in iron, which goes brown-grey and rusty; a
      race or bike engine runs fabricated tube headers that scale and tint */
-  const exMat = (e.class === 'race' || e.class === 'bike' || e.exhaust === 'headers') ? MAT.hot() : MAT.ironHot();
+  const tubular = (e.class === 'race' || e.class === 'bike' || e.exhaust === 'headers');
+  const exMat = tubular ? MAT.hot() : MAT.ironHot();
+  /* a fabricated header shows its welds: a bead where each primary meets the
+     flange and where it enters the collector. A cast log has none — it is
+     one piece — but its runners are fatter and its outlet is a bolted flange. */
+  const exR = tubular ? M(16) : M(19);
+  const weldBead = (pts, t, r) => {
+    const c = new THREE.CatmullRomCurve3(pts.map(q => q.isVector3 ? q : V3(...q)));
+    const bead = torus(r * 1.04, r * 0.13, MAT.hot(), 18);
+    bead.quaternion.setFromUnitVectors(V3(0, 0, 1), c.getTangentAt(t).normalize());
+    bead.position.copy(c.getPointAt(t));
+    return bead;
+  };
+  const primary = (pts, r, seg = 8) => {
+    const g = group('primary');
+    g.add(pipe(pts, r, exMat, seg));
+    if (tubular){ g.add(weldBead(pts, 0.05, r)); g.add(weldBead(pts, 0.95, r)); }
+    return g;
+  };
   /* ---- exhaust ---- */
   const exG = group('ex');
   for (let i = 0; i < e.cyl; i++){
     const p = cylPosition(e, i, L);
     const b = L.banks >= 2 ? cylSlot(e, i, L).bank : 0;
     const side = L.banks >= 2 ? exSide(b) : 1;
-    const [py, pz] = portAt(b, L.deckH + L.bore * 0.34, side * L.bore * 0.70);
+    const [py, pz] = portAt(b, L.deckH + L.bore * 0.40, side * L.bore * 0.70);
     if (nitro){
       /* zoomies: one short upswept pipe per port, nothing collected */
       exG.add(pipe([[p.x, py, pz],
@@ -1534,12 +1734,12 @@ function buildPiston(e, tree){
          middle of it. The whole hot side sits at head height — which is what
          you see on a diesel six or a modern four, and why the turbo is the
          first thing on the engine you can reach. */
-      exG.add(pipe([
+      exG.add(primary([
         [p.x, py, pz],
         [p.x, py - L.bore * 0.06, pz + side * L.bore * 0.30],
         [p.x, colY + L.bore * 0.06, side * colZ * 0.94],
         [p.x, colY, side * colZ],
-      ], M(19), exMat, 8));
+      ], M(19)));
       continue;
     }
     const outZ = pz + side * L.bore * 0.34;
@@ -1547,14 +1747,14 @@ function buildPiston(e, tree){
     /* a turbocharged vee's primaries sweep forward into the turbine bolted to
        the front corner; everything atmospheric collects at the back */
     const tb = frontTurbo ? (turbos[b % turbos.length] || turbos[0]) : null;
-    exG.add(pipe([
+    exG.add(primary([
       [p.x, py, pz],
       [p.x, py - L.bore * 0.38, outZ],
       [p.x, flat ? -L.bore * 0.55 : L.crankR * 1.45, runZ],
       [(p.x + colX) / 2, flat ? -L.crankR * 1.3 : L.crankR * (frontTurbo ? 1.15 : 0.95), side * colZ * 1.08],
       [colX + (frontTurbo ? L.bore * 0.30 : 0), colY, side * colZ * (frontTurbo ? 0.92 : 1)],
       tb ? [tb.hotIn.x, tb.hotIn.y, tb.hotIn.z] : [colX, colY, side * colZ],
-    ], M(16), exMat, 8));
+    ], exR));
   }
   if (sideTurbo && turbos.length){
     /* the log, and one short pipe out of it into each turbine — dropped
@@ -1569,18 +1769,36 @@ function buildPiston(e, tree){
   }
   /* the collector itself: a cone that gathers the primaries and hands them on */
   if (!frontTurbo && !sideTurbo && !nitro)
-   for (const side of (L.banks >= 2 ? [-1, 1] : [1]))
+   for (const side of (L.banks >= 2 ? [-1, 1] : [1])){
     exG.add(at(lathe([[M(26), -M(34)], [M(30), -M(10)], [M(24), M(22)], [M(24), M(34)]],
                      exMat, 22).rotateZ(Math.PI / 2),
                colX + M(30), colY, side * colZ));
+    if (tubular){
+      /* the merge collar where the primaries are welded into the cone, and
+         the slip joint the downpipe pushes onto */
+      exG.add(at(tubeMesh(M(33), M(29), M(14), MAT.hot(), 22).rotateZ(Math.PI / 2), colX + M(2), colY, side * colZ));
+      exG.add(at(tubeMesh(M(27), M(24), M(18), MAT.steel(), 22).rotateZ(Math.PI / 2), colX + M(58), colY, side * colZ));
+    } else {
+      /* a cast log ends in a three-stud outlet flange the downpipe bolts to */
+      const of = group('outlet');
+      of.add(tubeMesh(M(44), M(24), M(12), MAT.iron(), 6).rotateZ(Math.PI / 2));
+      for (let k = 0; k < 3; k++){
+        const t = (k / 3) * TAU + Math.PI / 6;
+        of.add(at(rot(nutOnStud(M(13), M(9), FIN.hardware), 0, 0, -Math.PI / 2), M(6), Math.cos(t) * M(36), Math.sin(t) * M(36)));
+      }
+      exG.add(at(of, colX + M(60), colY, side * colZ));
+    }
+   }
   /* the manifold bolts to a real port flange, not to thin air */
   for (const bk of (L.banks >= 2 ? [-1, 1] : [1])){
     const fl = portFlange(Math.max(1, Math.round(e.cyl / L.banks)), L.bore * 0.26,
-                          L.len / Math.max(1, e.cyl / L.banks), M(11), MAT.iron());
+                          L.len / Math.max(1, e.cyl / L.banks), tubular ? M(10) : M(14), tubular ? MAT.steel() : MAT.iron());
     rot(fl, 0, 0, 0);
-    fl.rotation.y = Math.PI / 2;
+    /* the plate is built facing +X; turned to face out of its own side so it
+       sits ON the gasket on the head's machined port face, not inside the head */
+    fl.rotation.y = bk > 0 ? -Math.PI / 2 : Math.PI / 2;
     const bIdx = L.banks >= 2 ? (bk > 0 ? (bankSign(0) > 0 ? 0 : 1) : (bankSign(0) > 0 ? 1 : 0)) : 0;
-    const [fy, fz] = portAt(bIdx, L.deckH + L.bore * 0.34, bk * L.bore * 0.70);
+    const [fy, fz] = portAt(bIdx, L.deckH + L.bore * 0.40, bk * (L.bore * 0.87 + M(5.5)));
     fl.rotation.x = L.bankAngles[bIdx] || 0;
     at(fl, 0, fy, fz);
     exG.add(fl);
@@ -1638,23 +1856,27 @@ function buildPiston(e, tree){
           const g = group('g'); g.add(obj);
           obj.position.set(obj.position.x, y, z); g.rotation.x = a; return g;
         };
-        /* the gasket is a frame, not a slab: two rails and two ends */
-        const gw = L.len * 0.98, gd = L.bore * 1.36, lip = L.bore * 0.10;
+        /* the gasket is a frame, not a slab: two rails and two ends, lying on
+           the head's milled cam-box rail under the cover's foot */
+        const gw = L.len * 0.98, gd = L.bore * 1.50, lip = L.bore * 0.09;
+        const gy = L.deckH + L.bore * 1.33;
         for (const zs of [-1, 1])
-          vgG.add(hold(plate(gw, M(4), lip), L.deckH + L.bore * 1.17, zs * (gd - lip) / 2));
+          vgG.add(hold(plate(gw, M(3), lip), gy, zs * (gd - lip) / 2));
         for (const xs of [-1, 1]){
-          const end = plate(lip, M(4), gd - lip * 2);
+          const end = plate(lip, M(3), gd - lip * 2);
           end.position.x = xs * (gw - lip) / 2;
-          vgG.add(hold(end, L.deckH + L.bore * 1.17));
+          vgG.add(hold(end, gy));
         }
-        /* the rubber grommets the cover bolts pull down through */
+        /* the rubber grommets the cover bolts pull down through: one on top
+           of every bolt boss on the cover rail, under the flanged head */
         const nb = Math.max(4, e.cyl + 2);
+        const bossTop = L.deckH + L.bore * 1.34 + L.bore * 0.34 * 0.26;
         for (let i = 0; i < nb; i++){
           const gx = (i / (nb - 1) - 0.5) * gw * 0.92;
           for (const zs of [-1, 1]){
-            const gm = tubeMesh(M(11), M(5.5), M(9), MAT.rubber(), 12);
+            const gm = tubeMesh(M(7.5), M(3.3), M(6), MAT.rubber(), 12);
             gm.position.x = gx;
-            vgG.add(hold(gm, L.deckH + L.bore * 1.20, zs * (gd - lip) / 2));
+            vgG.add(hold(gm, bossTop + M(3), zs * L.bore * 0.68 * 0.90));
           }
         }
       }
@@ -1669,7 +1891,7 @@ function buildPiston(e, tree){
       const a = L.bankAngles[b] ?? 0;
       for (const [side, grp, r] of [[inSide(b), igG, L.bore * 0.24],
                                     [exSide(b), egG, L.bore * 0.21]]){
-        const [gy, gz] = portAt(b, L.deckH + L.bore * 0.34, side * L.bore * 0.78);
+        const [gy, gz] = portAt(b, L.deckH + L.bore * 0.40, side * (L.bore * 0.87 + M(4)));
         /* a flat plate with the port cut through it */
         const ring = tubeMesh(r * 1.62, r, M(3), MAT.gasket(), 20);
         ring.rotation.set(Math.PI / 2 + a, 0, 0);
@@ -1680,14 +1902,14 @@ function buildPiston(e, tree){
 
     /* --- oil pan gasket, drain bolt and its crush washer --- */
     const pgG = gk('pangasket');
-    const pw = L.len * 0.94, pd = L.bore * 1.35, prail = -L.crankR * 1.9 + L.crankR * 0.75;
+    const pw = panLen, pd = panW * 1.10, prail = yCase - M(1.5);
     for (const zs of [-1, 1])
-      pgG.add(at(plate(pw, M(4), M(14)), 0, prail, zs * (pd - M(14)) / 2));
+      pgG.add(at(plate(pw, M(3), M(16)), 0, prail, zs * (pd - M(16)) / 2));
     for (const xs of [-1, 1])
-      pgG.add(at(plate(M(14), M(4), pd - M(28)), xs * (pw - M(14)) / 2, prail, 0));
+      pgG.add(at(plate(M(16), M(3), pd - M(32)), xs * (pw - M(16)) / 2, prail, 0));
     /* the drain bolt hangs out of the lowest corner of the pan, with a soft
        copper washer under its head that is meant to be crushed once */
-    const dx = pw * 0.40, dy = -L.crankR * 1.9 - L.crankR * 0.74, dz = pd * 0.30;
+    const dx = pw * 0.40, dy = panY - panDepth * 0.49, dz = panW * 0.30;
     pgG.add(at(rot(bolt(M(11), M(18), MAT.steel()), Math.PI, 0, 0), dx, dy, dz));
     pgG.add(at(tubeMesh(M(11), M(6), M(2.5), MAT.copper(), 16),
                dx, dy + M(3), dz));
@@ -2176,9 +2398,14 @@ function buildPiston(e, tree){
   if (has('valvecover')){
     /* the filler cap and the breather both live on the cam cover, because that
        is the top of the crankcase once the engine is together */
-    const [cy, cz] = portAt(0, L.deckH + L.bore * 1.52, -bankSign(0) * L.bore * 0.34);
+    /* both stand on the cover's own top surface: the cap on the intake-side
+       hump, the valve down in the plug-well trough of a twin-cam cover */
+    const dohcCover = !ohv && e.cam !== 'SOHC';
+    const topAt = (z) => (ohv && airCooled) ? L.bore * 1.52
+                       : L.bore * 1.34 + camCoverTopAt(L.bore * 1.36, L.bore * 0.34, z, dohcCover);
+    const [cy, cz] = portAt(0, L.deckH + topAt(L.bore * 0.34), -bankSign(0) * L.bore * 0.34);
     add('valvecover', at(standOn(fillerCap(L.bore * 0.22), bankUp(0)), -L.len * 0.34, cy, cz));
-    const [vy, vz] = portAt(0, L.deckH + L.bore * 1.52, -bankSign(0) * L.bore * 0.10);
+    const [vy, vz] = portAt(0, L.deckH + topAt(L.bore * 0.10), -bankSign(0) * L.bore * 0.10);
     const pcvAt = V3(L.len * 0.26, vy, vz);
     add('pcv', at(standOn(pcvValve(L.bore * 0.20), bankUp(0)), pcvAt.x, pcvAt.y, pcvAt.z));
     if (has('intake')){

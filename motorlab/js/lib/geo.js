@@ -3,24 +3,39 @@ import * as THREE from 'three';
 import { tex, repeated, surface, whenTextures, CALIPER_UV, FILTER_UV } from './textures.js';
 import { partMesh } from './partModels.js';
 
-/** Dress a material with scanned maps as soon as the library is in place.
- *  Until then — and if the files are missing — the generated look stands in. */
-/** Put a scanned surface onto a material: the normal and roughness always,
- *  the colour only where the scan's own colour is wanted. Anything the
- *  procedural version supplied for the same slot is dropped, so they do not
- *  fight each other. */
-function dressSurface(m, name, repeat, normalScale = 1, useColour = false){
+/** Put a real surface onto a material: the normal and roughness always, the
+ *  colour only where the scan's own colour is the material (rust bloom,
+ *  forging scale, zinc spangle, braid). Anything the procedural version
+ *  supplied for the same slot is dropped, so the two do not fight.
+ *
+ *  `repeat` is a number or [rx, ry] (tool marks along a shaft, braid along a
+ *  hose). The roughness maps are levelled to the real surface's value by
+ *  tools/fetch-surfaces.py, so when one is applied the material's roughness
+ *  becomes a plain multiplier and defaults to 1.0: the map is the truth.
+ *  `opts.rough` overrides that multiplier (a brighter casting, a duller
+ *  steel); `opts.rough === false` leaves the roughness map off altogether
+ *  (chrome, which has no roughness structure worth tiling). */
+function dressSurface(m, name, repeat, normalScale = 1, useColour = false, opts = {}){
   const maps = surface(name, repeat, useColour);
-  if (!maps.normalMap && !maps.roughnessMap) return;
+  if (!maps.normalMap && !maps.roughnessMap) return false;
   if (maps.normalMap){
     m.normalMap = maps.normalMap;
     m.normalScale = new THREE.Vector2(normalScale, normalScale);
     m.bumpMap = null;
   }
-  if (maps.roughnessMap) m.roughnessMap = maps.roughnessMap;
-  if (maps.map) m.map = maps.map;
+  if (maps.roughnessMap && opts.rough !== false){
+    m.roughnessMap = maps.roughnessMap;
+    m.roughness = typeof opts.rough === 'number' ? opts.rough : 1.0;
+  }
+  if (maps.map){
+    m.map = maps.map;
+    if (opts.tint != null) m.color.set(opts.tint);
+  }
+  return true;
 }
 
+/** Dress a material once the surface library is in place. Until then — and
+ *  if the files are missing — the procedural look stands in. */
 function scanned(m, dress){
   whenTextures(() => { dress(m); m.needsUpdate = true; });
   return m;
@@ -130,129 +145,197 @@ function repeatXY(t, rx, ry){
 function withRepeat(t, r){
   if (!t) return null;
   const c = t.clone(); c.needsUpdate = true;
-  c.repeat.set(r, r);
+  const [rx, ry] = Array.isArray(r) ? r : [r, r];
+  c.repeat.set(rx, ry);
   return c;
+}
+
+/** Give a geometry that has no `uv` attribute one, by box projection: each
+ *  vertex takes the two coordinates across its dominant normal axis, in
+ *  metres times `perMetre`. The surface maps need UVs to show at all, and a
+ *  hand-built BufferGeometry (a volute, a blade, a shell) has none — without
+ *  this the GPU reads uv (0,0) everywhere and the part comes out as one flat
+ *  texel. Call it after computeVertexNormals(); returns the geometry. */
+export function ensureUV(g, perMetre = 1){
+  if (!g || g.attributes.uv || !g.attributes.position) return g;
+  if (!g.attributes.normal) g.computeVertexNormals();
+  const p = g.attributes.position, n = g.attributes.normal;
+  const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++){
+    const nx = Math.abs(n.getX(i)), ny = Math.abs(n.getY(i)), nz = Math.abs(n.getZ(i));
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    let u, v;
+    if (nx >= ny && nx >= nz){ u = z; v = y; }
+    else if (ny >= nz){ u = x; v = z; }
+    else { u = x; v = y; }
+    uv[i * 2] = u * perMetre; uv[i * 2 + 1] = v * perMetre;
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return g;
 }
 
 /* Materials are shared: a V12 uses one aluminium, not twelve. */
 const _mat = new Map();
 const mat = (key, make) => { if (!_mat.has(key)) _mat.set(key, make()); return _mat.get(key); };
 
+/* One envMapIntensity for the whole palette. What makes a metal read brighter
+ * or duller than its neighbour is its roughness and its colour, never a
+ * private gain on the reflections; the moment one part has 1.6 and the next
+ * 0.4 the bright one glows and the dull one looks unlit. */
+const ENV = 1.0;
+
+/* UV repeats, by the size of part each material usually covers. Box and
+ * cylinder faces span 0..1 in UV whatever their size, extrusions carry metres,
+ * so a repeat is roughly "tiles per part" on the first and "tiles per metre"
+ * on the second; these values land both at a grain that is right at engine
+ * scale. Hardware runs a low repeat on purpose: a bolt head must not show the
+ * same number of speckles as a block face. */
+const REP = {
+  block:    5,          // the block, the sump, the big castings
+  casting:  4,          // heads, covers, housings
+  housing:  3,          // pumps, alternators, small castings
+  shaft:    [1, 3],     // crank and shafts: marks along the length
+  hardware: 0.8,        // bolts, nuts, washers, clamps
+  hose:     [8, 1.5],   // along the tube, round the tube
+  cover:    4,          // painted cam covers
+};
+
 export const MAT = {
-  /* sand-cast aluminium: bright, fairly rough, grainy */
+  /* sand-cast aluminium: the head, the covers, the housings. Bare metal, so
+     metalness 1 and the colour is the reflectance of aluminium; the grain and
+     the dullness come off the cast scan. Brighter than the block because a
+     head is a cleaner, finer casting that gets handled and wiped. */
   alloy: () => mat('alloy', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xa6adb5, metalness:0.55, roughness:0.66, envMapIntensity:0.60,
+    color:0xb8bdc3, metalness:1.0, roughness:0.66, envMapIntensity:ENV,
     roughnessMap: withRepeat(castGrain(), 3), bumpMap: withRepeat(castGrain(), 3), bumpScale:0.6 }),
-    m => dressSurface(m, 'cast', 3, 0.85))),
+    m => dressSurface(m, 'cast', REP.casting, 1.0, false, { rough: 0.92 }))),
   /* the block and the big structural castings: sand-cast, unmachined, and a
      good deal duller than the head and the covers bolted to it. Casting them
      all in the same bright alloy is what made an engine read as one lump of
      machined metal instead of an assembly of different parts. */
   cast: () => mat('cast', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x92979d, metalness:0.30, roughness:0.86, envMapIntensity:0.45,
+    color:0x9da2a8, metalness:1.0, roughness:0.86, envMapIntensity:ENV,
     roughnessMap: withRepeat(castGrain(), 3), bumpMap: withRepeat(castGrain(), 3), bumpScale:0.9 }),
-    m => dressSurface(m, 'cast', 3, 1.1))),
+    m => dressSurface(m, 'cast', REP.block, 1.4, false, { rough: 1.0 }))),
   /* glass-filled nylon: what the inlet manifold and most top covers are made
      of on anything built since about 1995 */
   composite: () => mat('composite', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x1c1f24, metalness:0.0, roughness:0.55, envMapIntensity:0.55 }),
-    m => dressSurface(m, 'plastic', 2, 0.9))),
+    color:0x1c1f24, metalness:0.0, roughness:0.55, envMapIntensity:ENV }),
+    m => dressSurface(m, 'plastic', REP.housing, 1.2))),
   alloyDark: () => mat('alloyDark', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x5b6068, metalness:0.45, roughness:0.74, envMapIntensity:0.45,
+    color:0x6f757c, metalness:1.0, roughness:0.74, envMapIntensity:ENV,
     roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.7 }),
-    m => dressSurface(m, 'cast', 4, 0.9))),
-  /* cast iron: darker, rougher, still metal */
+    m => dressSurface(m, 'cast', REP.housing, 1.2))),
+  /* cast iron: darker, rougher, coarser grain than aluminium, and still a
+     metal — grey iron reflects about half what aluminium does */
   iron: () => mat('iron', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x4a4f56, metalness:0.35, roughness:0.86, envMapIntensity:0.35,
+    color:0x5d6166, metalness:1.0, roughness:0.86, envMapIntensity:ENV,
     roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.8 }),
-    m => dressSurface(m, 'cast', 5, 1.0))),
+    m => dressSurface(m, 'iron', REP.block, 1.5))),
   /* forged steel as it comes out of the die and the heat treat: dark grey-
-     brown scale, no polish — the webs of a crank, the beam of a rod */
+     brown scale, no polish — the webs of a crank, the beam of a rod. The
+     scan's own mottle is the scale, so its colour is taken, tinted dark. */
   forged: () => mat('forged', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x3b3e43, metalness:0.80, roughness:0.60, envMapIntensity:0.55,
+    color:0x3b3e43, metalness:1.0, roughness:0.60, envMapIntensity:ENV,
     roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.45 }),
-    m => dressSurface(m, 'cast', 4, 0.6))),
+    m => dressSurface(m, 'forged', REP.shaft, 1.2, true, { tint: 0x9a9b9e }))),
   /* a multi-layer steel head gasket: bright steel sheets with a dark elastomer
      coat, seen edge-on as a thin silver line */
   mls: () => mat('mls', () => new THREE.MeshStandardMaterial({
-    color:0x9ea2a4, metalness:0.90, roughness:0.50, envMapIntensity:0.8 })),
+    color:0x9ea2a4, metalness:1.0, roughness:0.50, envMapIntensity:ENV })),
   /* yellow zinc-chromate: the gold bolts, brackets and clamps on every
-     Japanese engine of the 1990s */
-  zincYellow: () => mat('zincYellow', () => new THREE.MeshStandardMaterial({
-    color:0xc9a84a, metalness:0.95, roughness:0.38, envMapIntensity:1.0 })),
+     Japanese engine of the 1990s — the galvanised spangle under a gold tint */
+  zincYellow: () => mat('zincYellow', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xc9a84a, metalness:1.0, roughness:0.42, envMapIntensity:ENV }),
+    m => dressSurface(m, 'zinc', REP.hardware, 0.8, true, { tint: 0xf4c85c, rough: 0.9 }))),
   /* a cast-iron exhaust manifold after a few hundred heat cycles: brown-grey
-     scale with a rust bloom, darker toward the flanges, no shine at all */
+     scale with a rust bloom, darker toward the flanges, no shine at all. The
+     rust is colour, so this one takes the scan's colour. */
   ironHot: () => mat('ironHot', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x57514c, metalness:0.22, roughness:0.92, envMapIntensity:0.25,
+    color:0x57514c, metalness:0.5, roughness:0.92, envMapIntensity:ENV,
     roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.9 }),
-    m => dressSurface(m, 'cast', 5, 1.0))),
-  /* a face that has been through the mill: bright, flat, fine tool marks */
+    m => dressSurface(m, 'rust', REP.housing, 1.3, true, { tint: 0xe0d8d0 }))),
+  /* a face that has been through the mill: bright, flat, fine tool marks that
+     run one way — the grain is stretched along the part so the highlight
+     streaks like it does on a turned or fly-cut surface */
   machined: () => mat('machined', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xc9cdd1, metalness:0.95, roughness:0.28, envMapIntensity:1.1,
+    color:0xd0d4d8, metalness:1.0, roughness:0.30, envMapIntensity:ENV,
     roughnessMap: withRepeat(machined(), 3), bumpMap: withRepeat(machined(), 3), bumpScale:0.15 }),
-    m => dressSurface(m, 'steel', 3, 0.4))),
-  /* forged and machined steel: tool marks, low roughness */
+    m => dressSurface(m, 'machined', [1.5, 4], 0.7))),
+  /* forged and machined steel: brushed, low roughness — shafts, springs,
+     fasteners, the bright parts of a crank */
   steel: () => mat('steel', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xb2b9c2, metalness:1.00, roughness:0.36, envMapIntensity:0.95,
+    color:0xb6bcc4, metalness:1.0, roughness:0.40, envMapIntensity:ENV,
     roughnessMap: withRepeat(machined(), 2), bumpMap: withRepeat(machined(), 2), bumpScale:0.25 }),
-    m => dressSurface(m, 'steel', 2, 0.5))),
+    m => dressSurface(m, 'steel', [1, 2.5], 0.6))),
+  /* chrome: a mirror with the faintest polish lines, and no roughness map,
+     because a tiled roughness pattern on a mirror reads as dirt */
   chrome: () => mat('chrome', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xeef2f7, metalness:1.0, roughness:0.08, envMapIntensity:1.6 }),
-    m => dressSurface(m, 'brushed', 3, 0.25))),
-  copper: () => mat('copper', () => new THREE.MeshStandardMaterial({
-    color:0xc4763a, metalness:1.0, roughness:0.32, envMapIntensity:1.3 })),
-  brass: () => mat('brass', () => new THREE.MeshStandardMaterial({
-    color:0xc9a227, metalness:1.0, roughness:0.30, envMapIntensity:1.3 })),
-  bearing: () => mat('bearing', () => new THREE.MeshStandardMaterial({
-    color:0xd7c9a8, metalness:0.85, roughness:0.34, envMapIntensity:1.2 })),
+    color:0xeef2f7, metalness:1.0, roughness:0.08, envMapIntensity:ENV }),
+    m => dressSurface(m, 'machined', [2, 6], 0.15, false, { rough: false }))),
+  copper: () => mat('copper', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xc4763a, metalness:1.0, roughness:0.32, envMapIntensity:ENV }),
+    m => dressSurface(m, 'machined', [1, 3], 0.4, false, { rough: 0.8 }))),
+  brass: () => mat('brass', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xc9a227, metalness:1.0, roughness:0.30, envMapIntensity:ENV }),
+    m => dressSurface(m, 'machined', [1, 3], 0.4, false, { rough: 0.8 }))),
+  /* a bearing shell: steel back, white-metal face, both bright */
+  bearing: () => mat('bearing', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xd7c9a8, metalness:1.0, roughness:0.34, envMapIntensity:ENV }),
+    m => dressSurface(m, 'machined', [1, 3], 0.4, false, { rough: 0.85 }))),
+  /* rubber: the scan's colour (already near black) under a light grey tint,
+     matte, with the tooth off the normal map */
   rubber: () => mat('rubber', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x14161a, metalness:0.0, roughness:0.94, envMapIntensity:0.35,
+    color:0x14161a, metalness:0.0, roughness:0.94, envMapIntensity:ENV,
     roughnessMap: withRepeat(rubberTooth(), 6), bumpMap: withRepeat(rubberTooth(), 6), bumpScale:0.5 }),
-    m => dressSurface(m, 'rubber', 6, 1.0))),
+    m => dressSurface(m, 'rubber', REP.housing, 1.0, true, { tint: 0xb4b6ba }))),
   plastic: () => mat('plastic', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x23282f, metalness:0.0, roughness:0.58, envMapIntensity:0.7 }),
-    m => dressSurface(m, 'plastic', 3, 0.7))),
-  /* exhaust side: heat-discoloured, oxidised, barely reflective */
+    color:0x23282f, metalness:0.0, roughness:0.58, envMapIntensity:ENV }),
+    m => dressSurface(m, 'plastic', REP.housing, 1.0))),
   /* exhaust side: heat-scaled steel. Not copper — headers go straw, then blue,
      then a dull grey scale, and they were reading like plumbing. */
   hot: () => mat('hot', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x6a6663, metalness:0.55, roughness:0.74, envMapIntensity:0.40,
+    color:0x7a7673, metalness:0.9, roughness:0.74, envMapIntensity:ENV,
     roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.6 }),
-    m => dressSurface(m, 'hot', 4, 0.8))),
-  /* painted components get a clearcoat, which is what makes paint read as paint */
+    m => dressSurface(m, 'hot', REP.hose, 1.0))),
+  /* painted components: a dielectric under a clearcoat, which is what makes
+     paint read as paint. No metalness — paint is not metal. */
   red: () => mat('red', () => new THREE.MeshPhysicalMaterial({
-    color:0xb52a20, metalness:0.15, roughness:0.34, clearcoat:1, clearcoatRoughness:0.10, envMapIntensity:1.1 })),
+    color:0xb52a20, metalness:0.0, roughness:0.38, clearcoat:1, clearcoatRoughness:0.10, envMapIntensity:ENV })),
   orange: () => mat('orange', () => new THREE.MeshPhysicalMaterial({
-    color:0xd9741f, metalness:0.30, roughness:0.32, clearcoat:0.8, clearcoatRoughness:0.16, envMapIntensity:1.1 })),
+    color:0xd9741f, metalness:0.0, roughness:0.36, clearcoat:0.8, clearcoatRoughness:0.16, envMapIntensity:ENV })),
   blue: () => mat('blue', () => new THREE.MeshPhysicalMaterial({
-    color:0x2f6fb0, metalness:0.25, roughness:0.34, clearcoat:0.8, clearcoatRoughness:0.14, envMapIntensity:1.1 })),
-  black: () => mat('black', () => new THREE.MeshStandardMaterial({
-    color:0x101216, metalness:0.30, roughness:0.62, envMapIntensity:0.7 })),
+    color:0x2f6fb0, metalness:0.0, roughness:0.38, clearcoat:0.8, clearcoatRoughness:0.14, envMapIntensity:ENV })),
+  /* black oxide: the dark, slightly oily finish of German hardware */
+  black: () => mat('black', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x1a1c20, metalness:1.0, roughness:0.55, envMapIntensity:ENV }),
+    m => dressSurface(m, 'steel', REP.hardware, 0.5))),
   glass: () => mat('glass', () => new THREE.MeshPhysicalMaterial({
     color:0x9fd4ff, metalness:0, roughness:0.05, transmission:0.9, thickness:0.02,
-    transparent:true, opacity:0.45, envMapIntensity:1.4 })),
+    transparent:true, opacity:0.45, envMapIntensity:ENV })),
+  /* a copper-faced gasket, seen edge-on */
   gasket: () => mat('gasket', () => new THREE.MeshStandardMaterial({
-    color:0xc4631f, metalness:0.55, roughness:0.44, envMapIntensity:0.9 })),
+    color:0xc4631f, metalness:1.0, roughness:0.48, envMapIntensity:ENV })),
   wire: (c) => mat('wire' + c, () => new THREE.MeshStandardMaterial({
-    color:c, metalness:0.0, roughness:0.48, envMapIntensity:0.6 })),
+    color:c, metalness:0.0, roughness:0.48, envMapIntensity:ENV })),
   emissive: (c, i=1.4) => new THREE.MeshStandardMaterial({ color:c, emissive:c, emissiveIntensity:i, roughness:.4 }),
   /* machined alloy wheel: brighter and smoother than a casting, because the
      face of a road wheel is turned and lacquered */
   rimAlloy: () => mat('rimAlloy', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xc6ccd4, metalness:0.92, roughness:0.26, envMapIntensity:1.35 }),
-    m => dressSurface(m, 'brushed', 4, 0.4))),
+    color:0xc6ccd4, metalness:1.0, roughness:0.26, envMapIntensity:ENV }),
+    m => dressSurface(m, 'machined', [3, 1], 0.5, false, { rough: 0.7 }))),
   /* real carbon-fibre weave, off a scan; used for aero, tubs and trim */
   carbon: () => mat('carbon', () => scanned(new THREE.MeshPhysicalMaterial({
-    color:0xffffff, metalness:0.28, roughness:0.30, clearcoat:1, clearcoatRoughness:0.07,
-    envMapIntensity:1.1 }), m => { m.map = repeated('carbon', 3); if (!m.map) m.color.set(0x1b1d20); })),
+    color:0xffffff, metalness:0.0, roughness:0.30, clearcoat:1, clearcoatRoughness:0.07,
+    envMapIntensity:ENV }), m => { m.map = repeated('carbon', 3); if (!m.map) m.color.set(0x1b1d20); })),
   /* the underbody pan: seam sealer, spray-on deadener, road grime */
   underbody: () => mat('underbody', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xffffff, metalness:0.35, roughness:0.85, envMapIntensity:0.45 }),
+    color:0xffffff, metalness:0.0, roughness:0.90, envMapIntensity:ENV }),
     m => { m.map = repeated('underbody', 3, 2); if (!m.map) m.color.set(0x2a2c30); })),
   /* tyre crown: scanned rubber for colour and grain, pattern on top. The scan
      came off a slick, so a road or knobby tyre gets its blocks from here. */
   tread: (kind = 'road') => mat('tread_' + kind, () => scanned(new THREE.MeshStandardMaterial({
-    color:0x9c9fa2, metalness:0.0, roughness:0.96, envMapIntensity:0.22 }), m => {
+    color:0x9c9fa2, metalness:0.0, roughness:0.96, envMapIntensity:ENV }), m => {
       m.map = repeated('tread', 24, 1);
       if (!m.map) m.color.set(0x16181c);
       m.bumpMap = kind === 'slick' ? repeated('treadBump', 24, 1)
@@ -261,7 +344,7 @@ export const MAT = {
     })),
   /* tyre sidewall, lettering and all — mapped flat onto an annulus */
   sidewall: (outer = true) => mat('sidewall' + outer, () => scanned(new THREE.MeshStandardMaterial({
-    color:0xffffff, metalness:0.0, roughness:0.92, envMapIntensity:0.3,
+    color:0xffffff, metalness:0.0, roughness:0.92, envMapIntensity:ENV,
     transparent:true, alphaTest:0.35, side:THREE.DoubleSide }), m => {
       m.map = tex(outer ? 'tyreSide' : 'tyreBack');
       m.bumpMap = tex('tyreSideBump'); m.bumpScale = 0.8;
@@ -269,72 +352,95 @@ export const MAT = {
     })),
   /* cross-drilled, gold-coated disc face, straight off the part */
   discFace: () => mat('discFace', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xffffff, metalness:0.75, roughness:0.42, envMapIntensity:1.1,
+    color:0xffffff, metalness:0.75, roughness:0.42, envMapIntensity:ENV,
     transparent:true, alphaTest:0.5, side:THREE.DoubleSide }),
     m => { m.map = tex('brakeDisc'); if (!m.map){ m.color.set(0x5a5f66); m.transparent = false; m.alphaTest = 0; } })),
   /* six-pot caliper shell: photo albedo plus its own normal map */
   caliperShell: () => mat('caliperShell', () => scanned(new THREE.MeshPhysicalMaterial({
-    color:0xffffff, metalness:0.15, roughness:0.36, clearcoat:0.9, clearcoatRoughness:0.10,
-    envMapIntensity:1.1 }), m => {
+    color:0xffffff, metalness:0.0, roughness:0.36, clearcoat:0.9, clearcoatRoughness:0.10,
+    envMapIntensity:ENV }), m => {
       m.map = tex('caliper'); m.normalMap = tex('caliperNormal');
       if (m.normalMap) m.normalScale = new THREE.Vector2(1.1, 1.1);
       if (!m.map) m.color.set(0xb52a20);
     })),
   /* coil body: glass-filled epoxy — dark, but not black, and semi-matte */
-  coilBody: () => mat('coilBody', () => new THREE.MeshStandardMaterial({
-    color:0x3a4048, metalness:0.10, roughness:0.55, envMapIntensity:0.8 })),
+  coilBody: () => mat('coilBody', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x3a4048, metalness:0.0, roughness:0.55, envMapIntensity:ENV }),
+    m => dressSurface(m, 'plastic', 1.5, 0.8))),
   /* alumina insulator: near-white, slightly translucent, semi-gloss glaze */
   ceramic: () => mat('ceramic', () => new THREE.MeshPhysicalMaterial({
     color:0xe8e4dc, metalness:0.0, roughness:0.30, clearcoat:0.5, clearcoatRoughness:0.25,
-    sheen:0.3, sheenColor:0xfff8ee, envMapIntensity:0.9 })),
+    sheen:0.3, sheenColor:0xfff8ee, envMapIntensity:ENV })),
   /* corrugated nylon conduit — the black tubing every engine loom runs inside */
-  conduit: () => mat('conduit', () => new THREE.MeshStandardMaterial({
-    color:0x15171b, metalness:0.0, roughness:0.62, envMapIntensity:0.35 })),
+  conduit: () => mat('conduit', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x15171b, metalness:0.0, roughness:0.62, envMapIntensity:ENV }),
+    m => dressSurface(m, 'plastic', REP.hose, 1.0))),
   /* the moulded shell of a connector: glass-filled nylon, matt, slightly grey */
-  connector: () => mat('connector', () => new THREE.MeshStandardMaterial({
-    color:0x1d2026, metalness:0.0, roughness:0.58, envMapIntensity:0.40 })),
-  /* stainless braid over a PTFE oil or fuel line */
+  connector: () => mat('connector', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x1d2026, metalness:0.0, roughness:0.58, envMapIntensity:ENV }),
+    m => dressSurface(m, 'plastic', 1, 0.8))),
+  /* stainless braid over a PTFE oil or fuel line: the knit runs along the
+     hose, and the scan's own light-and-shadow of the weave is the colour */
   braid: () => mat('braid', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xb4bac2, metalness:1.0, roughness:0.44, envMapIntensity:0.85 }),
-    m => dressSurface(m, 'brushed', 10, 1.0))),
-  /* anodised aluminium, which is what an AN fitting is */
-  anodised: () => mat('anodised', () => new THREE.MeshStandardMaterial({
-    color:0x2b5f9c, metalness:0.90, roughness:0.32, envMapIntensity:0.95 })),
+    color:0xb4bac2, metalness:1.0, roughness:0.44, envMapIntensity:ENV }),
+    m => dressSurface(m, 'braid', REP.hose, 1.0, true, { tint: 0xffffff }))),
+  /* anodised aluminium, which is what an AN fitting is: a dyed oxide skin on
+     a machined part, so the tool marks show through the colour */
+  anodised: () => mat('anodised', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x2b5f9c, metalness:1.0, roughness:0.36, envMapIntensity:ENV }),
+    m => dressSurface(m, 'machined', [1, 2], 0.5, false, { rough: 0.9 }))),
   /* stamped stainless: heat shields, and only heat shields */
-  stainless: () => mat('stainless', () => new THREE.MeshStandardMaterial({
-    color:0xc6cad0, metalness:1.0, roughness:0.26, envMapIntensity:0.95,
-    side:THREE.DoubleSide })),
-  /* zinc-plated fastener finish: bright, slightly yellow, not chrome */
-  plated: () => mat('plated', () => new THREE.MeshStandardMaterial({
-    color:0xcfd3cf, metalness:0.95, roughness:0.30, envMapIntensity:1.25 })),
+  stainless: () => mat('stainless', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xc6cad0, metalness:1.0, roughness:0.26, envMapIntensity:ENV,
+    side:THREE.DoubleSide }),
+    m => dressSurface(m, 'steel', 2, 0.5, false, { rough: 0.7 }))),
+  /* zinc-plated fastener finish: bright, a spangle under the brightness,
+     not chrome. Low repeat: a bolt head shows a few crystals, not a field. */
+  plated: () => mat('plated', () => scanned(new THREE.MeshStandardMaterial({
+    color:0xcfd3cf, metalness:1.0, roughness:0.34, envMapIntensity:ENV }),
+    m => dressSurface(m, 'zinc', REP.hardware, 0.8, true, { tint: 0xf6f8f4, rough: 0.8 }))),
   /* the bonded rubber ring in a harmonic damper */
-  damperRubber: () => mat('damperRubber', () => new THREE.MeshStandardMaterial({
-    color:0x1a1a1c, metalness:0.0, roughness:0.85, envMapIntensity:0.3 })),
+  damperRubber: () => mat('damperRubber', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x1a1a1c, metalness:0.0, roughness:0.85, envMapIntensity:ENV }),
+    m => dressSurface(m, 'rubber', 2, 0.8))),
   /* clutch friction lining: pressed, matte, brown-grey */
-  friction: () => mat('friction', () => new THREE.MeshStandardMaterial({
-    color:0x5b5148, metalness:0.05, roughness:0.92, envMapIntensity:0.3 })),
+  friction: () => mat('friction', () => scanned(new THREE.MeshStandardMaterial({
+    color:0x5b5148, metalness:0.0, roughness:0.92, envMapIntensity:ENV }),
+    m => dressSurface(m, 'cast', 2, 0.6))),
   /* a pleated filter element, off a real one */
   airFilter: () => mat('airFilter', () => scanned(new THREE.MeshStandardMaterial({
-    color:0xffffff, metalness:0.15, roughness:0.72, envMapIntensity:0.6,
+    color:0xffffff, metalness:0.0, roughness:0.72, envMapIntensity:ENV,
     side:THREE.DoubleSide }),
     m => { m.map = tex('engineBay'); if (!m.map) m.color.set(0xb04a4a); })),
   /* maker finishes on engine castings (realism.md §1.3): wrinkle paint is a
-     thick textured enamel baked onto cam covers — matte, grainy, never shiny;
-     gloss is sprayed enamel on an iron block or a cover (small-block orange,
-     Ferrari red); satin is the semi-matte black of a modern powder coat */
-  wrinkle: (hex) => mat('wrinkle' + hex, () => new THREE.MeshStandardMaterial({
-    color:hex, metalness:0.06, roughness:0.80, envMapIntensity:0.45,
-    roughnessMap: withRepeat(castGrain(), 7), bumpMap: withRepeat(castGrain(), 7), bumpScale:1.4 })),
-  gloss: (hex) => mat('gloss' + hex, () => new THREE.MeshPhysicalMaterial({
-    color:hex, metalness:0.12, roughness:0.36, clearcoat:0.9, clearcoatRoughness:0.14, envMapIntensity:1.0,
-    bumpMap: withRepeat(castGrain(), 4), bumpScale:0.35 })),
-  satin: (hex) => mat('satin' + hex, () => new THREE.MeshStandardMaterial({
-    color:hex, metalness:0.25, roughness:0.58, envMapIntensity:0.6,
-    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.4 })),
+     thick textured enamel baked onto cam covers — matte, grainy, never shiny,
+     and its skin is the one thing a flat colour can never fake, so it comes
+     off a real wrinkle-enamel normal map with the colour on top; gloss is
+     sprayed enamel on an iron block or a cover (small-block orange, Ferrari
+     red), a dielectric under a clearcoat with the casting grain still showing
+     through the paint; satin is the semi-matte black of a modern powder coat,
+     off a powder-coat scan. None of them is metal, so none has metalness. */
+  wrinkle: (hex) => mat('wrinkle' + hex, () => scanned(new THREE.MeshStandardMaterial({
+    color:hex, metalness:0.0, roughness:0.86, envMapIntensity:ENV,
+    roughnessMap: withRepeat(castGrain(), 7), bumpMap: withRepeat(castGrain(), 7), bumpScale:1.4 }),
+    m => dressSurface(m, 'wrinkle', REP.cover, 1.6))),
+  gloss: (hex) => mat('gloss' + hex, () => scanned(new THREE.MeshPhysicalMaterial({
+    color:hex, metalness:0.0, roughness:0.38, clearcoat:0.9, clearcoatRoughness:0.14, envMapIntensity:ENV,
+    bumpMap: withRepeat(castGrain(), 4), bumpScale:0.35 }),
+    m => { if (dressSurface(m, 'cast', REP.casting, 0.45, false, { rough: false })){
+             /* paint fills the pits, so the clearcoat sees a smoother surface
+                than the base, with the sprayed orange peel on top */
+             const peel = surface('paint', 9);
+             if (peel.normalMap){ m.clearcoatNormalMap = peel.normalMap;
+                                  m.clearcoatNormalScale = new THREE.Vector2(0.3, 0.3); } } })),
+  satin: (hex) => mat('satin' + hex, () => scanned(new THREE.MeshStandardMaterial({
+    color:hex, metalness:0.0, roughness:0.60, envMapIntensity:ENV,
+    roughnessMap: withRepeat(castGrain(), 4), bumpMap: withRepeat(castGrain(), 4), bumpScale:0.4 }),
+    m => dressSurface(m, 'powder', REP.housing, 1.0))),
   /* body paint: metallic base under a clearcoat, tinted so the structure shows */
   paint: (colour, opacity = 1) => scanned(new THREE.MeshPhysicalMaterial({
     color:colour, metalness:0.72, roughness:0.26, clearcoat:1, clearcoatRoughness:0.045,
-    envMapIntensity:1.35, transparent: opacity < 1, opacity,
+    envMapIntensity:ENV, transparent: opacity < 1, opacity,
     side: opacity < 1 ? THREE.DoubleSide : THREE.FrontSide }),
     /* orange peel: the faint ripple every sprayed panel has, and the reason a
        real car reflects the world slightly unevenly */
@@ -415,12 +521,148 @@ export function pipe(points, radius, mat, seg=8){
   const g = new THREE.TubeGeometry(curve, Math.max(12, points.length*8), radius, seg, false);
   return new THREE.Mesh(g, mat);
 }
+/** A flanged hex bolt, the fastener on every modern engine: a rolled thread
+ *  shank, a washer face under the head, the hex itself and the chamfer on top
+ *  of it. Shank runs along Y centred on the origin, head at +Y — the same
+ *  frame the old two-cylinder stand-in used, so nothing that places one moves. */
 export function bolt(r=0.035, h=0.07, mat){
   const g = new THREE.Group();
-  const head = cyl(r*1.7, r*1.7, h*0.42, mat || MAT.steel(), 6);
-  head.position.y = h*0.5; g.add(head);
-  const shank = cyl(r, r, h, mat || MAT.steel(), 8);
-  g.add(shank);
+  const m = mat || MAT.steel();
+  /* the thread is bright rolled steel whatever the head is plated in; a short
+     plain shoulder under the head is what a real bolt has above its thread */
+  g.add(cyl(r, r, h, MAT.steel(), 8));
+  g.add(at(cyl(r * 1.04, r * 1.04, h * 0.28, m, 8), 0, h * 0.36, 0));
+  const flange = cyl(r * 2.0, r * 2.25, r * 0.55, m, 14);
+  flange.position.y = h * 0.5 + r * 0.275; g.add(flange);
+  const head = cyl(r * 1.62, r * 1.62, r * 1.20, m, 6);
+  head.position.y = h * 0.5 + r * 0.55 + r * 0.60; g.add(head);
+  const chamfer = cyl(r * 1.30, r * 1.62, r * 0.28, m, 6);
+  chamfer.position.y = h * 0.5 + r * 0.55 + r * 1.20 + r * 0.14; g.add(chamfer);
+  return g;
+}
+/** A hex nut on a stud end: the nut, its chamfer and the stud tip through it.
+ *  Axis Y, the nut's underside on the origin. */
+export function nutOnStud(af, h, mat, studR = af * 0.30){
+  const g = group('nut');
+  const m = mat || MAT.plated();
+  g.add(at(hexPrism(af, h, m), 0, h * 0.5, 0));
+  g.add(at(cyl(af * 0.44, af * 0.577, h * 0.16, m, 6), 0, h + h * 0.08, 0));
+  g.add(at(cyl(studR, studR, h * 1.5, MAT.steel(), 8), 0, h * 0.75, 0));
+  return g;
+}
+/** A machined pad: the bright flat a boss is milled to where something bolts
+ *  on, a shade proud of the casting so the mill line shows. Lies in XZ, +Y up. */
+export function machinedPad(w, d, t = 0.002, mat){
+  return box(w, t, d, mat || MAT.machined());
+}
+/** A raised casting rib, stood on its edge: a thin bar with a drafted top. */
+export function castRib(len, h, t, mat){
+  const g = group('rib');
+  g.add(box(len, h, t, mat));
+  g.add(at(cyl(t * 0.5, t * 0.5, len, mat, 6).rotateZ(Math.PI / 2), 0, h * 0.5, 0));
+  return g;
+}
+
+/* ----------------------------------------------------------------------
+ * Lettering. A maker casts or paints its name on a cover; a block carries
+ * its casting number on a raised pad. Both are rendered into a canvas once
+ * and laid on a thin plate — nothing here is a mesh per letter. Headless
+ * (no document) there is no canvas, so the caller gets null and falls back
+ * to plain raised bars.
+ * -------------------------------------------------------------------- */
+const _decalMat = new Map();
+export function letterDecal(lines, { w, h, hex = 0xd9dde0, style = 'bare', stripes = null,
+                                     script = false, align = 'center', shadow = true } = {}){
+  if (typeof document === 'undefined') return null;
+  const rows = (Array.isArray(lines) ? lines : [lines]).filter(Boolean);
+  if (!rows.length) return null;
+  const aspect = Math.max(0.5, Math.min(16, w / Math.max(1e-4, h)));
+  const key = JSON.stringify([rows, hex, style, stripes, script, align, Math.round(aspect * 20)]);
+  let m = _decalMat.get(key);
+  if (!m){
+    const W = 1024, H = Math.max(48, Math.round(W / aspect));
+    const c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, W, H);
+    let x0 = W * 0.04, x1 = W * 0.96;
+    if (stripes && stripes.length){
+      /* the three slanted bands, as on an M cover, ahead of the letters */
+      const bw = W * 0.055, skew = H * 0.18;
+      stripes.forEach((col, i) => {
+        g.fillStyle = col;
+        g.beginPath();
+        const bx = x0 + i * bw * 1.15;
+        g.moveTo(bx + skew, H * 0.14); g.lineTo(bx + bw + skew, H * 0.14);
+        g.lineTo(bx + bw, H * 0.86); g.lineTo(bx, H * 0.86); g.closePath(); g.fill();
+      });
+      x0 += bw * 1.15 * stripes.length + W * 0.04;
+    }
+    const col = '#' + (hex >>> 0).toString(16).padStart(6, '0');
+    const n = rows.length;
+    const rowH = H / n;
+    const family = script ? '"Brush Script MT", "URW Chancery L", "Segoe Script", "Comic Sans MS", cursive'
+                          : '"Arial Narrow", "Roboto Condensed", "Liberation Sans Narrow", "Helvetica Neue", Arial, sans-serif';
+    rows.forEach((text, i) => {
+      const cy = rowH * (i + 0.5);
+      let size = rowH * (script ? 0.78 : 0.72);
+      g.font = `${script ? 'italic ' : ''}bold ${size}px ${family}`;
+      const avail = x1 - x0;
+      const tw = Math.max(1, g.measureText(text).width);
+      /* condense to fit, never stretch */
+      const sx = Math.min(1, avail / tw);
+      g.save();
+      const cx = align === 'left' ? x0 : align === 'right' ? x1 : (x0 + x1) / 2;
+      g.translate(cx, cy);
+      g.scale(sx, 1);
+      g.textAlign = align; g.textBaseline = 'middle';
+      if (shadow){
+        /* a dark edge low-right and a pale one high-left is what makes paint
+           read as raised casting from a metre away */
+        g.fillStyle = 'rgba(0,0,0,0.70)'; g.fillText(text, 3, 4);
+        g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillText(text, -2, -2);
+      }
+      g.fillStyle = col; g.fillText(text, 0, 0);
+      g.restore();
+    });
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    const metal = style === 'bare' || style === 'cast' || style === 'silver' || style === 'chrome' || style === 'chrome-blue';
+    m = new THREE.MeshStandardMaterial({ map:t, transparent:true, alphaTest:0.25,
+      metalness: metal ? 0.85 : 0.10, roughness: metal ? 0.34 : 0.48, envMapIntensity: metal ? 1.1 : 0.7,
+      polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 });
+    _decalMat.set(key, m);
+  }
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+  mesh.rotation.x = -Math.PI / 2;            // lies flat, reads along +X, faces +Y
+  mesh.renderOrder = 2;
+  return mesh;
+}
+/** Lettering stood on a raised plate of the parent casting's own material —
+ *  the badge on a cam cover, the number pad on a block. The plate's underside
+ *  is the origin; `flip` turns the text to read from the other side. */
+export function letterPlate(lines, w, h, plateMat, opts = {}){
+  const g = group('letters');
+  const t = opts.thickness ?? 0.0025;
+  g.add(at(roundBox(w * 1.10, t, h * 1.25, Math.min(w, h) * 0.12, plateMat), 0, t / 2, 0));
+  const d = letterDecal(lines, { w, h, ...opts });
+  if (d){ at(d, 0, t + 0.0004, 0); if (opts.flip) d.rotation.z = Math.PI; g.add(d); }
+  else {
+    /* headless: a bar per word, so the pad still reads as lettered */
+    const rows = (Array.isArray(lines) ? lines : [lines]).filter(Boolean);
+    rows.forEach((text, i) => {
+      const words = String(text).split(/\s+/).filter(Boolean);
+      const rowH = h / rows.length, cy = -h / 2 + rowH * (i + 0.5);
+      let x = -w * 0.46;
+      for (const wd of words){
+        const bw = Math.min(w * 0.92 - (x + w * 0.46), wd.length * rowH * 0.42);
+        if (bw <= 0) break;
+        g.add(at(box(bw, t * 0.6, rowH * 0.46, opts.barMat || MAT.steel()), x + bw / 2, t + t * 0.3, cy));
+        x += bw + rowH * 0.3;
+      }
+    });
+  }
   return g;
 }
 export function group(name, ...kids){ const g = new THREE.Group(); g.name = name; kids.forEach(k => k && g.add(k)); return g; }
@@ -617,38 +859,110 @@ export function velocityStack(bore, length, mat){
 
 /** A cam cover: raised centre rib, a bolt rail down each side with its
  *  bosses, and the oil filler in the corner. Sits centred on the deck. */
-export function camCoverMesh(len, width, height, mat, bolts = 8, hardware = null){
+/** Where the cam cover's top surface is, across its width, for the things
+ *  that stand on it: hump height outboard, trough height between the humps on
+ *  a twin-cam cover. `z` is across the cover in its own frame. */
+export function camCoverTopAt(width, height, z, dohc){
+  const w = width / 2, a = Math.abs(z) / w;
+  if (!dohc) return a <= 0.40 ? height : a <= 0.58 ? height * (1.0 - (a - 0.40) / 0.18 * 0.26) : height * 0.50;
+  if (a <= 0.16) return height * 0.66;
+  if (a <= 0.22) return height * (0.66 + (a - 0.16) / 0.06 * 0.34);
+  if (a <= 0.64) return height;
+  return height * Math.max(0.16, 0.80 - (a - 0.64) / 0.36 * 0.64);
+}
+export function camCoverMesh(len, width, height, mat, bolts = 8, hardware = null, opts = {}){
   const g = group('camcover');
   const m = mat || MAT.alloyDark();
+  const hw = hardware || MAT.plated();
   const w = width / 2;
-  /* the cross-section, swept the length of the head: a flat rail, a radiused
-     shoulder and a raised centre where the plug wells run */
+  const dohc = !!opts.dohc;
+  /* The cross-section, swept the length of the head. A twin-cam cover is two
+     long humps — one over each camshaft — with the plug wells sunk in a trough
+     between them; a single-cam or pushrod cover is one raised centre with a
+     radiused shoulder down to the bolt rail. */
   const s = new THREE.Shape();
   s.moveTo(-w, 0);
   s.lineTo(-w, height * 0.16);
-  s.quadraticCurveTo(-w * 0.94, height * 0.62, -w * 0.58, height * 0.74);
-  s.lineTo(-w * 0.40, height * 1.00);
-  s.lineTo( w * 0.40, height * 1.00);
-  s.lineTo( w * 0.58, height * 0.74);
-  s.quadraticCurveTo( w * 0.94, height * 0.62, w, height * 0.16);
+  if (dohc){
+    s.quadraticCurveTo(-w * 0.97, height * 0.62, -w * 0.78, height * 0.86);
+    s.quadraticCurveTo(-w * 0.70, height * 1.00, -w * 0.64, height * 1.00);
+    s.lineTo(-w * 0.22, height * 1.00);
+    s.quadraticCurveTo(-w * 0.17, height * 1.00, -w * 0.16, height * 0.66);
+    s.lineTo( w * 0.16, height * 0.66);
+    s.quadraticCurveTo( w * 0.17, height * 1.00,  w * 0.22, height * 1.00);
+    s.lineTo( w * 0.64, height * 1.00);
+    s.quadraticCurveTo( w * 0.70, height * 1.00,  w * 0.78, height * 0.86);
+    s.quadraticCurveTo( w * 0.97, height * 0.62,  w, height * 0.16);
+  } else {
+    s.quadraticCurveTo(-w * 0.94, height * 0.62, -w * 0.58, height * 0.74);
+    s.lineTo(-w * 0.40, height * 1.00);
+    s.lineTo( w * 0.40, height * 1.00);
+    s.lineTo( w * 0.58, height * 0.74);
+    s.quadraticCurveTo( w * 0.94, height * 0.62, w, height * 0.16);
+  }
   s.lineTo( w, 0);
   s.closePath();
-  const geo = new THREE.ExtrudeGeometry(s, { depth:len, bevelEnabled:false, curveSegments:8 });
+  const geo = new THREE.ExtrudeGeometry(s, { depth:len, bevelEnabled:false, curveSegments:6 });
   geo.rotateY(Math.PI / 2);            // extrude along Z, then lay it along X
   geo.translate(-len / 2, 0, 0);
   g.add(new THREE.Mesh(geo, m));
-  /* the bolt rail: a boss and a bolt at each fixing, both sides */
+  /* the end walls are drafted and the top edge is radiused: a bar along each
+     end hides the hard extrusion edge and reads as the cast rim it is */
+  for (const sx of [-1, 1])
+    g.add(at(cyl(height * 0.05, height * 0.05, width * 1.28, m, 6).rotateX(Math.PI / 2), sx * (len / 2 - height * 0.05), height * (dohc ? 0.99 : 0.99), 0));
+  /* the bolt rail: a cast boss and a flanged bolt at each fixing, both sides.
+     The bolt stands on a grommet height above the boss — the grommets belong
+     to the cover gasket set and sit under these heads when it is fitted. */
+  const bossH = height * 0.26;
   for (let i = 0; i < bolts; i++){
     const x = (i / (bolts - 1) - 0.5) * len * 0.92;
     for (const sd of [-1, 1]){
-      g.add(at(cyl(width * 0.055, width * 0.065, height * 0.20, m, 12), x, height * 0.10, sd * w * 0.90));
-      g.add(at(hexPrism(width * 0.058, height * 0.10, hardware || MAT.plated()), x, height * 0.24, sd * w * 0.90));
+      g.add(at(cyl(width * 0.050, width * 0.062, bossH, m, 12), x, bossH / 2, sd * w * 0.90));
+      /* a web from the boss up onto the shoulder, which is how the boss is cast */
+      g.add(at(box(width * 0.030, bossH * 0.9, w * 0.14, m), x, bossH * 0.45, sd * w * 0.82));
+      g.add(at(bolt(0.003, 0.012, hw), x, bossH, sd * w * 0.90));
     }
   }
-  /* oil filler neck and cap */
-  g.add(at(cyl(width * 0.16, width * 0.16, height * 0.30, m, 20), len * 0.34, height * 1.10, 0));
-  g.add(at(lathe([[width*0.19, height*1.20], [width*0.19, height*1.34], [width*0.10, height*1.38]],
-                 MAT.black(), 20), len * 0.34, 0, 0));
+  if (dohc){
+    /* the plug wells: a raised rim round each tube in the trough, and a cast
+       rib across the trough between wells to stiffen the thin floor */
+    const wells = opts.wells || [];
+    for (const x of wells)
+      g.add(at(tubeMesh(w * 0.15, w * 0.11, height * 0.08, m, 16), x, height * 0.66 + height * 0.04, 0));
+    for (let i = 0; i + 1 < wells.length; i++)
+      g.add(at(box(height * 0.07, height * 0.10, w * 0.32, m), (wells[i] + wells[i + 1]) / 2, height * 0.66 + height * 0.05, 0));
+    /* a raised rib along the inner edge of each hump, where the metal is thin */
+    for (const sd of [-1, 1])
+      g.add(at(box(len * 0.90, height * 0.04, w * 0.03, m), 0, height * 1.00, sd * w * 0.26));
+  } else {
+    /* a pair of longitudinal ribs flanking the lettering on a single-hump cover */
+    for (const sd of [-1, 1])
+      g.add(at(box(len * 0.82, height * 0.05, w * 0.03, m), 0, height * 1.00, sd * w * 0.32));
+  }
+  /* the baffle box: a raised breather chamber at the front end, with a hose
+     nipple out of its side, the way every cover vents the crankcase */
+  if (opts.breather !== false){
+    const bz = dohc ? -w * 0.43 : 0, by = camCoverTopAt(width, height, bz, dohc);
+    g.add(at(roundBox(len * 0.10, height * 0.10, w * 0.30, height * 0.02, m), -len * 0.36, by + height * 0.05, bz));
+    g.add(at(cyl(height * 0.05, height * 0.05, w * 0.28, MAT.plated(), 10).rotateX(Math.PI / 2), -len * 0.36, by + height * 0.06, bz - w * 0.26));
+    g.add(at(hoseClamp(height * 0.052).rotateX(Math.PI / 2), -len * 0.36, by + height * 0.06, bz - w * 0.36));
+  }
+  /* the maker's lettering, on a raised plate on the hump top */
+  const lg = opts.legend;
+  if (lg && lg.lines && lg.lines.length){
+    const put = (lines, x, z, lw, lh, flipExtra) => {
+      const p = letterPlate(lines, lw, lh, m, { hex:lg.hex, style:lg.style, stripes:lg.stripes,
+                                                 script:lg.script, flip: !!opts.flip !== !!flipExtra, thickness: height * 0.03 });
+      g.add(at(p, x, camCoverTopAt(width, height, z, dohc) - 0.0002, z));
+    };
+    if (dohc){
+      const hz = w * 0.43, lw = len * 0.52, lh = w * 0.30;
+      put(lg.lines, 0, -hz, lw, lh, false);
+      put(lg.lines.slice(0, 1), lg.lines.length > 1 ? len * 0.05 : 0, hz, lw, lh, true);
+    } else {
+      put(lg.lines, 0, 0, len * 0.56, w * 0.46, false);
+    }
+  }
   return g;
 }
 
@@ -678,6 +992,19 @@ export function oilPanMesh(len, width, depth, mat){
   sp.needsUpdate = true; sump.geometry.computeVertexNormals();
   g.add(at(sump, -len * 0.28, -depth * 0.28, 0));
   g.add(at(hexPrism(width * 0.09, depth * 0.10, MAT.plated()), -len * 0.28, -depth * 0.62, width * 0.22));
+  /* the flange bolts, up through the rail into the block's pan-rail bosses:
+     a row down each side and a pair across each end */
+  const nb = Math.max(4, Math.round(len / 0.085));
+  for (let i = 0; i < nb; i++){
+    const x = (i / (nb - 1) - 0.5) * len * 0.92;
+    for (const sd of [-1, 1])
+      g.add(at(rot(bolt(0.003, 0.014, MAT.plated()), Math.PI, 0, 0), x, depth * 0.44 - 0.004, sd * w * 1.02));
+  }
+  for (const sx of [-1, 1]) for (const sd of [-0.4, 0.4])
+    g.add(at(rot(bolt(0.003, 0.014, MAT.plated()), Math.PI, 0, 0), sx * len * 0.49, depth * 0.44 - 0.004, sd * w));
+  /* a stiffening rib across the pan floor and the drain-plug boss cast round it */
+  g.add(at(box(len * 0.30, depth * 0.05, width * 0.70, m), -len * 0.28, -depth * 0.58, 0));
+  g.add(at(cyl(width * 0.10, width * 0.08, depth * 0.08, m, 14), -len * 0.28, -depth * 0.59, width * 0.22));
   return g;
 }
 
@@ -813,11 +1140,14 @@ export function portFlange(ports, portR, pitch, thickness, mat){
   const geo = new THREE.ExtrudeGeometry(s, { depth:thickness, bevelEnabled:false, curveSegments:14 });
   geo.rotateY(Math.PI / 2);
   const g = group('flange', new THREE.Mesh(geo, mat || MAT.iron()));
-  for (let i = 0; i <= ports; i++){                    // and the studs between them
+  for (let i = 0; i <= ports; i++){                    // and the studs between them, nutted
     const y = (i - ports / 2) * pitch;
-    for (const sd of [-1, 1])
+    for (const sd of [-1, 1]){
       g.add(at(rot(cyl(portR * 0.16, portR * 0.16, thickness * 2.2, MAT.plated(), 8), 0, 0, Math.PI/2),
                thickness * 0.6, sd * halfH * 0.78, y));
+      g.add(at(rot(nutOnStud(portR * 0.46, portR * 0.26, MAT.plated(), portR * 0.16), 0, 0, -Math.PI / 2),
+               thickness, sd * halfH * 0.78, y));
+    }
   }
   return g;
 }

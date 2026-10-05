@@ -102,8 +102,8 @@ export function openMenu(ctx, kind, partId, ev){
   if (!p) return;
   const acts = actionsFor(kind, partId);
   const box = h('div', { class:'card', style:{
-    position:'fixed', zIndex:60, minWidth:'230px', maxWidth:'290px', boxShadow:'0 12px 34px rgba(0,0,0,.6)',
-    background:'#141a26', borderColor:'#2e3950' } },
+    position:'fixed', zIndex:60, minWidth:'230px', maxWidth:'290px', boxShadow:'var(--shadow)',
+    background:'var(--bg2)', borderColor:'var(--line3)' } },
     h('div', { class:'card__h' },
       h('div', null,
         h('div', { class:'card__t', text:p.name }),
@@ -114,7 +114,7 @@ export function openMenu(ctx, kind, partId, ev){
       style:{ width:'100%', textAlign:'left', marginTop:'3px' },
       title: a.why || a.hint || '',
       onclick:() => { if (!a.ok){ toast(a.why || 'Not possible yet', 'bad'); return; } closeMenu(); runAction(ctx, kind, partId, a.id); } },
-      h('span', { class:'pitem__st', style:{ background: a.ok ? 'var(--ok)' : '#3a4459' } }),
+      h('span', { class:'pitem__st', style:{ background: a.ok ? 'var(--ok)' : 'var(--bg4)', boxShadow: a.ok ? '0 0 0 2px var(--ok-soft)' : 'inset 0 0 0 1.5px var(--ink3)' } }),
       h('span', { class:'pitem__n' }, `${a.icon}  ${a.label}`))),
     acts.some(a => !a.ok) ? h('div', { class:'tiny muted', style:{ marginTop:'7px', lineHeight:'1.5' },
       text: acts.find(a => !a.ok).why || '' }) : null,
@@ -524,7 +524,7 @@ function renderInspector(ctx, kind, wrap){
     h('div', { class:'sec' },
       h('div', { class:'sec__h' }, h('span', { text:M.groups[p.group]?.name || 'Part' }),
         on ? chip('fitted', 'ok') : chip('not fitted', 'warn')),
-      h('h3', { style:{ fontSize:'15px', marginBottom:'6px' }, text:p.name }),
+      h('h3', { class:'title', text:p.name }),
       p.qty > 1 ? h('div', { class:'tiny muted', style:{ marginBottom:'8px' }, text:`Quantity: ${p.qty}` }) : null,
       para(p.teach)),
   );
