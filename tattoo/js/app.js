@@ -65,15 +65,55 @@ function thumbOf(d) {
   return thumbCache.get(k);
 }
 
-function download(name, href) {
-  const a = document.createElement("a");
-  a.href = href; a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  if (href.startsWith("blob:")) setTimeout(() => URL.revokeObjectURL(href), 4000);
+/* Files: browsers that allow it download directly; the sheet also shows the
+   result so it can be saved by press-and-hold / right-click (embedded viewers
+   block downloads). */
+function download(name, href, { preview = true, text = null } = {}) {
+  const isImg = /\.(png|jpe?g|svg)$/i.test(name);
+  try {
+    const a = document.createElement("a");
+    a.href = href; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  } catch {}
+  if (preview) showSaveSheet({ name, href, isImg, text });
 }
+function showSaveSheet({ name, href, isImg, text }) {
+  const m = $("#saveModal");
+  $("#saveTitle").textContent = isImg ? "Your image" : "Your project file";
+  $("#saveBody").innerHTML = isImg
+    ? `<img src="${esc(href)}" alt="${esc(name)}"><p class="muted small">If it didn't download, press and hold the picture (phone) or right-click it (computer) and choose “Save image”.</p>`
+    : `<textarea readonly rows="8" aria-label="Project file contents"></textarea><p class="muted small">If it didn't download, copy this text and keep it in a note — paste it back with Import.</p>`;
+  if (!isImg) $("#saveBody textarea").value = text || "";
+  $("#saveCopy").hidden = isImg;
+  $("#saveDl").onclick = () => { try { const a = document.createElement("a"); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch {} };
+  m.hidden = false;
+  document.body.classList.add("modal-open");
+}
+$("#saveClose").addEventListener("click", () => { $("#saveModal").hidden = true; document.body.classList.remove("modal-open"); });
+$("#saveCopy").addEventListener("click", async () => {
+  const ta = $("#saveBody textarea");
+  try { await navigator.clipboard.writeText(ta.value); toast("Copied"); } catch { ta.select(); toast("Selected — press Ctrl+C / Copy"); }
+});
 
-async function confirmIf(msg) {
-  return !S("ui.confirmDelete") || confirm(msg);
+/* In-app confirmation (embedded viewers block window.confirm). */
+function askConfirm(msg, okLabel = "Yes", danger = true) {
+  return new Promise((resolve) => {
+    const m = $("#confirmModal");
+    $("#confirmMsg").textContent = msg;
+    const ok = $("#confirmOk"), no = $("#confirmNo");
+    ok.textContent = okLabel;
+    ok.className = "btn " + (danger ? "btn--dangerfill" : "btn--accent");
+    const done = (v) => { m.hidden = true; document.body.classList.remove("modal-open"); ok.onclick = no.onclick = null; document.removeEventListener("keydown", key, true); resolve(v); };
+    const key = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+    ok.onclick = () => done(true); no.onclick = () => done(false);
+    document.addEventListener("keydown", key, true);
+    m.hidden = false;
+    document.body.classList.add("modal-open");
+    ok.focus();
+  });
+}
+async function confirmIf(msg, okLabel = "Remove") {
+  return !S("ui.confirmDelete") || askConfirm(msg, okLabel);
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -685,8 +725,9 @@ async function runAction(a) {
   switch (a) {
     case "exportProject": {
       const proj = await exportProject(store, pad ? pad.getState?.() : await idb.get("sketch"));
-      const blob = new Blob([JSON.stringify(proj)], { type: "application/json" });
-      download(`inkform-project-${new Date().toISOString().slice(0, 10)}.json`, URL.createObjectURL(blob));
+      const json = JSON.stringify(proj);
+      const blob = new Blob([json], { type: "application/json" });
+      download(`inkform-project-${new Date().toISOString().slice(0, 10)}.json`, URL.createObjectURL(blob), { text: json });
       toast("Project exported");
       break;
     }
@@ -694,15 +735,15 @@ async function runAction(a) {
     case "saveScreenshot": saveShot(); break;
     case "clearTattoos": if (await confirmIf("Remove every tattoo from the body?")) app.clearTattoos(); break;
     case "resetSettings":
-      if (!confirm("Reset all settings to their defaults? (Your designs and tattoos stay.)")) break;
+      if (!(await askConfirm("Reset all settings to their defaults? Your designs and tattoos stay.", "Reset settings"))) break;
       store.checkpoint();
       { const keep = store.settings["ai.apiKey"]; store.settings = { ...defaultSettings(), "ai.apiKey": keep }; }
       store.saveNow(); applyTheme(); viewer.applySettings(store.settings); scheduleBody(0); syncTattoos(); updateBodyChip(); renderBodyPop();
       toast("Settings reset");
       break;
     case "resetAll":
-      if (!confirm("Erase everything — designs, tattoos, sketch and settings? This cannot be undone.")) break;
-      for (const k of Object.keys(localStorage)) if (k.startsWith("inkform.")) localStorage.removeItem(k);
+      if (!(await askConfirm("Erase everything — designs, tattoos, sketch and settings? This can't be undone.", "Erase everything"))) break;
+      try { for (const k of Object.keys(localStorage)) if (k.startsWith("inkform.")) localStorage.removeItem(k); } catch {}
       await idb.del("designs"); await idb.del("sketch");
       location.reload();
       break;
@@ -783,7 +824,7 @@ function showTab(tab) {
   if (tab === "sketch") initSketch();
   if (tab === "studio") viewer?._resize();
   requestAnimationFrame(layoutFloating);
-  if (location.hash.slice(2) !== tab) history.replaceState(null, "", "#/" + tab);
+  try { if (location.hash.replace(/^#\/?/, "") !== tab) history.replaceState(null, "", "#" + tab); } catch {}
 }
 $$("[data-tab]").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 $$('[data-open="settings"]').forEach((b) => b.addEventListener("click", () => openSettings()));
@@ -1312,6 +1353,7 @@ function initSketch() {
       sketchMod = await import("./sketch/sketchpad.js");
       const size = +S("sketch.canvasSize");
       pad = new sketchMod.SketchPad($("#sketchHost"), { width: size, height: size, settings: sketchSettings() });
+      pad.onDownload = (canvas, name) => download(name, canvas.toDataURL("image/png"));
       const saved = await idb.get("sketch");
       if (saved && pad.setState) { try { await pad.setState(saved); } catch (e) { console.warn(e); } }
       let t = 0;
@@ -1346,7 +1388,7 @@ $("#sketchUse").addEventListener("click", () => {
 });
 $("#sketchNew").addEventListener("click", async () => {
   if (!pad) return;
-  if (!pad.isEmpty?.() && !confirm("Start a new sketch? The current drawing will be cleared (save it to your designs first if you want to keep it).")) return;
+  if (!pad.isEmpty?.() && !(await askConfirm("Start a new sketch? The current drawing will be cleared — save it to your designs first if you want to keep it.", "Start new"))) return;
   pad.clear(); $("#sketchName").value = "My sketch";
 });
 
@@ -1356,6 +1398,7 @@ $("#sketchNew").addEventListener("click", async () => {
 document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
   if (e.key === "Escape") {
+    if (!$("#saveModal").hidden) { $("#saveClose").click(); return; }
     if (!$("#settingsModal").hidden) { closeSettings(); return; }
     if (!$("#bodyPop").hidden) { $("#bodyPop").hidden = true; $("#bodyToggle").setAttribute("aria-expanded", "false"); $("#bodyToggle").focus(); return; }
     if (placingDesignId) { stopPlacing(); return; }
@@ -1442,7 +1485,7 @@ async function boot() {
   window.inkViewer = viewer;
   $("#camSpin").classList.toggle("on", !!S("scene.autoRotate"));
   updateBodyChip();
-  showTab((location.hash.match(/^#\/(\w+)/) || [])[1] || "studio");
+  showTab((location.hash.match(/^#\/?(\w+)/) || [])[1] || "studio");
 
   await store.loadDesigns();
   renderLibrary();
@@ -1500,6 +1543,8 @@ async function boot() {
 
 boot();
 
-if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-}
+try {
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    addEventListener("load", () => { try { navigator.serviceWorker.register("sw.js").catch(() => {}); } catch {} });
+  }
+} catch {}

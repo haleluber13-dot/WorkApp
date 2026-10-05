@@ -474,6 +474,7 @@ export class SketchPad {
   download(trimmed = false) {
     const c = trimmed ? this.toTrimmedCanvas(16) : this.toCanvas();
     if (!c) { this.ui.toast('Nothing to export yet'); return; }
+    if (typeof this.onDownload === 'function') { this.onDownload(c, `inkform-sketch${trimmed ? '-trimmed' : ''}.png`); return; }
     c.toBlob((blob) => {
       if (!blob) return;
       const a = document.createElement('a');
