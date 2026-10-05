@@ -507,7 +507,7 @@ export class Viewport {
     const R = Math.max(0.1, size.length() / 2);
     const vFov = this.camera.fov * Math.PI / 180;
     const hFov = 2 * Math.atan(Math.tan(vFov / 2) * (this.camera.aspect || 1));
-    const dist = R / Math.sin(Math.min(vFov, hFov) / 2) * 1.04;
+    const dist = R / Math.sin(Math.min(vFov, hFov) / 2) * 0.90;   // the box diagonal over-states the sphere
     this.controls.target.copy(c);
     /* A three-quarter view. An engine is looked at from a little above, the
        way it sits on a stand in front of you; a car from about chest height —
