@@ -342,7 +342,7 @@ export class Viewport {
     whenTextures(() => {
       const maps = surface('floor', 40, false);
       const mat = this.floorRig.floorMat;
-      if (maps.normalMap){ mat.normalMap = maps.normalMap; mat.normalScale = new THREE.Vector2(0.07, 0.07); }
+      if (maps.normalMap){ mat.normalMap = maps.normalMap; mat.normalScale = new THREE.Vector2(0.04, 0.04); }
       if (maps.roughnessMap) mat.roughnessMap = maps.roughnessMap;
       mat.needsUpdate = true;
       if (this._subject) fitFloor(this.floorRig, this._subject.box, this._subject.floorY);
@@ -518,6 +518,9 @@ export class Viewport {
     const dir = vehicle ? new THREE.Vector3(0.94, 0.30, 0.80) : new THREE.Vector3(0.90, 0.46, 0.80);
     dir.normalize();
     this.camera.position.copy(c).addScaledVector(dir, dist);
+    /* aim a little below the centre: the model rides higher in the frame,
+       clear of the controls along the bottom of the view */
+    this.controls.target.y -= size.y * 0.06;
     /* near is set from the subject, not the distance: zooming in on a bolt
        must not clip the engine behind it, and the far plane has to reach the
        far edge of the floor and the fog */

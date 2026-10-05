@@ -37,7 +37,7 @@ export const LOOK = {
   hemi: { sky:0x9db4d8, ground:0x15181f, intensity:0.24 },
   /* an overhead soft spot that puts the subject in a pool of light on the
      floor; `irradiance` is what lands on the floor, the candela follow */
-  pool: { color:0xfff4e6, irradiance:0.42, height:4.5, reach:2.3, penumbra:0.9 },
+  pool: { color:0xfff4e6, irradiance:0.34, height:4.5, reach:2.3, penumbra:0.9 },
   contactOpacity: 0.50,
 };
 
