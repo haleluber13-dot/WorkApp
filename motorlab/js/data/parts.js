@@ -356,7 +356,7 @@ function pistonTree(e){
   }
 
   if (e.vvt !== false && !carb)
-    add({ id:'vvt', name:'Variable valve timing actuators', group:'valvetrain', qty:cams, deps:[ohv?'cam':'camcaps'], mesh:'vvt',
+    add({ id:'vvt', name: e.id === 'hyundai-g4gc' ? 'CVVT intake cam phaser' : 'Variable valve timing actuators', group:'valvetrain', qty: e.id === 'hyundai-g4gc' ? 1 : cams, deps:[ohv?'cam':'camcaps'], mesh:'vvt',   /* Beta II CVVT phases the intake cam only */
       teach:'Oil-pressure vane phasers rotate the cam relative to its sprocket, typically 40–50° of crank. Advancing the intake cam builds low-end torque; retarding it chases top end. The ECU commands it with a duty-cycle solenoid.' });
 
   /* ---- timing ---- */
@@ -508,7 +508,7 @@ function pistonTree(e){
       teach:'Feed and return, a filter in the feed, and banjo bolts at every joint. The crush washer is the seal — two per banjo, new every time — and the thread is only holding the clamp load. Depressurise the rail before you crack any of it: a hot rail at three bar will spray fuel across an exhaust manifold and light it.',
       spec:{ 'Filter':'inline, direction-marked', 'Washers':'copper or aluminium, one use', 'Before opening':'depressurise and disconnect the battery' } });
     if (e.injection === 'direct' || e.injection === 'common-rail')
-      add({ id:'hpfp', name: diesel ? (e.camDrive === 'gear' ? 'High-pressure pump (gear-driven CP3)' : 'High-pressure pump (CP4, belt-driven)') : 'High-pressure fuel pump', group:'fuel', deps:[diesel ? 'block' : ohv ? 'cam' : 'camcaps'], mesh:'hpfp',
+      add({ id:'hpfp', name: diesel ? (e.camDrive === 'gear' ? 'High-pressure pump (gear-driven CP3)' : e.id === 'hyundai-d4ea' ? 'High-pressure pump (CP3, belt-driven)' : 'High-pressure pump (CP4, belt-driven)') : 'High-pressure fuel pump', group:'fuel', deps:[diesel ? 'block' : ohv ? 'cam' : 'camcaps'], mesh:'hpfp',
         teach: diesel ? 'A radial-piston pump on the block, driven off the front gear train or the timing belt, that lifts fuel to 1,600–2,000 bar for the common rail. Its metering valve on the inlet sets how much fuel it compresses, which is how the ECU controls rail pressure without wasting the work of compressing fuel it will only dump back to the tank.' : 'Driven by a lobe on the camshaft. It is the reason a direct-injection engine cannot simply be "turned up" on fuel — the pump caps how much you can flow, long before the injectors do.' });
   }
 

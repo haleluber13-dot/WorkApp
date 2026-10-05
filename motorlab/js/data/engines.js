@@ -537,6 +537,32 @@ export const ENGINES = [
       finish:{ cover:'silver', letters:'BMW', plenum:'none', block:'alu', cases:'silver' },
       finishConfidence:'medium',
       blurb:'Cylinders sticking out into the airflow on both sides, shaft final drive, and a crankshaft that runs along the bike instead of across it.' }),
+
+  /* ---------------- Hyundai Tucson JM (2006) — the three factory engines ---------------- */
+  E({ id:'hyundai-g4gc', name:'G4GC Beta II 2.0 CVVT Inline-4', maker:'Hyundai', layout:'I', cyl:4,
+      displacement:1975, bore:82, stroke:93.5, cr:10.1, redline:6500, tqPeak:4500, hpPeak:6000,
+      firing:'I4', fuel:'gasoline', dryWeight:148, idle:750, year:2006,
+      camDrive:'belt', vvt:true, follower:'bucket', lash:'hydraulic', ignition:'wasted-spark',
+      intake:'plenum', intercooler:'none',
+      finish:{ cover:'black', letters:'silver', plenum:'alu-cast', block:'iron' }, finishConfidence:'medium',
+      blurb:'Hyundai\u2019s Beta II: a cast-iron block under an aluminium 16-valve head, a toothed belt driving both cams, and CVVT \u2014 a vane phaser on the intake cam only \u2014 added for the 2004 facelift. Bore 82 \u00d7 stroke 93.5 mm is distinctly undersquare, which is why its 184 Nm arrives at 4,500 rpm and it runs out of breath past 6,000 rather than chasing revs: a family-car four tuned for the mid-range. Two dual-output coils fire it wasted-spark, each sitting on one plug with a lead to its partner cylinder. Official rating 104 kW (141 hp DIN) at 6,000 rpm; brochures quote 136\u2013142 hp depending on the test standard. Service: 4.0 L of oil with the filter, 1.0\u20131.1 mm plug gap, timing belt at 90,000 km.' }),
+
+  E({ id:'hyundai-g6ba', name:'G6BA Delta 2.7 V6', maker:'Hyundai', layout:'V', cyl:6, bankAngle:60,
+      displacement:2656, bore:86.7, stroke:75, cr:10.0, redline:6500, tqPeak:4000, hpPeak:6000,
+      firing:'V6', fuel:'gasoline', dryWeight:168, idle:700, year:2006,
+      camDrive:'belt', vvt:false, follower:'bucket', lash:'hydraulic', ignition:'wasted-spark',
+      intake:'plenum', intercooler:'none',
+      finish:{ cover:'plastic-black', letters:'silver', plenum:'alu-cast', block:'alu' }, finishConfidence:'medium',
+      blurb:'The Delta V6: all-aluminium, 60\u00b0 between the banks for even 120\u00b0 firing, four belt-driven cams and 24 valves on hydraulic lash adjusters, so there is nothing to shim. Bore 86.7 \u00d7 stroke 75 mm is strongly oversquare \u2014 the opposite of the 2.0 four \u2014 so it is smooth and willing but has to be revved to find its 241 Nm at 4,000 rpm. No cam phasing on this generation; CVVT arrived with the Mu engine that replaced it. Three dual-output coils sit on the rear-bank plugs with leads across to the front bank. Rated 129 kW (173 hp) at 6,000 rpm; some European brochures round that to 175 PS. Service: 4.5 L of oil with the filter, timing belt at 90,000 km, plugs at 1.0\u20131.1 mm.' }),
+
+  E({ id:'hyundai-d4ea', name:'D4EA 2.0 CRDi VGT Turbodiesel', maker:'Hyundai', layout:'I', cyl:4,
+      displacement:1991, bore:83, stroke:92, cr:17.7, redline:4500, tqPeak:2000, hpPeak:4000,
+      aspiration:'turbo', fuel:'diesel', injection:'common-rail', boostTarget:1.45, spoolRpm:1500,
+      firing:'I4', idle:800, glow:true, dryWeight:182, year:2006,
+      camDrive:'belt', vvt:false, follower:'bucket', lash:'hydraulic', vgt:true, intercooler:'front',
+      turboLayout:'singleInline',
+      finish:{ cover:'plastic-black', letters:'CRDi', plenum:'alu-cast', block:'iron' }, finishConfidence:'medium',
+      blurb:'A compact common-rail turbodiesel: cast-iron block, aluminium 16-valve DOHC head, 17.7:1 compression and a Bosch common rail at up to 1,600 bar feeding solenoid injectors that fire straight into bowl-in-piston chambers. The variable-geometry turbo with an air-to-air intercooler ahead of the radiator is what separates this 140 hp version from the earlier 112 hp fixed-vane one: moving vanes keep the turbine fast at 1,500 rpm and open up at 4,000, so the 305 Nm plateau runs from 1,800 to 2,500 rpm. Glow plugs for cold start, cooled EGR for NOx, and a long 92 mm stroke \u2014 the shape of every modern diesel four. Rated 103 kW (140 hp) at 4,000 rpm; 2006 brochures list 305 Nm, later Euro 4 tuning 310 Nm. Service: 5.9 L of oil with the filter, no spark plugs to gap, timing belt at 90,000 km.' }),
 ];
 
 export const ENGINE_BY_ID = Object.fromEntries(ENGINES.map(e => [e.id, e]));

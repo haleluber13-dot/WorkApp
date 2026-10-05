@@ -319,6 +319,14 @@ const CATALOG = [
       brakeF:0, brakeR:330, cd:0.55, area:1.2, downforceKg:3600, fuelL:80, seats:1, driveLoss:0.06, tyreMu:4.2,
       blurb:'No gearbox — a multi-stage slipper clutch is the transmission. Seven and a half metres of chromoly, a wing making three tonnes of downforce, and four seconds of engine life per run.' }),
 
+  V({ id:'hyundai-tucson-jm', name:'Hyundai Tucson (JM, 2006)', maker:'Hyundai', body:'suv', drivetrain:'FWD',
+      bay:'front-transverse', suspF:'macpherson', suspR:'multilink', chassis:'unibody',
+      engines:['hyundai-g4gc','hyundai-g6ba','hyundai-d4ea','d-i4-20','i4-20-t'],
+      massKg:1455, wheelbase:2630, trackF:1540, trackR:1540, lengthMm:4325, widthMm:1795, heightMm:1730,
+      gears:[3.615,1.955,1.370,1.036,0.839], final:4.407, tyreF:215, tyreR:215, rimF:16, rimR:16, aspect:65,
+      brakeF:280, brakeR:262, cd:0.40, area:2.6, fuelL:58, seats:5, driveLoss:0.14, colour:0xa3a7ab,
+      blurb:'A compact crossover is a tall hatchback with longer-travel suspension and a bigger door aperture, and the first Tucson shows the recipe honestly: a spot-welded steel unibody, the engine sideways across the front with the gearbox on its end, MacPherson struts ahead and a coil-sprung multilink behind so the floor stays flat under a 1,730 mm roof. Modelled here as the 2.0 front-drive five-speed manual \u2014 1,455 kg, 4.407 final drive, 215/65 R16 tyres on 280 mm vented front and 262 mm solid rear discs. The 4WD versions added a Borg-Warner ITM electronic multi-plate coupling ahead of the rear differential that sends up to half the torque rearwards when the fronts slip, with a dash button to lock it 50:50 at low speed. The lessons are in the compromises: a 0.40 drag coefficient against a Golf\u2019s 0.33, tyres chosen for ride and gravel rather than grip, and a high centre of gravity that makes brake bias and roll stiffness matter more than peak power. Published kerb mass runs from 1,455 kg (2.0 FWD manual) to about 1,640 kg (2.7 V6 4WD automatic, with its 4-speed 2.842/1.529/1.000/0.712 box).' }),
+
   /* ---- motorcycles ---- */
   V({ id:'sportbike', name:'Kawasaki Ninja H2', maker:'Kawasaki', class:'bike', body:'sportbike', drivetrain:'chain',
       bay:'transverse', suspF:'usd-fork', suspR:'swingarm-monoshock', chassis:'twin-spar aluminium',
@@ -388,7 +396,7 @@ export function tyreRadiusM(widthMm, aspect, rimIn){
 export function wheelRadius(v, rear){
   const w = rear ? v.tyreR : v.tyreF;
   const rim = rear ? v.rimR : v.rimF;
-  const aspect = v.class === 'bike' ? 55 : v.class === 'kart' ? 40 : (w > 280 ? 30 : w > 240 ? 35 : 45);
+  const aspect = v.aspect ?? (v.class === 'bike' ? 55 : v.class === 'kart' ? 40 : (w > 280 ? 30 : w > 240 ? 35 : 45));
   return tyreRadiusM(w, aspect, rim);
 }
 export function weightDistribution(v){
