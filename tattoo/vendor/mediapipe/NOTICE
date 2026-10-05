@@ -1,0 +1,15 @@
+MediaPipe Tasks Vision (@mediapipe/tasks-vision 1.0.1, from registry.npmjs.org)
+Copyright The MediaPipe Authors. Licensed under the Apache License, Version 2.0 (see LICENSE).
+https://github.com/google-ai-edge/mediapipe
+
+Files (unmodified except where noted):
+  vision_bundle.mjs              ESM bundle (sourceMappingURL comment removed)
+  wasm/vision_wasm_internal.js   WASM loader (SIMD build)
+  wasm/vision_wasm_internal.wasm
+  face_landmarker.task           Face Landmarker model (float16, v1), from
+                                 https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task (Apache-2.0)
+The canonical face mesh triangle list in js/face/canonical.js is derived from
+mediapipe/modules/face_geometry/data/canonical_face_model.obj (Apache-2.0).
+
+Loaded lazily, only when the "My face" feature is used. Runs fully on the
+device; no photo is ever uploaded.

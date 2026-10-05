@@ -1150,6 +1150,8 @@ function renderBodyPop() {
   const avHtml = `<div class="field"><div class="lbl"><span>My avatars</span></div>
       <div class="avatars">${avatars.map((a) => `<div class="avatar ${a.id === S("body.avatarId") ? "on" : ""}"><button class="avatar__use" data-av="${esc(a.id)}" style="all:unset;cursor:pointer;display:block">${a.thumb ? `<img src="${esc(a.thumb)}" alt="">` : `<span class="avatar__ph"></span>`}${esc(a.name)}</button><button class="avatar__del" data-avdel="${esc(a.id)}" aria-label="Delete avatar ${esc(a.name)}">✕</button></div>`).join("") || `<span class="muted small">None yet — scan yourself to make one.</span>`}</div>
       <button class="btn btn--accent scanbtn" data-scan>📷 Scan me — make my avatar</button>
+      <button class="btn scanbtn" data-face>🙂 ${currentAvatar()?.face ? "Change my face" : "Add my face (selfie)"}</button>
+      ${currentAvatar()?.face ? `<button class="btn btn--small scanbtn" data-noface>Remove face</button>` : ""}
       <button class="btn btn--small scanbtn" data-saveav>Save this body as an avatar</button></div>`;
   p.innerHTML = avHtml + `
     <div class="seg"><button data-sex="male" class="${S("body.sex") === "male" ? "on" : ""}">Male</button><button data-sex="female" class="${S("body.sex") === "female" ? "on" : ""}">Female</button></div>
@@ -1180,11 +1182,17 @@ $("#bodyPop").addEventListener("click", async (e) => {
   if (b.dataset.sex) { setSetting("body.sex", b.dataset.sex); renderBodyPop(); }
   if (b.dataset.tone) { setSetting("skin.tone", b.dataset.tone); renderBodyPop(); }
   if ("scan" in b.dataset) { openScan(); return; }
+  if ("face" in b.dataset) { openFace(); return; }
+  if ("noface" in b.dataset) { const a = currentAvatar(); if (a) { delete a.face; await persistAvatars(); refreshFace(); renderBodyPop(); } return; }
   if ("saveav" in b.dataset) { saveBodyAsAvatar(); return; }
   if (b.dataset.av) { const a = avatars.find((x) => x.id === b.dataset.av); if (a) applyAvatar(a); return; }
   if (b.dataset.avdel) {
     const a = avatars.find((x) => x.id === b.dataset.avdel);
-    if (a && await askConfirm(`Delete the avatar “${a.name}”?`, "Delete")) { avatars = avatars.filter((x) => x !== a); await persistAvatars(); renderBodyPop(); }
+    if (a && await askConfirm(`Delete the avatar “${a.name}”?`, "Delete")) {
+      avatars = avatars.filter((x) => x !== a); await persistAvatars();
+      if (S("body.avatarId") === a.id) { store.settings["body.avatarId"] = ""; store.save(); refreshFace(); }
+      renderBodyPop();
+    }
     return;
   }
   if ("bodyreset" in b.dataset) {
@@ -1768,7 +1776,7 @@ async function openProject(id) {
   bodyBuild.snapOnly = true;
   bodyBuild.first = true; // frame the camera on the opened body
   await rebuildBody();
-  syncTattoos(); updateBodyChip(); renderBodyPop(); renderProjName();
+  syncTattoos(); updateBodyChip(); renderBodyPop(); renderProjName(); refreshFace();
   showTab("studio");
   toast(`Opened “${p.name}”`);
 }
@@ -1851,6 +1859,8 @@ $("#projGrid").addEventListener("click", async (e) => {
 
 /* avatars */
 async function persistAvatars() { await idb.set("avatars", avatars); }
+const currentAvatar = () => avatars.find((a) => a.id === S("body.avatarId")) || null;
+function refreshFace() { viewer?.setFace(currentAvatar()?.face || null); }
 async function applyAvatar(a) {
   store.checkpoint();
   for (const [k, v] of Object.entries(a.body || {})) if (k !== "detail" && SETTING_BY_KEY["body." + k]) store.settings["body." + k] = coerceSetting("body." + k, v);
@@ -1859,6 +1869,7 @@ async function applyAvatar(a) {
   store.save();
   viewer.applySettings(store.settings);
   updateBodyChip(); renderBodyPop();
+  refreshFace();
   await rebuildBody();
   toast(`Body set to “${a.name}”`);
 }
@@ -1899,7 +1910,8 @@ async function openScan() {
         await persistAvatars();
         closeScan();
         await applyAvatar(a);
-        toast(`Your avatar “${a.name}” is ready — it's saved under Body → My avatars`, 4500);
+        toast(`Body done! Now add your face`, 3500);
+        setTimeout(() => openFace({ afterScan: true }), 600);
       },
       onCancel: closeScan,
     });
@@ -1908,6 +1920,51 @@ async function openScan() {
     layer.innerHTML = `<div style="padding:24px"><p>The body scan couldn't load: ${esc(e.message)}</p><button class="btn" id="scanCloseErr">Close</button></div>`;
     $("#scanCloseErr").onclick = closeScan;
   }
+}
+/* "My face": a selfie becomes the avatar's face on the 3D head */
+async function openFace({ afterScan = false } = {}) {
+  $("#bodyPop").hidden = true;
+  const layer = $("#scanLayer");
+  layer.hidden = false;
+  document.body.classList.add("modal-open");
+  try {
+    const m = await import("./face/face.js");
+    scanUI?.destroy?.();
+    layer.innerHTML = "";
+    scanUI = m.mountFaceCapture(layer, {
+      toast,
+      skinTone: S("skin.tone"),
+      async onDone(face) {
+        let a = currentAvatar();
+        if (!a) {
+          const b = store.body(); delete b.detail;
+          a = { id: uid("a"), name: "Me", body: b, skinTone: face.skinTone || S("skin.tone"), createdAt: Date.now() };
+          avatars.unshift(a);
+        }
+        a.face = face;
+        if (face.skinTone) a.skinTone = face.skinTone;
+        try { a.thumb = await faceThumb(face); } catch {}
+        await persistAvatars();
+        closeScan();
+        await applyAvatar(a);
+        toast(afterScan ? "Your avatar is ready — with your face!" : "Your face is on the avatar", 4000);
+      },
+      onCancel: closeScan,
+    });
+  } catch (e) {
+    console.error(e);
+    layer.innerHTML = `<div style="padding:24px"><p>The face step couldn't load: ${esc(e.message)}</p><button class="btn" id="scanCloseErr">Close</button></div>`;
+    $("#scanCloseErr").onclick = closeScan;
+  }
+}
+/* small round thumbnail of the face photo for the avatar list */
+async function faceThumb(face) {
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = face.image; });
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d");
+  const s = Math.min(img.width, img.height);
+  g.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, 128, 128);
+  return c.toDataURL("image/jpeg", 0.85);
 }
 function closeScan() {
   scanUI?.destroy?.(); scanUI = null;
@@ -2077,6 +2134,7 @@ async function boot() {
     .catch((e) => console.error("assistant failed to load", e));
 
   await initProjects();
+  refreshFace();
   syncTattoos();
   if (!store.tattoos.length && currentTab === "studio") setTimeout(() => showTip("welcome"), 900);
   window.inkSharedReady?.();

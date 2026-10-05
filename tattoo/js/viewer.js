@@ -214,7 +214,40 @@ export class Viewer {
     geometry.computeBoundingBox();
     this.bounds = geometry.boundingBox.clone();
     this._renderMarkers();
+    this._fitFace();
     this.dirty = true;
+  }
+
+  /* ── the user's own face on the head (from a selfie) ─────────────── */
+  async setFace(face) {
+    const token = (this._faceToken = (this._faceToken || 0) + 1);
+    if (this.faceObj) { this.scene.remove(this.faceObj); this._disposeObj(this.faceObj); this.faceObj = null; }
+    this.dirty = true;
+    if (!face) return;
+    try {
+      this._faceMod = this._faceMod || await import("./face/face.js");
+      if (token !== this._faceToken) return; // a newer request replaced this one
+      const obj = this._faceMod.createFaceObject(face, THREE);
+      this.faceObj = obj;
+      this.scene.add(obj);
+      this._fitFace();
+    } catch (e) {
+      console.warn("face failed", e);
+    }
+  }
+  _fitFace() {
+    if (!this.faceObj || !this.bodyMesh || !this._faceMod) return;
+    try {
+      this._faceMod.fitFaceToHead(this.faceObj, { bodyMesh: this.bodyMesh, regions: this.regions, bounds: this.bounds, THREE });
+    } catch (e) { console.warn("face fit failed", e); }
+    this.dirty = true;
+  }
+  _disposeObj(o) {
+    o.traverse?.((c) => {
+      c.geometry?.dispose?.();
+      const ms = Array.isArray(c.material) ? c.material : c.material ? [c.material] : [];
+      for (const m of ms) { m.map?.dispose?.(); m.emissiveMap?.dispose?.(); m.alphaMap?.dispose?.(); m.dispose?.(); }
+    });
   }
 
   frameBody(animate = true) {
