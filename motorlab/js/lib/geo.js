@@ -629,8 +629,11 @@ export function letterDecal(lines, { w, h, hex = 0xd9dde0, style = 'bare', strip
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 8;
     const metal = style === 'bare' || style === 'cast' || style === 'silver' || style === 'chrome' || style === 'chrome-blue';
+    /* lettering has to read from a metre: bright metal letters are kept
+       half-dielectric so they do not go black reflecting a dark bay */
     m = new THREE.MeshStandardMaterial({ map:t, transparent:true, alphaTest:0.25,
-      metalness: metal ? 0.85 : 0.10, roughness: metal ? 0.34 : 0.48, envMapIntensity: metal ? 1.1 : 0.7,
+      metalness: metal ? 0.55 : 0.05, roughness: metal ? 0.30 : 0.45,
+      emissive: metal ? 0x2a2c2e : 0x000000,
       polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-2 });
     _decalMat.set(key, m);
   }
