@@ -160,6 +160,8 @@ export const SETTINGS = [
   { key: "ui.hints", group: "ui", label: "Show tips", type: BOOL, default: true },
   { key: "ui.confirmDelete", group: "ui", label: "Ask before deleting", type: BOOL, default: true },
 
+  { key: "body.avatarId", group: "hidden", label: "Current avatar", type: TEXT, default: "" },
+
   // ── Data ───────────────────────────────────────────────────────────────
   { key: "data.export", group: "data", label: "Export project (.json)", type: ACTION, action: "exportProject" },
   { key: "data.import", group: "data", label: "Import project", type: ACTION, action: "importProject" },
@@ -260,7 +262,7 @@ export function createSettingsPanel({ get, set, act }) {
     const q = search.value.trim().toLowerCase();
     el.querySelectorAll(".settings__tabs button").forEach((b) => b.classList.toggle("on", !q && b.dataset.group === group));
     const items = q
-      ? SETTINGS.filter((s) => (s.label + " " + s.key + " " + (GROUPS.find((g) => g.id === s.group)?.label || "")).toLowerCase().includes(q))
+      ? SETTINGS.filter((s) => s.group !== "hidden").filter((s) => (s.label + " " + s.key + " " + (GROUPS.find((g) => g.id === s.group)?.label || "")).toLowerCase().includes(q))
       : SETTINGS.filter((s) => s.group === group);
     list.innerHTML = items.length ? items.map(row).join("") : `<p class="muted">No setting matches “${esc(q)}”.</p>`;
     if (!q && group === "data") list.insertAdjacentHTML("beforeend", `<p class="muted small">Your designs, tattoos and settings are saved automatically in this browser. Export a project file to back them up or move them to another device.</p>`);

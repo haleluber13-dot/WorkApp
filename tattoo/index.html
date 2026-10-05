@@ -19,6 +19,7 @@
 <link rel="stylesheet" href="js/photo/photo.css">
 <link rel="stylesheet" href="js/webbank/webbank.css">
 <link rel="stylesheet" href="js/geo/geo.css">
+<link rel="stylesheet" href="js/scan/scan.css">
 <link rel="stylesheet" href="js/agent/agent.css">
 <script type="importmap">
 { "imports": {
@@ -32,6 +33,7 @@
   <div class="brand">
     <svg class="brand__logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M21.5 3.5l7 7-3 3-1.6-1.6-8.6 8.6.9.9-2.6 2.6-3.6-.4L4 29.6 2.4 28l6-6-.4-3.6 2.6-2.6.9.9 8.6-8.6L18.5 6.5z" fill="currentColor"/></svg>
     <b>InkForm</b><span class="brand__3d">3D</span>
+    <button class="projbtn" id="projBtn" title="My projects" aria-label="My projects"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span id="projName">My project</span><svg viewBox="0 0 24 24" width="12" height="12"><path d="M6 9l6 6 6-6"/></svg></button>
   </div>
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button role="tab" data-tab="studio"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.6"/><path d="M8 9.5h8l-1 6h-1.6l-.6 6h-1.6l-.6-6H9z"/></svg><span>Studio</span></button>
@@ -157,6 +159,21 @@
   <button data-open="settings"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>Settings</button>
 </nav>
 
+<div class="modal" id="projModal" role="dialog" aria-modal="true" aria-labelledby="projTitle" hidden>
+  <div class="modal__card projcard">
+    <div class="projhead">
+      <h2 id="projTitle">My projects</h2>
+      <div class="projhead__btns">
+        <button class="btn btn--accent" id="projNew">＋ New project</button>
+        <button class="btn" id="projSaveAs">Save a copy</button>
+        <button class="iconbtn" id="projClose" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <p class="muted small projnote">Everything is saved automatically. Each project keeps its own body, skin and tattoos; your design library is shared by all projects.</p>
+    <div class="projgrid" id="projGrid"></div>
+  </div>
+</div>
+<div class="scanlayer" id="scanLayer" hidden></div>
 <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-label="Settings" hidden><div class="modal__card" id="settingsCard"></div></div>
 <div class="modal" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmMsg" hidden>
   <div class="dialog"><p id="confirmMsg"></p><div class="dialog__btns"><button class="btn" id="confirmNo">Cancel</button><button class="btn btn--dangerfill" id="confirmOk">Yes</button></div></div>

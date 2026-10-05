@@ -512,7 +512,7 @@ const app = {
   },
   listSubjects() { return designsMod?.SUBJECTS || []; },
   listSettings() {
-    return SETTINGS.filter((s) => s.type !== "action").map((s) => ({
+    return SETTINGS.filter((s) => s.type !== "action" && s.group !== "hidden").map((s) => ({
       key: s.key, label: s.label, group: s.group, type: s.type, min: s.min, max: s.max, step: s.step, default: s.default,
       choices: s.choices || (s.swatches ? s.swatches.map((c) => ({ value: c.value, label: c.label || c.value })) : undefined),
     }));
@@ -781,7 +781,7 @@ async function runAction(a) {
     case "resetAll":
       if (!(await askConfirm("Erase everything — designs, tattoos, sketch and settings? This can't be undone.", "Erase everything"))) break;
       try { for (const k of Object.keys(localStorage)) if (k.startsWith("inkform.")) localStorage.removeItem(k); } catch {}
-      await idb.del("designs"); await idb.del("sketch");
+      await idb.del("designs"); await idb.del("sketch"); await idb.del("projects"); await idb.del("avatars");
       location.reload();
       break;
   }
@@ -1147,7 +1147,11 @@ function renderBodyPop() {
     if (k === "body.heightCm" && inch()) { const i = Math.round(v / 2.54); o = `${Math.floor(i / 12)}′${i % 12}″`; }
     return `<div class="field"><div class="lbl"><span>${label}</span><output>${o}</output></div><input type="range" aria-label="${label}" data-bk="${k}" min="${s.min}" max="${s.max}" step="${s.step}" value="${v}"></div>`;
   };
-  p.innerHTML = `
+  const avHtml = `<div class="field"><div class="lbl"><span>My avatars</span></div>
+      <div class="avatars">${avatars.map((a) => `<div class="avatar ${a.id === S("body.avatarId") ? "on" : ""}"><button class="avatar__use" data-av="${esc(a.id)}" style="all:unset;cursor:pointer;display:block">${a.thumb ? `<img src="${esc(a.thumb)}" alt="">` : `<span class="avatar__ph"></span>`}${esc(a.name)}</button><button class="avatar__del" data-avdel="${esc(a.id)}" aria-label="Delete avatar ${esc(a.name)}">✕</button></div>`).join("") || `<span class="muted small">None yet — scan yourself to make one.</span>`}</div>
+      <button class="btn btn--accent scanbtn" data-scan>📷 Scan me — make my avatar</button>
+      <button class="btn btn--small scanbtn" data-saveav>Save this body as an avatar</button></div>`;
+  p.innerHTML = avHtml + `
     <div class="seg"><button data-sex="male" class="${S("body.sex") === "male" ? "on" : ""}">Male</button><button data-sex="female" class="${S("body.sex") === "female" ? "on" : ""}">Female</button></div>
     ${sl("body.heightCm", "Height")}${sl("body.build", "Build")}${sl("body.muscle", "Muscle")}${sl("body.shoulders", "Shoulders")}
     ${sl("body.chest", S("body.sex") === "female" ? "Bust" : "Chest")}${sl("body.hips", "Hips")}${sl("body.legLength", "Leg length")}${sl("body.armPose", "Arm pose")}
@@ -1170,11 +1174,19 @@ $("#bodyPop").addEventListener("input", (e) => {
   const o = e.target.previousElementSibling.querySelector("output"), s = SETTING_BY_KEY[k], v = +e.target.value;
   o.textContent = s.max <= 1 ? Math.round(v * 100) + "%" : (k === "body.heightCm" && inch()) ? `${Math.floor(Math.round(v / 2.54) / 12)}′${Math.round(v / 2.54) % 12}″` : v + (s.unit || "");
 });
-$("#bodyPop").addEventListener("click", (e) => {
+$("#bodyPop").addEventListener("click", async (e) => {
   const b = e.target.closest("button");
   if (!b) return;
   if (b.dataset.sex) { setSetting("body.sex", b.dataset.sex); renderBodyPop(); }
   if (b.dataset.tone) { setSetting("skin.tone", b.dataset.tone); renderBodyPop(); }
+  if ("scan" in b.dataset) { openScan(); return; }
+  if ("saveav" in b.dataset) { saveBodyAsAvatar(); return; }
+  if (b.dataset.av) { const a = avatars.find((x) => x.id === b.dataset.av); if (a) applyAvatar(a); return; }
+  if (b.dataset.avdel) {
+    const a = avatars.find((x) => x.id === b.dataset.avdel);
+    if (a && await askConfirm(`Delete the avatar “${a.name}”?`, "Delete")) { avatars = avatars.filter((x) => x !== a); await persistAvatars(); renderBodyPop(); }
+    return;
+  }
   if ("bodyreset" in b.dataset) {
     store.checkpoint();
     for (const s of SETTINGS) if (s.key.startsWith("body.") && s.key !== "body.sex" && s.key !== "body.detail") store.settings[s.key] = s.default;
@@ -1679,6 +1691,230 @@ window.inkSharedReady = async () => {
   if (files.length) openInPhoto(files); else toast("Couldn't open the shared photo");
 };
 
+
+/* ════════════════════════════════════════════════════════════════════════
+   Projects (several saved works) & avatars (saved bodies, e.g. from a scan)
+   ════════════════════════════════════════════════════════════════════════ */
+let projects = [], currentProjectId = null, avatars = [];
+const isProjectKey = (k) => k.startsWith("body.") || k.startsWith("skin.");
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+
+function projectSnapshot() {
+  return {
+    settings: Object.fromEntries(Object.entries(store.settings).filter(([k]) => isProjectKey(k))),
+    tattoos: JSON.parse(JSON.stringify(store.tattoos)),
+    selectedId: store.selectedId, activeDesignId: store.activeDesignId,
+  };
+}
+async function persistProjects() { await idb.set("projects", projects); }
+async function projectThumb() {
+  try { return await viewer.screenshot({ width: 320, height: 240 }); } catch { return null; }
+}
+async function saveCurrentProject({ thumb = false } = {}) {
+  const p = projects.find((x) => x.id === currentProjectId);
+  if (!p) return;
+  p.data = projectSnapshot();
+  p.updatedAt = Date.now();
+  if (thumb || !p.thumb) { const t = await projectThumb(); if (t) p.thumb = t; }
+  await persistProjects();
+}
+let projSaveT = 0, lastThumbAt = 0;
+function scheduleProjectSave() {
+  clearTimeout(projSaveT);
+  projSaveT = setTimeout(() => {
+    const thumb = Date.now() - lastThumbAt > 20000;
+    if (thumb) lastThumbAt = Date.now();
+    saveCurrentProject({ thumb });
+  }, 1500);
+}
+function renderProjName() {
+  const p = projects.find((x) => x.id === currentProjectId);
+  $("#projName").textContent = p?.name || "My project";
+}
+async function initProjects() {
+  projects = (await idb.get("projects")) || [];
+  avatars = (await idb.get("avatars")) || [];
+  currentProjectId = lsGet("inkform.project");
+  if (!projects.some((p) => p.id === currentProjectId)) {
+    // the work on screen becomes a project
+    const p = { id: uid("p"), name: projects.length ? `Project ${projects.length + 1}` : "My first project", createdAt: Date.now(), updatedAt: Date.now(), data: projectSnapshot() };
+    projects.unshift(p);
+    currentProjectId = p.id;
+    lsSet("inkform.project", p.id);
+    await persistProjects();
+  }
+  renderProjName();
+  const origSave = store.save.bind(store);
+  store.save = () => { origSave(); scheduleProjectSave(); };
+}
+async function openProject(id) {
+  if (id === currentProjectId) { closeProjects(); return; }
+  await saveCurrentProject({ thumb: true });
+  const p = projects.find((x) => x.id === id);
+  if (!p) return;
+  const d = p.data || {};
+  for (const [k, v] of Object.entries(d.settings || {})) if (SETTING_BY_KEY[k]) store.settings[k] = coerceSetting(k, v);
+  store.tattoos = JSON.parse(JSON.stringify(d.tattoos || []));
+  store.selectedId = d.selectedId && store.tattoos.some((t) => t.id === d.selectedId) ? d.selectedId : null;
+  store.activeDesignId = d.activeDesignId || store.activeDesignId;
+  store.undoStack = []; store.redoStack = [];
+  currentProjectId = id;
+  lsSet("inkform.project", id);
+  store.saveNow();
+  closeProjects();
+  stopPlacing?.();
+  viewer.applySettings(store.settings);
+  bodyBuild.snapOnly = true;
+  bodyBuild.first = true; // frame the camera on the opened body
+  await rebuildBody();
+  syncTattoos(); updateBodyChip(); renderBodyPop(); renderProjName();
+  showTab("studio");
+  toast(`Opened “${p.name}”`);
+}
+async function newProject() {
+  await saveCurrentProject({ thumb: true });
+  const n = projects.length + 1;
+  const p = { id: uid("p"), name: `Project ${n}`, createdAt: Date.now(), updatedAt: Date.now(),
+    data: { settings: projectSnapshot().settings, tattoos: [], selectedId: null, activeDesignId: store.activeDesignId } };
+  projects.unshift(p);
+  await persistProjects();
+  await openProject(p.id);
+}
+async function duplicateProject(id) {
+  if (id === currentProjectId) await saveCurrentProject({ thumb: true });
+  const src = projects.find((x) => x.id === id);
+  if (!src) return;
+  const p = { ...JSON.parse(JSON.stringify(src)), id: uid("p"), name: src.name + " (copy)", createdAt: Date.now(), updatedAt: Date.now() };
+  projects.unshift(p);
+  await persistProjects();
+  renderProjects();
+  toast(`Saved “${p.name}”`);
+}
+async function deleteProject(id) {
+  const p = projects.find((x) => x.id === id);
+  if (!p || !(await askConfirm(`Delete the project “${p.name}”? This can't be undone.`, "Delete project"))) return;
+  projects = projects.filter((x) => x.id !== id);
+  if (id === currentProjectId) {
+    if (projects.length) { currentProjectId = null; await openProject(projects[0].id); }
+    else { currentProjectId = null; await newProject(); }
+  } else await persistProjects();
+  renderProjects();
+}
+function renderProjects() {
+  const fmt = (t) => new Date(t).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  $("#projGrid").innerHTML = projects.map((p) => `
+    <div class="projitem ${p.id === currentProjectId ? "on" : ""}" data-pid="${esc(p.id)}">
+      <button class="projitem__thumb" data-open="${esc(p.id)}" aria-label="Open ${esc(p.name)}">${p.thumb ? `<img src="${esc(p.thumb)}" alt="">` : `<span class="muted small">No preview yet</span>`}</button>
+      <div class="projitem__meta"><b>${esc(p.name)}${p.id === currentProjectId ? `<span class="badge">Open</span>` : ""}</b>
+        <small>${(p.data?.tattoos || []).length} tattoo${(p.data?.tattoos || []).length === 1 ? "" : "s"} · ${fmt(p.updatedAt || p.createdAt)}</small></div>
+      <div class="projitem__btns">
+        ${p.id === currentProjectId ? "" : `<button class="btn btn--accent" data-open="${esc(p.id)}">Open</button>`}
+        <button class="btn" data-rename="${esc(p.id)}">Rename</button>
+        <button class="btn" data-dup="${esc(p.id)}">Copy</button>
+        <button class="btn btn--danger" data-delp="${esc(p.id)}">Delete</button>
+      </div>
+    </div>`).join("");
+}
+async function openProjects() {
+  await saveCurrentProject({ thumb: true });
+  renderProjects();
+  $("#projModal").hidden = false;
+  document.body.classList.add("modal-open");
+}
+function closeProjects() { $("#projModal").hidden = true; document.body.classList.remove("modal-open"); }
+$("#projBtn").addEventListener("click", openProjects);
+$("#projClose").addEventListener("click", closeProjects);
+$("#projModal").addEventListener("click", (e) => { if (e.target.id === "projModal") closeProjects(); });
+$("#projNew").addEventListener("click", newProject);
+$("#projSaveAs").addEventListener("click", () => duplicateProject(currentProjectId));
+$("#projGrid").addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.open) openProject(b.dataset.open);
+  else if (b.dataset.dup) duplicateProject(b.dataset.dup);
+  else if (b.dataset.delp) deleteProject(b.dataset.delp);
+  else if (b.dataset.rename) {
+    const p = projects.find((x) => x.id === b.dataset.rename);
+    const meta = b.closest(".projitem").querySelector(".projitem__meta b");
+    meta.innerHTML = `<input type="text" value="${esc(p.name)}" maxlength="60" aria-label="Project name" style="width:100%">`;
+    const inp = meta.querySelector("input");
+    inp.focus(); inp.select();
+    const done = async (save) => {
+      if (save && inp.value.trim()) { p.name = inp.value.trim(); await persistProjects(); renderProjName(); }
+      renderProjects();
+    };
+    inp.addEventListener("keydown", (ev) => { if (ev.key === "Enter") done(true); if (ev.key === "Escape") { ev.stopPropagation(); done(false); } });
+    inp.addEventListener("blur", () => done(true));
+  }
+});
+
+/* avatars */
+async function persistAvatars() { await idb.set("avatars", avatars); }
+async function applyAvatar(a) {
+  store.checkpoint();
+  for (const [k, v] of Object.entries(a.body || {})) if (k !== "detail" && SETTING_BY_KEY["body." + k]) store.settings["body." + k] = coerceSetting("body." + k, v);
+  if (a.skinTone) store.settings["skin.tone"] = coerceSetting("skin.tone", a.skinTone);
+  store.settings["body.avatarId"] = a.id;
+  store.save();
+  viewer.applySettings(store.settings);
+  updateBodyChip(); renderBodyPop();
+  await rebuildBody();
+  toast(`Body set to “${a.name}”`);
+}
+async function saveBodyAsAvatar(name) {
+  const thumb = await (async () => {
+    try {
+      const url = await viewer.screenshot({ width: 160, height: 160 });
+      return url;
+    } catch { return null; }
+  })();
+  const b = store.body(); delete b.detail;
+  const a = { id: uid("a"), name: name || `Body ${avatars.length + 1}`, body: b, skinTone: S("skin.tone"), thumb, createdAt: Date.now() };
+  avatars.unshift(a);
+  await persistAvatars();
+  renderBodyPop();
+  toast(`Saved avatar “${a.name}”`);
+  return a;
+}
+let scanUI = null;
+async function openScan() {
+  $("#bodyPop").hidden = true;
+  const layer = $("#scanLayer");
+  layer.hidden = false;
+  document.body.classList.add("modal-open");
+  try {
+    const m = await import("./scan/scan.js");
+    scanUI?.destroy?.();
+    layer.innerHTML = "";
+    scanUI = m.mountScan(layer, {
+      getBody: () => store.body(),
+      buildBody: (p) => bodyMod.buildBody(p),
+      units: S("place.units"),
+      toast,
+      async onDone(av) {
+        const a = { id: uid("a"), createdAt: Date.now(), ...av };
+        if (a.photos) delete a.photos; // keep storage small; the thumbnail stays
+        avatars.unshift(a);
+        await persistAvatars();
+        closeScan();
+        await applyAvatar(a);
+        toast(`Your avatar “${a.name}” is ready — it's saved under Body → My avatars`, 4500);
+      },
+      onCancel: closeScan,
+    });
+  } catch (e) {
+    console.error(e);
+    layer.innerHTML = `<div style="padding:24px"><p>The body scan couldn't load: ${esc(e.message)}</p><button class="btn" id="scanCloseErr">Close</button></div>`;
+    $("#scanCloseErr").onclick = closeScan;
+  }
+}
+function closeScan() {
+  scanUI?.destroy?.(); scanUI = null;
+  $("#scanLayer").hidden = true; $("#scanLayer").innerHTML = "";
+  document.body.classList.remove("modal-open");
+}
+
 /* ════════════════════════════════════════════════════════════════════════
    keyboard
    ════════════════════════════════════════════════════════════════════════ */
@@ -1686,6 +1922,7 @@ document.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
   if (e.key === "Escape") {
     if (!$("#saveModal").hidden) { $("#saveClose").click(); return; }
+    if (!$("#projModal").hidden) { closeProjects(); return; }
     if (!$("#settingsModal").hidden) { closeSettings(); return; }
     if (!$("#bodyPop").hidden) { $("#bodyPop").hidden = true; $("#bodyToggle").setAttribute("aria-expanded", "false"); $("#bodyToggle").focus(); return; }
     if (placingDesignId) { stopPlacing(); return; }
@@ -1713,6 +1950,8 @@ document.addEventListener("keydown", (e) => {
 
 /* Android back button: close the top-most thing; false = nothing left to close. */
 window.inkBack = () => {
+  if (!$("#scanLayer").hidden) { closeScan(); return true; }
+  if (!$("#projModal").hidden) { closeProjects(); return true; }
   if (!$("#confirmModal").hidden) { $("#confirmNo").click(); return true; }
   if (!$("#saveModal").hidden) { $("#saveClose").click(); return true; }
   if (!$("#settingsModal").hidden) { closeSettings(); return true; }
@@ -1837,6 +2076,7 @@ async function boot() {
   import("./agent/chat.js").then((m) => { assistant = m.mountAssistant(document.body, app); window.inkAssistant = assistant; setTimeout(layoutFloating, 50); })
     .catch((e) => console.error("assistant failed to load", e));
 
+  await initProjects();
   syncTattoos();
   if (!store.tattoos.length && currentTab === "studio") setTimeout(() => showTip("welcome"), 900);
   window.inkSharedReady?.();
