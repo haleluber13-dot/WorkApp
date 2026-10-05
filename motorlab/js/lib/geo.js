@@ -183,7 +183,7 @@ export const MAT = {
   /* a cast-iron exhaust manifold after a few hundred heat cycles: brown-grey
      scale with a rust bloom, darker toward the flanges, no shine at all */
   ironHot: () => mat('ironHot', () => scanned(new THREE.MeshStandardMaterial({
-    color:0x5a4e46, metalness:0.40, roughness:0.90, envMapIntensity:0.30,
+    color:0x57514c, metalness:0.22, roughness:0.92, envMapIntensity:0.25,
     roughnessMap: withRepeat(castGrain(), 5), bumpMap: withRepeat(castGrain(), 5), bumpScale:0.9 }),
     m => dressSurface(m, 'cast', 5, 1.0))),
   /* a face that has been through the mill: bright, flat, fine tool marks */
