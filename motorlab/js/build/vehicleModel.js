@@ -1782,10 +1782,10 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
   const gap    = new THREE.MeshStandardMaterial({ color:0x0a0c10, roughness:0.9, metalness:0.0 });
   const lt = lightV?.type || 'xenon';
   const lensF  = new THREE.MeshPhysicalMaterial({ color: lt === 'halogen' ? 0xf4e7c6 : lt === 'led' ? 0xeef4ff : 0xdfe8ff, metalness:0.0, roughness:0.06,
-                   clearcoat:1, transmission:0.55, thickness:0.02, ior:1.45,
+                   clearcoat:1, transparent:true, opacity:0.78,
                    emissive: lt === 'halogen' ? 0xf2d58a : lt === 'led' ? 0xe9f2ff : 0xbcd0f0, emissiveIntensity: lt === 'led' ? 1.1 : 0.85, envMapIntensity:2.4 });
   const lensR  = new THREE.MeshPhysicalMaterial({ color:0x8c0d10, metalness:0.0, roughness:0.10,
-                   clearcoat:1, transmission:0.35, thickness:0.02, ior:1.45,
+                   clearcoat:1, transparent:true, opacity:0.86,
                    emissive:0xe01820, emissiveIntensity:1.15, envMapIntensity:2.0 });
   const amber  = new THREE.MeshPhysicalMaterial({ color:0xc06a10, metalness:0.0, roughness:0.12,
                    clearcoat:1, emissive:0xe08a18, emissiveIntensity:0.80 });

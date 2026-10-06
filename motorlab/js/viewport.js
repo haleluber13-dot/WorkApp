@@ -14,6 +14,12 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { TIERS, LOOK, buildRig, fitRig, buildFloor, fitFloor, ssaoFor, preToneMapped } from './lib/studio.js';
 
+/* a phone or tablet, by the only signals a page gets */
+function mobileDevice(){
+  const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(ua));
+}
+
 /* Ambient occlusion reads a normal+depth pass of the scene. A ghosted part is
  * drawn as a faint wireframe, but the normal pass would draw it solid and it
  * would then shade the parts around it as if it were still there; the glass
@@ -63,7 +69,9 @@ export class Viewport {
 
     this._environment();
     this._studio();
-    this._buildComposer('high');
+    /* start on the path that always works; applySettings picks the real tier */
+    this.quality = 'fast';
+    this._buildComposer('fast');
 
     this.model = null;
     this.explode = 0;
@@ -274,6 +282,17 @@ export class Viewport {
      * The realism still comes from the lights, the environment map and the
      * materials; the passes are what stop it looking like a game. */
     if (!tier.composer) { this._applyBackdrop(); return; }
+    /* A phone GPU is where a half-float, multisampled render target goes
+       wrong: the driver reports success and draws nothing, and the viewport
+       is black with no error anywhere. On a phone 'balanced' renders straight
+       to the canvas (the lights, shadows and materials are the look; the
+       passes are polish), and only an explicit 'high' tries the pipeline —
+       with a probe that falls back the moment the target is not complete. */
+    const lowEnd = globalThis.__MOTORLAB_LOWEND ?? mobileDevice();
+    if (lowEnd && quality !== 'high'){ this._applyBackdrop(); this.scene.fog.color.copy(this._fogColor()); return; }
+    const caps = this.renderer.capabilities;
+    const floatOK = caps.isWebGL2 && (this.renderer.extensions.has('EXT_color_buffer_float') || this.renderer.extensions.has('EXT_color_buffer_half_float'));
+    if (!floatOK){ console.warn('MotorLab: no float render targets on this GPU — direct rendering.'); this._applyBackdrop(); this.scene.fog.color.copy(this._fogColor()); return; }
     try {
       const r = this.canvas.parentElement.getBoundingClientRect();
       const w = Math.max(2, r.width | 0), h = Math.max(2, r.height | 0);
@@ -282,7 +301,19 @@ export class Viewport {
          ever sees them; the half-float type keeps the highlights for the tone
          mapper */
       const target = new THREE.WebGLRenderTarget(w, h, {
-        type: THREE.HalfFloatType, samples: this.renderer.capabilities.isWebGL2 ? tier.msaa : 0 });
+        type: THREE.HalfFloatType, samples: caps.isWebGL2 && !lowEnd ? tier.msaa : 0 });
+      /* probe: is this target something the driver will actually draw into? */
+      {
+        const gl = this.renderer.getContext();
+        this.renderer.setRenderTarget(target);
+        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        this.renderer.setRenderTarget(null);
+        const err = gl.getError();
+        if (status !== gl.FRAMEBUFFER_COMPLETE || err !== gl.NO_ERROR){
+          target.dispose();
+          throw new Error('render target not complete (' + status + '/' + err + ')');
+        }
+      }
       const composer = new EffectComposer(this.renderer, target);
       composer.setPixelRatio(pr);        // (re)sizes the targets to w·pr × h·pr
       composer.addPass(new RenderPass(this.scene, this.camera));
@@ -1018,7 +1049,10 @@ export class Viewport {
       this.controls.update();
       this._updateLabels();
       this._syncLook();
-      if (this.composer){ this.composer.render(dt); this._verifyComposer(); }
+      if (this.composer){
+        try { this.composer.render(dt); this._verifyComposer(); }
+        catch (err){ console.warn('MotorLab: the render pipeline failed — direct rendering.', err); this._dropComposer(); this.renderer.render(this.scene, this.camera); }
+      }
       else this.renderer.render(this.scene, this.camera);
     };
     loop();
@@ -1028,12 +1062,26 @@ export class Viewport {
   /* Some drivers cannot give us the float render targets the pipeline needs and
    * quietly hand back an empty frame. Check once, and fall back rather than
    * leaving somebody staring at a black viewport. */
+  _dropComposer(){
+    try { this.composer?.dispose?.(); } catch {}
+    this.composer = null; this.ssaoPass = null;
+    this._applyBackdrop();
+    this.scene.fog.color.copy(this._fogColor());
+    this.onQualityFallback?.();
+  }
   _verifyComposer(){
     if (!this.composer || this._verified) return;
     this._checks = (this._checks || 0) + 1;
-    if (this._checks < 6) return;
-    this._verified = true;
+    /* checked a few times, not once: the first frames can go by before the
+       model is there, and a target that dies later must not stay on screen */
+    if (this._checks !== 6 && this._checks !== 45 && this._checks !== 240) return;
+    if (this._checks === 240) this._verified = true;
     try {
+      const gl0 = this.renderer.getContext();
+      if (gl0.getError() !== gl0.NO_ERROR){
+        console.warn('MotorLab: GL error from the render pipeline — using direct rendering instead.');
+        this._dropComposer(); return;
+      }
       const gl = this.renderer.getContext();
       const w = this.renderer.domElement.width, h = this.renderer.domElement.height;
       if (!w || !h) return;
@@ -1043,11 +1091,7 @@ export class Viewport {
       for (let i = 0; i < px.length; i += 4) sum += px[i] + px[i+1] + px[i+2];
       if (sum === 0){
         console.warn('MotorLab: this GPU returned an empty frame from the render pipeline — using direct rendering instead.');
-        this.composer?.dispose?.();
-        this.composer = null; this.ssaoPass = null;
-        this._applyBackdrop();
-        this.scene.fog.color.copy(this._fogColor());
-        this.onQualityFallback?.();
+        this._dropComposer();
       }
     } catch { /* readPixels unavailable; leave the pipeline alone */ }
   }

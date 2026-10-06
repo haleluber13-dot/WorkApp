@@ -88,6 +88,9 @@ function lowEndDevice(){
 
 async function boot(){
   globalThis.__ml_stage?.('app script running');
+  /* the viewport reads this to decide how much of the render pipeline a
+     phone is asked to run */
+  globalThis.__MOTORLAB_LOWEND = lowEndDevice();
   load();
   /* a desktop-class machine gets the full pipeline (ambient occlusion, SMAA,
      soft shadows) unless the quality was chosen by hand; phones keep balanced */
