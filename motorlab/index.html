@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MotorLab — Virtual Engine &amp; Vehicle Build Lab</title>
+<meta name="description" content="Take an engine apart bolt by bolt and put it back together. Build chassis, suspension, drivetrain, wiring and audio. Tune the ECU, fit turbos and superchargers, then run it on the dyno.">
+<meta name="theme-color" content="#10141b">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="./styles.css">
+<script type="importmap">
+{ "imports": {
+    "three": "./vendor/three/build/three.module.min.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="bootstage" style="position:fixed;top:0;left:0;right:0;z-index:99998;background:#f26b1d;color:#111;font:12px/1.3 system-ui,sans-serif;padding:5px 10px;box-shadow:0 2px 8px rgba(0,0,0,.4)">MotorLab is loading… (page received)</div>
+<script>
+  /* Stays until the app has started. If it stays for good, the text on it is
+     exactly what to report: the last stage reached, or the first error. */
+  (function(){
+    var box = document.getElementById('bootstage'), t0 = Date.now(), failed = false;
+    window.__ml_stage = function(s){ if (!failed && box) box.textContent = 'MotorLab is loading… ' + s + ' (' + Math.round((Date.now() - t0) / 100) / 10 + 's)'; };
+    window.__ml_done = function(){ if (box) box.remove(); box = null; };
+    window.__ml_fail = function(msg){ failed = true; if (box){ box.style.background = '#b3261e'; box.style.color = '#fff'; box.textContent = 'MotorLab could not start: ' + msg + ' — tap to copy'; box.onclick = function(){ try { navigator.clipboard.writeText(box.textContent); } catch (e) {} }; } };
+    window.addEventListener('error', function(e){ window.__ml_fail((e.message || 'error') + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : '')); }, true);
+    window.addEventListener('unhandledrejection', function(e){ var r = e.reason; window.__ml_fail(r && (r.message || r.stack) ? (r.message || r.stack) : String(r)); });
+    setTimeout(function(){ if (box && !failed && document.getElementById('bootstage')) box.textContent += ' — this is slow; if it never finishes, send this text: ' + (box.textContent); }, 30000);
+  })();
+</script>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true" fill="none">
+      <circle cx="16" cy="16" r="11.5" stroke="currentColor" stroke-width="2.4"/>
+      <path d="M16 1.8v4.4M16 25.8v4.4M1.8 16h4.4M25.8 16h4.4M5.96 5.96l3.1 3.1M22.94 22.94l3.1 3.1M26.04 5.96l-3.1 3.1M9.06 22.94l-3.1 3.1"
+            stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>
+      <circle cx="16" cy="16" r="4.6" stroke="currentColor" stroke-width="2.2"/>
+      <circle cx="16" cy="16" r="1.6" fill="#22d3ee"/>
+    </svg>
+    <div class="brand__txt"><b>MotorLab</b><small>virtual build &amp; tuning bay</small></div>
+  </div>
+
+  <nav class="workspaces" id="workspaces" aria-label="Workspaces"></nav>
+
+  <div class="topbar__right">
+    <div class="rig" id="rigChip" title="Current project">
+      <span class="rig__eng" id="rigEngine">—</span>
+      <span class="rig__veh" id="rigVehicle">—</span>
+    </div>
+    <button class="iconbtn" id="btnHelp" title="Controls &amp; shortcuts" aria-label="Help">?</button>
+    <button class="iconbtn" id="btnReset" title="Reset this project" aria-label="Reset this project">⟲</button>
+  </div>
+</header>
+
+<main class="stage">
+  <section class="viewport" id="viewport">
+    <canvas id="gl"></canvas>
+    <div class="vp__labels" id="labels"></div>
+
+    <div class="vp__hud vp__hud--tl">
+      <div class="hudtitle" id="hudTitle">Loading…</div>
+      <div class="hudsub" id="hudSub"></div>
+    </div>
+
+    <div class="vp__hud vp__hud--tr" id="gauges"></div>
+
+    <div class="vp__tools">
+      <button class="tool" data-tool="explode" title="Exploded view (X)">✥</button>
+      <button class="tool" data-tool="cutaway" title="Cutaway section (C)">◐</button>
+      <button class="tool" data-tool="ghost"   title="Show missing parts as ghosts (G)">◇</button>
+      <button class="tool" data-tool="labels"  title="Pin every part label (L) — otherwise a part names itself when you touch it">🏷</button>
+      <button class="tool" data-tool="wire"    title="Wireframe (W)">⊞</button>
+      <button class="tool" data-tool="fit"     title="Frame the model (F)">⛶</button>
+    </div>
+
+    <div class="vp__dock">
+      <div class="vp__slider" id="explodeWrap" hidden>
+        <label for="explode">Explode</label>
+        <input type="range" id="explode" min="0" max="100" value="0" aria-label="Explode distance">
+      </div>
+      <div class="vp__crank" id="crankBar" hidden>
+        <button class="crankbtn" id="btnCrank" title="Turn the engine over">▶ Crank</button>
+        <label class="crankrpm">RPM <input type="range" id="rpmIdle" min="0" max="9000" step="50" value="0" aria-label="Engine speed"><span id="rpmRead">0</span></label>
+      </div>
+    </div>
+
+    <div class="vp__empty" id="vpEmpty" hidden></div>
+  </section>
+
+  <aside class="panel" id="panel">
+    <div class="panel__head">
+      <h2 id="panelTitle">Panel</h2>
+      <div class="panel__tabs" id="panelTabs"></div>
+    </div>
+    <div class="panel__body" id="panelBody"></div>
+    <div class="panel__foot" id="panelFoot"></div>
+  </aside>
+</main>
+
+<div class="statusbar" role="status">
+  <div class="status__left"  id="statusLeft">Ready</div>
+  <div class="status__mid"   id="statusMid"></div>
+  <div class="status__right" id="statusRight"></div>
+</div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

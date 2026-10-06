@@ -1,0 +1,346 @@
+{
+ "i6-turbo": {
+  "idle": {
+   "file": "i6-turbo_idle.mp3",
+   "rpm": 850,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "6-cyl-VintageRaceCarStart-up.wav",
+   "author": "Ears68",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Ears68/sounds/185150/"
+  },
+  "rev": {
+   "file": "i6-turbo_rev.mp3",
+   "rpm": 5000,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Import car revs on Chassis Dyno with Turbo.wav",
+   "author": "editboy23",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/editboy23/sounds/496171/"
+  }
+ },
+ "v8-cross": {
+  "idle": {
+   "file": "v8-cross_idle.mp3",
+   "rpm": 800,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Open header V8 cars idling and revving",
+   "author": "holderall",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/holderall/sounds/432508/"
+  },
+  "rev": {
+   "file": "v8-cross_rev.mp3",
+   "rpm": 4500,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "lr99mclarenrev.mp3",
+   "author": "enginemusic",
+   "licence": "CC-BY 3.0",
+   "source": "https://freesound.org/people/enginemusic/sounds/43159/"
+  }
+ },
+ "v8-flat": {
+  "idle": {
+   "file": "v8-flat_idle.mp3",
+   "rpm": 950,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Ferrari Engine (passive)",
+   "author": "EwanPenman11",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/EwanPenman11/sounds/659554/"
+  },
+  "rev": {
+   "file": "v8-flat_rev.mp3",
+   "rpm": 6500,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Ferrari Scuderia Spider 16M.ogg",
+   "author": "Edvvc",
+   "licence": "CC BY-SA 3.0",
+   "source": "https://commons.wikimedia.org/wiki/File:Ferrari_Scuderia_Spider_16M.ogg"
+  }
+ },
+ "v12": {
+  "idle": {
+   "file": "v12_idle.mp3",
+   "rpm": 900,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Ferrari_motor_idle",
+   "author": "jtvdb",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/jtvdb/sounds/857147/"
+  },
+  "rev": {
+   "file": "v12_rev.mp3",
+   "rpm": 6000,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Ferrari Parade, Lymington",
+   "author": "richwise",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/richwise/sounds/476310/"
+  }
+ },
+ "v10": {
+  "idle": {
+   "file": "v10_idle.mp3",
+   "rpm": 950,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Audi R8 Idling Reving Backfire.wav",
+   "author": "Jonas_Jocys",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/Jonas_Jocys/sounds/457733/"
+  },
+  "rev": {
+   "file": "v10_rev.mp3",
+   "rpm": 6500,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Audi_R8_01.wav",
+   "author": "ikbenraar",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/ikbenraar/sounds/429099/"
+  }
+ },
+ "flat4": {
+  "idle": {
+   "file": "flat4_idle.mp3",
+   "rpm": 850,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Subaru Impreza STI idling",
+   "author": "MilanKovanda",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/MilanKovanda/sounds/625702/"
+  },
+  "rev": {
+   "file": "flat4_rev.mp3",
+   "rpm": 4500,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "WRX - Exhaust sounds",
+   "author": "ulose2piranha",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/ulose2piranha/sounds/273334/"
+  }
+ },
+ "flat6": {
+  "idle": {
+   "file": "flat6_idle.mp3",
+   "rpm": 900,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Porsche idle.aif",
+   "author": "victormalloy",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/victormalloy/sounds/113216/"
+  },
+  "rev": {
+   "file": "flat6_rev.mp3",
+   "rpm": 5500,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "vehicle car porsche 911 revving engine motor boxer",
+   "author": "jerry.berumen",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/jerry.berumen/sounds/772802/"
+  }
+ },
+ "i4-sport": {
+  "idle": {
+   "file": "i4-sport_idle.mp3",
+   "rpm": 900,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Sports Car Idling - Exhaust",
+   "author": "EvanBoyerman",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/EvanBoyerman/sounds/754777/"
+  },
+  "rev": {
+   "file": "i4-sport_rev.mp3",
+   "rpm": 6000,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Sports Car Accelerating/Speeding Up Fast - Exhaust",
+   "author": "EvanBoyerman",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/EvanBoyerman/sounds/754775/"
+  }
+ },
+ "i5": {
+  "idle": {
+   "file": "i5_idle.mp3",
+   "rpm": 900,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "RG Volvo Engine.wav",
+   "author": "cmusounddesign",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/cmusounddesign/sounds/95838/"
+  }
+ },
+ "bike-i4": {
+  "idle": {
+   "file": "bike-i4_idle.mp3",
+   "rpm": 1300,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "ignition, engine start, idle, motorcycle, bike, CB400 vtec 3",
+   "author": "AlexanderChe",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/AlexanderChe/sounds/362941/"
+  },
+  "rev": {
+   "file": "bike-i4_rev.mp3",
+   "rpm": 9000,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Sportsbike Flyby",
+   "author": "richwise",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/richwise/sounds/361403/"
+  }
+ },
+ "vtwin": {
+  "idle": {
+   "file": "vtwin_idle.mp3",
+   "rpm": 900,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Harley Davidson Sportster - Idling with Engine Revs",
+   "author": "demodave",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/demodave/sounds/502690/"
+  },
+  "rev": {
+   "file": "vtwin_rev.mp3",
+   "rpm": 3500,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Harley - Motorcycle - Start, drive off.wav",
+   "author": "casemundy",
+   "licence": "CC-BY 4.0",
+   "source": "https://freesound.org/people/casemundy/sounds/384833/"
+  }
+ },
+ "single": {
+  "idle": {
+   "file": "single_idle.mp3",
+   "rpm": 1600,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Motorcycle_Yamaha_Tenere_250CC_Enduro_Idle.wav",
+   "author": "Singular_Estudio",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Singular_Estudio/sounds/510231/"
+  },
+  "rev": {
+   "file": "single_rev.mp3",
+   "rpm": 7000,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Exhaust of a Motorcycle_Yamaha_Tenere_250CC.wav",
+   "author": "Singular_Estudio",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Singular_Estudio/sounds/510230/"
+  }
+ },
+ "twin": {
+  "idle": {
+   "file": "twin_idle.mp3",
+   "rpm": 1100,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "riding on triumph bonneville speedmaster motorcycle.wav",
+   "author": "fluctuating_frequency",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/fluctuating_frequency/sounds/622420/"
+  },
+  "rev": {
+   "file": "twin_rev.mp3",
+   "rpm": 6500,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Three cylinder motorcycle flyby",
+   "author": "richwise",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/richwise/sounds/429491/"
+  }
+ },
+ "diesel-i6": {
+  "idle": {
+   "file": "diesel-i6_idle.mp3",
+   "rpm": 700,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Ram 5.9 cummins-startup-idle.m4a",
+   "author": "Therancher01",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Therancher01/sounds/610771/"
+  }
+ },
+ "diesel-v8": {
+  "idle": {
+   "file": "diesel-v8_idle.mp3",
+   "rpm": 700,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "Truck Engine (Diesel)",
+   "author": "Spencer_Eisenhauer",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Spencer_Eisenhauer/sounds/611760/"
+  }
+ },
+ "drag": {
+  "idle": {
+   "file": "drag_idle.mp3",
+   "rpm": 1200,
+   "loopStart": 0.12,
+   "loopEnd": 3.52,
+   "title": "V-8dragRacer-2000HP-Idle-sloDrivePastDR086.wav",
+   "author": "Ears68",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Ears68/sounds/213975/"
+  },
+  "rev": {
+   "file": "drag_rev.mp3",
+   "rpm": 7000,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "Side-By-Side-TwoV-8-2000HPsuperchargedDragRaceCarsBurnout.mp3",
+   "author": "Ears68",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Ears68/sounds/213974/"
+  }
+ },
+ "f1": {
+  "rev": {
+   "file": "f1_rev.mp3",
+   "rpm": 15000,
+   "loopStart": 0.12,
+   "loopEnd": 2.72,
+   "title": "F1practice3MelbGP2012DR066.wav",
+   "author": "Ears68",
+   "licence": "CC0 1.0",
+   "source": "https://freesound.org/people/Ears68/sounds/150337/"
+  }
+ },
+ "_crank": {
+  "file": "crank_crank.mp3",
+  "rpm": 250,
+  "loopStart": 0.12,
+  "loopEnd": null,
+  "title": "car_engine_won&#x27;t start.wav",
+  "author": "KRAFTWERK2K1",
+  "licence": "CC0 1.0",
+  "source": "https://freesound.org/people/KRAFTWERK2K1/sounds/32416/"
+ }
+}
