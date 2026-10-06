@@ -90,7 +90,8 @@ function buildCar(v, tree){
   /* above the waist a door frame ends at the B-post; a coupe's quarter glass starts there */
   cuts.frameR = (!doors4 && L.pillars?.length >= 3) ? Math.min(cuts.doorR, L.pillars[1][0] + 0.01) : cuts.doorR;
   const waistY = (t) => floorY + hgt * curveAt(L.waist, t);
-  const firewallX = open || kart ? null : mid ? X(cuts.doorR) + M(80) : X(cuts.bonnet) - M(60);
+  let firewallX = open || kart ? null : mid ? X(cuts.doorR) + M(80) : X(cuts.bonnet) - M(60);
+  if (firewallX != null && !mid && firewallX - (X(cuts.doorF) + M(100)) > M(300)) firewallX = X(cuts.doorF) + M(130);   // a deep cowl: the engine runs back under it
   const dims = { len, wid, hgt, axF, axR, tf, tr, rF, rR, floorY, X, cuts, waistY, firewallX, doors4, mid, open, kart };
 
   /* the body surface, known up front so everything in the bay can be kept
@@ -137,38 +138,216 @@ function buildCar(v, tree){
   const gen = (id) => has(id) && !(scan && (scanHas(id) || (!id.includes('.') && scanHasBase(id))) && !scanHidden.has(id) && !(!id.includes('.') && [...scanHidden].some(k => k.startsWith(id + '.'))));
   const genBody = !scan && !scanWhole && !open && !kart;
 
+  /* ---- the layout: where the big things go, decided before anything is built ----
+     Every later part is placed against these, so the engine clears the arms,
+     the rack sits behind the sump on the subframe, the exhaust runs in the
+     tunnel beside the propshaft and the tank hides under the rear seat pan. */
+  const ladder = v.chassis === 'ladder frame';
+  const tube = v.chassis.includes('tube') || v.chassis.includes('chromoly');
+  const mono = v.chassis === 'carbon monocoque';
+  const bay = v.bay;
+  const rear = bay === 'rear';                                 // (mid, above, covers both mid- and rear-engined cars)
+  const midTank = mid || rear;                                 // the engine is behind the driver
+  const transverse = bay.includes('transverse') || kart;
+  const tunnel = !fwd && !mid && !ladder && !open && !kart;
+  const subY = floorY + M(60);                                 // the subframe rails, where the arms pivot
+  /* the lower arms pivot on the subframe rails: a quarter of the track out
+     from the centre (on a ladder frame, on the frame rail itself) */
+  const innerFaceOf = (track, tyre) => Math.abs(track/2*0.86 + M(40)) - M(tyre) * ((vm('tyres').width) || 1) / 2;
+  const armOutOf = (track, tyre) => Math.min(track/2*0.86, innerFaceOf(track, tyre) - M(30));
+  const railZ = ladder ? Math.min(wid*0.28, innerFaceOf(tr, v.tyreR) - M(90), innerFaceOf(tf, v.tyreF) - M(90), armOutOf(tf, v.tyreF) - M(200), armOutOf(tr, v.tyreR) - M(200)) : 0;
+  const pivotZF = ladder ? railZ : tf*0.26, pivotZR = ladder ? railZ : tr*0.26;
+  /* the engine: a block with its sump, standing over the front axle (or just
+     ahead of the rear one), high enough that the sump hangs between the
+     subframe rails and the block clears the lower arms */
+  const bw = M(560), bd = transverse ? M(520) : M(620);                               // block length (x) and depth (z)
+  const engZ = transverse && !kart ? tf*0.12 : 0;
+  const gLenT = M(320), gRadT = M(150);                                               // the transverse transaxle
+  const gbxZ = transverse ? engZ - bd/2 - gLenT/2 : 0;                                // abutting the block's left face
+  /* a mid-engine's block stops short of the rear bulkhead; a long-nose truck's
+     block has to stay ahead of its cab */
+  let engX = bay === 'rear' ? axR - M(150) - bw/2 - M(60)
+           : mid ? Math.min(axR + M(620), (firewallX ?? axR + M(900)) - M(30) - bw/2 - M(40))
+           : transverse ? axF + M(20) : axF + M(60);
+  if (!mid && bay !== 'rear' && firewallX != null && !open && !kart) engX = Math.max(engX, firewallX + M(30) + M(50) + bw/2);
+  /* the rack: on the subframe's rear crossmember behind the sump and ahead of
+     the bellhousing; ahead of the axle where the engine is behind the driver,
+     or where a low bonnet sets the block too low for a rack under it */
+  const engYmax = floorY + M(300);
+  const engYwant = (open || kart) ? floorY + M(250) : Math.max(floorY + M(200), underSkin(engX, engYmax, M(540)));
+  const frontSteer = mid || rear || (!transverse && !open && !kart && engYwant < floorY + M(240));
+  const rackX = open ? axF - M(450) : frontSteer ? (midTank ? axF + M(160) : Math.max(axF + M(160), engX + bw/2 + M(60))) : transverse ? Math.max(axF - M(300), (firewallX ?? -9) + M(70))
+              : Math.min(Math.max(axF - M(160), engX - M(220)), engX - M(180));
+  const rackY = transverse ? subY + M(60) : subY + M(40);
+  const engY = engYwant;                                                              // sump bottom to cam cover: -230..+330
+  const engFront = engX + bw/2;
+  /* the gearbox behind the block (or on its end), the diff on the axle */
+  const gLenL = mid && !rear ? M(500) : M(700);
+  const gbxX = transverse ? engX - M(40) : rear ? engX + bw/2 + gLenL/2 : engX - bw/2 - gLenL/2;   // a longitudinal box starts at the block's rear face (ahead of a rear engine)
+  const gbxY = transverse ? engY - M(20) : engY - M(80);
+  const gbxTail = transverse ? engX - M(40) - gRadT : rear ? gbxX + gLenL/2 : gbxX - gLenL/2;
+  const diffY = rR;                                                                   // the differential sits on the axle line
+  /* the cabin floor: the floor pan sits on the sills; a truck's cab floor
+     rides high on its frame rails over the propshaft */
+  const cabOverAxle = ladder && firewallX != null && firewallX > axF + rF*0.5;
+  const cabFloorY = ladder ? (cabOverAxle ? Math.max(floorY + M(360), 2*rF + M(80)) : floorY + M(360)) : floorY;
+  const floorTop = cabFloorY + M(35);
+  /* the bulkhead the pedals hang off: the firewall, or on a mid-engine car
+     the front of the footwell */
+  const pedalWallX = open || kart ? null : mid || bay === 'rear' ? X(cuts.doorF) + M(350) : firewallX;
+  /* the cockpit */
+  const innerHalf = open ? wid*0.18 : wid*0.40 - M(70);                                // inside the sills
+  const cabinHalf = mono && !open ? wid*0.40 - M(195) : open ? wid*0.20 - M(110) : innerHalf;   // inside the structure (a carbon tub has wide sills)
+  const seatsN = v.seats === 1 ? 1 : 2;
+  /* two seats either side of the tunnel (or the console), their rails clear
+     of the tunnel's wide base, their outer edges inside the sills */
+  const gapZ = tunnel ? M(170) : M(130);                                              // the seat's inner edge off the centreline
+  const seatW = (open || kart) ? Math.min(M(500), cabinHalf*2 - M(100)) : Math.min(M(500), cabinHalf - M(40) - gapZ, tunnel ? (cabinHalf - M(40) - M(230)) / 0.86 : M(500));
+  const seatZ = seatsN === 1 && (open || kart) ? 0 : -Math.max(gapZ + seatW/2, tunnel ? M(230) + 0.36*seatW : 0);   // the driver sits on the left (centred in a single-seater)
+  const cabinF = open ? X(0.40) : X(cuts.doorF) + M(40);                               // the A-pillar foot
+  const dashX = open || kart ? X(0.42) : X(cuts.doorF) + M(80);
+  const seatX = open ? X(0.46) : cabinF - M(mid || bay === 'rear' ? 700 : 780);        // a mid-engine cabin keeps the seats off the tank behind them
+  const wheelHub = new THREE.Vector3(open || kart ? dashX - M(120) : dashX - M(420), open ? floorY + hgt*0.55 : kart ? floorY + M(520) : cabFloorY + M(640), seatZ);
+  const rackPos = new THREE.Vector3(rackX, kart ? floorY - M(10) : rackY, 0);
+  /* the rear bench: over the tank, ahead of the axle on a four-door, on the
+     raised rear floor over the axle where the cabin runs that far back */
+  const benchX0 = doors4 ? X(cuts.B) - M(520) : cabinF - M(1620);
+  /* the rear floor steps up where the tank and the rear seat begin and stays
+     up over the axle and the diff to the tail; the tank hides under the step */
+  const tankL = M(500), tankH = M(220);
+  const hasBench = v.seats > 2 && !race;
+  let tankX = race && !open ? axR + M(500) : open ? X(0.60) : axR + M(560);
+  let behindAxle = false;
+  if (ladder) tankX = axR + rR + M(500);                                                // a truck's tank hangs on the frame rail ahead of the axle
+  else if (tube && !open){ behindAxle = true; tankX = axR - M(500); }                   // a race car's fuel cell sits behind the axle
+  else if (!open && !kart && !mid && bay !== 'rear'){
+    const underBench = hasBench ? benchX0 - M(30) : seatX - M(360) - M(30) - tankL/2;
+    tankX = Math.min(axR + M(560), underBench);
+    if (tankX - tankL/2 < axR + rR*0.6 + M(40)){ behindAxle = true; tankX = axR - M(500); }   // no room ahead of the axle: behind it, under the boot floor
+  }
+  /* the step begins at the front of whatever sits over it: the tank, or the
+     rear seat when the tank had to go behind the axle */
+  const stepX = open || kart || mid || bay === 'rear' || ladder || tube || mono ? null
+              : Math.max(axR + rR*0.6, behindAxle ? (hasBench ? benchX0 + M(260) : seatX - M(380)) : tankX + tankL/2 + M(20));
+  const tankY = open ? floorY + M(220) : behindAxle ? floorY + M(230) : ladder ? floorY + M(150) : floorY + M(220);
+  const tankHh = behindAxle ? M(160) : tankH;
+  const stepY = Math.max(floorY + M(340), (rwd ? rR + M(150) + M(30) : 0), tankY + tankHh/2 + M(40));
+  const tankW = open ? wid*0.3 : wid*0.56;
+  const benchOnStep = stepX != null && hasBench && benchX0 - M(360) < stepX;
+  const dims2 = { cabFloorY, floorTop, innerHalf, cabinHalf, seatZ, seatW, seatsN, cabinF, dashX, seatX, stepX, stepY, benchOnStep, tunnel, pedalWallX, mono, ladder };
+  Object.assign(dims, dims2);
+
+  /* ---- the suspension geometry, per end: the same numbers the corners, the
+     anti-roll bars and everything that has to clear them use ---- */
+  const geo = (end) => {
+    const track = end === 'F' ? tf : tr, r = end === 'F' ? rF : rR, type = end === 'F' ? v.suspF : v.suspR;
+    const tyreW = M(end === 'F' ? v.tyreF : v.tyreR) * ((vm('tyres').width) || 1);
+    const outer = track/2*0.86;
+    const innerFace = Math.abs(outer + M(40)) - tyreW / 2;              // the tyre's inboard sidewall
+    const armOut = Math.min(outer, innerFace - M(30));                   // where an arm may reach without touching the tyre
+    const pivotZ = end === 'F' ? pivotZF : pivotZR;
+    const pivY = subY;
+    const pivIn = ladder ? pivotZ + M(75) : pivotZ;                     // a ladder frame's arms pivot on brackets outside the rail
+    const strut = has('strut' + (end === 'F' ? 'f' : 'r'));
+    const wish = ['doublewishbone','pushrod','multilink'].includes(type);
+    const uIn = ladder ? pivotZ - M(150) : pivotZ - M(20), uOut = armOut*0.94;   // the upper arm, a little inboard of the lower pivot
+    const dampZ = strut ? Math.min(outer*0.92, innerFace - M(50)) : !wish ? (ladder ? pivotZ : Math.min(outer*0.92, innerFace - M(131))) : uIn + 0.5*(uOut - uIn);   // a strut in the arch, an axle's damper on the frame rail / inboard of the track rod end, a wishbone's damper between the upper arm's legs
+    const armY = (z) => pivY + (r*0.55 - pivY) * (Math.abs(z) - pivIn) / Math.max(1e-3, armOut - pivIn);   // the lower arm's height at z
+    const linkZ = pivIn + 0.65*(armOut - pivIn);                         // where the drop link meets the arm
+    return { track, r, type, tyreW, outer, innerFace, armOut, pivotZ, pivY, pivIn, strut, wish, uIn, uOut, dampZ, armY, linkZ };
+  };
+  const GF = geo('F'), GR = geo('R');
+  dims.dampZF = GF.dampZ; dims.dampZR = GR.dampZ;
+
   /* ---- chassis ---- */
   const ch = group('chassis');
   /* the sill box sections sit at the body's edge; the floor and undertray stop
      short of the tyres' inboard faces */
   const sillZ = wid*0.40;
   const floorHalf = Math.min(tf, tr)/2 + M(40) - M(Math.max(v.tyreF, v.tyreR))/2 - M(60);
-  if (v.chassis === 'ladder frame'){
-    for (const s of [-1,1]) ch.add(at(box(len*0.82, M(160), M(90), MAT.iron()), 0, floorY, s*wid*0.28));
-    for (let i = 0; i < 5; i++) ch.add(at(box(M(80), M(90), wid*0.56, MAT.iron()), (i-2)*len*0.17, floorY, 0));
-    if (!kart) ch.add(at(box(len*0.40, M(40), wid*0.74, MAT.underbody()), X(0.5), floorY + M(100), 0));   // cab floor
-  } else if (v.chassis.includes('tube') || v.chassis.includes('chromoly')){
-    const nodesXY = [[len*0.42,floorY,0],[len*0.2,floorY+hgt*0.1,wid*0.3],[-len*0.1,floorY+hgt*0.25,wid*0.32],
-                     [-len*0.35,floorY+hgt*0.1,wid*0.28],[-len*0.45,floorY,0]];
-    for (const s of [-1,1]) ch.add(pipe(nodesXY.map(p=>[p[0],p[1],p[2]*s]), M(22), MAT.steel(), 6));
-    for (let i=0;i<nodesXY.length;i++) ch.add(at(rot(cyl(M(20),M(20),wid*0.6,MAT.steel(),8),Math.PI/2,0,0), nodesXY[i][0], nodesXY[i][1], 0));
-    if (!kart && !open) ch.add(at(box(len*0.44, M(30), wid*0.66, MAT.underbody()), X(0.52), floorY, 0));
-  } else if (v.chassis === 'carbon monocoque'){
-    const tub = roundBox(len*0.42, hgt*0.42, wid*0.6, 0.06, MAT.carbon());
-    ch.add(at(tub, len*0.02, floorY + hgt*0.16, 0));
+  const tunnelW = M(540), tunnelH = M(400), tunnelTopW = M(300);
+  /* the floor pan runs from the bulkhead to the rear step (front engine), or
+     from the nose to the rear bulkhead (mid engine) */
+  const floorX1 = mid || bay === 'rear' ? X(cuts.bumperF) - M(40) : (firewallX ?? X(cuts.bumperF)) - M(30);
+  const floorX0 = mid || bay === 'rear' ? (firewallX ?? X(cuts.bumperR)) + M(30) : (stepX ?? axR + rR*0.6);
+  const floorLen = Math.max(M(300), floorX1 - floorX0), floorXc = (floorX0 + floorX1) / 2;
+  if (ladder){
+    for (const s of [-1,1]) ch.add(at(box(len*0.82, M(160), M(90), MAT.iron()), 0, floorY, s*railZ));
+    /* crossmembers where the frame needs them: the nose, behind the engine, mid, ahead of the axle, the tail */
+    const xs = [X(0.06), engX - bw/2 - M(150), (engX - bw/2 - M(150) + axR + rR + M(120)) / 2, axR + rR + M(120), X(0.94)];
+    for (const x of xs) ch.add(at(box(M(80), M(90), railZ*2 + M(90), MAT.iron()), x, floorY, 0));
+    /* the cab floor on its body mounts, high over the frame */
+    if (!kart){
+      const cabX1 = cabOverAxle ? (firewallX ?? X(cuts.bonnet)) : Math.min(firewallX ?? X(cuts.bonnet), axF - rF*1.2 - M(40)), cabX0 = X(cuts.boot);
+      ch.add(at(box(Math.max(M(400), cabX1 - cabX0), M(40), wid*0.74, MAT.underbody()), (cabX0 + cabX1)/2, cabFloorY, 0));
+      if (firewallX != null) ch.add(at(box(M(60), hgt*0.22, wid*0.74, MAT.alloyDark()), firewallX, cabFloorY + hgt*0.11 + M(20), 0));   // the cab's bulkhead
+    }
+  } else if (tube){
+    /* straight main rails at the arms' pivot line, cross tubes at the ends and the middle */
+    const rz = Math.min(pivotZF, pivotZR);
+    for (const s of [-1,1]) ch.add(pipe([[X(0.08), subY + M(10), s*rz],[X(0.92), subY + M(10), s*rz]], M(25), MAT.steel(), 8));
+    for (const t of [0.08, 0.5, 0.92]) ch.add(at(rot(cyl(M(22), M(22), rz*2, MAT.steel(), 8), Math.PI/2, 0, 0), X(t), subY + M(10), 0));
+    if (!kart && !open){
+      const cabX1 = firewallX ?? X(cuts.bonnet), cabX0 = axR + rR*0.6;
+      ch.add(at(box(Math.max(M(400), cabX1 - cabX0), M(30), wid*0.66, MAT.underbody()), (cabX0 + cabX1)/2, floorY, 0));
+      ch.add(at(roundBox(Math.max(M(400), cabX1 - cabX0), M(200), tunnelW, 0.05, MAT.underbody()), (cabX0 + cabX1)/2, floorY + M(70), 0));   // the transmission tunnel
+      ch.add(at(roundBox(Math.max(M(400), cabX1 - cabX0), tunnelH - M(200), tunnelTopW, 0.05, MAT.underbody()), (cabX0 + cabX1)/2, floorY + M(170) + (tunnelH - M(200))/2, 0));
+      if (firewallX != null) ch.add(at(box(M(40), hgt*0.34, wid*0.70, MAT.alloyDark()), firewallX, floorY + hgt*0.2, 0));
+    }
+  } else if (mono){
+    /* a carbon tub is a hollow: floor, two deep sills, a bulkhead at each end */
+    const tubX1 = mid ? (pedalWallX ?? X(cuts.bonnet)) + M(30) : (firewallX ?? X(cuts.bonnet)) + M(30);
+    const tubX0 = mid ? (firewallX != null ? firewallX - M(30) : engFront + M(60)) : Math.max(X(cuts.doorR) - M(60), axR + rR*1.3 + M(40));
+    const tubL = Math.max(M(600), tubX1 - tubX0), tubX = (tubX0 + tubX1) / 2;
+    const sillW = M(110), sillH = open ? hgt*0.30 : hgt*0.22, sillZc = cabinHalf + sillW/2;
+    /* the sills step inboard where they pass a wheelhouse */
+    const wheelF = axF - rF*1.25, narrowZ = Math.min(sillZc, GF.innerFace - M(110));
+    const mainX1 = Math.min(tubX1, wheelF), mainL = Math.max(M(100), mainX1 - tubX0);
+    ch.add(at(box(tubL, M(24), (narrowZ + sillW/2)*2, MAT.carbon()), tubX, floorY, 0));
+    for (const s of [-1,1]){
+      ch.add(at(roundBox(mainL, sillH, sillW, .03, MAT.carbon()), (tubX0 + mainX1)/2, floorY + sillH/2, s*sillZc));
+      if (tubX1 - mainX1 > M(50)) ch.add(at(roundBox(tubX1 - mainX1, sillH*0.8, sillW, .03, MAT.carbon()), (mainX1 + tubX1)/2, floorY + sillH*0.4, s*narrowZ));
+    }
+    if (tunnel){                                                                                       // the spine over the propshaft
+      ch.add(at(roundBox(tubL, M(200), tunnelW, 0.05, MAT.carbon()), tubX, floorY + M(70), 0));
+      ch.add(at(roundBox(tubL, tunnelH - M(200), tunnelTopW, 0.05, MAT.carbon()), tubX, floorY + M(170) + (tunnelH - M(200))/2, 0));
+    }
+    const bhW = (tubX1 <= wheelF ? sillZc : narrowZ) + sillW/2;
+    ch.add(at(box(M(60), open ? hgt*0.42 : hgt*0.30, bhW*2, MAT.carbon()), tubX1 - M(30), floorY + (open ? hgt*0.21 : hgt*0.15), 0));   // front bulkhead
+    ch.add(at(box(M(60), open ? hgt*0.50 : hgt*0.36, (sillZc + sillW/2)*2, MAT.carbon()), tubX0 + M(30), floorY + (open ? hgt*0.25 : hgt*0.18), 0));   // rear bulkhead
   } else {
-    const tunnel = !fwd && !mid;
-    if (tunnel) for (const s2 of [-1,1]) ch.add(at(box(len*0.72, M(70), Math.min(wid*0.39, floorHalf) - M(180), MAT.underbody()), 0, floorY, s2*((Math.min(wid*0.39, floorHalf) + M(180)) / 2)));
-    else ch.add(at(box(len*0.72, M(70), Math.min(wid*0.78, floorHalf*2), MAT.underbody()), 0, floorY, 0));
+    /* the floor pan, in two halves either side of the tunnel on a rear-drive car */
+    const halfW = (mid || rear || floorX1 > axF - rF*1.25) ? Math.min(wid*0.39, floorHalf, GF.innerFace - M(40)) : Math.min(wid*0.39, floorHalf);
+    if (tunnel){
+      for (const s2 of [-1,1]) ch.add(at(box(floorLen, M(20), halfW - tunnelW/2 - M(20), MAT.underbody()), floorXc, floorY, s2*((halfW + tunnelW/2 + M(20)) / 2)));
+      ch.add(at(roundBox(floorLen, M(200), tunnelW, 0.05, MAT.underbody()), floorXc, floorY + M(70), 0));                 // the transmission tunnel: wide at the floor...
+      ch.add(at(roundBox(floorLen, tunnelH - M(200), tunnelTopW, 0.05, MAT.underbody()), floorXc, floorY + M(170) + (tunnelH - M(200))/2, 0));   // ...narrow between the seats
+    } else if (fwd && !mid){
+      /* a front-drive floor has only the exhaust channel pressed into it */
+      const chZ = -wid*0.10, chW = M(220);
+      ch.add(at(box(floorLen, M(20), halfW + (chZ - chW/2) - M(20), MAT.underbody()), floorXc, floorY, (-halfW + chZ - chW/2 - M(20)) / 2));
+      ch.add(at(box(floorLen, M(20), halfW - (chZ + chW/2) - M(20), MAT.underbody()), floorXc, floorY, (halfW + chZ + chW/2 + M(20)) / 2));
+      ch.add(at(roundBox(floorLen, M(180), chW, 0.03, MAT.underbody()), floorXc, floorY + M(20), chZ));
+    } else ch.add(at(box(floorLen, M(20), halfW*2, MAT.underbody()), floorXc, floorY, 0));
     /* the sills: the two box sections between the wheel arches, at the body's edge */
     const sillLen = (axF - rF*1.35) - (axR + rR*1.35), sillX = ((axF - rF*1.35) + (axR + rR*1.35)) / 2;
     for (const s of [-1,1]) ch.add(at(box(Math.max(M(600), sillLen), M(150), M(110), MAT.alloyDark()), sillX, floorY+M(60), s*sillZ));
-    if (firewallX != null) ch.add(at(box(M(60), hgt*0.34, wid*0.76, MAT.alloyDark()), firewallX, floorY+hgt*0.2, 0)); // bulkhead
-    /* the transmission tunnel down the middle of the floor */
-    if (tunnel) ch.add(at(roundBox(len*0.72, M(300), M(360), 0.05, MAT.underbody()), 0, floorY + M(120), 0));
+    if (firewallX != null) ch.add(at(box(M(60), hgt*0.34, (firewallX > axF - rF*1.25 && firewallX < axF + rF*1.25) ? 2*(GF.innerFace - M(40)) : wid*0.76, MAT.alloyDark()), firewallX, floorY+hgt*0.2, 0)); // bulkhead
+    /* the raised rear floor: the seat pan over the tank, the boot floor over the axle and the diff */
+    if (stepX != null){
+      const stepHalf = Math.min(floorHalf, GR.dampZ - M(90));
+      const x0 = X(cuts.bumperR) + M(40);
+      ch.add(at(box(Math.max(M(300), stepX - x0), M(16), stepHalf*2, MAT.underbody()), (stepX + x0)/2, stepY, 0));
+      ch.add(at(box(M(16), stepY - floorY, stepHalf*2, MAT.underbody()), stepX, (stepY + floorY)/2, 0));   // the riser
+    }
   }
-  /* the flat undertray, which is what you actually see from below */
-  if (!open && !kart) ch.add(at(box(len*0.80, M(14), Math.min(wid*0.80, floorHalf*2), MAT.underbody()), 0, floorY - M(46), 0));
+  /* the front bulkhead of a mid-engine footwell */
+  if ((mid || bay === 'rear') && pedalWallX != null && !mono) ch.add(at(box(M(60), hgt*0.30, wid*0.70, MAT.alloyDark()), pedalWallX, floorY + hgt*0.17, 0));
+  /* the engine undertray, which is what you actually see from below */
+  if (!open && !kart && !mid && bay !== 'rear'){
+    const u1 = X(cuts.bumperF), u0 = engX - M(150);
+    if (u1 - u0 > M(200)) ch.add(at(box(u1 - u0, M(14), Math.min(wid*0.80, floorHalf*2), MAT.underbody()), (u0 + u1)/2, floorY - M(46), 0));
+  }
   if (kart) ch.add(at(box(len*0.46, M(8), wid*0.5, MAT.alloy()), X(0.46), floorY - M(10), 0));
   add('chassis', ch);
   /* a scan bucket the tree has no part for goes with the panel it is on */
@@ -205,85 +384,110 @@ function buildCar(v, tree){
   }
   if (gen('floortray')) add('floortray', at(box(len*0.44, M(6), wid*0.46, MAT.alloy()), X(0.44), floorY + M(2), 0));
 
-  /* ---- subframes ---- */
-  const subY = floorY + M(60);                     // the subframe rails, where the arms pivot
+  /* ---- subframes: an H-frame at the front (two rails the arms pivot on, the
+     rack's crossmember behind the sump), a cradle at the rear ---- */
   if (gen('subfront')){
     const sf = group('sf');
-    sf.add(at(box(M(420), M(80), tf*0.86, MAT.alloyDark()), axF - M(60), subY, 0));
-    for (const s of [-1,1]) sf.add(at(box(M(360), M(70), M(70), MAT.alloyDark()), axF - M(60), subY, s*tf*0.4));
+    const fx0 = Math.min(axF - M(320), rackX - M(40)), fx1 = Math.max(axF + M(240), rackX + M(40));
+    for (const s of [-1,1]) sf.add(at(box(fx1 - fx0, M(70), M(80), MAT.alloyDark()), (fx0 + fx1)/2, subY, s*pivotZF));
+    sf.add(at(box(M(80), M(80), pivotZF*2 + M(70), MAT.alloyDark()), rackX, subY, 0));
     add('subfront', sf);
   }
   if (gen('subrear')){
     const sr = group('sr');
-    for (const s of [-1,1]) sr.add(at(box(M(640), M(80), M(80), MAT.alloyDark()), axR, subY, s*tr*0.30));
-    sr.add(at(box(M(80), M(80), tr*0.64, MAT.alloyDark()), axR - M(280), subY, 0));
-    sr.add(at(box(M(80), M(60), tr*0.64, MAT.alloyDark()), axR + M(280), subY - M(40), 0));
+    const rx0 = rear ? engX - M(200) : axR - M(320), rx1 = axR + M(320);
+    for (const s of [-1,1]) sr.add(at(box(rx1 - rx0, M(80), M(80), MAT.alloyDark()), (rx0 + rx1)/2, subY, s*pivotZR));
+    sr.add(at(box(M(80), M(80), pivotZR*2 + M(80), MAT.alloyDark()), axR - M(280), subY, 0));
+    if (!mid && bay !== 'rear') sr.add(at(box(M(80), M(60), pivotZR*2 + M(80), MAT.alloyDark()), axR + M(280), subY - M(10), 0));
     add('subrear', sr);
   }
-  const bay = v.bay;
-  const transverse = bay.includes('transverse') || kart;
-  const engX = mid ? axR + M(620) : bay === 'rear' ? axR - M(200) : (firewallX != null ? (axF + firewallX) / 2 + M(140) : axF*0.62);
-  /* a transverse engine sits to the right of centre with the transaxle on its
-     left end, the pair filling the bay between the inner wheel arches */
-  const engZ = transverse && !kart ? tf*0.12 : 0;
-  const gbxZ = transverse ? -(tf*0.13 + M(150)) : 0;
-  const engY = (open || kart) ? floorY + M(250) : underSkin(engX, floorY + M(250), M(700));
+  /* the mounts: a bracket a side on the block feet, standing on the subframe
+     rails; the gearbox mount under its tail (a transverse car hangs the
+     block off the right chassis leg and the transaxle, with a torque rod on
+     the rear crossmember) */
   if (has('mounts')){
-    const spots = transverse ? [[engX, engY - M(170), engZ + tf*0.22], [engX - M(40), engY + M(100), gbxZ - M(230)], [engX - M(330), engY - M(280), engZ]]
-                 : mid ? [[engX + M(200), engY - M(170), -tf*(open ? 0.18 : 0.30)], [engX + M(200), engY - M(170), tf*(open ? 0.18 : 0.30)], [engX - M(450), engY - M(200), tf*(open ? 0.12 : 0.25)]]
-                 : [[engX, engY - M(170), -tf*0.30], [engX, engY - M(170), tf*0.30], [engX - M(860), engY - M(330), 0]];
+    const mountX = Math.abs(engX - bw/2 + M(120) - axF) < M(130) ? axF + M(130) : engX - bw/2 + M(120);   // on the block's rear quarter, clear of the damper
+    const spots = transverse ? [[engX, engY + M(200), engZ + bd/2 + M(20)], [engX - M(220), gbxY + M(60), gbxZ], [rackX + M(85), subY + M(80), engZ]]
+                 : mid || rear ? [[engX, subY + M(90), -pivotZR], [engX, subY + M(90), pivotZR], [rear ? gbxTail - M(150) : axR - M(290), subY + M(90), 0]]
+                 : [[mountX, subY + M(90), -(ladder ? pivotZF - M(190) : pivotZF)], [mountX, subY + M(90), ladder ? pivotZF - M(190) : pivotZF], [gbxTail + M(120), cabFloorY + M(60), 0]];
     spots.forEach((p, i) => { if (gen(`mounts.${i+1}`)) add(`mounts.${i+1}`, at(rot(cyl(M(45), M(45), M(60), MAT.rubber(), 12), 0, 0, 0), p[0], p[1], p[2])); });
   }
 
   /* ---- powertrain ---- */
   if (gen('engine')){
     const eg = group('eng');
-    const bw = transverse ? tf*0.50 : M(520), bd = transverse ? M(520) : tf*0.5;
     /* in the chassis view the engine is one part, so it can be a scan of a
        real one — the strip-down happens on the generated model in the Engine
        Bay, where every casting has to come apart */
     const scanE = kart ? null : partMesh('engineI4', { fit: M(660), axis: transverse ? 'z' : 'x', mat: MAT.alloy() });
     if (scanE) eg.add(scanE);
-    else {
-      eg.add(roundBox(bw, M(420), bd, 0.03, MAT.alloy()));
-      eg.add(at(roundBox(bw*0.92, M(120), bd*0.88, 0.02, MAT.alloyDark()), 0, M(280), 0));
+    else if (kart){
+      eg.add(roundBox(M(320), M(300), M(260), .03, MAT.alloy()));
+      eg.add(at(roundBox(M(200), M(80), M(180), .02, MAT.alloyDark()), 0, M(190), 0));
+    } else {
+      /* a block with its head and manifolds over it, the cam cover on top and
+         the sump hanging below — narrow at the bottom, like the real thing */
+      eg.add(at(roundBox(bw, M(200), bd*0.62, 0.03, MAT.alloy()), 0, -M(20), 0));                       // crankcase and block
+      eg.add(at(roundBox(bw, M(180), bd, 0.03, MAT.alloy()), 0, M(170), 0));                             // head with its manifolds
+      eg.add(at(roundBox(bw*0.90, M(70), bd*0.45, 0.02, MAT.alloyDark()), 0, M(295), 0));               // cam cover
+      eg.add(at(roundBox(bw*0.50, M(110), bd*0.50, 0.02, MAT.alloyDark()), transverse ? bw*0.28 : 0, -M(175), 0));   // the sump, offset ahead of the shafts on a transverse car
     }
-    add('engine', at(eg, kart ? axR + M(120) : engX, kart ? floorY + M(160) : engY, kart ? wid*0.30 : engZ));
+    if (open && !scanE) eg.scale.y = 0.75;                                                   // a single-seater's power unit is low, under its engine cover
+    add('engine', at(eg, kart ? axR + M(200) : engX, kart ? floorY + M(170) : engY, kart ? M(340) : engZ));
   }
   if (gen('gearbox')){
     const gb = group('gb');
-    const scanG = transverse ? partMesh('gearbox', { fit: M(320), axis:'z', mat: MAT.alloyDark() })
+    const scanG = transverse ? partMesh('gearbox', { fit: gLenT, axis:'z', mat: MAT.alloyDark() })
                              : partMesh('transmission', { fit: M(760), axis:'x', mat: MAT.alloyDark() });
     if (scanG) gb.add(scanG);
-    else gb.add(rot(cyl(M(180), M(140), M(560), MAT.alloyDark(), 16), 0, 0, Math.PI/2));
-    add('gearbox', at(gb, transverse ? engX - M(40) : engX - M(560), transverse ? engY + M(10) : engY - M(150), gbxZ));
+    else if (transverse) gb.add(rot(cyl(gRadT, gRadT, gLenT, MAT.alloyDark(), 16), Math.PI/2, 0, 0));
+    else for (let i = 0; i < 4; i++){                                                        // bellhousing at the block, tapering to the tail, in short lengths
+      const r0 = M(190) - (M(80) * i / 4), r1 = M(190) - (M(80) * (i + 1) / 4), seg = gLenL / 4;
+      const c = rot(cyl(rear ? r0 : r1, rear ? r1 : r0, seg, MAT.alloyDark(), 16), 0, 0, Math.PI/2);
+      c.position.x = (rear ? -1 : 1) * (gLenL/2 - seg * (i + 0.5));
+      gb.add(c);
+    }
+    add('gearbox', at(gb, gbxX, gbxY, gbxZ));
   }
-  if (gen('transfer')) add('transfer', at(roundBox(M(260), M(220), M(220), .02, MAT.alloyDark()), engX - M(600), engY - M(140), tf*0.16));
-  const diffY = rR;                                  // the differential sits on the axle line
+  if (gen('transfer')){
+    /* a transverse car's power take-off hangs under the transaxle's inner end behind the sump */
+    const tp = transverse ? [engX + M(60), engY - M(260), gbxZ + M(200)] : mid ? [engX - M(420), engY - M(160), -tf*0.15] : [gbxTail + M(60), gbxY, tf*0.16];
+    add('transfer', transverse ? at(roundBox(M(200), M(130), M(130), .02, MAT.alloyDark()), tp[0], tp[1], tp[2]) : at(roundBox(M(260), M(220), M(220), .02, MAT.alloyDark()), tp[0], tp[1], tp[2]));
+  }
   if (gen('prop')){
-    const tail = [transverse ? engX - M(300) : engX - M(900), transverse ? engY - M(100) : engY - M(200), 0];
-    const nose = [axR + M(180), diffY, 0];
     const pr = group('prop');
-    pr.add(pipe([tail, nose], M(38), MAT.steel(), 12));
-    pr.add(at(cyl(M(55), M(55), M(70), MAT.steel(), 12).rotateZ(Math.PI/2), tail[0] + M(40), tail[1], 0));   // the front universal joint
-    pr.add(at(cyl(M(55), M(55), M(70), MAT.steel(), 12).rotateZ(Math.PI/2), nose[0] - M(40), nose[1], 0));
+    if (mid || bay === 'rear'){
+      /* a transaxle needs no propshaft: the output shaft into the final drive */
+      pr.add(pipe([[gbxX, gbxY, 0],[axR, diffY, 0]], M(30), MAT.steel(), 12));
+    } else {
+      const tail = transverse ? [engX - M(60), engY - M(260), 0] : [gbxTail + M(20), gbxY, 0];   // off the power take-off on a transverse car
+      const nose = [axR + M(180), diffY, 0];
+      pr.add(pipe([tail, nose], M(38), MAT.steel(), 12));
+      pr.add(at(cyl(M(55), M(55), M(70), MAT.steel(), 12).rotateZ(Math.PI/2), tail[0] - M(40), tail[1], 0));   // the front universal joint
+      pr.add(at(cyl(M(55), M(55), M(70), MAT.steel(), 12).rotateZ(Math.PI/2), nose[0] - M(40), nose[1], 0));
+    }
     add('prop', pr);
   }
   if (gen('diff')){
     const df = group('diff');
-    const dx = fwd ? engX - M(120) : axR, dy = fwd ? engY - M(170) : diffY, dz = fwd ? gbxZ + M(110) : 0;
+    /* a front-drive final drive lives in the transaxle; a rear diff sits on the axle line */
+    const dx = fwd ? engX - M(40) : axR, dy = fwd ? engY - M(120) : diffY, dz = fwd ? gbxZ : 0;
     df.add(sphere(fwd ? M(120) : M(150), MAT.alloyDark(), 16));
     if (!fwd && v.suspR === 'liveaxle') df.add(at(rot(cyl(M(55), M(55), tr*0.7, MAT.steel(), 12), Math.PI/2, 0, 0), 0, 0, 0));
     add('diff', at(df, dx, dy, dz));
   }
-  if (gen('difff')) add('difff', at(sphere(M(115), MAT.alloyDark(), 16), axF - M(40), floorY + M(150), -tf*0.12));
+  /* a longitudinal all-wheel-drive car's front diff sits in the sump; a transverse one's is in the transaxle */
+  const difffAt = transverse ? [engX - M(40), gbxY - M(60), gbxZ] : midTank ? [axF - M(40), floorY + M(150), -tf*0.12] : [axF - M(40), rackY + M(155), -tf*0.12];
+  if (gen('difff')) add('difff', at(sphere(M(115), MAT.alloyDark(), 16), difffAt[0], difffAt[1], difffAt[2]));
   if (has('axles')){
     const shafts = awd ? [['F',-1],['F',1],['R',-1],['R',1]] : fwd ? [['F',-1],['F',1]] : [['R',-1],['R',1]];
     shafts.forEach(([end, s], i) => {
       const id = `axles.${i+1}`; if (!gen(id)) return;
       const x = end === 'F' ? axF : axR, track = end === 'F' ? tf : tr, r = end === 'F' ? rF : rR;
-      const y0 = end === 'F' ? engY - M(170) : diffY;
-      const inner = s * track*0.12, outer = s * (track/2 - M(110));
+      /* front shafts leave the transaxle's ends (the right one runs behind the sump); rear shafts leave the diff */
+      const y0 = end === 'F' ? (transverse ? engY - M(160) : difffAt[1]) : diffY;
+      const inner = end === 'F' ? (transverse ? gbxZ + s * (gLenT/2 + M(20)) : difffAt[2] + s * M(115)) : s * M(150);
+      const outer = s * (track/2 - M(110));
       const g = group('axle');
       g.add(pipe([[x, y0, inner],[x, r, outer]], M(26), MAT.steel(), 10));
       g.add(at(cyl(M(44), M(44), M(90), MAT.rubber(), 12).rotateX(Math.PI/2), x, y0 + (r - y0) * 0.12, inner + s * M(60)));
@@ -296,57 +500,77 @@ function buildCar(v, tree){
   const unsprungOf = {};
   const corner = (end, side) => {
     const x = end === 'F' ? axF : axR;
-    const track = end === 'F' ? tf : tr;
-    const r = end === 'F' ? rF : rR;
+    const G = end === 'F' ? GF : GR;
+    const { track, r, type, outer, innerFace, armOut, pivotZ, pivY, pivIn, uIn, uOut, dampZ } = G;
     const sfx = end === 'F' ? 'f' : 'r';
     const n = side < 0 ? 1 : 2;                       // left = .1, right = .2
-    const z = side * track/2;
-    const type = end === 'F' ? v.suspF : v.suspR;
-    const tyreW = M(end === 'F' ? v.tyreF : v.tyreR) * ((vm('tyres').width) || 1);
-    const innerFace = Math.abs(z*0.86 + side * M(40)) - tyreW / 2;      // the tyre's inboard sidewall
-    const inner = side * track*0.14, outer = z*0.86;
-    const armOut = side * Math.min(Math.abs(outer), innerFace - M(30));   // where an arm may reach without touching the tyre
+    const inner = side * pivIn;
     const unsprung = [];
     const sv = vm(end === 'F' ? 'suspF' : 'suspR');
-    const cornerRide = end === 'F' ? rideF : rideR;
 
     if (type !== 'none' && !kart){
       if (gen('lca'+sfx+'.'+n)){
         const a = group('lca');
-        a.add(pipe([[x - M(120), subY, inner],[x, r*0.55, armOut]], M(24), MAT.alloyDark(), 6));
-        a.add(pipe([[x + M(140), subY, inner],[x, r*0.55, armOut]], M(24), MAT.alloyDark(), 6));
-        a.add(at(sphere(M(30), MAT.steel(), 10), x, r*0.55, armOut));          // the ball joint
+        a.add(pipe([[x - M(120), pivY, inner],[x, r*0.55, side*armOut]], M(24), MAT.alloyDark(), 6));
+        a.add(pipe([[x + M(140), pivY, inner],[x, r*0.55, side*armOut]], M(24), MAT.alloyDark(), 6));
+        a.add(at(sphere(M(30), MAT.steel(), 10), x, r*0.55, side*armOut));          // the ball joint
         add('lca'+sfx+'.'+n, a);
       }
       if (gen('uca'+sfx+'.'+n)){
+        /* a wide A-arm: its legs splay far enough apart for the damper to stand between them */
         const a = group('uca');
-        const uIn = side * Math.max(Math.abs(inner) * 1.4, track*0.30);
-        a.add(pipe([[x - M(90), floorY + M(320), uIn],[x, r*1.28, armOut*0.94]], M(20), MAT.alloyDark(), 6));
-        a.add(pipe([[x + M(110), floorY + M(320), uIn],[x, r*1.28, armOut*0.94]], M(20), MAT.alloyDark(), 6));
+        a.add(pipe([[x - M(230), floorY + M(320), side*uIn],[x, r*1.28, side*uOut]], M(20), MAT.alloyDark(), 6));
+        a.add(pipe([[x + M(250), floorY + M(320), side*uIn],[x, r*1.28, side*uOut]], M(20), MAT.alloyDark(), 6));
         add('uca'+sfx+'.'+n, a);
       }
       const dampBase = has('strut'+sfx) ? 'strut'+sfx : 'damp'+sfx;
       const dampId = dampBase + '.' + n;
-      if (gen(dampId)){
+      if (gen(dampId) && type === 'pushrod'){
+        /* a pushrod from the lower wishbone's outer end up to a rocker on the
+           chassis top (the nose structure in front, the gearbox casing behind),
+           working an inboard damper that lies across the car */
+        const pr = group('pushrod');
+        const rockerY = end === 'F' ? (sp ? Math.min(floorY + hgt*0.36, sp.top(x) - M(45) - M(50)) : floorY + hgt*0.36) : gbxY + M(150) + M(80);
+        const rockerZ = open && end === 'F' ? M(110) : end === 'F' ? Math.max(M(120), cabinHalf*0.55) : M(170);   // a single-seater's front units sit tight inside its nose; the rear rockers stand beside the diff
+        const dr = open ? M(18) : M(24), cr = open ? M(30) : M(40);
+        pr.add(pipe([[x, r*0.55 + M(40), side*(armOut - M(20))],[x, rockerY, side*rockerZ]], M(12), MAT.alloyDark(), 8));   // the pushrod
+        pr.add(at(roundBox(M(70), M(50), M(50), .01, MAT.alloyDark()), x, rockerY, side*rockerZ));                         // the rocker
+        const dl = rockerZ - M(40);
+        pr.add(at(rot(cyl(dr, dr, dl, MAT.steel(), 12), Math.PI/2, 0, 0), x, rockerY, side*(M(40) + dl/2)));                // the inboard damper
+        const pts = [];
+        for (let i = 0; i <= 48; i++){ const t = i/48, a = t*TAU*5; pts.push(new THREE.Vector3(x + Math.cos(a)*cr, rockerY + Math.sin(a)*cr, side*(M(50) + t*(dl - M(40))))); }
+        pr.add(pipe(pts, M(8), sv.spring != null ? MAT.gloss(sv.spring) : MAT.orange(), 6));
+        add(dampId, pr);
+        anim.susp.push({ node:pr, side, end });
+      } else if (gen(dampId)){
         const strut = dampBase.startsWith('strut');
+        /* a strut clamps the upright and reaches the inner wing; a damper
+           stands on the lower arm and reaches the body above the upper arm */
         const top = strut ? floorY + M(620) : floorY + M(430);
-        const bot = strut ? r*0.6 : r*1.15;
-        const d = damperMesh(sv, { x, top, bot, z: side * Math.min(Math.abs(outer) * 0.92, innerFace - M(50)), strut, race });
+        const bot = strut ? r + M(60) : (type === 'liveaxle' || type === 'solid') ? r + M(70) : G.armY(dampZ) + M(30);   // on the upright, on the axle tube, or on the lower arm
+        const d = damperMesh(sv, { x, top, bot, z: side * dampZ, strut, race });
         add(dampId, d);
         anim.susp.push({ node:d, side, end });
       }
+      /* the anti-roll bar runs across ahead of the front axle (behind it on a
+         transverse car, where the sump is in the way) and behind the rear one,
+         above the subframe rails; its arms reach out to the drop links */
+      const dir = end === 'F' ? (transverse ? -1 : 1) : -1;
+      const bx = x + dir * (end === 'F' ? (transverse ? M(230) : M(320)) : M(200)), by = subY + M(90);
+      const linkZ = G.linkZ, linkX = x + dir * M(160);
       if (gen('arb'+sfx) && side < 0){                  // one bar across the car
         const b = group('arb');
-        const bx = x + (end==='F' ? M(220) : -M(220)), by = subY + M(70);
         b.add(pipe([[bx, by, -outer*0.72],[bx, by, outer*0.72]], M(14), MAT.steel(), 6));
-        for (const s of [-1,1]) b.add(pipe([[bx, by, s*Math.abs(outer)*0.72],[x + (end==='F' ? M(90) : -M(90)), subY + M(50), s*Math.abs(armOut)*0.80]], M(14), MAT.steel(), 6));
-        for (const s of [-1,1]) b.add(at(rot(box(M(60), M(50), M(40), MAT.alloyDark()), 0, 0, 0), bx, by, s*track*0.26));  // the clamps
+        for (const s of [-1,1]) b.add(pipe([[bx, by, s*outer*0.72],[linkX, by, s*linkZ]], M(14), MAT.steel(), 6));   // the bar's arms
+        for (const s of [-1,1]) b.add(at(rot(box(M(60), M(50), M(40), MAT.alloyDark()), 0, 0, 0), bx, by, s*track*0.22));  // the clamps
         add('arb'+sfx, b);
       }
       if (gen('arblink'+sfx+'.'+n)){
+        /* the drop link: up to the strut body, or down onto the lower arm's leg */
         const lk = group('arblink');
-        const bx = x + (end==='F' ? M(90) : -M(90));
-        lk.add(pipe([[bx, subY + M(50), armOut*0.80],[x + (end==='F' ? M(60) : -M(60)), r*0.62, armOut*0.86]], M(10), MAT.steel(), 6));
+        const strut = dampBase.startsWith('strut');
+        const to = strut ? [x + dir * M(40), r*1.05, side*dampZ] : [x + dir * M(70), G.armY(linkZ) + M(34), side*linkZ];
+        lk.add(pipe([[linkX, by, side*linkZ], to], M(10), MAT.steel(), 6));
         add('arblink'+sfx+'.'+n, lk);
       }
     }
@@ -354,25 +578,25 @@ function buildCar(v, tree){
     /* ---- upright, brakes and wheel: every corner has these ---- */
     if (gen('upr'+sfx+'.'+n)){
       const u = group('upr');
-      u.add(at(box(M(110), r*0.85, M(80), MAT.alloy()), x, r, outer));
-      u.add(at(rot(cyl(M(45), M(45), M(70), MAT.steel(), 12), Math.PI/2, 0, 0), x, r, outer + side*M(30)));
+      u.add(at(box(M(110), r*0.85, M(80), MAT.alloy()), x, r, side*outer));
+      u.add(at(rot(cyl(M(45), M(45), M(70), MAT.steel(), 12), Math.PI/2, 0, 0), x, r, side*outer + side*M(30)));
       add('upr'+sfx+'.'+n, u); unsprung.push(u);
     } else if (type === 'none' && !has('upr'+sfx)){
       /* a stub axle: a kart calls it a spindle, a dragster just bolts it to the frame */
-      const u = at(box(M(90), r*0.7, M(90), MAT.steel()), x, r, outer);
+      const u = at(box(M(90), r*0.7, M(90), MAT.steel()), x, r, side*outer);
       const sid = has('spindles') && end === 'F' ? 'spindles.' + n : has('axle') && end === 'R' ? 'axle' : 'chassis';
       if (gen(sid)) { add(sid, u); unsprung.push(u); }
     }
-    const hubZ = outer + side * M(40);
+    const hubZ = side*outer + side * M(40);
     const dia = end === 'F' ? v.brakeF : v.brakeR;
     const bv = vm(end === 'F' ? 'brakesF' : 'brakesR');
-    if (dia && gen('disc'+sfx+'.'+n)){
+    if (dia && !kart && gen('disc'+sfx+'.'+n)){
       const disc = discMesh(bv, M(dia), end);
       disc.scale.z = side;                        // the hat faces inboard on both sides
       add('disc'+sfx+'.'+n, at(disc, x, r, hubZ - side * M(26))); unsprung.push(disc);
       if (end === 'F') anim.steer.push(disc);
     }
-    if (dia && gen('cal'+sfx+'.'+n)){
+    if (dia && !kart && gen('cal'+sfx+'.'+n)){
       const c = caliperMesh(bv, M(dia), end);
       const ang = end === 'F' ? deg(150) : deg(30);
       const rr = M(dia) * (bv.size || 1) * 0.36;
@@ -409,13 +633,20 @@ function buildCar(v, tree){
                         sprung: type !== 'none' });
   };
   for (const end of ['F','R']) for (const side of [-1,1]) corner(end, side);
+  /* a kart brakes its rear axle, not its wheels: one disc and caliper on the axle, left of the seat */
+  if (kart && gen('calr')){
+    const kb = group('kbrake');
+    const bv = vm('brakesR');
+    const disc = discMesh(bv, M(200), 'R');
+    kb.add(at(disc, axR, rR, -M(260)));
+    const c = caliperMesh(bv, M(200), 'R'); const rr = M(200) * (bv.size || 1) * 0.36;
+    at(c, axR + Math.cos(deg(30)) * rr, rR + Math.sin(deg(30)) * rr, -M(260)); c.rotation.z = deg(30) - Math.PI/2; kb.add(c);
+    add(has('calr.1') ? 'calr.1' : 'calr', kb);
+  }
 
   /* ---- steering ---- */
-  const seatZ = v.seats === 1 ? 0 : -wid*0.205;                // the driver sits on the left
-  const dashX = open || kart ? X(0.42) : X(cuts.doorF) + M(80);
-  const wheelHub = new THREE.Vector3(open || kart ? dashX - M(120) : dashX - M(420), open ? floorY + hgt*0.55 : kart ? floorY + M(520) : floorY + M(640), seatZ);
-  const rackPos = new THREE.Vector3(open ? axF - M(450) : axF - (transverse ? M(300) : M(260)), floorY - M(10), 0);
-  const armX = axF - M(150);                                  // the steering arm, behind the hub
+  const armX = frontSteer && !open ? axF + M(150) : Math.max(axF - M(150), (firewallX ?? -9) + M(60));   // the steering arm, behind the hub (ahead of it with the rack in front)
+  const rodEndZ = kart ? tf*0.42 : GF.innerFace - M(30);      // the outer joint, just inboard of the tyre
   if (gen('rack')){
     const rk = group('rack');
     rk.add(at(rot(cyl(M(30), M(30), tf*0.62, MAT.alloyDark(), 12), Math.PI/2, 0, 0), rackPos.x, rackPos.y, 0));
@@ -426,8 +657,8 @@ function buildCar(v, tree){
   if (has('tierods')) for (const s of [-1,1]){
     const id = 'tierods.' + (s < 0 ? 1 : 2); if (!gen(id)) continue;
     const tr2 = group('tierod');
-    tr2.add(pipe([[rackPos.x, rackPos.y, s*tf*0.3],[armX, rF*0.95, s*tf*0.42]], M(13), MAT.steel(), 6));
-    tr2.add(at(sphere(M(22), MAT.steel(), 10), armX, rF*0.95, s*tf*0.42));
+    tr2.add(pipe([[rackPos.x, rackPos.y, s*tf*0.3],[armX, rF*0.95, s*rodEndZ]], M(13), MAT.steel(), 6));
+    tr2.add(at(sphere(M(22), MAT.steel(), 10), armX, rF*0.95, s*rodEndZ));
     add(id, tr2);
   }
   if (gen('column')){
@@ -442,36 +673,54 @@ function buildCar(v, tree){
   }
   if (gen('steeringwheel')) add('steeringwheel', steeringWheelMesh(vm('steeringwheel'), wheelHub, open || kart));
 
-  /* ---- brakes, plumbing ---- */
-  const mcylPos = new THREE.Vector3(open ? X(0.28) : firewallX != null ? firewallX + M(130) : axF*0.35, open ? floorY + M(300) : underSkin(firewallX != null ? firewallX + M(250) : axF*0.35, floorY + M(560), M(380)), seatZ);
+  /* ---- brakes, plumbing ----
+     The servo and master cylinder on the bay side of the pedal bulkhead in
+     line with the pedals (a mid-engine car's footwell bulkhead is at the
+     front), the ABS block beside them, the pedal box behind the bulkhead. */
+  const mcylZ = midTank ? seatZ * 0.7 : transverse ? seatZ : Math.min(seatZ, -(bd/2 + M(130)));
+  const mcylPos = new THREE.Vector3(open ? X(0.28) : pedalWallX != null ? pedalWallX + M(130) : axF*0.35,
+                                    open ? floorY + M(300) : underSkin(pedalWallX != null ? pedalWallX + M(200) : axF*0.35, cabFloorY + M(560), M(380)), mcylZ);
   if (gen('mcyl')){
     const mc = group('mcyl');
-    mc.add(at(rot(cyl(M(110), M(110), M(70), MAT.black(), 20), 0, 0, Math.PI/2), mcylPos.x, mcylPos.y, mcylPos.z));          // the servo
+    const sr = midTank ? M(90) : M(110);
+    mc.add(at(rot(cyl(sr, sr, M(70), MAT.black(), 20), 0, 0, Math.PI/2), mcylPos.x, mcylPos.y, mcylPos.z));          // the servo
     mc.add(at(rot(cyl(M(26), M(26), M(170), MAT.alloy(), 14), 0, 0, Math.PI/2), mcylPos.x + M(120), mcylPos.y, mcylPos.z));  // the cylinder
     mc.add(at(roundBox(M(90), M(80), M(70), .01, MAT.plastic()), mcylPos.x + M(120), mcylPos.y + M(80), mcylPos.z));          // the reservoir
     add('mcyl', mc);
   }
-  if (gen('abs')) add('abs', at(roundBox(M(150), M(130), M(120), .01, MAT.plastic()), firewallX != null ? firewallX + M(100) : axF*0.3, underSkin(firewallX != null ? firewallX + M(100) : axF*0.3, floorY + M(430), M(130)), -wid*0.36));
+  if (gen('abs')){
+    /* the hydraulic block: beside the engine behind the left damper on a
+       longitudinal car, in the left front corner ahead of the transaxle on a
+       transverse one, in the nose beside the servo on a mid-engine car */
+    const ap = open ? [X(0.33), floorY + M(200), M(170)]
+             : midTank && awd ? [pedalWallX - M(105), floorTop + M(75), cabinHalf - M(200)]
+             : midTank ? [pedalWallX + M(170), floorY + M(100), M(270)]
+             : transverse ? [axF + M(225), floorY + M(430), -M(210)]
+             : [pedalWallX + M(200), floorY + M(430), bd*0.5 + M(70)];
+    add('abs', at(roundBox(M(150), M(130), M(120), .01, MAT.plastic()), ap[0], open ? ap[1] : underSkin(ap[0], ap[1], M(130)), ap[2]));
+  }
   if (gen('brakelines')){
     const bl = group('brakelines');
     const y = floorY - M(20);
+    const lz = Math.min(wid*0.30, floorHalf - M(60));
     for (const s of [-1,1]){
-      bl.add(pipe([[mcylPos.x + M(200), mcylPos.y, mcylPos.z],[mcylPos.x + M(260), floorY + M(100), s*wid*0.30],[axF - M(60), y, s*wid*0.30],[axF, rF*0.9, s*tf*0.40]], M(4), MAT.steel(), 5));
-      bl.add(pipe([[mcylPos.x + M(200), mcylPos.y - M(20), mcylPos.z],[0, y, s*wid*0.31],[axR + M(80), y, s*wid*0.31],[axR, rR*0.9, s*tr*0.40]], M(4), MAT.steel(), 5));
+      const dF = frontSteer ? 1 : -1;
+      bl.add(pipe([[mcylPos.x + M(200), mcylPos.y, mcylPos.z],[mcylPos.x + M(260), floorY + M(100), s*lz],[axF - dF*M(300), y, s*lz],[axF - dF*M(300), rF*1.3, s*(GF.innerFace - M(80))],[axF - dF*M(100), rF + M(60), s*(GF.outer - M(40))]], M(4), MAT.steel(), 5));
+      bl.add(pipe([[mcylPos.x + M(200), mcylPos.y - M(20), mcylPos.z],[mcylPos.x + M(260), floorY + M(60), s*(lz + M(10))],[0, y, s*(lz + M(10))],[axR + M(300), y, s*(lz + M(10))],[axR + M(300), rR*1.3, s*(GR.innerFace - M(80))],[axR + M(100), rR + M(60), s*(GR.outer - M(40))]], M(4), MAT.steel(), 5));
     }
     add('brakelines', bl);
   }
   if (gen('hbrake')){
     const hb = group('hbrake');
-    const hx = open || kart ? X(0.45) : X(cuts.doorF) - M(900), hy = floorY + M(80);
+    const hx = open || kart ? X(0.45) : seatX + M(100), hy = (tunnel ? floorY + tunnelH - M(30) : floorTop) + M(10);
     hb.add(at(rot(cyl(M(14), M(14), M(300), MAT.steel(), 8), 0, 0, deg(-62)), hx, hy + M(170), kart ? -wid*0.2 : 0));
     hb.add(at(roundBox(M(40), M(60), M(50), .01, MAT.black()), hx + M(120), hy + M(300), kart ? -wid*0.2 : 0));   // the grip
-    if (!open && !kart) for (const s of [-1,1]) hb.add(pipe([[hx, hy, 0],[axR + M(300), floorY - M(30), s*wid*0.22],[axR, rR*0.8, s*tr*0.38]], M(5), MAT.black(), 5));
+    if (!open && !kart) for (const s of [-1,1]) hb.add(pipe([[hx, hy, 0],[hx - M(40), floorY - M(30), 0],[axR + M(300), floorY - M(30), s*wid*0.22],[axR, rR*0.8, s*tr*0.40]], M(5), MAT.black(), 5));
     add('hbrake', hb);
   }
   if (gen('pedals')){
     const pd = group('pedals');
-    const px = mcylPos.x - M(140), py = floorY + M(110);
+    const px = kart ? X(0.12) : open ? mcylPos.x - M(140) : (pedalWallX ?? axF*0.35) - M(100), py = cabFloorY + M(110);
     pd.add(at(box(M(60), M(260), M(200), MAT.alloyDark()), px, py + M(280), seatZ));                      // the pedal box
     for (const [dz, w2] of [[-M(80), M(60)], [0, M(80)], [M(90), M(50)]])
       pd.add(pipe([[px, py + M(300), seatZ + dz],[px - M(100), py + M(40), seatZ + dz]], M(8), MAT.steel(), 6)),
@@ -479,96 +728,210 @@ function buildCar(v, tree){
     add('pedals', pd);
   }
 
-  /* ---- fuel ---- */
-  const tankX = race && !open ? axR + M(500) : open ? X(0.60) : axR + M(560);
-  const tankY = open ? floorY + M(220) : floorY + M(150), tankW = open ? wid*0.3 : wid*0.56;
-  if (gen('tank')) add('tank', at(roundBox(M(620), M(220), tankW, .04, race ? MAT.alloyDark() : MAT.plastic()), kart ? X(0.4) : tankX, kart ? floorY + M(140) : tankY, 0));
+  /* ---- fuel ----
+     A saddle tank under the rear seat pan either side of the tunnel (one box
+     where there is no tunnel), or behind the axle under the boot floor when
+     the cabin runs over the axle; a mid-engine car's tank stands behind the
+     seats against the bulkhead; a truck's hangs on the frame rail. */
+  const tankAt = mid && !rear && firewallX != null ? { x: firewallX + M(120), y: floorY + M(35) + M(210), l: M(160), h: M(420), w: wid*0.5, zs:[0] }
+               : ladder ? { x: tankX, y: floorY + M(80), l: M(620), h: M(180), w: M(420), zs:[-M(150)] }
+               : kart ? { x: X(0.4), y: floorY + M(140), l: M(300), h: M(160), w: M(260), zs:[0] }
+               : open ? { x: tankX, y: tankY, l: M(620), h: tankH, w: M(360), zs:[-M(90)] }
+               : rear ? { x: axF + M(320) + M(44) + M(140) + M(10), y: floorY + M(245), l: M(280), h: M(220), w: wid*0.48, zs:[0] }   // between the front anti-roll bar and the fan shroud
+               : behindAxle ? { x: tankX, y: tankY, l: tankL, h: tankHh, w: tankW*0.9, zs:[0] }
+               : tunnel ? { x: tankX, y: tankY, l: tankL, h: tankH, w: tankW/2 - tunnelW/2 - M(20), zs:[-(tunnelW/2 + M(20) + (tankW/2 - tunnelW/2 - M(20))/2), (tunnelW/2 + M(20) + (tankW/2 - tunnelW/2 - M(20))/2)] }
+               : { x: tankX, y: tankY, l: tankL, h: tankH, w: tankW, zs:[0] };
+  const pumpZ = tankAt.zs[0] + (tankAt.zs.length > 1 ? 0 : -tankAt.w*0.2);
+  const midSaddle = mid && !rear && firewallX != null;                              // the tank stands behind the seats
+  if (gen('tank')){
+    const tk = group('tank');
+    for (const z of tankAt.zs) tk.add(at(roundBox(tankAt.l, tankAt.h, tankAt.w, .04, race ? MAT.alloyDark() : MAT.plastic()), tankAt.x, tankAt.y, z));
+    add('tank', tk);
+  }
+  const tankTop = tankAt.y + tankAt.h/2;
   if (gen('fuelpump')){
     const fp = group('fuelpump');
-    fp.add(at(cyl(M(70), M(70), M(30), MAT.black(), 20), tankX, tankY + M(125), -tankW*0.2));             // the flange on top
-    fp.add(at(cyl(M(28), M(28), M(180), MAT.alloyDark(), 12), tankX, tankY + M(20), -tankW*0.2));         // the pump module inside
+    const px = midTank ? tankAt.x : tankAt.x, pz = pumpZ;
+    if (midSaddle){
+      fp.add(at(rot(cyl(M(70), M(70), M(30), MAT.black(), 20), 0, 0, Math.PI/2), tankAt.x + tankAt.l/2 + M(15), tankAt.y + M(60), -tankAt.w*0.2));   // the flange on the tank's face
+      fp.add(at(rot(cyl(M(28), M(28), M(120), MAT.alloyDark(), 12), 0, 0, Math.PI/2), tankAt.x, tankAt.y + M(60), -tankAt.w*0.2));
+    } else {
+      fp.add(at(cyl(M(70), M(70), M(30), MAT.black(), 20), px, tankTop + M(15), pz));             // the flange on top
+      fp.add(at(cyl(M(28), M(28), Math.min(M(180), tankAt.h - M(40)), MAT.alloyDark(), 12), px, tankAt.y, pz));         // the pump module inside
+    }
     add('fuelpump', fp);
   }
+  /* the lines run under the floor along the sill (along the frame rail on a truck) up into the bay */
+  const lineZ = ladder ? -(wid*0.28 - M(60)) : -Math.min(sillZ - M(95), floorHalf - M(40));
   if (gen('fuellines')){
     const fl = group('fuellines');
+    const from = [tankAt.x + (midSaddle ? -tankAt.l/2 : 0), midSaddle ? tankAt.y - tankAt.h/2 + M(30) : tankTop - M(10), midSaddle ? -tankAt.w*0.2 : pumpZ];
     for (const dz of [0, M(14)])
-      fl.add(pipe([[tankX, tankY + M(140), -tankW*0.2 + dz],[tankX + M(300), floorY + M(40), -wid*0.33 + dz],[engX - M(300), floorY + M(40), -wid*0.33 + dz],[engX - M(200), engY, -tf*0.26 + dz]], M(5), MAT.black(), 5));
-    fl.add(at(rot(cyl(M(30), M(30), M(140), MAT.alloy(), 12), 0, 0, Math.PI/2), (tankX + engX) / 2, floorY + M(40), -wid*0.33));   // the filter
+      fl.add(pipe(midSaddle
+        ? [[from[0], from[1], from[2] + dz],[from[0] - M(200), floorY - M(20), lineZ + dz],[engX + bw/2 + M(60), floorY - M(20), lineZ + dz],[engX + bw/2 - M(60), engY + M(60), -(bd*0.31 + M(40)) + dz]]
+        : [[from[0], from[1], from[2] + dz],[from[0] + M(300), floorY - M(20), lineZ + dz],[engX - bw/2 - M(150), floorY - M(20), lineZ + dz],[engX - bw/2 - M(60), engY + M(60), -(bd*0.31 + M(40)) + dz]], M(5), MAT.black(), 5));
+    fl.add(at(rot(cyl(M(30), M(30), M(140), MAT.alloy(), 12), 0, 0, Math.PI/2), (from[0] + engX) / 2, floorY - M(20) - M(35), lineZ));   // the filter, under the floor
     add('fuellines', fl);
   }
   if (gen('fillerneck')){
+    /* from the flap in the quarter, down behind the wheelhouse over the top of
+       the tyre, inboard of the rear damper, to the tank */
     const fn = group('fillerneck');
-    const flapT = Math.min(cuts.boot - 0.03, Math.max(cuts.doorR + 0.02, (len/2 - axR + rR*1.42) / len));
+    const flapT = rear ? cuts.doorF - 0.025 : Math.min(cuts.boot - 0.03, Math.max(cuts.doorR + 0.02, (len/2 - axR + rR*1.42) / len));
     const flapX = X(flapT), flapY = waistY(flapT) - hgt*0.10;
-    const over = [axR + M(60), Math.max(tankY + M(100), rR*1.30 + M(40)), -wid*0.37];   // up and over the arch
-    fn.add(pipe([[tankX - M(200), tankY + M(60), -tankW*0.42], over, [flapX + M(80), flapY - M(40), -wid*0.42],[flapX, flapY, -wid*0.47]], M(24), MAT.steel(), 8));
-    fn.add(pipe([[tankX - M(100), tankY + M(110), -tankW*0.42],[over[0], over[1] + M(50), over[2]],[flapX + M(40), flapY + M(40), -wid*0.44]], M(7), MAT.black(), 5));
+    const archZ = -(GR.innerFace - M(60));                                       // inboard of the tyre's inner face
+    const over = [axR - rR*0.5, Math.min(2*rR + M(100), (sp ? sp.top(axR - rR*0.5) : 2*rR + M(100)) - M(80)), archZ];
+    const to = midSaddle ? [tankAt.x, tankAt.y + tankAt.h/2 - M(40), -tankAt.w*0.45]
+             : rear ? [tankAt.x, tankTop - M(40), -tankAt.w*0.42]
+             : [tankAt.x - (behindAxle ? -tankAt.l/2 : tankAt.l/2) , tankTop - M(40), tankAt.zs[0] - tankAt.w*0.42];
+    const pts = rear
+              /* a rear-engined car fills on the front wing: down behind the front wheelhouse, forward to the nose tank */
+              ? [[flapX, flapY, -wid*0.47],[flapX + M(60), flapY - M(60), -wid*0.42],[axF - rF - M(80), floorY + M(250), -M(400)],[axF + rF*0.6, floorY + M(250), -M(400)], to]
+              : midSaddle ? [[flapX, flapY, -wid*0.47],[flapX + M(80), flapY - M(40), -wid*0.42],[Math.max(flapX + M(200), tankAt.x - M(100)), tankAt.y + tankAt.h/2 - M(40), archZ], to]
+              : behindAxle ? [[flapX, flapY, -wid*0.47],[flapX, flapY - M(30), -wid*0.44],[Math.min(flapX, axR - rR - M(80)), flapY - M(60), -wid*0.42],[tankAt.x, tankTop - M(40), -(tankAt.w/2 + M(60))], [tankAt.x, tankTop - M(40), -tankAt.w*0.42]]
+              : [[flapX, flapY, -wid*0.47],[flapX + M(80), flapY - M(40), -wid*0.42], over, to];
+    fn.add(pipe(pts, M(24), MAT.steel(), 8));
+    fn.add(pipe([[flapX + M(40), flapY + M(40), -wid*0.44],[pts[2][0], pts[2][1] + M(50), pts[2][2] + M(10)],[to[0], to[1] + M(50), to[2] + M(20)]], M(7), MAT.black(), 5));
     add('fillerneck', fn);
   }
-  /* ---- exhaust, in its real sections ---- */
+  /* ---- exhaust, in its real sections: down beside the bellhousing, along
+     the tunnel beside the propshaft (in the floor channel on a front-drive
+     car, between the frame rails on a truck), the box under the boot floor ---- */
   {
     const ev = vm('exhaust');
-    const exZ = fwd ? wid*0.08 : Math.min(wid*0.12, M(140));
-    const exY = Math.max(floorY - M(75), M(80));
-    const startX = mid ? engX - M(300) : engX - M(200), startY = mid ? engY - M(100) : engY - M(150);
-    const catX = mid ? axR - M(200) : firewallX != null ? firewallX - M(400) : engX - M(900);
+    const exZ = midTank ? M(300) : tunnel ? -M(210) : fwd ? -wid*0.10 : M(195);
+    const exY = tunnel ? floorY + M(40) : fwd ? floorY - M(20) : ladder ? floorY + M(120) : midTank ? floorY + M(160) : floorY - M(50);
+    const startX = engX - M(200), startY = engY - M(60);
+    const catX = rear ? engX - bw/2 - M(100) : mid ? axR - M(200) : firewallX != null ? (transverse ? firewallX - M(400) : Math.min(firewallX - M(400), gbxTail - M(260))) : engX - M(900);
+    const catR = tunnel ? M(50) : M(45);
+    const catY = rear ? exY + M(170) : exY;
     if (gen('downpipe')){
       const dp = group('downpipe');
-      dp.add(pipe([[startX, startY, exZ*0.6],[startX - M(150), floorY + M(40), exZ],[Math.min(startX - M(300), catX + M(250)), exY, exZ]], M(34), MAT.iron(), 10));
-      dp.add(at(rot(cyl(M(40), M(40), M(120), MAT.stainless ? MAT.stainless() : MAT.steel(), 12), 0, 0, Math.PI/2), Math.min(startX - M(300), catX + M(250)) + M(100), exY, exZ));   // the flexi
+      const pts = transverse
+        /* a transverse engine breathes out of its front face: down ahead of the block, under the sump, back under the subframe */
+        ? [[engX + M(230), engY + M(60), engZ - M(60)],[engX + M(320), floorY + M(120), engZ - M(60)],[engX + M(320), exY, exZ],[catX + M(250), exY, exZ]]
+        : rear
+        /* a rear engine's pipe leaves the block's back and drops into the transverse cat behind it */
+        ? [[engX - bw/2 + M(60), engY - M(60), M(250)],[engX - bw/2 - M(60), catY + M(60), M(280)],[catX, catY, M(200)]]
+        : midTank
+        /* a mid-engine's pipe drops beside the bellhousing straight into its cat */
+        ? [[startX, startY, exZ],[startX - M(120), floorY + M(160), exZ],[catX + M(250), exY, exZ]]
+        /* a longitudinal engine's pipe drops beside the bellhousing and enters the tunnel at the bulkhead */
+        : [[startX, startY, -M(250)],[startX - M(120), floorY + M(40), -M(250)],[(firewallX ?? gbxTail) + M(60), floorY + M(40), -M(250)],[(firewallX ?? gbxTail) - M(100), exY, exZ],[catX + M(250), exY, exZ]];
+      dp.add(pipe(pts, M(34), MAT.iron(), 10));
+      if (!rear) dp.add(at(rot(cyl(M(40), M(40), M(120), MAT.stainless ? MAT.stainless() : MAT.steel(), 12), 0, 0, Math.PI/2), catX + M(250) + M(100), exY, exZ));   // the flexi
       add('downpipe', dp);
     }
     if (gen('cat')){
       const ct = group('cat');
-      ct.add(at(rot(cyl(M(55), M(55), M(300), MAT.steel(), 16), 0, 0, Math.PI/2), catX, exY, exZ));
-      ct.add(at(roundBox(M(80), M(60), M(40), .01, MAT.alloyDark()), catX + M(130), exY + M(60), exZ));  // the oxygen sensor boss
+      if (rear){
+        /* across the back of a rear engine, above the silencer */
+        ct.add(at(rot(cyl(catR, catR, M(300), MAT.steel(), 16), Math.PI/2, 0, 0), catX, catY, M(150)));
+        ct.add(at(roundBox(M(40), M(50), M(80), .01, MAT.alloyDark()), catX, catY + catR + M(10), M(30)));
+      } else {
+        ct.add(at(rot(cyl(catR, catR, M(300), MAT.steel(), 16), 0, 0, Math.PI/2), catX, exY, exZ));
+        ct.add(at(roundBox(M(80), M(50), M(40), .01, MAT.alloyDark()), catX + M(130), exY + catR + M(10), exZ));  // the oxygen sensor boss
+      }
       add('cat', ct);
     }
-    const boxX = mid ? axR - M(300) : axR + (ev.type === 'side' ? M(700) : -M(250));
+    const boxX = rear ? engX - bw/2 - M(130) : ev.type === 'side' ? axR + M(700) : axR - M(500);
     if (gen('midpipe')){
       const mp = group('midpipe');
       if (ev.type === 'side'){
-        mp.add(pipe([[catX - M(160), exY, exZ],[axR + M(900), exY, wid*0.30],[axR + M(760), exY + M(40), -(-1)*wid*0.44]], M(34 * (ev.type === 'stock' ? 1 : 1.15)), MAT.iron(), 10));
+        mp.add(pipe([[catX - M(160), exY, exZ],[axR + M(900), exY, wid*0.30],[axR + M(760), exY + M(40), wid*0.44]], M(34 * (ev.type === 'stock' ? 1 : 1.15)), MAT.iron(), 10));
+      } else if (rear){
+        mp.add(pipe([[catX, catY, 0],[catX - M(30), catY - M(60), -M(120)],[boxX, exY + M(30), -M(160)]], M(34), MAT.iron(), 10));   // the short link down into the silencer
       } else {
         mp.add(pipe([[catX - M(160), exY, exZ],[(catX + boxX)/2, exY + M(10), exZ],[boxX + M(260), exY, exZ]], M(ev.type === 'stock' ? 34 : 40), MAT.iron(), 10));
         mp.add(at(rot(cyl(M(45), M(45), M(260), MAT.steel(), 14), 0, 0, Math.PI/2), (catX + boxX)/2, exY, exZ));   // the resonator
       }
       add('midpipe', mp);
     }
-    if (gen('rearbox')) add('rearbox', exhaustRearMesh(ev, { boxX, exY, exZ, len, wid, X, fwd, floorY, hgt, axR, mid }));
+    if (gen('rearbox')) add('rearbox', exhaustRearMesh(ev, { boxX, exY, exZ, len, wid, X, fwd, floorY, hgt, axR, mid, rear }));
   }
 
-  /* ---- cooling ---- */
-  const radX = mid ? X(0.08) : X(cuts.bumperF + 0.03), radY = floorY + hgt*0.17, radW = wid*0.50, radH = hgt*0.28;
-  if (gen('rad')) add('rad', at(coreMesh(radW, radH, M(56)), radX, radY, 0));
-  if (gen('fans')){
+  /* ---- cooling: the radiator stands behind the grille, as far forward as the nose allows ---- */
+  const radH = hgt*0.28;
+  let radX = midTank || open ? X(0.06) : X(cuts.bumperF + 0.012);
+  if (!midTank && !open && !kart && radX - M(28) - M(90) < engFront) radX = Math.min(X(0.02), engFront + M(130));   // a long-nose truck: the core right behind the grille
+  if (!midTank && !open && !kart && frontSteer) radX = Math.max(radX, rackX + M(133));                                   // the fans clear a rack mounted ahead of the engine
+  const radY = open || kart ? floorY + hgt*0.17 : underSkin(radX, floorY + hgt*0.17, radH + M(60));
+  const radW = sp ? Math.min(wid*0.50, 2*sp.z(radX, radY + radH*0.3) - M(120)) : wid*0.50;
+  if (open){
+    /* a single-seater's radiator lies in its left sidepod */
+    if (gen('rad')) add('rad', at(rot(coreMesh(radW*0.6, radH*0.9, M(56)), 0, Math.PI/2, 0), X(0.52), floorY + hgt*0.26, -wid*0.30));
+  } else if (gen('rad')) add('rad', at(coreMesh(radW, radH, M(56)), radX, radY, 0));
+  if (gen('fans') && open){
+    const fg = group('fans');
+    fg.add(at(box(radW*0.58, radH*0.88, M(30), MAT.black()), X(0.52), floorY + hgt*0.26, -wid*0.30 + M(60)));
+    add('fans', fg);
+  } else if (gen('fans')){
     const fg = group('fans');
     fg.add(at(box(M(30), radH*0.98, radW*0.98, MAT.black()), radX - M(60), radY, 0));                       // the shroud
     for (const s of [-1,1]){
       const fan = group('fan');
-      for (let i = 0; i < 7; i++){ const b = box(M(18), radH*0.22, M(8), MAT.black()); b.rotation.x = (i/7)*TAU; fan.add(b); }
-      at(rot(fan, 0, 0, Math.PI/2), radX - M(85), radY, s*radW*0.25);
+      const bl = radH*0.40;
+      for (let i = 0; i < 7; i++){ const b = box(M(18), bl, M(60), MAT.black()); b.position.y = bl/2; const piv = group('blade'); piv.add(b); piv.rotation.x = (i/7)*TAU; fan.add(piv); }
+      fan.add(rot(cyl(radH*0.09, radH*0.09, M(40), MAT.black(), 16), 0, 0, Math.PI/2));
+      at(fan, radX - M(85), radY, s*radW*0.25);
       fg.add(fan); anim.fans.push(fan);
     }
     add('fans', fg);
   }
   if (gen('hoses')){
     const hs = group('hoses');
-    hs.add(pipe([[radX - M(30), radY + radH*0.30, radW*0.42],[engX + M(200), engY + M(200), tf*0.20]], M(20), MAT.rubber(), 8));
-    hs.add(pipe([[radX - M(30), radY - radH*0.30, -radW*0.42],[engX + M(250), engY - M(60), -tf*0.20]], M(20), MAT.rubber(), 8));
+    hs.add(pipe([[radX - M(30), radY + radH*0.30, radW*0.42],[engX + bw/2 - M(60), engY + M(250), bd*0.30]], M(20), MAT.rubber(), 8));
+    hs.add(pipe([[radX - M(30), radY - radH*0.30, -radW*0.42],[engX + bw/2 - M(60), engY - M(20), -bd*0.30]], M(20), MAT.rubber(), 8));
     add('hoses', hs);
   }
-  if (gen('exptank')) add('exptank', at(roundBox(M(160), M(160), M(130), .02, MAT.plastic()), engX + M(120), underSkin(engX + M(120), engY + M(260), M(160)), wid*0.30));
+  /* the expansion tank: on the inner wing beside the engine (above the upper
+     arm), in the left front corner on a transverse car, on the block's flank
+     on a mid-engine car */
+  if (gen('exptank')){
+    const ep = midTank || open ? [engX + M(100), engY + M(180), bd*0.5 + M(80) + M(65)]
+             : transverse ? [axF + M(225), floorY + M(450), -M(380)]
+             : [engX - bw/2 + M(390), floorY + M(450), -(GF.innerFace - M(65) - M(20))];
+    add('exptank', at(roundBox(M(160), M(160), M(130), .02, MAT.plastic()), ep[0], open ? ep[1] : underSkin(ep[0], ep[1], M(160)), ep[2]));
+  }
   if (gen('condenser')) add('condenser', at(coreMesh(radW*0.92, radH*0.82, M(22), {}, 14), radX + M(70), radY - radH*0.04, 0));
-  if (gen('accomp')) add('accomp', at(rot(cyl(M(65), M(65), M(200), MAT.alloyDark(), 16), 0, 0, Math.PI/2), engX + (transverse ? M(360) : M(380)), engY - M(120), transverse ? engZ - M(100) : -tf*0.20));
-  if (gen('heaterbox')) add('heaterbox', at(roundBox(M(260), M(280), M(420), .03, MAT.plastic()), dashX - M(140), floorY + M(540), wid*0.06));
+  /* the compressor hangs low on the block's flank, belt-driven off the crank */
+  if (gen('accomp')){
+    const cp = transverse ? [engX - M(150), engY - M(250), engZ - bd*0.25 - M(75)] : [engX + bw/2 - M(100), engY - M(200), -(bd*0.31 + M(75))];
+    add('accomp', at(rot(cyl(M(65), M(65), M(200), MAT.alloyDark(), 16), 0, 0, Math.PI/2), cp[0], cp[1], cp[2]));
+  }
+  /* the heater box: behind the dash, under its top, over the tunnel */
+  const dashTopY = open ? floorY + hgt*0.58 : waistY(cuts.doorF) - M(40);
+  const tunnelTopY = tunnel ? floorY + tunnelH - M(30) : floorTop;
+  const hbH = Math.max(M(160), Math.min(M(280), dashTopY - M(20) - (tunnelTopY + M(10))));
+  if (gen('heaterbox')) add('heaterbox', at(roundBox(M(260), hbH, M(420), .03, MAT.plastic()), dashX - M(140), dashTopY - M(20) - hbH/2, wid*0.21));
+  dims.dashH = Math.max(M(120), Math.min(M(300), dashTopY - (tunnel ? tunnelTopY + M(20) : cabFloorY + M(320))));
 
-  /* ---- electrics ---- */
-  const batX = open ? X(0.63) : mid ? X(0.12) : transverse ? radX - M(200) : (firewallX != null ? firewallX + M(250) : engX - M(300));
-  const batZ = open ? wid*0.18 : transverse ? -wid*0.28 : wid*0.28;
-  if (gen('battery')) add('battery', at(roundBox(M(280), M(200), M(190), .01, MAT.black()), batX, underSkin(batX, floorY + M(420), M(200)), batZ));
-  if (gen('fusebox')) add('fusebox', at(roundBox(M(130), M(120), M(200), .01, MAT.plastic()), open ? batX : firewallX != null ? firewallX + M(85) : batX - M(60), underSkin(firewallX != null ? firewallX + M(85) : batX, floorY + M(500), M(120)), open ? -wid*0.18 : wid*0.38));
-  if (gen('ecu')) add('ecu', at(roundBox(M(180), M(40), M(140), .01, MAT.alloy()), open ? X(0.60) : firewallX != null ? firewallX + M(60) : axF*0.2, open ? floorY + M(300) : underSkin(firewallX != null ? firewallX + M(60) : axF*0.2, floorY + M(560), M(40)), open ? 0 : -wid*0.30));
+  /* ---- electrics ----
+     The battery over the transaxle (transverse), in the nose (mid-engine), or
+     in the boot where a longitudinal engine with wishbones leaves no corner
+     free; fuse box and ECU behind the kick panels either side of the footwell. */
+  const bootY = stepX != null ? stepY + M(8) : behindAxle ? tankY + tankHh/2 + M(20) : floorTop;
+  const bootX = Math.max(axR - M(500), X(cuts.bumperR) + M(180));
+  const bootRoom = sp && !open && !kart ? sp.top(bootX) - M(45) - bootY : M(400);
+  /* a boot big enough takes the battery and the audio; otherwise they go behind the seats */
+  const inBoot = hasBench && stepX != null && bootRoom >= M(190) && !ladder;
+  const shelfX = hasBench ? benchX0 - M(500) : seatX - M(540);
+  const shelfY = (stepX != null && shelfX < stepX) ? bootY : floorTop;
+  const shelfZ = tunnel ? tunnelW/2 + M(115) : M(250);
+  const batAt = open ? [tankAt.x, floorY + M(420), M(185)]
+              : rear ? [tankAt.x, floorY + M(200), tankAt.w/2 + M(115)]
+              : mid ? [X(0.10), floorY + M(420), wid*0.20]
+              : transverse ? [axF + M(20), floorY + M(560), gbxZ]
+              : ladder ? [engX - bw/2 + M(440), floorY + M(460), bd*0.5 + M(100)]
+              : inBoot ? [bootX, bootY + M(85), M(260)]
+              : [shelfX, shelfY + M(12) + M(85), shelfZ];
+  const batX = batAt[0], batZ = batAt[2];
+  const batRot = (transverse || mid) && !rear && !open && !ladder;  // turned to lie along the car over the transaxle / in the nose
+  const batH = M(170);
+  if (gen('battery')) add('battery', at(roundBox(batRot ? M(190) : M(280), batH, batRot ? M(280) : M(190), .01, MAT.black()), batX, open ? batAt[1] : underSkin(batX, batAt[1], batH), batZ));
+  const kickX = open || kart ? dashX + M(150) : dashX - M(420), kickY = cabFloorY + M(190), kickZ = open ? M(150) : cabinHalf - M(race ? 200 : 100);
+  if (gen('fusebox')) add('fusebox', at(roundBox(M(130), M(120), M(160), .01, MAT.plastic()), kickX, open ? floorY + M(200) : kickY, -kickZ));
+  if (gen('ecu')) add('ecu', at(roundBox(M(180), M(40), M(140), .01, MAT.alloy()), kickX, open ? floorY + M(200) : kickY, kickZ));
   if (gen('harness') && (open || kart)){
     /* a single-seater's loom runs along the tub floor from the battery to the
        dash; a kart's from the engine to the steering column */
@@ -583,23 +946,40 @@ function buildCar(v, tree){
     const hn = group('hn');
     const cols = [0xd94f4f, 0xd9b84f, 0x4fd97a, 0x4f9fd9, 0xd94fd0];
     for (let i = 0; i < 5; i++)
-      hn.add(pipe([[batX, floorY + M(430) + i*M(9), batZ*0.9],
-                   [batX - M(200), floorY + M(480) + i*M(9), -wid*0.2],
-                   [dashX - M(60), floorY + M(600) + i*M(9), -wid*0.26],
-                   [dashX - M(500), floorY + M(70) + i*M(9), -wid*0.29],
-                   [X(0.5), floorY + M(70) + i*M(9), -wid*0.29],
-                   [axR + M(500), floorY + M(70) + i*M(9), -wid*0.27]], M(6), MAT.wire(cols[i]), 5));
+      hn.add(pipe([[batX, batAt[1] - M(60) + i*M(9), batZ*0.9],
+                   [batX - M(200), floorTop + M(60) + i*M(9), -wid*0.2],
+                   [dashX - M(60), dashTopY - M(120) + i*M(9), -wid*0.26],
+                   [dashX - M(500), cabFloorY + M(70) + i*M(9), -wid*0.29],
+                   [X(0.5), cabFloorY + M(70) + i*M(9), -wid*0.29],
+                   [axR + M(500), cabFloorY + M(70) + i*M(9), -wid*0.27]], M(6), MAT.wire(cols[i]), 5));
     add('harness', hn);
   }
-  if (gen('horn')) add('horn', at(rot(cyl(M(45), M(45), M(50), MAT.black(), 14), 0, 0, Math.PI/2), radX + M(170), underSkin(radX + M(170), radY + radH*0.30, M(90)), radW*0.14));
-  if (gen('washer')) add('washer', at(roundBox(M(180), M(260), M(120), .02, MAT.plastic()), radX - M(140), underSkin(radX - M(140), floorY + M(360), M(260)), -wid*0.36));
-  if (gen('headunit')) add('headunit', at(roundBox(M(150), M(100), M(180), .01, MAT.black()), dashX - (open || kart ? M(120) : M(360)), (open || kart ? floorY + hgt*0.52 : waistY(cuts.doorF) - M(190)), 0));
-  if (gen('amp')) add('amp', at(roundBox(M(320), M(70), M(240), .01, MAT.alloyDark()), axR - M(200), floorY + M(140), -wid*0.2));
+  const noseX = sp ? sp.noseX : X(0);
+  if (gen('horn')){
+    /* between the condenser and the grille when the nose is long enough, else above the condenser's top rail */
+    const room = X(0.03) - M(45) - M(25) >= radX + M(161);
+    const hx2 = room ? radX + M(136) : radX + M(70), hy2 = room ? radY + radH*0.30 : radY + radH*0.37 + M(75);
+    add('horn', at(rot(cyl(M(45), M(45), M(50), MAT.black(), 14), 0, 0, Math.PI/2), hx2, underSkin(hx2, hy2, M(90)), radW*0.30));
+  }
+  /* the washer bottle: behind the core beside the fan shroud on a longitudinal car, in the left front corner on a transverse one */
+  if (gen('washer')){
+    const wp = transverse ? [axF + M(225), floorY + M(360), -M(500)] : [radX - M(180), floorY + M(rear ? 390 : 360), -(radW/2 + M(75))];
+    add('washer', at(roundBox(transverse ? M(120) : M(180), transverse ? M(200) : M(260), transverse ? M(90) : M(120), .02, MAT.plastic()), wp[0], underSkin(wp[0], wp[1], transverse ? M(200) : M(260)), wp[2]));
+  }
+  if (gen('headunit')) add('headunit', at(roundBox(M(150), M(100), M(180), .01, MAT.black()), dashX - (open || kart ? M(120) : M(360)), (open || kart ? floorY + hgt*0.52 : Math.max(dashTopY - Math.min(M(150), dims.dashH/2), tunnel ? tunnelTopY + M(60) : 0)), 0));
+  /* the audio: amp and sub on the boot floor (in the front luggage bay of a mid-engine car) */
+  /* the amplifier and the sub: on the boot floor, on the shelf behind the seats, or on the saddle tank of a mid-engine car */
+  const ampAt = rear ? [tankAt.x, floorY + M(200), -(tankAt.w/2 + M(130))] : midSaddle ? [tankAt.x, tankTop + M(43), -M(250)] : inBoot ? [bootX, bootY + M(43), -M(270)] : [shelfX, shelfY + M(12) + M(43), -shelfZ];
+  const subH = rear ? M(100) : M(160);
+  const subAt = rear ? [tankAt.x, tankTop + subH/2 + M(8), 0] : midSaddle ? [tankAt.x, tankTop + M(88), M(250)] : inBoot ? [bootX, bootY + M(88), 0] : [shelfX, (stepX != null && shelfX < stepX) ? bootY + M(88) : tunnelTopY + M(88), 0];
+  const ampRot = midSaddle;                                            // turned across the tank's narrow top
+  if (gen('amp')) add('amp', at(roundBox(ampRot ? M(220) : M(320), M(70), ampRot ? M(320) : M(220), .01, MAT.alloyDark()), ampAt[0], ampAt[1], ampAt[2]));
   if (gen('speakers')){
-    const sp = group('sp');
-    for (const s of [-1,1]) sp.add(at(rot(cyl(M(80), M(80), M(60), MAT.black(), 18), 0, 0, Math.PI/2), X(cuts.doorF) - M(300), floorY + M(300), s*(wid*0.40 - M(30))));
-    sp.add(at(rot(cyl(M(150), M(150), M(180), MAT.black(), 20), Math.PI/2, 0, 0), axR - M(350), floorY + M(200), wid*0.16));
-    add('speakers', sp);
+    const sp2 = group('sp');
+    for (const s of [-1,1]) sp2.add(at(rot(cyl(M(80), M(80), M(40), MAT.black(), 18), Math.PI/2, 0, 0), X(cuts.doorF) - M(450), cabFloorY + M(300), s*(innerHalf + M(40) - M(32))));   // door speakers, in the cards
+    sp2.add(at(roundBox(M(260), subH, M(260), .02, MAT.black()), subAt[0], subAt[1], subAt[2]));                          // the sub enclosure
+    sp2.add(at(cyl(M(100), M(100), M(16), MAT.black(), 20), subAt[0], subAt[1] + subH/2 + M(8), subAt[2]));
+    add('speakers', sp2);
   }
 
   /* ---- the body: a lofted skin cut into its panels, or the scan ---- */
@@ -635,7 +1015,7 @@ function buildCar(v, tree){
         for (const k of [-0.28, 0.30]) gg.add(at(roundBox(M(8), M(22), gw * 0.98, .006, MAT.chrome()), xN + M(8), gyy + gh * k, 0));
         gg.add(at(rot(cyl(M(44), M(44), M(6), MAT.chrome(), 24), 0, 0, Math.PI/2), xN + M(13), gyy + gh * 0.30, 0));   // the badge, on the upper bar
       } else if (grille){ grille.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); gg.add(at(grille, X(0.028), gyy, 0)); }
-      else gg.add(at(rot(coreMesh(wid * 0.44, hgt * 0.12, M(40), {}, 22), 0, Math.PI/2, 0), X(0.03), gyy, 0));
+      else gg.add(at(coreMesh(wid * 0.44, hgt * 0.12, M(40), {}, 22), X(0.03), gyy, 0));
       add('grille', gg);
     }
   }
@@ -679,8 +1059,9 @@ function buildCar(v, tree){
     if (gen('bumperF')) add('bumperF', pipe([[X(0.06), floorY + M(130), -wid*0.26],[X(0.02), floorY + M(130), -wid*0.12],[X(0.02), floorY + M(130), wid*0.12],[X(0.06), floorY + M(130), wid*0.26]], M(14), MAT.steel(), 8));
     if (gen('nosecone')) add('nosecone', at(roundBox(M(180), M(220), wid*0.50, .06, paint), X(0.05), floorY + M(220), 0));
     if (gen('nassau')) add('nassau', at(rot(roundBox(M(260), M(30), wid*0.30, .02, paint), 0, 0, deg(-50)), X(0.30), floorY + M(420), 0));
+    const podX1 = axF - rF - M(60), podX0 = axR + rR + M(60);
     for (const s of [-1,1]) if (gen('sidepods.' + (s < 0 ? 1 : 2)))
-      add('sidepods.' + (s < 0 ? 1 : 2), at(roundBox(len*0.42, M(160), M(150), .04, paint), X(0.55), floorY + M(140), s*(wid*0.5 - M(90))));
+      add('sidepods.' + (s < 0 ? 1 : 2), at(roundBox(Math.max(M(300), podX1 - podX0), M(160), M(150), .04, paint), (podX0 + podX1)/2, floorY + M(140), s*(wid*0.5 - M(90))));
     if (gen('bumperR')) add('bumperR', at(roundBox(M(120), M(220), wid*0.96, .04, paint), X(0.97), floorY + M(180), 0));
     if (gen('seats')){
       const st = group('seat');
@@ -705,7 +1086,7 @@ function buildCar(v, tree){
   if (!open && !kart){
     const bootTopY = (t) => (surf ? sp.top(X(t)) : floorY + hgt*curveAt(L.waist, t)) + M(4);
     if (gen('spoiler')) add('spoiler', spoilerMesh(vm('spoiler'), { X, len, wid, hgt, floorY, cuts, topY: bootTopY, colour: v.colour }));
-    if (gen('splitter') && has('bumperF')) add('splitter', at(box(M(260), M(18), wid*0.90, MAT.carbon()), X(0.03), floorY + hgt*0.055, 0));
+    if (gen('splitter') && has('bumperF')) add('splitter', at(box(M(260), M(18), wid*0.90, MAT.carbon()), X(0.03), (sp ? sp.bot(X(0.045)) : floorY + hgt*0.065) - M(6), 0));
     if (gen('diffuser')){
       const df = group('diffuser');
       df.add(at(rot(box(M(420), M(16), wid*0.74, MAT.carbon()), 0, 0, deg(12)), X(0.93), floorY + hgt*0.03, 0));
@@ -718,6 +1099,10 @@ function buildCar(v, tree){
   if (!kart) buildInterior({ v, has, gen, add, dims, vm, surf, sp, seatZ, wheelHub, dashX, race, open, doors4, scan, scanHidden });
 
   if (orphans.length) root.userData.orphans = [...new Set(orphans)];
+  /* the body's own silhouette, for anything that wants to ask whether a point
+     is under the skin (the placement audit does): nose/tail x, top and bottom
+     of the skin at x, half-width at (x, y) */
+  if (sp) root.userData.silhouette = { noseX: sp.noseX, tailX: sp.tailX, top: (x) => sp.top(x), bot: (x) => sp.bot(x), z: (x, y) => sp.z(x, y) };
   return finalize(root, nodes, anim, v, null);
 }
 
@@ -730,48 +1115,52 @@ function buildCar(v, tree){
  * ==================================================================== */
 function buildInterior(C){
   const { v, has, gen, add, dims, vm, surf, sp, seatZ, wheelHub, dashX, race, open, doors4 } = C;
-  const { len, wid, hgt, floorY, X, cuts, axR, waistY } = dims;
-  const floorTop = floorY + M(35);
-  const cabinF = open ? X(0.40) : X(cuts.doorF) + M(40);              // the A-pillar foot
+  const { len, wid, hgt, floorY, X, cuts, axR, waistY, cabFloorY, floorTop, innerHalf, cabinHalf, seatW, seatsN, cabinF, seatX, stepX, stepY, benchOnStep, tunnel, dampZR } = dims;
   const cabinR = open ? X(0.55) : X(doors4 ? cuts.boot : cuts.doorR) - M(60);
-  const innerHalf = open ? wid*0.18 : wid*0.40 - M(70);                // inside the sills
   const roofUnder = (x) => (surf && sp ? sp.top(x) : floorY + hgt*0.96) - M(28);
   const cloth = race ? MAT.carbon() : MAT.black();
   const trim = MAT.plastic();
   const seatKind = vm('seats').type || 'stock';
 
-  if (gen('carpet')) add('carpet', at(box(Math.abs(cabinF - cabinR), M(12), innerHalf*2, race ? MAT.alloy() : MAT.black()), (cabinF + cabinR)/2, floorTop + M(6), 0));
+  /* the carpet lies on the floor pan, and on the rear step where the floor rises */
+  if (gen('carpet')){
+    const cp = group('carpet');
+    const flatR = stepX != null ? Math.max(cabinR, stepX + M(8)) : cabinR;
+    cp.add(at(box(Math.abs(cabinF - flatR), M(12), cabinHalf*2, race ? MAT.alloy() : MAT.black()), (cabinF + flatR)/2, floorTop + M(6), 0));
+    if (stepX != null && cabinR < stepX - M(8)) cp.add(at(box(Math.abs(stepX - M(8) - cabinR), M(12), Math.min(cabinHalf*2, 2*(dampZR - M(100))), race ? MAT.alloy() : MAT.black()), (stepX - M(8) + cabinR)/2, stepY + M(8) + M(6), 0));
+    add('carpet', cp);
+  }
 
   /* the dash: a moulding across the car under the windscreen base */
   const dashTop = open ? floorY + hgt*0.58 : waistY(cuts.doorF) - M(40);
-  const dashH = open ? M(90) : M(300), dashD = open ? M(140) : M(460);
+  const dashH = open ? M(90) : (dims.dashH || M(300)), dashD = open ? M(140) : M(460);
   if (gen('dash')){
     const d = group('dash');
-    const w = open ? wid*0.26 : innerHalf*2 + M(100);
+    const w = open ? wid*0.26 : cabinHalf*2 + M(40);
     d.add(at(roundBox(dashD, dashH, w, .03, trim), dashX - dashD/2 + M(20), dashTop - dashH/2, 0));
     if (!open){
       d.add(at(roundBox(M(140), M(90), M(380), .02, MAT.black()), dashX - dashD + M(40), dashTop - M(140), seatZ));         // the binnacle
       d.add(at(roundBox(M(60), M(160), M(260), .01, MAT.black()), dashX - dashD + M(10), dashTop - M(180), 0));            // the centre stack
-      for (const s of [-1,1]) d.add(at(roundBox(M(60), M(70), M(90), .01, MAT.black()), dashX - dashD + M(10), dashTop - M(90), s*wid*0.30));   // outer vents
+      for (const s of [-1,1]) d.add(at(roundBox(M(60), M(70), M(90), .01, MAT.black()), dashX - dashD + M(10), dashTop - M(90), s*(cabinHalf - M(80))));   // outer vents
     } else {
       d.add(at(roundBox(M(40), M(70), M(140), .01, MAT.black()), wheelHub.x + M(30), wheelHub.y + M(80), wheelHub.z));     // the display on the wheel
     }
     add('dash', d);
   }
   if (gen('console') && !open){
+    /* the trim over the tunnel, from the dash to the seat backs (a roadster's stops at the seats) */
     const c = group('console');
-    const cx0 = dashX - dashD, cx1 = cabinF - M(1100);
-    const tunnelTop = (v.drivetrain !== 'FWD' && !(v.bay === 'mid' || v.bay === 'rear')) ? floorY + M(270) : floorTop;
-    c.add(at(roundBox(Math.abs(cx0 - cx1), M(200), M(220), .03, trim), (cx0 + cx1)/2, tunnelTop + M(100), 0));
-    c.add(at(rot(cyl(M(10), M(10), M(180), MAT.steel(), 8), 0, 0, deg(-8)), cx0 - M(320), tunnelTop + M(280), 0));           // the gear lever
-    c.add(at(sphere(M(28), MAT.black(), 10), cx0 - M(345), tunnelTop + M(370), 0));
+    const cx0 = dashX - dashD, cx1 = Math.min(cx0 - M(300), v.body === 'roadster' ? seatX - M(150) : Math.max(cabinF - M(1100), seatX - M(400)));
+    const tunnelTop = tunnel ? floorY + M(370) : floorTop;
+    c.add(at(roundBox(Math.abs(cx0 - cx1), M(200), M(180), .03, trim), (cx0 + cx1)/2, tunnelTop + M(100), 0));
+    c.add(at(rot(cyl(M(10), M(10), M(180), MAT.steel(), 8), 0, 0, deg(-8)), cx0 - M(120), tunnelTop + M(280), 0));           // the gear lever, beside the seat cushions
+    c.add(at(sphere(M(28), MAT.black(), 10), cx0 - M(145), tunnelTop + M(370), 0));
     add('console', c);
   }
   /* the seats: cushion on a frame, backrest leaning back, headrest on top */
-  const seatX = open ? X(0.46) : cabinF - M(780);
   const seatMesh = (kind, side) => {
     const g = group('seat');
-    const w2 = kind === 'bucket' ? M(480) : M(500);
+    const w2 = kind === 'bucket' ? Math.min(M(480), seatW) : seatW;
     if (kind === 'bucket'){
       g.add(at(roundBox(M(440), M(120), w2, .04, MAT.carbon()), 0, M(220), 0));                                  // the shell base
       g.add(at(rot(roundBox(M(90), M(700), w2, .05, MAT.carbon()), 0, 0, deg(-14)), -M(240), M(560), 0));          // one-piece back
@@ -783,27 +1172,32 @@ function buildInterior(C){
       g.add(at(box(M(130), M(160), M(60), MAT.alloyDark()), M(40), M(90), -w2*0.36));                             // the rails
       g.add(at(box(M(130), M(160), M(60), MAT.alloyDark()), M(40), M(90), w2*0.36));
       g.add(at(roundBox(M(480), M(110), w2, .05, cloth), 0, M(230), 0));                                           // the cushion
-      if (bolster) for (const s of [-1,1]) g.add(at(roundBox(M(400), M(80), M(90), .03, cloth), M(30), M(300), s*(w2/2 - M(50))));
+      if (bolster) for (const s of [-1,1]) g.add(at(roundBox(M(400), M(80), M(80), .03, cloth), M(30), M(300), s*(w2/2 - M(60))));
       g.add(at(rot(roundBox(M(120), M(600), w2*0.94, .05, cloth), 0, 0, deg(-12)), -M(270), M(560), 0));          // the backrest
-      if (bolster) for (const s of [-1,1]) g.add(at(rot(roundBox(M(150), M(540), M(80), .03, cloth), 0, 0, deg(-12)), -M(250), M(540), s*(w2/2 - M(50))));
+      if (bolster) for (const s of [-1,1]) g.add(at(rot(roundBox(M(150), M(540), M(70), .03, cloth), 0, 0, deg(-12)), -M(250), M(540), s*(w2/2 - M(55))));
       g.add(at(rot(roundBox(M(110), M(170), M(260), .04, cloth), 0, 0, deg(-12)), -M(360), M(960), 0));           // the headrest
       for (const s of [-1,1]) g.add(at(rot(cyl(M(7), M(7), M(80), MAT.steel(), 8), 0, 0, deg(-12)), -M(335), M(840), s*M(70)));
     }
     return g;
   };
-  const seatsN = v.seats === 1 ? 1 : 2;
   for (let i = 1; i <= seatsN; i++){
     if (!gen('seatsF.' + i)) continue;
     const z = seatsN === 1 ? 0 : (i === 1 ? seatZ : -seatZ);
     add('seatsF.' + i, at(seatMesh(seatKind, i), seatX, floorTop, z));
   }
   if (gen('seatR')){
+    /* the bench sits on the raised seat pan over the tank and the axle, between
+       the wheel wells; its backrest and headrests stop under the roof */
     const b = group('bench');
     const bx = doors4 ? X(cuts.B) - M(520) : cabinF - M(1620);
-    const bw = innerHalf*2 - M(120);
-    b.add(at(roundBox(M(480), M(130), bw, .05, cloth), bx, floorTop + M(310), 0));
-    b.add(at(rot(roundBox(M(110), M(560), bw, .05, cloth), 0, 0, deg(-18)), bx - M(300), floorTop + M(600), 0));
-    for (const s of [-1,1]) b.add(at(rot(roundBox(M(90), M(150), M(240), .04, cloth), 0, 0, deg(-18)), bx - M(400), floorTop + M(950), s*bw*0.28));
+    const base = benchOnStep ? stepY + M(8) : floorTop;
+    const bw = Math.min(cabinHalf*2 - M(120), 2*(dampZR - M(100)));
+    const roofAt = Math.min(roofUnder(bx - M(400)), roofUnder(bx - M(560))) - M(40);
+    const backH = Math.min(M(560), Math.max(M(380), roofAt - (base + M(330)) - M(40)));
+    b.add(at(roundBox(M(480), M(130), bw, .05, cloth), bx, base + M(275), 0));
+    b.add(at(rot(roundBox(M(110), backH, bw, .05, cloth), 0, 0, deg(-18)), bx - M(300), base + M(330) + backH/2, 0));
+    const headTop = base + M(330) + backH + M(150) + M(40);
+    if (headTop < roofAt) for (const s of [-1,1]) b.add(at(rot(roundBox(M(90), M(150), M(240), .04, cloth), 0, 0, deg(-18)), bx - M(300) - (backH + M(150)/2)*Math.sin(deg(18)), base + M(330) + backH + M(75) + M(20), s*bw*0.28));
     add('seatR', b);
   }
   /* belts: a reel at the B-pillar base, the webbing up to the shoulder and down to the buckle */
@@ -824,15 +1218,22 @@ function buildInterior(C){
     }
     add('belts.' + i, g);
   }
-  if (gen('headliner') && !open) add('headliner', at(box(Math.abs(cabinF - cabinR) * 0.88, M(10), innerHalf*1.9, race ? MAT.black() : MAT.plastic()), (cabinF + cabinR)/2, roofUnder((cabinF + cabinR)/2) - M(10), 0));
+  /* the headliner spans the flat of the roof between the A- and C-pillar tops */
+  if (gen('headliner') && !open){
+    const P = (surf && surf.L.pillars) || [];
+    const xA = P.length ? X(P[0][1]) - M(60) : cabinF, xC = P.length > 1 ? X(P[P.length-1][1]) + M(60) : seatX - M(300);
+    const x0 = Math.min(xA, Math.max(xC, cabinR)), x1 = Math.max(xC, Math.min(xA, cabinF));
+    const y = Math.min(roofUnder(x0), roofUnder(x1), roofUnder((x0 + x1)/2)) - M(10);
+    add('headliner', at(box(Math.max(M(300), Math.abs(x1 - x0)), M(10), cabinHalf*1.9, race ? MAT.black() : MAT.plastic()), (x0 + x1)/2, y, 0));
+  }
   /* door cards: the trim on the inside of each door skin */
   const cardAt = (x0, x1, id, side) => {
     const z = side * (innerHalf + M(40));
-    const h = waistY((X(x0) + X(x1)) / 2 / 1) ;
     const yTop = waistY((x0 + x1) / 2) - M(40), yBot = floorTop + M(120);
     const g = group('doorcard');
-    g.add(at(box(Math.abs(X(x0) - X(x1)) - M(60), yTop - yBot, M(22), trim), (X(x0) + X(x1))/2, (yTop + yBot)/2, z));
-    g.add(at(roundBox(M(260), M(60), M(60), .02, MAT.black()), (X(x0) + X(x1))/2 + M(80), yTop - M(300), z - side*M(35)));   // the armrest
+    const xr = Math.max(X(x1), axR + dims.rR * 1.3 + M(30));          // the card ends at the rear wheelhouse
+    g.add(at(box(Math.max(M(200), X(x0) - xr - M(60)), yTop - yBot, M(22), trim), (X(x0) + xr)/2, (yTop + yBot)/2, z));
+    g.add(at(roundBox(M(260), M(60), M(50), .02, MAT.black()), (X(x0) + X(x1))/2 + M(80), Math.max(yTop - M(360), yBot + M(80)), z - side*M(30)));   // the armrest
     g.add(at(rot(cyl(M(70), M(70), M(20), MAT.black(), 16), 0, 0, Math.PI/2), (X(x0) + X(x1))/2 + M(80), yBot + M(200), z - side*M(12)));   // the speaker grille
     add(id, g);
   };
@@ -1092,11 +1493,20 @@ function steeringWheelMesh(S, hub, open){
 }
 
 /** The exhaust rear section in the chosen style. */
-function exhaustRearMesh(E, { boxX, exY, exZ, len, wid, X, fwd, floorY, hgt, axR, mid }){
+function exhaustRearMesh(E, { boxX, exY, exZ, len, wid, X, fwd, floorY, hgt, axR, mid, rear }){
   const g = group('rearbox');
   const type = E.type || 'stock';
   const tipMat = MAT.stainless ? MAT.stainless() : MAT.chrome();
   const tailX = X(1.0) - M(40), tipY = floorY + hgt*0.10;
+  if (rear){
+    /* a rear engine's silencer lies across the car behind the block, tips out of the valance */
+    g.add(at(roundBox(M(220), M(140), M(600), .05, MAT.steel()), boxX, exY + M(30), 0));
+    for (const s of [-1, 1]){
+      g.add(pipe([[boxX - M(100), exY + M(30), s*M(200)],[tailX, tipY, s*wid*0.24]], M(34), MAT.steel(), 8));
+      const tip = tubeMesh(M(42), M(37), M(150), tipMat, 18); rot(tip, 0, 0, Math.PI/2); g.add(at(tip, tailX - M(40), tipY, s*wid*0.24));
+    }
+    return g;
+  }
   if (type === 'side'){
     const sx = axR + M(760), sz = -wid*0.44;
     g.add(at(rot(cyl(M(70), M(70), M(420), MAT.steel(), 16), 0, 0, Math.PI/2), sx + M(120), exY + M(40), sz + M(60)));
@@ -1107,7 +1517,7 @@ function exhaustRearMesh(E, { boxX, exY, exZ, len, wid, X, fwd, floorY, hgt, axR
   if (type === 'straight'){
     g.add(pipe([[boxX + M(260), exY, exZ],[tailX - M(160), exY, exZ*1.3],[tailX, tipY, exZ*1.6]], M(40), MAT.steel(), 12));
     if (!fwd) g.add(pipe([[boxX + M(260), exY, exZ],[tailX - M(160), exY, -exZ*1.3],[tailX, tipY, -exZ*1.6]], M(40), MAT.steel(), 12));
-    for (const s of (fwd ? [1] : [-1, 1])){ const tip = tubeMesh(M(52), M(46), M(140), tipMat, 18); rot(tip, 0, 0, Math.PI/2); g.add(at(tip, tailX, tipY, s*exZ*1.6)); }
+    for (const s of (fwd ? [1] : [-1, 1])){ const tip = tubeMesh(M(52), M(46), M(140), tipMat, 18); rot(tip, 0, 0, Math.PI/2); g.add(at(tip, tailX - M(40), tipY, s*exZ*1.6)); }
     return g;
   }
   /* a transverse silencer box across the back, with tips out the valance */
@@ -1118,7 +1528,7 @@ function exhaustRearMesh(E, { boxX, exY, exZ, len, wid, X, fwd, floorY, hgt, axR
   for (const s of tips){
     g.add(pipe([[boxX - M(150), exY, exZ*0.6],[boxX - M(300), exY, s*wid*0.20],[tailX, tipY, s*wid*0.24]], M(type === 'catback' ? 38 : 32), MAT.steel(), 8));
     const tr = type === 'catback' ? M(50) : M(42);
-    const tip = tubeMesh(tr, tr - M(5), M(150), tipMat, 18); rot(tip, 0, 0, Math.PI/2); g.add(at(tip, tailX + M(20), tipY, s*wid*0.24));
+    const tip = tubeMesh(tr, tr - M(5), M(150), tipMat, 18); rot(tip, 0, 0, Math.PI/2); g.add(at(tip, tailX - M(40), tipY, s*wid*0.24));
   }
   return g;
 }
@@ -1673,7 +2083,7 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
   const ez = sp.z(X(0.985), ey);
   if (ez > M(80)) give('bumperR', at(roundBox(M(130), hgt * 0.10, ez * 1.5, .02, dark), X(0.985), ey - hgt * 0.045, 0));
   {
-    const ft = Math.min(cuts.boot - 0.03, Math.max(cuts.doorR + 0.02, (len/2 - axR + rR*1.42) / len)), fy = waist(ft) - hgt * 0.10;
+    const ft = v.bay === 'rear' ? cuts.doorF - 0.025 : Math.min(cuts.boot - 0.03, Math.max(cuts.doorR + 0.02, (len/2 - axR + rR*1.42) / len)), fy = waist(ft) - hgt * 0.10;
     const fz = sp.z(X(ft), fy);
     if (fz > M(100)) give('fuelflap', at(roundBox(M(150), M(150), M(8), .02, carPaint(v.colour, 1)).rotateY(Math.PI/2), X(ft), fy, -(fz + M(2))));
   }
@@ -2116,7 +2526,7 @@ function buildBike(v, tree){
     ex.add(at(rot(cyl(M(70), M(70), M(320), MAT.alloyDark(), 16), 0, 0, deg(80)), axR*0.95, rR + M(360), M(180)));
     add('exhaustsys', ex);
   }
-  if (has('rad')) add('rad', at(box(M(60), M(320), M(280), MAT.alloyDark()), axF*0.42, rR + M(420), 0));
+  if (has('rad')) add('rad', at(box(M(60), M(320), M(280), MAT.alloyDark()), axF*0.5, rR + M(220), 0));   // ahead of the engine, under the tank, below the down tubes
   if (has('battery')) add('battery', at(roundBox(M(170), M(140), M(90), .01, MAT.black()), axR*0.5, rR + M(500), 0));
   if (has('harness')){
     const hn = group('hn');
