@@ -26,8 +26,10 @@ const M = (mm) => mm / 1000;
    all in the clearcoat. The orange-peel clearcoat normal map still arrives
    from MAT.paint's texture hook. */
 /* the unpainted textured plastic of bumper lowers, sills and arch flares */
-let _clad = null;
+let _clad = null, _gap = null;
 const CLAD = () => _clad || (_clad = new THREE.MeshStandardMaterial({ color:0x2f3236, roughness:0.88, metalness:0.0 }));
+/* the inside of a panel gap: dark, matte, and never catching the light */
+const GAP = () => _gap || (_gap = new THREE.MeshStandardMaterial({ color:0x07080a, roughness:1.0, metalness:0.0 }));
 
 function carPaint(colour, opacity = 1){
   const m = MAT.paint(colour, opacity);
@@ -90,6 +92,13 @@ function buildCar(v, tree){
   const waistY = (t) => floorY + hgt * curveAt(L.waist, t);
   const firewallX = open || kart ? null : mid ? X(cuts.doorR) + M(80) : X(cuts.bonnet) - M(60);
   const dims = { len, wid, hgt, axF, axR, tf, tr, rF, rR, floorY, X, cuts, waistY, firewallX, doors4, mid, open, kart };
+
+  /* the body surface, known up front so everything in the bay can be kept
+     under the bonnet it will be drawn beneath */
+  let surf = null, sp = null;
+  if (!open && !kart){ surf = bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR, cuts); sp = shellProbe(surf.body); }
+  /* a bay part's centre height, lowered if its top would break the skin */
+  const underSkin = (x, y, h) => sp ? Math.min(y, sp.top(x) - M(45) - h / 2) : y;
 
   /* ---- the scan, if there is one, cut into the same parts ---- */
   const imported = modelFor('veh', v.id);
@@ -218,7 +227,7 @@ function buildCar(v, tree){
      left end, the pair filling the bay between the inner wheel arches */
   const engZ = transverse && !kart ? tf*0.12 : 0;
   const gbxZ = transverse ? -(tf*0.13 + M(150)) : 0;
-  const engY = floorY + M(250);
+  const engY = (open || kart) ? floorY + M(250) : underSkin(engX, floorY + M(250), M(700));
   if (has('mounts')){
     const spots = transverse ? [[engX, engY - M(170), engZ + tf*0.22], [engX - M(40), engY + M(100), gbxZ - M(230)], [engX - M(330), engY - M(280), engZ]]
                  : mid ? [[engX + M(200), engY - M(170), -tf*(open ? 0.18 : 0.30)], [engX + M(200), engY - M(170), tf*(open ? 0.18 : 0.30)], [engX - M(450), engY - M(200), tf*(open ? 0.12 : 0.25)]]
@@ -434,7 +443,7 @@ function buildCar(v, tree){
   if (gen('steeringwheel')) add('steeringwheel', steeringWheelMesh(vm('steeringwheel'), wheelHub, open || kart));
 
   /* ---- brakes, plumbing ---- */
-  const mcylPos = new THREE.Vector3(open ? X(0.28) : firewallX != null ? firewallX + M(130) : axF*0.35, open ? floorY + M(300) : floorY + M(560), seatZ);
+  const mcylPos = new THREE.Vector3(open ? X(0.28) : firewallX != null ? firewallX + M(130) : axF*0.35, open ? floorY + M(300) : underSkin(firewallX != null ? firewallX + M(250) : axF*0.35, floorY + M(560), M(380)), seatZ);
   if (gen('mcyl')){
     const mc = group('mcyl');
     mc.add(at(rot(cyl(M(110), M(110), M(70), MAT.black(), 20), 0, 0, Math.PI/2), mcylPos.x, mcylPos.y, mcylPos.z));          // the servo
@@ -442,7 +451,7 @@ function buildCar(v, tree){
     mc.add(at(roundBox(M(90), M(80), M(70), .01, MAT.plastic()), mcylPos.x + M(120), mcylPos.y + M(80), mcylPos.z));          // the reservoir
     add('mcyl', mc);
   }
-  if (gen('abs')) add('abs', at(roundBox(M(150), M(130), M(120), .01, MAT.plastic()), firewallX != null ? firewallX + M(100) : axF*0.3, floorY + M(430), -wid*0.36));
+  if (gen('abs')) add('abs', at(roundBox(M(150), M(130), M(120), .01, MAT.plastic()), firewallX != null ? firewallX + M(100) : axF*0.3, underSkin(firewallX != null ? firewallX + M(100) : axF*0.3, floorY + M(430), M(130)), -wid*0.36));
   if (gen('brakelines')){
     const bl = group('brakelines');
     const y = floorY - M(20);
@@ -549,7 +558,7 @@ function buildCar(v, tree){
     hs.add(pipe([[radX - M(30), radY - radH*0.30, -radW*0.42],[engX + M(250), engY - M(60), -tf*0.20]], M(20), MAT.rubber(), 8));
     add('hoses', hs);
   }
-  if (gen('exptank')) add('exptank', at(roundBox(M(160), M(160), M(130), .02, MAT.plastic()), engX + M(120), engY + M(260), wid*0.30));
+  if (gen('exptank')) add('exptank', at(roundBox(M(160), M(160), M(130), .02, MAT.plastic()), engX + M(120), underSkin(engX + M(120), engY + M(260), M(160)), wid*0.30));
   if (gen('condenser')) add('condenser', at(coreMesh(radW*0.92, radH*0.82, M(22), {}, 14), radX + M(70), radY - radH*0.04, 0));
   if (gen('accomp')) add('accomp', at(rot(cyl(M(65), M(65), M(200), MAT.alloyDark(), 16), 0, 0, Math.PI/2), engX + (transverse ? M(360) : M(380)), engY - M(120), transverse ? engZ - M(100) : -tf*0.20));
   if (gen('heaterbox')) add('heaterbox', at(roundBox(M(260), M(280), M(420), .03, MAT.plastic()), dashX - M(140), floorY + M(540), wid*0.06));
@@ -557,9 +566,9 @@ function buildCar(v, tree){
   /* ---- electrics ---- */
   const batX = open ? X(0.63) : mid ? X(0.12) : transverse ? radX - M(200) : (firewallX != null ? firewallX + M(250) : engX - M(300));
   const batZ = open ? wid*0.18 : transverse ? -wid*0.28 : wid*0.28;
-  if (gen('battery')) add('battery', at(roundBox(M(280), M(200), M(190), .01, MAT.black()), batX, floorY + M(420), batZ));
-  if (gen('fusebox')) add('fusebox', at(roundBox(M(130), M(120), M(200), .01, MAT.plastic()), open ? batX : firewallX != null ? firewallX + M(85) : batX - M(60), floorY + M(500), open ? -wid*0.18 : wid*0.38));
-  if (gen('ecu')) add('ecu', at(roundBox(M(180), M(40), M(140), .01, MAT.alloy()), open ? X(0.60) : firewallX != null ? firewallX + M(60) : axF*0.2, open ? floorY + M(300) : floorY + M(560), open ? 0 : -wid*0.30));
+  if (gen('battery')) add('battery', at(roundBox(M(280), M(200), M(190), .01, MAT.black()), batX, underSkin(batX, floorY + M(420), M(200)), batZ));
+  if (gen('fusebox')) add('fusebox', at(roundBox(M(130), M(120), M(200), .01, MAT.plastic()), open ? batX : firewallX != null ? firewallX + M(85) : batX - M(60), underSkin(firewallX != null ? firewallX + M(85) : batX, floorY + M(500), M(120)), open ? -wid*0.18 : wid*0.38));
+  if (gen('ecu')) add('ecu', at(roundBox(M(180), M(40), M(140), .01, MAT.alloy()), open ? X(0.60) : firewallX != null ? firewallX + M(60) : axF*0.2, open ? floorY + M(300) : underSkin(firewallX != null ? firewallX + M(60) : axF*0.2, floorY + M(560), M(40)), open ? 0 : -wid*0.30));
   if (gen('harness') && (open || kart)){
     /* a single-seater's loom runs along the tub floor from the battery to the
        dash; a kart's from the engine to the steering column */
@@ -582,8 +591,8 @@ function buildCar(v, tree){
                    [axR + M(500), floorY + M(70) + i*M(9), -wid*0.27]], M(6), MAT.wire(cols[i]), 5));
     add('harness', hn);
   }
-  if (gen('horn')) add('horn', at(rot(cyl(M(45), M(45), M(50), MAT.black(), 14), 0, 0, Math.PI/2), radX + M(170), radY + radH*0.30, radW*0.14));
-  if (gen('washer')) add('washer', at(roundBox(M(180), M(260), M(120), .02, MAT.plastic()), radX - M(140), floorY + M(360), -wid*0.36));
+  if (gen('horn')) add('horn', at(rot(cyl(M(45), M(45), M(50), MAT.black(), 14), 0, 0, Math.PI/2), radX + M(170), underSkin(radX + M(170), radY + radH*0.30, M(90)), radW*0.14));
+  if (gen('washer')) add('washer', at(roundBox(M(180), M(260), M(120), .02, MAT.plastic()), radX - M(140), underSkin(radX - M(140), floorY + M(360), M(260)), -wid*0.36));
   if (gen('headunit')) add('headunit', at(roundBox(M(150), M(100), M(180), .01, MAT.black()), dashX - (open || kart ? M(120) : M(360)), (open || kart ? floorY + hgt*0.52 : waistY(cuts.doorF) - M(190)), 0));
   if (gen('amp')) add('amp', at(roundBox(M(320), M(70), M(240), .01, MAT.alloyDark()), axR - M(200), floorY + M(140), -wid*0.2));
   if (gen('speakers')){
@@ -594,11 +603,6 @@ function buildCar(v, tree){
   }
 
   /* ---- the body: a lofted skin cut into its panels, or the scan ---- */
-  let surf = null, sp = null;
-  if (genBody || (scan && !open)){
-    surf = bodySurfaces(v, len, hgt, floorY, axF, axR, rF, rR, cuts);
-    sp = shellProbe(surf.body);
-  }
   if (genBody){
     const opacity = globalThis.__MOTORLAB_BODY_OPACITY ?? 1;
     const paint = carPaint(v.colour, opacity);
@@ -1222,14 +1226,32 @@ function loftPanels(surf, len, hgt, floorY, cuts, opts){
     for (const [ax, r] of opts.arches) if (Math.hypot(cx - ax, cy - r) < r * 1.62 && cy < r * 1.7) return true;   // arch flares
     return false;
   } : null;
-  for (let i = 0; i < rings - 1; i++)
+  /* The shut lines are in the loft itself: bodySurfaces() puts a pair of
+     rings 1 mm either side of every cut, and the 4 mm band of quads between
+     them is drawn in the gap material — a real dark groove with nothing
+     standing proud of the paint to cast a shadow. The bonnet and boot lines
+     run over the top only; a door line runs from the sill to the roof. */
+  const bandOf = (i) => {
+    const t0 = sections[i].t, t1 = sections[i + 1].t;
+    if (t1 - t0 > 0.0012) return null;
+    for (const [name, c] of Object.entries(cuts)) if (Math.abs((t0 + t1) / 2 - c) < 0.0007 && !/bumper|frameR/.test(name)) return name;
+    return null;
+  };
+  for (let i = 0; i < rings - 1; i++){
+    const band = bandOf(i);
     for (let j = 0; j < N; j++){
       const a = pos[i*N + j], b = pos[i*N + (j+1)%N], c = pos[(i+1)*N + (j+1)%N], d = pos[(i+1)*N + j];
       /* one label per quad, so a seam never cuts a quad diagonally */
       let id = classify(a, b, c);
       if (clad && id !== 'chassis' && clad(a, b, c)) id += '|clad';
+      if (band && id !== 'chassis'){
+        const cy = (a[1] + b[1] + c[1]) / 3, sec = sections[i];
+        const over = (band === 'bonnet' || band === 'boot') ? cy > sec.waistY - hgt * 0.02 : cy > sec.doorSill - M(10);
+        if (over) id = id.replace('|clad', '') + '|gap';
+      }
       put(id, a, b, c); put(id, a, c, d);
     }
+  }
   for (const [ringIndex, flip] of [[0, false], [rings-1, true]]){
     let cx = 0, cy = 0, cz = 0;
     for (let j = 0; j < N; j++){ const p = pos[ringIndex*N + j]; cx += p[0]; cy += p[1]; cz += p[2]; }
@@ -1247,19 +1269,19 @@ function loftPanels(surf, len, hgt, floorY, cuts, opts){
   const roofMat = opts.roof?.type === 'carbon' ? MAT.carbon() : opts.paint;
   const bumperMat = opts.paint;
   for (const [key, arr] of tris){
-    const id = key.replace('|clad', ''), isClad = key.endsWith('|clad');
+    const id = key.replace(/\|(clad|gap)$/, ''), isClad = key.endsWith('|clad'), isGap = key.endsWith('|gap');
     const g = new THREE.BufferGeometry();
     const flat = new Float32Array(arr.length * 3);
     arr.forEach((p, i) => { flat[i*3] = p[0]; flat[i*3+1] = p[1]; flat[i*3+2] = p[2]; });
     g.setAttribute('position', new THREE.BufferAttribute(flat, 3));
     g.computeVertexNormals(); ensureUV(g, 4);
-    const mat = isClad ? CLAD() : id === 'chassis' ? MAT.underbody() : id === 'bonnet' ? bonnetMat : id === 'roof' ? roofMat
+    const mat = isGap ? GAP() : isClad ? CLAD() : id === 'chassis' ? MAT.underbody() : id === 'bonnet' ? bonnetMat : id === 'roof' ? roofMat
               : id.startsWith('sills') ? (opts.clad ? CLAD() : MAT.satin(0x15171a)) : id.startsWith('bumper') ? bumperMat : opts.paint;
     const mesh = new THREE.Mesh(g, mat);
     mesh.name = 'panel:' + id;
     if (id === 'chassis') mesh.name = 'floorpan';
     out.push([id, mesh]);
-    if (isClad) continue;
+    if (isClad || isGap) continue;
     /* the vented bonnet gets its louvres, the sunroof its glass */
     if (id === 'bonnet' && opts.bonnet?.type === 'vented'){
       const sec = secAtX(X(cuts.bonnet * 0.55));
@@ -1309,11 +1331,29 @@ function shellProbe(sections){
     const w = cy >= 0 ? sec.wBot + (sec.wTop - sec.wBot) * cy : sec.wBot;
     return w * Math.pow(cz, 2 / n);
   };
+  /* the loft is faceted: between two of its ring vertices the surface is a
+     chord, not the curve. Trim that has to lie *in* the skin (a shut line)
+     follows the chord, or it stands proud between the vertices. */
+  const NRING = 56;
+  const facetZ = (sec, y) => {
+    if (!sec) return 0;
+    const yMid = (sec.yTop + sec.yBot) / 2, hH = Math.max(1e-4, (sec.yTop - sec.yBot) / 2);
+    const sy = Math.max(-0.999, Math.min(0.999, (y - yMid) / hH));
+    const n = sec.squ || 2.6;
+    const th = Math.asin(Math.sign(sy) * Math.pow(Math.abs(sy), n / 2));      // the right-hand side, cz ≥ 0
+    const step = Math.PI * 2 / NRING, j = Math.floor((th + Math.PI * 2) / step);
+    const p0 = ringPoint(sec, j * step), p1 = ringPoint(sec, (j + 1) * step);
+    const f = Math.abs(p1[1] - p0[1]) < 1e-6 ? 0.5 : Math.max(0, Math.min(1, (y - p0[1]) / (p1[1] - p0[1])));
+    return Math.abs(p0[2] + (p1[2] - p0[2]) * f);
+  };
   const noseX = S.length ? S[0].x : 0, tailX = S.length ? S[S.length-1].x : 0;
   return {
-    noseX, tailX, secAt, surfZ,
+    noseX, tailX, secAt, surfZ, facetZ,
     z(x, y){ return surfZ(secAt(x), y); },
+    zf(x, y){ return facetZ(secAt(x), y); },
     p(x, y, side, lift = 0){ return new THREE.Vector3(x, y, side * (this.z(x, y) + lift)); },
+    /* a point in the faceted skin, for trim that must lie in it */
+    pf(x, y, side, lift = 0){ return new THREE.Vector3(x, y, side * (this.zf(x, y) + lift)); },
     top(x){ const c = secAt(x); return c ? c.yTop : 0; },
     bot(x){ const c = secAt(x); return c ? c.yBot : 0; },
   };
@@ -1344,14 +1384,14 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
   /* --- panel gaps: a 5 mm dark line lying in the skin ------------------- */
   /* a shut line is a gap, not a bead: the dark pipe is sunk into the skin so
      only a sliver of it shows, and that sliver reads as depth */
-  const seam = (id, pts, r = M(7)) => pts.length > 1 && give(id, pipe(pts, r, gap, 5));
+  const seam = (id, pts, r = M(5)) => pts.length > 1 && give(id, pipe(pts, r, gap, 5));
   const runV = (t, y0, y1, side, n = 9) => {
     const out2 = [], x = X(t);
     for (let i = 0; i <= n; i++){
       const y = y0 + (y1 - y0) * (i / n);
       if (y > sp.top(x) - M(20) || y < sp.bot(x) + M(10)) continue;
       if (sp.z(x, y) < M(60)) continue;
-      out2.push(sp.p(x, y, side, -M(4)).toArray());
+      out2.push(sp.pf(x, y, side, -M(3)).toArray());
     }
     return out2;
   };
@@ -1362,7 +1402,7 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
       const x = X(t);
       if (y > sp.top(x) - M(20) || y < sp.bot(x) + M(10)) continue;
       if (sp.z(x, y) < M(60)) continue;
-      out2.push(sp.p(x, y, side, -M(4)).toArray());
+      out2.push(sp.pf(x, y, side, -M(4)).toArray());
     }
     return out2;
   };
@@ -1370,18 +1410,16 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
   for (const side of [-1, 1]){
     const sill = sections[Math.floor(sections.length/2)].doorSill;
     const dF = 'doorF.' + side1(side), dR = doors4 ? 'doorR.' + side1(side) : dF;
-    seam(dF, runV(cuts.doorF, sill, sp.top(X(cuts.doorF)) - hgt * 0.012, side));
-    if (doors4) seam(dR, runV(cuts.B, sill, sp.top(X(cuts.B)) - hgt * 0.012, side));
-    seam(dR, runV(cuts.doorR, sill, sp.top(X(cuts.doorR)) - hgt * 0.012, side));
+    /* the vertical cuts are grooves in the loft itself (loftPanels); the door
+       bottoms and the shoulder lines, which run between rings, are drawn here */
     seam(dF, runH(cuts.doorF, doors4 ? cuts.B : cuts.doorR, sill, side));
     if (doors4) seam(dR, runH(cuts.B, cuts.doorR, sill, side));
-    if (v.body === 'suv') seam('bootlid', runV(cuts.boot, sill, sp.top(X(cuts.boot)) - hgt * 0.02, side, 14));
     for (const [t0, t1, id] of (v.body === 'suv' ? [[0.06, cuts.bonnet, 'bonnet']] : [[0.06, cuts.bonnet, 'bonnet'], [cuts.boot, 0.96, 'bootlid']])){
       const pts = [];
       for (let i = 0; i <= 10; i++){
         const t = t0 + (t1 - t0) * (i / 10), x = X(t), y = waist(t) - hgt * 0.012;
         if (sp.z(x, y) < M(60)) continue;
-        pts.push(sp.p(x, y, side, -M(4)).toArray());
+        pts.push(sp.pf(x, y, side, -M(4)).toArray());
       }
       seam(id, pts);
     }
@@ -1405,17 +1443,13 @@ function bodyDetail(v, L, sections, len, hgt, wid, floorY, axF, axR, rF, rR, cut
     const n = c.squ || 2.6;
     const yMid = (c.yTop + c.yBot) / 2, hH = (c.yTop - c.yBot) / 2;
     const pts = [];
-    for (let i = 0; i <= 20; i++){
-      const th = Math.PI * (i / 20);
-      const cz = Math.cos(th), cy = Math.sin(th);
-      const sz = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / n);
-      const sy = Math.pow(Math.max(0, cy), 2 / n);
-      const w = c.wBot + (c.wTop - c.wBot) * cy;
-      pts.push([c.x, yMid + hH * sy - M(4), w * sz * 0.996]);
+    const NR = 56;
+    for (let j = 0; j <= NR / 2; j++){
+      const q = ringPoint(c, (j / NR) * Math.PI * 2);
+      pts.push([q[0], q[1] - M(3), q[2] * 0.996]);
     }
     return pts;
   };
-  seam('bonnet', arc(cuts.bonnet)); seam('bootlid', arc(cuts.boot));
 
   /* --- wheel arch lips, on the wing and the quarter ---------------------- */
   for (const [ax, r, idBase] of [[axF, rF, 'wingF'], [axR, rR, 'quarters']])
