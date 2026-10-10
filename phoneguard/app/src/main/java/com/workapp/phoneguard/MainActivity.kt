@@ -670,26 +670,7 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- Helpers
 
     private fun runFix(fix: Fix, pkg: String?) {
-        val pkgUri = pkg?.let { Uri.fromParts("package", it, null) }
-        val candidates: List<Intent> = when (fix) {
-            Fix.APP_INFO -> listOfNotNull(pkgUri?.let { Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, it) })
-            Fix.UNINSTALL -> listOfNotNull(
-                pkgUri?.let { Intent(Intent.ACTION_DELETE, it) },
-                pkgUri?.let { Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, it) },
-            )
-            Fix.ACCESSIBILITY -> listOf(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            Fix.DEVICE_ADMIN -> listOf(
-                Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")),
-                Intent(Settings.ACTION_SECURITY_SETTINGS),
-            )
-            Fix.NOTIFICATION_ACCESS -> listOf(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            Fix.DEV_OPTIONS -> listOf(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
-            Fix.SECURITY -> listOf(Intent(Settings.ACTION_SECURITY_SETTINGS))
-            Fix.VPN -> listOf(Intent(Settings.ACTION_VPN_SETTINGS))
-            Fix.NETWORK -> listOf(Intent(Settings.ACTION_WIRELESS_SETTINGS))
-            Fix.SCREEN_LOCK -> listOf(Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD), Intent(Settings.ACTION_SECURITY_SETTINGS))
-            Fix.UPDATE -> listOf(Intent("android.settings.SYSTEM_UPDATE_SETTINGS"), Intent(Settings.ACTION_DEVICE_INFO_SETTINGS))
-        } + Intent(Settings.ACTION_SETTINGS)
+        val candidates = FixIntents.candidates(this, fix, pkg)
         for (i in candidates) {
             try {
                 startActivity(i)
