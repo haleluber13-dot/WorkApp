@@ -104,6 +104,8 @@ class HomeScreen(host: Host) : Screen(host) {
             scanned = rules.lastScanTime > 0,
             scanHigh = rules.lastScanHigh,
             batteryExempt = battery,
+            chosenMode = rules.mode,
+            fallbackProblem = fallbackProblem(rules),
         )
         val notifyOk = Build.VERSION.SDK_INT < 33 ||
             ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -164,6 +166,9 @@ class HomeScreen(host: Host) : Screen(host) {
                     .apply { gravity = Gravity.CENTER }, 0)
             }
         } else {
+            if (status.offerRetryFull) {
+                c.put(ctx.pill("Try Full protection again", C.GREEN) { retryFullProtection(host) }, 8, wrap = true)
+            }
             c.put(ctx.pill("Turn off protection", C.RED, filled = false) { confirmTurnOff(host) }, 0, wrap = true)
         }
         body.put(c)
@@ -174,8 +179,12 @@ class HomeScreen(host: Host) : Screen(host) {
         c.put(ctx.sectionTitle("Web Shield"), 4)
         val running = s.status.running
         val basic = s.status.mode == ProtectionMode.BASIC
+        val fellBack = basic && s.status.chosenMode == ProtectionMode.FULL
         val line = when {
             !running -> "Blocks dangerous and spying websites for every app. Off while protection is off."
+            fellBack && s.status.fallbackProblem != null ->
+                "Paused, because Full protection had a problem. Tap \"Try Full protection again\" above."
+            fellBack -> "Starting…"
             basic -> "Off in Basic mode. Choose Full protection in Settings to use it."
             s.categories.isEmpty() -> "All block lists are switched off."
             else -> "On · blocking " + s.categories.joinToString(", ")
@@ -256,8 +265,7 @@ class HomeScreen(host: Host) : Screen(host) {
         ) { openBatterySettings() }, 14)
         c.put(ctx.checkItem(
             null, "Keep protection on after a restart",
-            "Open VPN settings → tap ⚙ next to PhoneGuard → turn ON \"Always-on VPN\". " +
-                "Leave \"Block connections without VPN\" OFF, or every app loses internet if PhoneGuard ever stops.",
+            DeviceHealth.alwaysOnVpnTip(),
             "Open VPN settings",
         ) { host.runFix(Fix.VPN, null) }, if (s.tips.isEmpty()) 0 else 14)
         if (s.tips.isNotEmpty()) {
@@ -300,7 +308,10 @@ class HomeScreen(host: Host) : Screen(host) {
 
     private fun updateCounters() {
         shieldCount?.text = DnsStatus.blocked.let { n ->
-            if (n <= 0) "Nothing blocked yet." else "${Format.count(n, "dangerous or tracking site")} blocked since PhoneGuard started."
+            // The counter goes up each time a dangerous or tracking site is blocked (repeats a few seconds
+            // apart count once), so say how many times rather than suggest this many different sites.
+            if (n <= 0) "Nothing blocked yet."
+            else "Dangerous or tracking sites blocked ${Format.count(n, "time")} since PhoneGuard started."
         }
         firewallLine?.text = firewallSummary(host.rules)
         if (scanLine != null) scanLine?.text = "Scanning… ${ScanTask.progress}"

@@ -6,6 +6,11 @@ import com.workapp.phoneguard.ProtectionMode
 
 enum class Level { PROTECTED, PARTIAL, OFF }
 
+/** One plain sentence for the fall back to Basic mode, used on Home, Activity and Settings. */
+const val FALLBACK_TEXT =
+    "Full protection had a problem, so PhoneGuard switched to Basic mode to keep you online. " +
+        "Blocked apps are still blocked, but the Web Shield and data monitor are paused."
+
 data class StatusInput(
     val running: Boolean,
     /** Mode the firewall is actually running in (null if unknown or off). */
@@ -21,18 +26,35 @@ data class StatusInput(
     val scanned: Boolean,
     val scanHigh: Int,
     val batteryExempt: Boolean,
+    /** The mode the user picked in Settings (null = same as [mode]). */
+    val chosenMode: ProtectionMode? = null,
+    /** Set when Full protection failed and Basic mode took over (FirewallService.problem). */
+    val fallbackProblem: String? = null,
 )
 
 data class Issue(val text: String, val serious: Boolean = false)
 
-data class ProtectionStatus(val level: Level, val title: String, val summary: String, val issues: List<Issue>)
+data class ProtectionStatus(
+    val level: Level,
+    val title: String,
+    val summary: String,
+    val issues: List<Issue>,
+    /** Offer a "Try Full protection again" button (Full mode fell back to Basic). */
+    val offerRetryFull: Boolean = false,
+)
 
 object Status {
     fun evaluate(s: StatusInput): ProtectionStatus {
         val issues = ArrayList<Issue>()
+        val fellBack = s.running && s.mode == ProtectionMode.BASIC && s.chosenMode == ProtectionMode.FULL
         if (s.running) {
             if (s.mode == ProtectionMode.BASIC) {
-                issues += Issue("Basic mode is on, so the Web Shield and data monitor are off. You can switch to Full in Settings.")
+                issues += when {
+                    // Full mode is already picked, so "switch to Full" would be no help: offer a retry instead.
+                    fellBack && !s.fallbackProblem.isNullOrBlank() -> Issue(FALLBACK_TEXT, serious = true)
+                    fellBack -> Issue("Switching to Full protection…")
+                    else -> Issue("Basic mode is on, so the Web Shield and data monitor are off. You can switch to Full in Settings.")
+                }
             } else {
                 if (!s.shieldOn) issues += Issue("Web Shield is switched off, so dangerous sites aren't blocked.")
                 when {
@@ -64,7 +86,10 @@ object Status {
                 "Dangerous sites are blocked, your site lookups are encrypted and your last scan was clean.",
                 issues,
             )
-            else -> ProtectionStatus(Level.PARTIAL, "Partially protected", "Protection is on, but:", issues)
+            else -> ProtectionStatus(
+                Level.PARTIAL, "Partially protected", "Protection is on, but:", issues,
+                offerRetryFull = fellBack && !s.fallbackProblem.isNullOrBlank(),
+            )
         }
     }
 }

@@ -22,6 +22,7 @@ import com.workapp.phoneguard.core.ConnEvent
 import com.workapp.phoneguard.core.TrafficStore
 import com.workapp.phoneguard.dp
 import com.workapp.phoneguard.label
+import com.workapp.phoneguard.pill
 import com.workapp.phoneguard.put
 import com.workapp.phoneguard.rounded
 import com.workapp.phoneguard.row
@@ -47,6 +48,7 @@ class ActivityScreen(host: Host) : Screen(host) {
 
     private lateinit var list: ListView
     private lateinit var intro: TextView
+    private lateinit var retryFull: TextView
     private lateinit var senders: LinearLayout
     private lateinit var moreSenders: TextView
     private lateinit var emptyEvents: TextView
@@ -77,6 +79,8 @@ class ActivityScreen(host: Host) : Screen(host) {
 
         intro = ctx.label("", 14f, C.SUB)
         header.put(intro, 10)
+        retryFull = ctx.pill("Try Full protection again", C.GREEN) { retryFullProtection(host) }
+        header.put(retryFull, 10, wrap = true)
 
         val who = ctx.card()
         who.put(ctx.sectionTitle("Who is sending data"), 4)
@@ -137,7 +141,7 @@ class ActivityScreen(host: Host) : Screen(host) {
     private fun onEvent(e: ConnEvent) {
         // Nothing to offer for an unnamed connection from something that can't be blocked.
         if (e.domain == null && !AppNames.of(ctx, e.uid).isApp) return
-        showSiteActions(host, e.domain, e.uid, e.blocked) { refresh() }
+        showSiteActions(host, e.domain, e.uid, e.blocked, e.reason) { refresh() }
     }
 
     override fun onShown() = refresh()
@@ -150,19 +154,20 @@ class ActivityScreen(host: Host) : Screen(host) {
         refreshIntro()
         refreshSenders(apps)
 
-        val recent = TrafficStore.recent()
         val newEvents = when (filter) {
-            Filter.ALL -> recent
-            Filter.BLOCKED -> recent.filter { it.blocked }
+            Filter.ALL -> TrafficStore.recent()
+            // Blocked events have their own log, so lots of allowed traffic can't push them out.
+            Filter.BLOCKED -> TrafficStore.recentBlocked()
             Filter.SCREEN_OFF -> {
                 val uids = apps.filter { it.sentScreenOff >= Format.SCREEN_OFF_NOTABLE }.map { it.uid }.toSet()
-                recent.filter { it.uid in uids }
+                TrafficStore.recent().filter { it.uid in uids }
             }
         }
         emptyEvents.text = when {
             newEvents.isNotEmpty() -> ""
+            // Same source as the "Blocked log (N)" count, so the two never contradict each other.
+            filter == Filter.BLOCKED -> Format.emptyBlockedText(FirewallService.running, TrafficStore.totalBlocked())
             !FirewallService.running -> "Nothing to show. Turn on protection to see connections."
-            filter == Filter.BLOCKED -> "Nothing blocked yet. When a site or app is blocked, it shows up here."
             filter == Filter.SCREEN_OFF -> "No app has uploaded much while your screen was off. That's good."
             else -> "No connections seen yet."
         }
@@ -195,8 +200,12 @@ class ActivityScreen(host: Host) : Screen(host) {
 
     private fun refreshIntro() {
         val mode = runningMode(host.rules)
+        val fellBack = fellBackToBasic(host.rules)
+        retryFull.visibility = if (fellBack) View.VISIBLE else View.GONE
         intro.text = when {
             mode == null -> "Protection is off, so PhoneGuard can't see connections right now. Turn it on from Home."
+            fellBack -> FALLBACK_TEXT
+            mode == ProtectionMode.BASIC && host.rules.mode == ProtectionMode.FULL -> "Switching to Full protection…"
             mode == ProtectionMode.BASIC -> "Basic mode only sees apps you've blocked. Choose Full protection in Settings to see every app's traffic."
             else -> "Live view of where your apps connect, updated every 2 seconds. Counting since " +
                 android.text.format.DateUtils.formatSameDayTime(
