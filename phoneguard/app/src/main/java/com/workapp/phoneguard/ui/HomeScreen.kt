@@ -286,6 +286,7 @@ class HomeScreen(host: Host) : Screen(host) {
         val c = ctx.card()
         c.put(ctx.sectionTitle("Your privacy"), 6)
         c.put(ctx.bullet("PhoneGuard uses the internet only to pass your apps' own traffic through, to send encrypted site lookups to the DNS provider you choose, and to download blocklist updates."), 4)
+        c.put(ctx.bullet("If your DNS provider can't be reached, lookups go to your network's own DNS without encryption, so the internet keeps working. The Web Shield card above tells you when this happens."), 4)
         c.put(ctx.bullet("It never uploads information about you."), 4)
         c.put(ctx.bullet("Everything it records (rules, scan results, activity) stays on this phone."), 0)
         body.put(c)
