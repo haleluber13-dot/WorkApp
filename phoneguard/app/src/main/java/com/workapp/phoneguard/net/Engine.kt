@@ -403,7 +403,11 @@ class Engine(
         }
         loopDone = true
         tun.wakeup() // the reader stops too
-        shutdown()
+        try {
+            shutdown()
+        } catch (_: Throwable) {
+            // Even if cleanup fails (e.g. out of memory), the service must still hear about it.
+        }
         if (error != null && !stopping) {
             died = true
             try {
@@ -888,7 +892,12 @@ class Engine(
         scratch.addAll(tcp.values)
         scratch.addAll(udp.values)
         // Reset the apps' connections so they reconnect at once instead of hanging.
-        for (f in scratch) kill(f)
+        for (f in scratch) {
+            try {
+                kill(f)
+            } catch (_: Throwable) {
+            }
+        }
         scratch.clear()
         tcp.clear()
         udp.clear()

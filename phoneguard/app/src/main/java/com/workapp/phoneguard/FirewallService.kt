@@ -193,12 +193,15 @@ class FirewallService : VpnService() {
         }
     }
 
-    /** Checks that the engine isn't hung; a hung engine would leave every app without internet. */
+    /**
+     * Checks that the engine is neither hung nor dead (in case its death notice got lost):
+     * either would leave every app without internet.
+     */
     private val watchdog = object : Runnable {
         override fun run() {
             val eng = engine ?: return
             if (!alive || !running || activeMode != ProtectionMode.FULL) return
-            if (eng.isStuck()) fallBackToBasic() else main.postDelayed(this, WATCHDOG_MS)
+            if (eng.died || eng.isStuck()) fallBackToBasic() else main.postDelayed(this, WATCHDOG_MS)
         }
     }
 
