@@ -64,6 +64,55 @@ The syllable rules here — whether a sheva is sounded, whether a dagesh doubles
 or hardens — are the standard teaching rules. They are a good approximation,
 not a full grammatical parse, and they will be wrong on some words.
 
+## Read aloud
+
+The **Read aloud** tab narrates the text over the music, using the speech
+voices already on the device. Nothing is sent anywhere — the speaking happens
+on your phone or laptop.
+
+- **Any language the device can speak.** The voice list is whatever the
+  operating system has: a Mac or iPhone usually has dozens including Hebrew,
+  Android has whatever Google Speech Services has downloaded, a bare Linux
+  browser may have none. The pane says how many it found and where to get more.
+- **Two modes.** *Follow the music* speaks each verse as the playhead reaches
+  it — note that the fast styles outrun any narrator, so this suits Ambient
+  Scroll, Drone, Dub and Downtempo. *Audiobook* lets the narrator set the pace,
+  reading verse after verse with the music underneath.
+- **What to read**: the pointed Hebrew, the transliteration, or a translation.
+- **Eight characters** — Storyteller, Herald, Scholar, Light, Close, Rush,
+  Dream — which shape the device's own voice with speed and pitch, plus the
+  three sliders underneath. They are not impressions of anybody.
+- **Ducking** drops the band under the voice and brings it back after.
+
+### The languages
+
+Speaking a language and having the text in it are two different things. The
+voices cover whatever the device has; the **words** have to come from a
+translation. Four are bundled, and every one is public domain:
+
+| | |
+|---|---|
+| English | The Holy Scriptures: A New Translation (JPS 1917) |
+| Français | Bible du Rabbinat, 1899 |
+| Polski | trans. Izaak Cylkow, 1841–1908 |
+| Esperanto | La Malnova Testamento, L. L. Zamenhof |
+
+`tools/torah_translations.py` fetches them from [Sefaria](https://www.sefaria.org)
+and **refuses any version not marked Public Domain** — the check runs per book
+at fetch time, so a licence change upstream cannot quietly pull a restricted
+text into the bundle. That guard is why the list is four and not ten.
+
+For any other language, load your own from the bottom of the pane: either a
+JSON file shaped `{ "label": "…", "books": { "genesis": [[verse, …], …] } }`,
+or a plain text file with one verse per line laid over the current selection.
+
+### On celebrity and musician voices
+
+Not supported, deliberately. Cloning a real person's voice to narrate text puts
+words in their mouth they never said; name, likeness and voice are protected in
+many places, and several jurisdictions now legislate on voice cloning
+specifically. The character presets shape the device's own voice instead.
+
 ## The styles
 
 The mapping decides which note a letter gets. The **style** decides what kind of

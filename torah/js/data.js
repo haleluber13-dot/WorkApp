@@ -105,3 +105,51 @@ export const countLetters = verses =>
     (w, x) => w + (x.match(LETTER_RE)?.length || 0), 0), 0);
 
 export const countWords = verses => verses.reduce((n, v) => n + v.words.length, 0);
+
+/* ------------------------------------------------------------ translations
+ *
+ * Only public-domain translations are bundled — nineteenth and early
+ * twentieth century works whose copyright has expired. Each language is a
+ * separate file, fetched the first time it is chosen rather than up front,
+ * because together they are larger than the Hebrew.
+ */
+
+const TRANS = new URL('../data/trans/', import.meta.url);
+const transCache = new Map();
+let transIndex = null;
+
+export async function loadTranslationIndex() {
+  if (transIndex) return transIndex;
+  try {
+    const res = await fetch(new URL('index.json', TRANS));
+    transIndex = res.ok ? (await res.json()).translations || [] : [];
+  } catch (_) {
+    transIndex = [];              // no translations bundled; Hebrew still works
+  }
+  return transIndex;
+}
+
+export async function loadTranslation(code) {
+  if (transCache.has(code)) return transCache.get(code);
+  const p = (async () => {
+    const res = await fetch(new URL(`${code}.json`, TRANS));
+    if (!res.ok) throw new Error(`no ${code} translation (${res.status})`);
+    return res.json();
+  })();
+  transCache.set(code, p);
+  try { return await p; } catch (err) { transCache.delete(code); throw err; }
+}
+
+/** Hold a translation the reader supplied themselves, for any language. */
+export function addTranslation(code, payload) {
+  transCache.set(code, Promise.resolve(payload));
+  transIndex = (transIndex || []).filter(t => t.code !== code)
+    .concat([{ code, label: payload.label || code, file: null, own: true }]);
+  return transIndex;
+}
+
+/** One verse of a loaded translation, or '' if it does not reach that far. */
+export function verseText(trans, bookId, chapter, verse) {
+  const ch = trans?.books?.[bookId];
+  return ch?.[chapter - 1]?.[verse - 1] || '';
+}

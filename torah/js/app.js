@@ -13,6 +13,7 @@ import { SampleBank, Recorder, defaultPads } from './samples.js';
 import * as lyrics from './lyrics.js';
 import { VOWELS, translit } from './niqqud.js';
 import { mount } from './panes.js';
+import { Narrator, CHARACTERS } from './voice.js';
 
 const $ = id => document.getElementById(id);
 
@@ -50,7 +51,22 @@ const state = {
   lyrics: { text: '', barsPerLine: 1, offsetBars: 0 },
   theme: 'dark',
   themeExplicit: false,   // true once the reader picks one themselves
+  narration: {
+    on: false,
+    mode: 'follow',       // 'follow' the music, or 'book' at its own pace
+    source: 'hebrew',     // 'hebrew' | 'translit' | a translation code
+    lang: '', voiceName: '',
+    rate: 1, pitch: 1, volume: 1,
+    character: 'plain',
+    duck: true,
+    verseIndex: 0,        // where the audiobook has got to
+  },
 };
+
+const narrator = new Narrator();
+let translationList = [];
+let translation = null;      // the loaded translation, if the source is one
+let spokenVerse = -1;        // the verse the narrator last started
 
 const bank = new SampleBank();
 const recorder = new Recorder();
@@ -73,6 +89,7 @@ async function boot() {
   loadProject();
   applyTheme(state.theme);
   await bank.init();
+  await setupNarrator();
 
   buildStyleSel();
   buildBookSel();
@@ -673,6 +690,7 @@ function frame() {
   else if (state.view === 'spectrum') drawSpectrum();
 
   panes?.updateKaraoke(now);
+  narrationTick();
 
   if (transport.playing) {
     updateHighlight(now);
@@ -730,7 +748,10 @@ function wire() {
     if (transport.playing) { transport.pause(); setPlayIcon(false); }
     else { await transport.play(); setPlayIcon(true); }
   });
-  transport.onEnd = () => setPlayIcon(false);
+  transport.onEnd = () => {
+    setPlayIcon(false);
+    if (state.narration.mode === 'follow') { narrator.cancel(); duck(false); }
+  };
 
   $('seek').addEventListener('input', e => {
     const d = state.score?.duration || 0;
@@ -980,6 +1001,114 @@ async function doRender() {
 }
 
 
+/* ------------------------------------------------------------ the narrator */
+
+async function setupNarrator() {
+  if (!Narrator.supported) return;
+  await narrator.load();
+  translationList = await data.loadTranslationIndex();
+
+  // Prefer a Hebrew voice if the device has one, since that is the text.
+  const n = state.narration;
+  if (!n.lang) {
+    const langs = narrator.languages().map(l => l.code);
+    n.lang = langs.includes('he') ? 'he'
+      : langs.includes((navigator.language || 'en').split('-')[0])
+        ? (navigator.language || 'en').split('-')[0]
+        : langs[0] || '';
+  }
+  if (!n.voiceName) {
+    const first = narrator.forLanguage(n.lang)[0];
+    n.voiceName = first ? first.name : '';
+  }
+  if (n.source && n.source !== 'hebrew' && n.source !== 'translit') {
+    try { translation = await data.loadTranslation(n.source); }
+    catch (_) { n.source = 'hebrew'; }
+  }
+}
+
+/** The verse the narrator should be on right now. */
+function narrationVerse() {
+  const n = state.narration;
+  if (n.mode === 'book') return Math.min(n.verseIndex, state.verses.length - 1);
+  // Following the music: whichever verse the playhead is inside.
+  const idx = state.score?.index;
+  if (!idx?.length) return 0;
+  const t = transport.position;
+  let lo = 0, hi = idx.length - 1, best = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (idx[mid].t <= t) { best = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return idx[best].verseIndex;
+}
+
+/** What that verse says, in whichever text is selected. */
+function verseLine(vi) {
+  const v = state.verses[vi];
+  if (!v) return { ref: '', text: '', rtl: false };
+  const ref = `${v.book} ${v.chapter}:${v.verse}`;
+  const src = state.narration.source;
+  if (src === 'hebrew') return { ref, text: v.words.join(' '), rtl: true, lang: 'he' };
+  if (src === 'translit') {
+    return { ref, text: v.words.map(w => translit(w)).join(' '), rtl: false, lang: '' };
+  }
+  const t = translation ? data.verseText(translation, v.bookId, v.chapter, v.verse) : '';
+  return { ref, text: t, rtl: false, lang: src };
+}
+
+/* The music drops while the voice is speaking, then comes back. */
+let duckedFrom = null;
+function duck(on) {
+  if (!state.narration.duck || !transport.voices) return;
+  const full = transport.settings.volume;
+  if (on && duckedFrom === null) {
+    duckedFrom = full;
+    transport.voices.setVolume(full * 0.3);
+  } else if (!on && duckedFrom !== null) {
+    transport.voices.setVolume(duckedFrom);
+    duckedFrom = null;
+  }
+}
+
+function sayVerse(vi, onDone) {
+  const line = verseLine(vi);
+  if (!line.text) { onDone?.(); return false; }
+  const n = state.narration;
+  duck(true);
+  return narrator.speak(line.text, {
+    voiceName: n.voiceName, lang: line.lang || n.lang,
+    rate: n.rate, pitch: n.pitch, volume: n.volume,
+    onend: () => { duck(false); onDone?.(); },
+    onerror: msg => { duck(false); warn(`The voice stopped: ${msg}`); },
+  });
+}
+
+/** Called every frame while reading along with the music. */
+function narrationTick() {
+  const n = state.narration;
+  if (!n.on || n.mode !== 'follow' || !transport.playing) return;
+  const vi = narrationVerse();
+  if (vi === spokenVerse || narrator.speaking) return;
+  spokenVerse = vi;
+  sayVerse(vi);
+}
+
+/** The audiobook reads one verse after another at its own pace. */
+function readOn() {
+  const n = state.narration;
+  if (!n.on || n.mode !== 'book') return;
+  if (n.verseIndex >= state.verses.length) { n.on = false; panes?.renderVoice(); return; }
+  const vi = n.verseIndex;
+  renderReader(vi);
+  panes?.renderVoice();
+  sayVerse(vi, () => {
+    if (!state.narration.on || state.narration.mode !== 'book') return;
+    state.narration.verseIndex = vi + 1;
+    readOn();
+  });
+}
+
 /* --------------------------------------------------------------- the theme */
 
 /* Three states, like the rest of the web: light, dark, or whatever the device
@@ -1029,6 +1158,7 @@ function projectData() {
     opt: state.opt,
     fx: state.fx,
     lyrics: state.lyrics,
+    narration: { ...state.narration, on: false },   // never resume speaking on load
     theme: state.themeExplicit ? state.theme : null,
   };
 }
@@ -1059,6 +1189,7 @@ function loadProject(fromObject) {
   }
   if (p.fx) state.fx = { ...defaultFx(), ...p.fx };
   if (p.lyrics) Object.assign(state.lyrics, p.lyrics);
+  if (p.narration) Object.assign(state.narration, p.narration, { on: false });
   if (p.theme && THEMES.includes(p.theme)) {
     state.theme = p.theme;
     state.themeExplicit = true;
@@ -1119,9 +1250,101 @@ const appApi = {
   state,
   bank,
   recorder,
+  narrator,
   rebuild,
   laidLyrics,
   toggleRecord,
+
+  translations: () => translationList,
+  narrationText: () => verseLine(narrationVerse()),
+  saveNarration: saveProject,
+
+  async rescanVoices() {
+    await narrator.load();
+    await setupNarrator();
+    panes.renderVoice();
+  },
+
+  toggleNarration() {
+    const n = state.narration;
+    n.on = !n.on;
+    spokenVerse = -1;
+    if (!n.on) {
+      narrator.cancel();
+      duck(false);
+    } else if (n.mode === 'book') {
+      // Start from wherever the music is, not from the top.
+      n.verseIndex = transport.position > 0 ? narrationVerse() : 0;
+      readOn();
+    }
+    panes.renderVoice();
+    saveProject();
+  },
+
+  testVoice() {
+    const line = verseLine(narrationVerse());
+    const n = state.narration;
+    narrator.speak(line.text ? line.text.slice(0, 160) : 'One two three.', {
+      voiceName: n.voiceName, lang: line.lang || n.lang,
+      rate: n.rate, pitch: n.pitch, volume: n.volume,
+      onerror: msg => warn(`That voice would not speak: ${msg}`),
+    });
+  },
+
+  async setNarrationSource(src) {
+    const n = state.narration;
+    if (src === 'hebrew' || src === 'translit') {
+      translation = null;
+      n.source = src;
+      // Hebrew reads best in a Hebrew voice, if the device has one.
+      if (src === 'hebrew' && narrator.forLanguage('he').length) {
+        n.lang = 'he';
+        n.voiceName = narrator.forLanguage('he')[0].name;
+      }
+    } else {
+      try {
+        translation = await data.loadTranslation(src);
+        n.source = src;
+        // Follow the translation into a voice that speaks its language.
+        const vs = narrator.forLanguage(src);
+        if (vs.length) { n.lang = src; n.voiceName = vs[0].name; }
+        else warn(`No ${src} voice on this device — it will be read in ${n.lang || 'the current voice'}.`);
+      } catch (err) {
+        warn(`Could not load that translation: ${err.message}`);
+      }
+    }
+    saveProject();
+  },
+
+  /** A translation the reader brings themselves, for any language at all. */
+  async loadOwnTranslation(file) {
+    try {
+      const text = await file.text();
+      let payload;
+      if (file.name.endsWith('.json')) {
+        payload = JSON.parse(text);
+        if (!payload.books) throw new Error('no "books" in that file');
+      } else {
+        // Plain text: one verse per line, laid over the current selection.
+        const lines = text.split(/\r?\n/).filter(x => x.trim());
+        const books = {};
+        for (let i = 0; i < state.verses.length && i < lines.length; i++) {
+          const v = state.verses[i];
+          books[v.bookId] = books[v.bookId] || [];
+          books[v.bookId][v.chapter - 1] = books[v.bookId][v.chapter - 1] || [];
+          books[v.bookId][v.chapter - 1][v.verse - 1] = lines[i];
+        }
+        payload = { label: file.name.replace(/\.[^.]+$/, ''), books };
+      }
+      const code = payload.code || `own-${Date.now().toString(36).slice(-4)}`;
+      payload.label = payload.label || file.name;
+      translationList = data.addTranslation(code, payload);
+      await appApi.setNarrationSource(code);
+      warn(null);
+    } catch (err) {
+      warn(`That file could not be read as a translation: ${err.message}`);
+    }
+  },
 
   async addClip(blob, name) {
     try {

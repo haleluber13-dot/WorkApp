@@ -3,16 +3,19 @@
  * The app itself is small and the five books are static, so everything gets
  * cached on first run and the app works with no network at all afterwards.
  */
-const CACHE = 'otiyot-v2';
+const CACHE = 'otiyot-v3';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './js/app.js', './js/mapping.js', './js/audio.js', './js/data.js', './js/export.js',
   './js/styles.js', './js/fx.js', './js/samples.js', './js/lyrics.js',
-  './js/panes.js', './js/niqqud.js',
+  './js/panes.js', './js/niqqud.js', './js/voice.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
   './data/manifest.json',
   './data/genesis.json', './data/exodus.json', './data/leviticus.json',
   './data/numbers.json', './data/deuteronomy.json',
+  // The other translations are fetched the first time they are chosen, and
+  // the fetch handler below caches them from then on.
+  './data/trans/index.json', './data/trans/en.json',
 ];
 
 self.addEventListener('install', e => {

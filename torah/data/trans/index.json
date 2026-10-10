@@ -1,0 +1,32 @@
+{
+  "translations": [
+    {
+      "code": "en",
+      "label": "English — JPS 1917",
+      "file": "en.json",
+      "kb": 816,
+      "license": "Public Domain"
+    },
+    {
+      "code": "fr",
+      "label": "Français — Rabbinat 1899",
+      "file": "fr.json",
+      "kb": 825,
+      "license": "Public Domain"
+    },
+    {
+      "code": "pl",
+      "label": "Polski — Cylkow",
+      "file": "pl.json",
+      "kb": 754,
+      "license": "Public Domain"
+    },
+    {
+      "code": "eo",
+      "label": "Esperanto — Zamenhof",
+      "file": "eo.json",
+      "kb": 746,
+      "license": "Public Domain"
+    }
+  ]
+}

@@ -121,7 +121,10 @@ assets/icons/            app icons
   sidechain, delay, reverb, width), eight sample pads fed by microphone
   recordings or your own audio files, and a lyrics track that lands your words
   on the bars with a karaoke ticker. Light and dark themes; the whole setup
-  saves in the browser and downloads as one file. Exports WAV, MIDI and .lrc.
+  saves in the browser and downloads as one file. **Reads itself aloud** in any
+  voice the device has, as the pointed Hebrew, a transliteration, or one of four
+  bundled public-domain translations — following the music or at its own pace
+  like an audiobook. Exports WAV, MIDI and .lrc.
   Full text bundled (304,557 letters), works offline. Live at `/torah/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
 

@@ -10,6 +10,7 @@ import { STYLES, BEAT_PRESETS, steps as parseSteps } from './styles.js';
 import { KICKS, BASSES } from './audio.js';
 import { FX_DEFS, FX_ORDER } from './fx.js';
 import { PAD_COUNT } from './samples.js';
+import { CHARACTERS, languageName } from './voice.js';
 import * as lyrics from './lyrics.js';
 
 const $ = id => document.getElementById(id);
@@ -209,6 +210,102 @@ export function mount(app) {
           : 'The count on the right of each line is its syllables — over about four a beat and it stops being sayable.'}
       </p>
       <div class="lyrlist">${list}</div>`;
+  }
+
+  /* -------------------------------------------------------- the narrator */
+
+  function renderVoice() {
+    const n = app.state.narration;
+    const nar = app.narrator;
+    const ok = nar.constructor.supported;
+    const langs = nar.languages();
+    const voices = n.lang ? nar.forLanguage(n.lang) : nar.voices;
+    const cur = app.narrationText();
+
+    if (!ok) {
+      $('voice').innerHTML = `<h3 class="sec">Read aloud</h3>
+        <p class="note">This browser has no speech built in, so there is nothing to read with.
+        Chrome, Edge and Safari all do, on phone and desktop.</p>`;
+      return;
+    }
+    if (!nar.voices.length) {
+      $('voice').innerHTML = `<h3 class="sec">Read aloud</h3>
+        <p class="note">No speech voices are installed on this device yet.
+        On Android they come from Google Speech Services; on Windows they are
+        added under Settings → Time &amp; language → Speech. Mac, iPhone and
+        iPad ship with dozens already.</p>
+        <div class="vbar"><button class="btn btn--sm" id="vRescan">Look again</button></div>`;
+      return;
+    }
+
+    const sources = [
+      { id: 'hebrew', label: 'Hebrew — as written' },
+      { id: 'translit', label: 'Hebrew — in Latin letters' },
+      ...app.translations().map(t => ({ id: t.code, label: t.label + (t.own ? ' (yours)' : '') })),
+    ];
+
+    $('voice').innerHTML = `
+      <div class="vbar">
+        <button class="saybtn${n.on ? ' on' : ''}" id="vToggle">${n.on ? '■ Stop reading' : '▶ Read aloud'}</button>
+        <button class="btn btn--sm" id="vTest">Test this voice</button>
+        <span class="vstat">${nar.voices.length} voices on this device · ${langs.length} languages</span>
+      </div>
+
+      <div class="vgrid">
+        <label class="vrow"><span>Read</span>
+          <select id="vSource">${sources.map(x =>
+            `<option value="${x.id}"${n.source === x.id ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>
+        <label class="vrow"><span>Language</span>
+          <select id="vLang">${langs.map(l =>
+            `<option value="${l.code}"${n.lang === l.code ? ' selected' : ''}>${esc(l.name)} (${l.voices.length})</option>`).join('')}</select></label>
+        <label class="vrow"><span>Voice</span>
+          <select id="vVoice">${voices.map(v =>
+            `<option value="${esc(v.name)}"${n.voiceName === v.name ? ' selected' : ''}>${esc(v.name)}${v.localService ? '' : ' · online'}</option>`).join('')}</select></label>
+        <label class="vrow"><span>Mode</span>
+          <select id="vMode">
+            <option value="follow"${n.mode === 'follow' ? ' selected' : ''}>Follow the music</option>
+            <option value="book"${n.mode === 'book' ? ' selected' : ''}>Audiobook — read at its own pace</option>
+          </select></label>
+      </div>
+
+      <h3 class="sec">The voice's character</h3>
+      <p class="note" style="margin-top:0">These shape the device's own voice with speed and pitch. They are not impressions of anyone.</p>
+      <div class="chars">${Object.entries(CHARACTERS).map(([id, c]) => `
+        <button class="chip${n.character === id ? ' on' : ''}" data-char="${id}">
+          <b>${c.name}</b><small>${c.blurb}</small></button>`).join('')}</div>
+
+      <div class="vgrid" style="margin-top:10px">
+        <label class="vrow"><span>Speed</span>
+          <input type="range" id="vRate" min="0.4" max="2.2" step="0.02" value="${n.rate}">
+          <output>${n.rate.toFixed(2)}</output></label>
+        <label class="vrow"><span>Pitch</span>
+          <input type="range" id="vPitch" min="0" max="2" step="0.02" value="${n.pitch}">
+          <output>${n.pitch.toFixed(2)}</output></label>
+        <label class="vrow"><span>Level</span>
+          <input type="range" id="vVol" min="0" max="1" step="0.02" value="${n.volume}">
+          <output>${n.volume.toFixed(2)}</output></label>
+      </div>
+
+      <label class="row check" style="margin-top:10px"><input type="checkbox" id="vDuck" ${n.duck ? 'checked' : ''}>
+        <span>Duck the music while it reads<small>Drops the band under the voice, then brings it back.</small></span></label>
+
+      <div class="vnow">
+        <div class="vnow__ref">${cur.ref || 'nothing yet'}</div>
+        <div class="vnow__t"${cur.rtl ? ' dir="rtl" lang="he"' : ''}>${esc(cur.text || '—')}</div>
+      </div>
+
+      <h3 class="sec">Another language</h3>
+      <p class="note" style="margin-top:0">
+        The voices above can speak any language this device has installed, but the
+        <b>words</b> have to come from somewhere. Four translations are bundled, all
+        of them public domain. For anything else, load your own: a JSON file of
+        <code>{ "label": "…", "books": { "genesis": [[verse, …], …] } }</code>, or a
+        plain text file with one verse per line.
+      </p>
+      <div class="vbar">
+        <button class="btn btn--sm" id="vLoadTrans">Load a translation</button>
+        <input type="file" id="vTransFile" accept=".json,.txt,application/json,text/plain" hidden>
+      </div>`;
   }
 
   /* --------------------------------------------------------- the plug-ins */
@@ -467,6 +564,55 @@ export function mount(app) {
     }
   }
 
+  /* ---- the narrator ---- */
+
+  $('voice').addEventListener('click', e => {
+    const t = e.target;
+    if (t.id === 'vToggle') return app.toggleNarration();
+    if (t.id === 'vTest') return app.testVoice();
+    if (t.id === 'vRescan') return app.rescanVoices();
+    if (t.id === 'vLoadTrans') return $('vTransFile').click();
+    const ch = t.closest('[data-char]');
+    if (ch) {
+      const c = CHARACTERS[ch.dataset.char];
+      Object.assign(app.state.narration, { character: ch.dataset.char, rate: c.rate, pitch: c.pitch });
+      renderVoice();
+      app.saveNarration();
+    }
+  });
+
+  $('voice').addEventListener('input', e => {
+    const n = app.state.narration;
+    const map = { vRate: 'rate', vPitch: 'pitch', vVol: 'volume' };
+    const key = map[e.target.id];
+    if (!key) return;
+    n[key] = +e.target.value;
+    n.character = '';
+    const out = e.target.parentElement.querySelector('output');
+    if (out) out.textContent = n[key].toFixed(2);
+  });
+
+  $('voice').addEventListener('change', async e => {
+    const n = app.state.narration;
+    const id = e.target.id;
+    if (id === 'vRate' || id === 'vPitch' || id === 'vVol') return app.saveNarration();
+    if (id === 'vLang') {
+      n.lang = e.target.value;
+      const first = app.narrator.forLanguage(n.lang)[0];
+      n.voiceName = first ? first.name : '';
+      renderVoice(); app.saveNarration(); return;
+    }
+    if (id === 'vVoice') { n.voiceName = e.target.value; app.saveNarration(); return; }
+    if (id === 'vMode') { n.mode = e.target.value; app.saveNarration(); return; }
+    if (id === 'vSource') { await app.setNarrationSource(e.target.value); renderVoice(); return; }
+    if (id === 'vDuck') { n.duck = e.target.checked; app.saveNarration(); return; }
+    if (id === 'vTransFile') {
+      const f = e.target.files[0];
+      e.target.value = '';
+      if (f) { await app.loadOwnTranslation(f); renderVoice(); }
+    }
+  });
+
   /* ---- plug-ins ---- */
 
   $('fx').addEventListener('click', e => {
@@ -493,6 +639,6 @@ export function mount(app) {
     if (out) out.textContent = spec.max <= 2 ? value.toFixed(2) : Math.round(value);
   });
 
-  return { renderBeat, renderSamples, renderLyrics, renderFx, updateKaraoke,
-           renderAll() { renderBeat(); renderSamples(); renderLyrics(); renderFx(); } };
+  return { renderBeat, renderSamples, renderLyrics, renderFx, renderVoice, updateKaraoke,
+           renderAll() { renderBeat(); renderSamples(); renderLyrics(); renderFx(); renderVoice(); } };
 }
