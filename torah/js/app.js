@@ -11,9 +11,10 @@ import { toWav, toMidi, download } from './export.js';
 import { defaultFx, fxFromStyle } from './fx.js';
 import { SampleBank, Recorder, defaultPads } from './samples.js';
 import * as lyrics from './lyrics.js';
-import { VOWELS, translit } from './niqqud.js';
+import { VOWELS, translit, colour } from './niqqud.js';
 import { mount } from './panes.js';
 import { Narrator, CHARACTERS } from './voice.js';
+import { REGISTERS, speakLength } from './vocal.js';
 
 const $ = id => document.getElementById(id);
 
@@ -23,6 +24,9 @@ const $ = id => document.getElementById(id);
 const READER_WINDOW = 60;      // verses rendered around the playhead
 const BIG_SELECTION = 40000;   // letters — beyond this we warn before building
 const WAV_LIMIT = 15 * 60;     // seconds of audio — beyond this the WAV is too big to hold in a tab
+
+/* The voice that is always there, whatever the device has installed. */
+const BUILTIN = '__builtin__';
 
 const state = {
   manifest: null,
@@ -59,7 +63,8 @@ const state = {
     on: false,
     mode: 'follow',       // 'follow' the music, or 'book' at its own pace
     source: 'hebrew',     // 'hebrew' | 'translit' | a translation code
-    lang: '', voiceName: '',
+    lang: '', voiceName: BUILTIN,
+    register: 'neutral',  // who is reading, when it is the built-in voice
     rate: 1, pitch: 1, volume: 1,
     character: 'plain',
     duck: true,
@@ -68,6 +73,7 @@ const state = {
 };
 
 const narrator = new Narrator();
+let builtinTimer = null;
 let translationList = [];
 let translation = null;      // the loaded translation, if the source is one
 let spokenVerse = -1;        // the verse the narrator last started
@@ -756,7 +762,7 @@ function wire() {
   });
   transport.onEnd = () => {
     setPlayIcon(false);
-    if (state.narration.mode === 'follow') { narrator.cancel(); duck(false); }
+    if (state.narration.mode === 'follow') { hushVoice(); duck(false); }
   };
 
   $('seek').addEventListener('input', e => {
@@ -1027,10 +1033,7 @@ async function setupNarrator() {
         ? (navigator.language || 'en').split('-')[0]
         : langs[0] || '';
   }
-  if (!n.voiceName) {
-    const first = narrator.forLanguage(n.lang)[0];
-    n.voiceName = first ? first.name : '';
-  }
+  if (!n.voiceName) n.voiceName = BUILTIN;
   if (n.source && n.source !== 'hebrew' && n.source !== 'translit') {
     try { translation = await data.loadTranslation(n.source); }
     catch (_) { n.source = 'hebrew'; }
@@ -1051,6 +1054,27 @@ function narrationVerse() {
     if (idx[mid].t <= t) { best = mid; lo = mid + 1; } else hi = mid - 1;
   }
   return idx[best].verseIndex;
+}
+
+/** A verse as syllables the built-in voice can pronounce. */
+function syllablesOf(vi) {
+  const v = state.verses[vi];
+  if (!v) return [];
+  const out = [];
+  for (let wi = 0; wi < v.words.length; wi++) {
+    const cl = clustersOf(v.words[wi]);
+    for (const c of cl) {
+      const col = colour(c);
+      out.push({
+        cons: c.base,
+        vq: c.vowel ? c.vowel.q : 'ə',
+        len: c.vowel ? c.vowel.len : 'none',
+        silent: col.silent,
+      });
+    }
+    if (out.length) out[out.length - 1].gap = 0.07;   // a breath between words
+  }
+  return out;
 }
 
 /** What that verse says, in whichever text is selected. */
@@ -1082,9 +1106,36 @@ function duck(on) {
 }
 
 function sayVerse(vi, onDone) {
+  const n = state.narration;
+  clearTimeout(builtinTimer);
+  builtinTimer = null;
+
+  if (n.voiceName === BUILTIN) {
+    // The voice the app builds itself. It speaks Hebrew, so it reads the
+    // Hebrew whatever text the screen is showing.
+    const syls = syllablesOf(vi);
+    if (!syls.length) { onDone?.(); return false; }
+    const ctx = transport.ctx;
+    if (!ctx || !transport.voices) { onDone?.(); return false; }
+    duck(true);
+    const reg = REGISTERS[n.register] || REGISTERS.neutral;
+    const at = ctx.currentTime + 0.05;
+    const took = transport.voices.read(syls, at, {
+      register: n.register,
+      midi: reg.midi + (n.pitch - 1) * 12,     // the pitch slider, in semitones
+      rate: n.rate, volume: n.volume,
+    });
+    narrator.speaking = true;
+    builtinTimer = setTimeout(() => {
+      narrator.speaking = false;
+      duck(false);
+      onDone?.();
+    }, Math.max(80, took * 1000));
+    return true;
+  }
+
   const line = verseLine(vi);
   if (!line.text) { onDone?.(); return false; }
-  const n = state.narration;
   duck(true);
   return narrator.speak(line.text, {
     voiceName: n.voiceName, lang: line.lang || n.lang,
@@ -1092,6 +1143,24 @@ function sayVerse(vi, onDone) {
     onend: () => { duck(false); onDone?.(); },
     onerror: msg => { duck(false); warn(`The voice stopped: ${msg}`); },
   });
+}
+
+/** Stop whichever voice is talking. */
+function hushVoice() {
+  clearTimeout(builtinTimer);
+  builtinTimer = null;
+  narrator.cancel();
+  transport.voices?.hush();
+  narrator.speaking = false;
+}
+
+/** Changing the voice mid-sentence takes effect on the spot. */
+function restartLine() {
+  const n = state.narration;
+  if (!n.on) return;
+  hushVoice();
+  if (n.mode === 'book') readOn();
+  else { spokenVerse = -1; }        // the follow loop will pick it up again
 }
 
 /** Called every frame while reading along with the music. */
@@ -1303,7 +1372,7 @@ const appApi = {
     n.on = !n.on;
     spokenVerse = -1;
     if (!n.on) {
-      narrator.cancel();
+      hushVoice();
       duck(false);
     } else if (n.mode === 'book') {
       // Start from wherever the music is, not from the top.
@@ -1314,9 +1383,23 @@ const appApi = {
     saveProject();
   },
 
-  testVoice() {
-    const line = verseLine(narrationVerse());
+  BUILTIN,
+  restartLine,
+
+  async testVoice() {
     const n = state.narration;
+    if (n.voiceName === BUILTIN) {
+      await transport.ensure();
+      hushVoice();
+      const syls = syllablesOf(narrationVerse()).slice(0, 14);
+      const reg = REGISTERS[n.register] || REGISTERS.neutral;
+      transport.voices.read(syls, transport.ctx.currentTime + 0.05, {
+        register: n.register, midi: reg.midi + (n.pitch - 1) * 12,
+        rate: n.rate, volume: n.volume,
+      });
+      return;
+    }
+    const line = verseLine(narrationVerse());
     narrator.speak(line.text ? line.text.slice(0, 160) : 'One two three.', {
       voiceName: n.voiceName, lang: line.lang || n.lang,
       rate: n.rate, pitch: n.pitch, volume: n.volume,

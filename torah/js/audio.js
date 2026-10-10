@@ -10,8 +10,8 @@
 
 import { midiToFreq } from './mapping.js';
 import { FxRack, defaultFx } from './fx.js';
-import { sing, VOICE_TYPES } from './vocal.js';
-export { VOICE_TYPES };
+import { sing, speak, speakLength, VOICE_TYPES, REGISTERS } from './vocal.js';
+export { VOICE_TYPES, REGISTERS, speakLength };
 
 function noiseBuffer(ctx, seconds = 1) {
   const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
@@ -97,6 +97,11 @@ export class Voices {
 
     this.noise = noiseBuffer(ctx, 1);
     this.opt.vocal = opt.vocal || { type: 'tenor', vibrato: 0.5, breath: 0.35 };
+
+    // The built-in narrator has its own bus so it can be cut mid-sentence —
+    // swapping the reader's voice should not also silence the band.
+    this.narrationBus = ctx.createGain();
+    this.narrationBus.connect(this.rack.input);
     this.buffers = opt.buffers || new Map();   // sampleId -> AudioBuffer
     this.lastBass = null;                      // for 808 glides
 
@@ -127,6 +132,23 @@ export class Voices {
   replaceFx(settings) { this.rack.replace(settings); }
   setTone(x) { this.opt.tone = x; }
   setVocal(v) { this.opt.vocal = { ...(this.opt.vocal || {}), ...v }; }
+
+  /** Read a phrase with the built-in voice. Returns how long it will take. */
+  read(syls, when, o = {}) {
+    const bus = this.narrationBus;
+    bus.gain.cancelScheduledValues(when);
+    bus.gain.setValueAtTime(1, when);
+    return speak(this, syls, when, { ...o, out: bus });
+  }
+
+  /** Stop the built-in voice now, leaving the music alone. */
+  hush() {
+    const g = this.narrationBus.gain;
+    const now = this.ctx.currentTime;
+    g.cancelScheduledValues(now);
+    g.setValueAtTime(g.value, now);
+    g.linearRampToValueAtTime(0.0001, now + 0.05);
+  }
 
   /** Schedule one note. `when` is an absolute context time. */
   play(note, when) {

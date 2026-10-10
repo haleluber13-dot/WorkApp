@@ -100,14 +100,39 @@ coming back, and a reload. **Reset all** clears them.
 
 ## Read aloud
 
-The **Read aloud** tab narrates the text over the music, using the speech
-voices already on the device. Nothing is sent anywhere — the speaking happens
+The **Read aloud** tab narrates the text over the music.
+
+### The voice that is always there
+
+The first voice in the list is the **built-in voice** — the same vocal tract of
+filters that sings the melody, taught to read instead of sing. It needs nothing
+installed, so it is there on any device, and it is what the app starts with.
+
+Reading is not singing: the pitch is not taken from the music but drifts down
+across the phrase and drops at the end, which is what makes a sentence sound
+finished, and each syllable's length comes from the vowel written on it rather
+than from a beat. Because the niqqud reader resolves the consonant and vowel on
+every letter, it pronounces the Hebrew properly — it reads the Hebrew whichever
+text is on screen.
+
+**Who is reading** picks the register: a man, a woman, neither, a child, an
+elder, or something deeper than any real throat. These are vocal tract length
+and fold rate, which is most of what we hear as one person rather than another.
+Nobody in particular — see the note at the end of this section.
+
+**Change it while it is reading and it changes on the spot.** The narrator has
+its own output, so swapping the reader cuts the voice and restarts the line
+without touching the music.
+
+### Voices from the device
+
+Below the built-in one sit whatever the operating system has installed. Nothing is sent anywhere — the speaking happens
 on your phone or laptop.
 
-- **Any language the device can speak.** The voice list is whatever the
-  operating system has: a Mac or iPhone usually has dozens including Hebrew,
-  Android has whatever Google Speech Services has downloaded, a bare Linux
-  browser may have none. The pane says how many it found and where to get more.
+- **Any language the device can speak.** A Mac or iPhone usually has dozens
+  including Hebrew; Android has whatever Google Speech Services has downloaded;
+  a bare Linux browser may have none, which is why the built-in voice exists.
+  A device voice can read a translation in its own language.
 - **Two modes.** *Follow the music* speaks each verse as the playhead reaches
   it — note that the fast styles outrun any narrator, so this suits Ambient
   Scroll, Drone, Dub and Downtempo. *Audiobook* lets the narrator set the pace,

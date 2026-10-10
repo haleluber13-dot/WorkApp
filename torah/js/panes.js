@@ -12,6 +12,7 @@ import { midiToName, clustersOf, noteKey } from './mapping.js';
 import { FX_DEFS, FX_ORDER } from './fx.js';
 import { PAD_COUNT } from './samples.js';
 import { CHARACTERS, languageName } from './voice.js';
+import { REGISTERS } from './vocal.js';
 import * as lyrics from './lyrics.js';
 
 const $ = id => document.getElementById(id);
@@ -362,45 +363,43 @@ export function mount(app) {
     const voices = n.lang ? nar.forLanguage(n.lang) : nar.voices;
     const cur = app.narrationText();
 
-    if (!ok) {
-      $('voice').innerHTML = `<h3 class="sec">Read aloud</h3>
-        <p class="note">This browser has no speech built in, so there is nothing to read with.
-        Chrome, Edge and Safari all do, on phone and desktop.</p>`;
-      return;
-    }
-    if (!nar.voices.length) {
-      $('voice').innerHTML = `<h3 class="sec">Read aloud</h3>
-        <p class="note">No speech voices are installed on this device yet.
-        On Android they come from Google Speech Services; on Windows they are
-        added under Settings → Time &amp; language → Speech. Mac, iPhone and
-        iPad ship with dozens already.</p>
-        <div class="vbar"><button class="btn btn--sm" id="vRescan">Look again</button></div>`;
-      return;
-    }
-
     const sources = [
       { id: 'hebrew', label: 'Hebrew — as written' },
       { id: 'translit', label: 'Hebrew — in Latin letters' },
       ...app.translations().map(t => ({ id: t.code, label: t.label + (t.own ? ' (yours)' : '') })),
     ];
 
+    const builtin = n.voiceName === app.BUILTIN;
+    const voiceOpts =
+      `<option value="${app.BUILTIN}"${builtin ? ' selected' : ''}>Built-in voice — always here</option>` +
+      (voices.length
+        ? `<optgroup label="On this device">` + voices.map(v =>
+            `<option value="${esc(v.name)}"${n.voiceName === v.name ? ' selected' : ''}>${esc(v.name)}${v.localService ? '' : ' · online'}</option>`).join('') + '</optgroup>'
+        : '');
+
     $('voice').innerHTML = `
       <div class="vbar">
         <button class="saybtn${n.on ? ' on' : ''}" id="vToggle">${n.on ? '■ Stop reading' : '▶ Read aloud'}</button>
-        <button class="btn btn--sm" id="vTest">Test this voice</button>
-        <span class="vstat">${nar.voices.length} voices on this device · ${langs.length} languages</span>
+        <button class="btn btn--sm" id="vTest">Hear it</button>
+        <span class="vstat">${ok && nar.voices.length
+          ? `built-in voice + ${nar.voices.length} on this device, ${langs.length} languages`
+          : 'the built-in voice — this device has no others installed'}</span>
       </div>
 
       <div class="vgrid">
+        <label class="vrow"><span>Voice</span>
+          <select id="vVoice">${voiceOpts}</select></label>
+        ${builtin ? `
+        <label class="vrow"><span>Who</span>
+          <select id="vReg">${Object.entries(REGISTERS).map(([id, r]) =>
+            `<option value="${id}"${n.register === id ? ' selected' : ''}>${r.name}</option>`).join('')}</select></label>`
+        : `
+        <label class="vrow"><span>Language</span>
+          <select id="vLang">${langs.map(l =>
+            `<option value="${l.code}"${n.lang === l.code ? ' selected' : ''}>${esc(l.name)} (${l.voices.length})</option>`).join('')}</select></label>`}
         <label class="vrow"><span>Read</span>
           <select id="vSource">${sources.map(x =>
             `<option value="${x.id}"${n.source === x.id ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></label>
-        <label class="vrow"><span>Language</span>
-          <select id="vLang">${langs.map(l =>
-            `<option value="${l.code}"${n.lang === l.code ? ' selected' : ''}>${esc(l.name)} (${l.voices.length})</option>`).join('')}</select></label>
-        <label class="vrow"><span>Voice</span>
-          <select id="vVoice">${voices.map(v =>
-            `<option value="${esc(v.name)}"${n.voiceName === v.name ? ' selected' : ''}>${esc(v.name)}${v.localService ? '' : ' · online'}</option>`).join('')}</select></label>
         <label class="vrow"><span>Mode</span>
           <select id="vMode">
             <option value="follow"${n.mode === 'follow' ? ' selected' : ''}>Follow the music</option>
@@ -408,11 +407,16 @@ export function mount(app) {
           </select></label>
       </div>
 
+      <p class="note" style="margin-top:8px">${builtin
+        ? `${esc(REGISTERS[n.register]?.blurb || '')} This voice is made of filters here in the page — nothing to install, nothing sent anywhere. It pronounces Hebrew from the points, so it reads the Hebrew whichever text is shown above. <b>Change it while it is reading and it changes on the spot.</b>`
+        : 'A voice from the operating system. It can read a translation in its own language; the built-in voice reads Hebrew.'}</p>
+
+      ${builtin ? '' : `
       <h3 class="sec">The voice's character</h3>
       <p class="note" style="margin-top:0">These shape the device's own voice with speed and pitch. They are not impressions of anyone.</p>
       <div class="chars">${Object.entries(CHARACTERS).map(([id, c]) => `
         <button class="chip${n.character === id ? ' on' : ''}" data-char="${id}">
-          <b>${c.name}</b><small>${c.blurb}</small></button>`).join('')}</div>
+          <b>${c.name}</b><small>${c.blurb}</small></button>`).join('')}</div>`}
 
       <div class="vgrid" style="margin-top:10px">
         <label class="vrow"><span>Speed</span>
@@ -723,6 +727,7 @@ export function mount(app) {
       Object.assign(app.state.narration, { character: ch.dataset.char, rate: c.rate, pitch: c.pitch });
       renderVoice();
       app.saveNarration();
+      app.restartLine();
     }
   });
 
@@ -740,14 +745,25 @@ export function mount(app) {
   $('voice').addEventListener('change', async e => {
     const n = app.state.narration;
     const id = e.target.id;
-    if (id === 'vRate' || id === 'vPitch' || id === 'vVol') return app.saveNarration();
+    if (id === 'vRate' || id === 'vPitch' || id === 'vVol') {
+      app.saveNarration();
+      app.restartLine();
+      return;
+    }
+    if (id === 'vReg') { n.register = e.target.value; renderVoice(); app.saveNarration(); app.restartLine(); return; }
     if (id === 'vLang') {
       n.lang = e.target.value;
       const first = app.narrator.forLanguage(n.lang)[0];
-      n.voiceName = first ? first.name : '';
-      renderVoice(); app.saveNarration(); return;
+      n.voiceName = first ? first.name : app.BUILTIN;
+      renderVoice(); app.saveNarration(); app.restartLine(); return;
     }
-    if (id === 'vVoice') { n.voiceName = e.target.value; app.saveNarration(); return; }
+    if (id === 'vVoice') {
+      n.voiceName = e.target.value;
+      renderVoice();
+      app.saveNarration();
+      app.restartLine();
+      return;
+    }
     if (id === 'vMode') { n.mode = e.target.value; app.saveNarration(); return; }
     if (id === 'vSource') { await app.setNarrationSource(e.target.value); renderVoice(); return; }
     if (id === 'vDuck') { n.duck = e.target.checked; app.saveNarration(); return; }
