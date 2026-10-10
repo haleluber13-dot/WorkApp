@@ -35,6 +35,28 @@ class BundledListsTest {
     }
 
     /**
+     * The ready-made hash assets (<name>.bin, from the Python script) must hold exactly the
+     * hashes the app computes from the text lists, and carry meta.json's date, or the app
+     * would block the wrong names (or ignore the file).
+     */
+    @Test
+    fun hashAssetsMatchTheTextLists() {
+        assumeTrue("assets folder not found from ${File(".").absolutePath}", dir != null)
+        val meta = File(dir, "meta.json").readText()
+        val generatedMillis = Regex("\"generatedMillis\"\\s*:\\s*(\\d+)").find(meta)!!.groupValues[1].toLong()
+        for (c in ShieldCategory.values()) {
+            val b = LongArrayBuilder()
+            File(dir, c.name.lowercase() + ".txt.gz").inputStream().use { raw ->
+                InputStreamReader(GZIPInputStream(raw), Charsets.UTF_8).use { r -> HostsParser.parse(r) { b.add(DomainHash.of(it)) } }
+            }
+            val fromText = b.build()
+            val (header, fromBin) = HashFile.parse(File(dir, c.name.lowercase() + ".bin").readBytes())!!
+            assertEquals(c.name, generatedMillis, header.updatedAt)
+            assertTrue(c.name, fromText.array().contentEquals(fromBin.array()))
+        }
+    }
+
+    /**
      * The Android build un-gzips `.gz` assets (and drops the extension), so the app must read the
      * bundled lists both gzipped and plain; it used to look only for `.txt.gz` and load nothing.
      */

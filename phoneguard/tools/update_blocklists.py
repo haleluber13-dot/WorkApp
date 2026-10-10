@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """Download PhoneGuard's Web Shield blocklists and write them into the app's assets.
 
-Usage:  python3 tools/update_blocklists.py [--out app/src/main/assets/blocklists]
+Usage:  python3 tools/update_blocklists.py [--out app/src/main/assets/blocklists] [--rebuild]
 
-Writes <category>.txt.gz (one domain per line, sorted, gzipped) for each category
-plus meta.json (counts, source, license, generation time). Standard library only.
+Writes, for each category, <category>.txt.gz (one domain per line, sorted, gzipped) and
+<category>.bin (the same list as the app's ready-to-load hash file, so the first start
+after an install doesn't have to parse text), plus meta.json (counts, source, license,
+generation time). Everything is downloaded and checked first and then written in one go,
+so a failed run changes nothing. --rebuild skips the download and rewrites the outputs from
+the .txt.gz files already there. Standard library only.
 
-The parsing rules here must match HostsParser in
-app/src/main/java/com/workapp/phoneguard/shield/Blocklist.kt, because the phone
-downloads the same sources itself for weekly updates.
+The parsing rules here must match HostsParser, and the hash and file format must match
+DomainHash and HashFile, in app/src/main/java/com/workapp/phoneguard/shield/Blocklist.kt
+(the phone downloads the same sources itself for weekly updates). BundledListsTest checks it.
 """
 
 import argparse
@@ -17,6 +21,7 @@ import gzip
 import json
 import os
 import re
+import struct
 import sys
 import tempfile
 import urllib.request
@@ -107,17 +112,92 @@ def download(url):
     return data.decode("utf-8", errors="replace")
 
 
-def write_atomic(path, data):
-    d = os.path.dirname(path)
-    fd, tmp = tempfile.mkstemp(dir=d, prefix=".tmp-")
+# ---- binary hash lists (must match DomainHash and HashFile in Blocklist.kt) ----
+
+MASK64 = (1 << 64) - 1
+HASHFILE_MAGIC = 0x50474853  # "PGHS"
+HASHFILE_VERSION = 1
+
+
+def domain_hash(domain):
+    """64-bit hash of a normalized (lowercase ASCII) domain: FNV-1a, then the murmur3 finalizer.
+
+    Returned as a signed 64-bit value, the way Kotlin's Long holds it."""
+    h = 0xCBF29CE484222325
+    for b in domain.encode("ascii"):
+        h = ((h ^ b) * 0x100000001B3) & MASK64
+    h ^= h >> 33
+    h = (h * 0xFF51AFD7ED558CCD) & MASK64
+    h ^= h >> 33
+    h = (h * 0xC4CEB9FE1A85EC53) & MASK64
+    h ^= h >> 33
+    return h - (1 << 64) if h >= (1 << 63) else h
+
+
+def hash_file(domains, updated_at):
+    """The app's on-disk hash list: header, then the sorted (signed) unique hashes, big-endian."""
+    hashes = sorted({domain_hash(d) for d in domains})
+    header = struct.pack(">iiqi", HASHFILE_MAGIC, HASHFILE_VERSION, updated_at, len(hashes))
+    return header + struct.pack(">%dq" % len(hashes), *hashes)
+
+
+def list_text(domains):
+    return ("\n".join(sorted(domains)) + "\n").encode("ascii")
+
+
+def read_list(path):
+    with gzip.open(path, "rb") as f:
+        return parse(f.read().decode("utf-8", errors="replace"))
+
+
+# ---- writing ----
+
+def write_all(out, files):
+    """Writes {name: bytes} into folder `out` as one step, as far as a file system allows.
+
+    Everything is written to temporary files first; only when all of them are complete are
+    they renamed into place, meta.json last. So a failed run (a download error, a full disk)
+    never leaves new lists next to an old meta.json."""
+    temps = []
     try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        os.chmod(tmp, 0o644)
-        os.replace(tmp, path)
-    except BaseException:
-        os.unlink(tmp)
-        raise
+        for name, data in files.items():
+            fd, tmp = tempfile.mkstemp(dir=out, prefix=".tmp-")
+            temps.append((tmp, name))
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+            os.chmod(tmp, 0o644)
+        temps.sort(key=lambda t: t[1] == "meta.json")  # meta.json goes last
+        while temps:
+            tmp, name = temps[0]
+            os.replace(tmp, os.path.join(out, name))
+            temps.pop(0)
+    finally:
+        for tmp, _ in temps:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+
+def outputs(lists, generated, generated_millis):
+    """All files for one consistent set of lists: {category: (domains, url, license)}."""
+    files = {}
+    meta = {"generated": generated, "generatedMillis": generated_millis, "lists": {}}
+    for category, (domains, url, license_) in lists.items():
+        name = category.lower() + ".txt.gz"
+        # mtime=0 keeps the file byte-identical when the list did not change.
+        files[name] = gzip.compress(list_text(domains), compresslevel=9, mtime=0)
+        files[category.lower() + ".bin"] = hash_file(domains, generated_millis)
+        meta["lists"][category] = {
+            "file": name,
+            "count": len(domains),
+            "source": url,
+            "license": license_,
+        }
+    files["meta.json"] = (json.dumps(meta, indent=2) + "\n").encode()
+    return files
 
 
 def main():
@@ -125,43 +205,47 @@ def main():
     default_out = os.path.join(here, "..", "app", "src", "main", "assets", "blocklists")
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", default=default_out, help="output folder (default: app assets)")
+    ap.add_argument("--rebuild", action="store_true",
+                    help="don't download: rewrite the .bin files (and meta.json) from the lists already in --out")
     args = ap.parse_args()
     out = os.path.normpath(args.out)
     os.makedirs(out, exist_ok=True)
 
-    now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
-    meta = {
-        "generated": now.isoformat().replace("+00:00", "Z"),
-        "generatedMillis": int(now.timestamp() * 1000),
-        "lists": {},
-    }
     old_meta = {}
     try:
         with open(os.path.join(out, "meta.json")) as f:
-            old_meta = json.load(f).get("lists", {})
+            old_meta = json.load(f)
     except (OSError, ValueError):
-        pass
+        if args.rebuild:
+            sys.exit("--rebuild needs an existing meta.json in %s" % out)
+    old_lists = old_meta.get("lists", {})
 
-    for category, (url, license_) in SOURCES.items():
-        print("Downloading %s ..." % category, file=sys.stderr)
-        domains = parse(download(url))
-        old_count = old_meta.get(category, {}).get("count", 0)
-        # Same sanity rule as the app: an empty or halved list means the source broke.
-        if not domains or len(domains) < old_count // 2:
-            sys.exit("%s: got %d domains (was %d) - refusing to write" % (category, len(domains), old_count))
-        name = category.lower() + ".txt.gz"
-        body = ("\n".join(sorted(domains)) + "\n").encode("ascii")
-        # mtime=0 keeps the file byte-identical when the list did not change.
-        write_atomic(os.path.join(out, name), gzip.compress(body, compresslevel=9, mtime=0))
-        meta["lists"][category] = {
-            "file": name,
-            "count": len(domains),
-            "source": url,
-            "license": license_,
-        }
-        print("  %s: %d domains" % (category, len(domains)), file=sys.stderr)
+    lists = {}
+    if args.rebuild:
+        generated = old_meta["generated"]
+        generated_millis = old_meta["generatedMillis"]
+        for category, (url, license_) in SOURCES.items():
+            domains = read_list(os.path.join(out, category.lower() + ".txt.gz"))
+            expected = old_lists.get(category, {}).get("count")
+            if expected is not None and expected != len(domains):
+                sys.exit("%s: list has %d domains but meta.json says %d" % (category, len(domains), expected))
+            lists[category] = (domains, url, license_)
+    else:
+        now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
+        generated = now.isoformat().replace("+00:00", "Z")
+        generated_millis = int(now.timestamp() * 1000)
+        # Download and check everything before writing anything.
+        for category, (url, license_) in SOURCES.items():
+            print("Downloading %s ..." % category, file=sys.stderr)
+            domains = parse(download(url))
+            old_count = old_lists.get(category, {}).get("count", 0)
+            # Same sanity rule as the app: an empty or halved list means the source broke.
+            if not domains or len(domains) < old_count // 2:
+                sys.exit("%s: got %d domains (was %d) - refusing to write anything" % (category, len(domains), old_count))
+            lists[category] = (domains, url, license_)
+            print("  %s: %d domains" % (category, len(domains)), file=sys.stderr)
 
-    write_atomic(os.path.join(out, "meta.json"), (json.dumps(meta, indent=2) + "\n").encode())
+    write_all(out, outputs(lists, generated, generated_millis))
     print("Wrote %s" % out, file=sys.stderr)
 
 

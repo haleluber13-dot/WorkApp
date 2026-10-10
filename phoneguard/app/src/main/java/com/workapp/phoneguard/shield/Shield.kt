@@ -15,6 +15,8 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.net.URL
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.GZIPInputStream
 import javax.net.ssl.HttpsURLConnection
@@ -42,6 +44,7 @@ object Shield {
     private const val KEY_ALLOW = "allow"
     private const val KEY_DENY = "deny"
     private const val KEY_LAST_CHECK = "lastUpdateCheck"
+    private const val KEY_BUNDLED_CACHE = "bundledCacheKey."
     private const val ASSET_DIR = "blocklists"
 
     /** JobScheduler id of the weekly list update. */
@@ -60,6 +63,7 @@ object Shield {
 
     @Volatile private var snapshot: Blocklist = Blocklist.EMPTY
     @Volatile private var loaded = false
+    private val loadedLatch = CountDownLatch(1)
     @Volatile private var info: Map<ShieldCategory, ListInfo> = emptyMap()
     private val lock = Any()
     private val updating = AtomicBoolean(false)
@@ -84,11 +88,12 @@ object Shield {
             val ctx = context.applicationContext
             val start = System.currentTimeMillis()
             val bundledAt = bundledGeneratedAt(ctx)
+            val cacheKey = bundledCacheKey(ctx, bundledAt)
             val lists = HashMap<ShieldCategory, HashList>()
             val infos = HashMap<ShieldCategory, ListInfo>()
             for (c in ShieldCategory.values()) {
                 val (list, updatedAt) = try {
-                    loadCategory(ctx, c, bundledAt)
+                    loadCategory(ctx, c, bundledAt, cacheKey)
                 } catch (e: Exception) {
                     Log.w(TAG, "Shield: can't load ${c.name}", e)
                     HashList.EMPTY to 0L
@@ -100,23 +105,28 @@ object Shield {
             snapshot = Blocklist(lists, enabledFrom(p), HashList.ofDomains(stringSet(p, KEY_ALLOW)), HashList.ofDomains(stringSet(p, KEY_DENY)))
             info = infos
             loaded = true
+            loadedLatch.countDown()
             Log.i(TAG, "Shield: ${lists.values.sumOf { it.size }} domains loaded in ${System.currentTimeMillis() - start} ms")
         }
     }
 
     /**
-     * Picks the newer of the downloaded list and the bundled one. The bundled list is parsed
-     * from assets only once per app version; after that its hash cache is used.
+     * Picks the newer of the downloaded list and the bundled one. The bundled list comes from
+     * its ready-made hash asset (`<name>.bin`, written by tools/update_blocklists.py) when that
+     * matches meta.json; otherwise the text list is parsed once per installed APK and cached.
      */
-    private fun loadCategory(ctx: Context, c: ShieldCategory, bundledAt: Long): Pair<HashList, Long> {
+    private fun loadCategory(ctx: Context, c: ShieldCategory, bundledAt: Long, cacheKey: String?): Pair<HashList, Long> {
         val downloaded = downloadedFile(ctx, c)
         val dl = HashFile.readHeader(downloaded)
         if (dl != null && dl.updatedAt >= bundledAt) {
             HashFile.read(downloaded)?.let { return it.second to it.first.updatedAt }
         }
+        bundledHashes(ctx, c, bundledAt)?.let { return it to bundledAt }
         val cache = bundledCacheFile(ctx, c)
-        val cached = HashFile.readHeader(cache)
-        if (cached != null && bundledAt != 0L && cached.updatedAt == bundledAt) {
+        val p = prefs(ctx)
+        val keyName = KEY_BUNDLED_CACHE + c.name
+        // The cache is only trusted if it was made from this very APK's assets (see bundledCacheKey).
+        if (cacheKey != null && p.getString(keyName, null) == cacheKey && HashFile.readHeader(cache)?.updatedAt == bundledAt) {
             HashFile.read(cache)?.let { return it.second to bundledAt }
         }
         val parsed = try {
@@ -127,7 +137,8 @@ object Shield {
         }
         if (parsed != null && parsed.size > 0) {
             try {
-                HashFile.write(cache, parsed, bundledAt)
+                HashFile.write(cache, parsed, bundledAt) // atomic: never half-written
+                if (cacheKey != null) p.edit().putString(keyName, cacheKey).apply()
             } catch (e: IOException) {
                 Log.w(TAG, "Shield: can't cache ${c.name}", e) // still usable, just slower next time
             }
@@ -136,6 +147,34 @@ object Shield {
         // No usable bundled list: an older download beats nothing.
         HashFile.read(downloaded)?.let { return it.second to it.first.updatedAt }
         return HashList.EMPTY to 0L
+    }
+
+    /**
+     * The ready-made hash asset for [c], or null if it is missing, damaged, or wasn't made in
+     * the same run as meta.json (its date must equal [bundledAt]).
+     */
+    private fun bundledHashes(ctx: Context, c: ShieldCategory, bundledAt: Long): HashList? {
+        if (bundledAt == 0L) return null
+        val bytes = try {
+            ctx.assets.open("$ASSET_DIR/${fileName(c)}.bin").use { it.readBytes() }
+        } catch (_: IOException) {
+            return null
+        }
+        val (header, list) = HashFile.parse(bytes) ?: return null
+        if (header.updatedAt != bundledAt || list.size == 0) return null
+        return list
+    }
+
+    /**
+     * Identifies the installed APK (version and install time), so a parsed-assets cache made
+     * by an older APK is never reused, whatever meta.json says. Null if unknown (no caching).
+     */
+    private fun bundledCacheKey(ctx: Context, bundledAt: Long): String? = try {
+        val pi = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        @Suppress("DEPRECATION")
+        "$bundledAt/${pi.versionCode}/${pi.lastUpdateTime}"
+    } catch (e: Exception) {
+        null
     }
 
     private fun parseAsset(ctx: Context, c: ShieldCategory): HashList {
@@ -207,8 +246,22 @@ object Shield {
     /** True if [domain] would be blocked right now, by a list or by the user's denylist. */
     fun isBlocked(domain: String): Boolean = snapshot.check(domain) != null
 
+    /** True if the user's own allowlist covers [domain] (or a parent) and no more specific block of theirs overrides it. */
+    fun isUserAllowed(domain: String): Boolean = snapshot.isUserAllowed(domain)
+
     /** True once the lists are in memory. */
     fun isLoaded(): Boolean = loaded
+
+    /** Waits up to [timeoutMs] for init() (running elsewhere) to finish. Returns isLoaded(). */
+    fun awaitLoaded(timeoutMs: Long): Boolean {
+        if (loaded) return true
+        try {
+            loadedLatch.await(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        return loaded
+    }
 
     fun isEnabled(context: Context, c: ShieldCategory): Boolean =
         prefs(context).getBoolean(enabledKey(c), c.defaultOn)

@@ -16,6 +16,8 @@ import java.net.URL
 import java.net.URLConnection
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 import javax.net.ssl.SSLSession
 import javax.net.ssl.HttpsURLConnection
 
@@ -35,18 +37,27 @@ internal fun readLimited(input: InputStream, limit: Int): ByteArray {
 }
 
 /**
+ * The DoH server was reached (the connection worked) but didn't answer this lookup in time.
+ * Usually the provider is just slow on one name, so it isn't proof that DoH is unreachable.
+ */
+class DohSlowException(message: String) : IOException(message)
+
+/**
  * DNS over HTTPS (RFC 8484, POST). Uses HTTP/2 (required by Quad9) over a small pool of
  * kept-alive TLS connections; falls back to HTTP/1.1 through HttpsURLConnection for a server
  * that doesn't offer HTTP/2. Only https:// addresses are accepted, so lookups are never sent
  * in the clear by mistake. Thread-safe.
  */
-class DohClient(
+class DohClient internal constructor(
     /** Opens a plain TCP connection (Android binds it to the real network). */
     private val connect: (host: String, port: Int, timeoutMs: Int) -> Socket = ::defaultConnect,
     /** Extra certificate-name check on top of the platform's (Android passes its verifier). */
     private val verify: (String, SSLSession) -> Boolean = { _, _ -> true },
     /** Opens an HttpsURLConnection for the HTTP/1.1 fallback. */
     private val openHttp1: (URL) -> URLConnection = { it.openConnection() },
+    private val timeoutMs: Int = TIMEOUT_MS,
+    /** Starts TLS + HTTP/2 over a connected socket. Tests swap in a plain-text version. */
+    private val openH2: (Socket, String, Int) -> H2Connection = { s, host, port -> H2Connection.open(s, host, port, timeoutMs, verify) },
 ) {
     private data class PoolKey(val host: String, val port: Int)
 
@@ -66,19 +77,27 @@ class DohClient(
 
         take(key)?.let { c ->
             try {
-                return c.exchange(authority, path, query, TIMEOUT_MS, MAX_RESPONSE).also { release(key, c) }
+                return c.exchange(authority, path, query, timeoutMs, MAX_RESPONSE).also { release(key, c) }
+            } catch (_: SocketTimeoutException) {
+                // The request went out and the server is just slow on this name. Asking again
+                // on a new connection would only double the wait.
+                c.close()
+                throw DohSlowException("no answer within $timeoutMs ms")
             } catch (_: IOException) {
                 c.close() // probably closed by the server while idle: try once on a new one
             }
         }
         val c = try {
-            H2Connection.open(connect(host, port, TIMEOUT_MS), host, port, TIMEOUT_MS, verify)
+            openH2(connect(host, port, timeoutMs), host, port)
         } catch (_: H2Connection.NoHttp2Exception) {
             http1Only += host
             return queryHttp1(url, query)
         }
         try {
-            return c.exchange(authority, path, query, TIMEOUT_MS, MAX_RESPONSE).also { release(key, c) }
+            return c.exchange(authority, path, query, timeoutMs, MAX_RESPONSE).also { release(key, c) }
+        } catch (_: SocketTimeoutException) {
+            c.close()
+            throw DohSlowException("no answer within $timeoutMs ms")
         } catch (e: IOException) {
             c.close()
             throw e
@@ -125,8 +144,8 @@ class DohClient(
         val conn = openHttp1(URL(url)) as? HttpsURLConnection ?: throw IOException("not an HTTPS address")
         var ok = false
         try {
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
+            conn.connectTimeout = timeoutMs
+            conn.readTimeout = timeoutMs
             conn.requestMethod = "POST"
             conn.doOutput = true
             conn.useCaches = false
@@ -254,8 +273,14 @@ class UdpDns(
 /**
  * Picks where each lookup goes: the chosen encrypted provider first, then the network's own DNS
  * servers so the internet keeps working, and reports what happened through [status].
- * After repeated DoH failures it waits a while (15 s, doubling up to 2 min) before trying DoH
- * again, so every lookup doesn't pay a timeout. A new network or provider resets that wait.
+ *
+ * Checking whether DoH works is "single-flight": while DoH is unproven (first use on a network
+ * or with a provider) or failing, only one lookup at a time tries it (the probe). The others
+ * either wait briefly for that probe ([probeWaitMs], while DoH is unproven or failed only once)
+ * or go straight to the network's DNS (after repeated failures), so a network that blocks DoH
+ * can't tie up every DNS thread with connect timeouts. After two failures in a row the next
+ * probe waits 15 s, doubling up to 5 min. A new network or provider, or [networkChanged],
+ * starts over with an immediate probe.
  */
 internal class UpstreamChain(
     private val provider: () -> DnsProvider,
@@ -263,39 +288,68 @@ internal class UpstreamChain(
     private val servers: () -> List<InetAddress>,
     private val udp: (q: DnsQuery, server: InetAddress) -> ByteArray,
     private val networkId: () -> Any?,
-    /** Search domains of the current network: names under them are answered by its own DNS. */
-    private val localDomains: () -> List<String> = { emptyList() },
     private val status: (encrypted: Boolean, problem: String?) -> Unit,
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val probeWaitMs: Long = PROBE_WAIT_MS,
 ) {
     class Result(val response: DnsResponse, val server: String)
 
+    private enum class Route { DOH, PROBE, FALLBACK }
+    private enum class Outcome { OK, SLOW, FAILED }
+    private class Ticket(val route: Route, val epoch: Long)
+
+    private val lock = ReentrantLock()
+    private val probeFinished = lock.newCondition()
+
+    // All guarded by lock.
+    private var known = false // false: the next lookup starts over (new network or provider)
+    private var epoch = 0L // bumped on every start-over, so late results from before are ignored
+    private var stateProvider: DnsProvider? = null
+    private var stateNetwork: Any? = null
+    private var verified = false // DoH answered on this network with this provider
     private var failures = 0
     private var retryAt = 0L
-    private var failedProvider: DnsProvider? = null
-    private var failedNetwork: Any? = null
+    private var lastOkAt = 0L
+    private var probing = false
+    private var probesDone = 0L
+
+    /** The phone moved to another network: forget what we learned and probe DoH again at once. */
+    fun networkChanged() {
+        lock.lock()
+        try {
+            known = false
+            probeFinished.signalAll()
+        } finally {
+            lock.unlock()
+        }
+    }
 
     fun resolve(q: DnsQuery): Result? {
         val p = provider()
         val url = p.dohUrl
         // Home and office names (router, printer, NAS) only exist on the local network's DNS.
-        val local = LocalNames.isLocal(q.question.key, localDomains())
-        if (url != null && !local && dohAllowed(p)) {
-            try {
-                val body = q.raw.copyOf()
-                Dns.setId(body, 0)
-                val resp = Dns.parseResponse(doh(url, body))
-                if (resp.id != 0 || !Dns.answers(resp, q.question)) throw IOException("answer doesn't match the question")
-                if (resp.rcode == Dns.REFUSED || resp.rcode == Dns.NOTIMP || resp.rcode == Dns.FORMERR) {
-                    throw IOException("server refused (rcode ${resp.rcode})")
+        val local = LocalNames.isLocal(q.question.key)
+        if (url != null && !local) {
+            val t = route(p)
+            if (t.route != Route.FALLBACK) {
+                try {
+                    val body = q.raw.copyOf()
+                    Dns.setId(body, 0)
+                    val resp = Dns.parseResponse(doh(url, body))
+                    if (resp.id != 0 || !Dns.answers(resp, q.question)) throw IOException("answer doesn't match the question")
+                    if (resp.rcode == Dns.REFUSED || resp.rcode == Dns.NOTIMP || resp.rcode == Dns.FORMERR) {
+                        throw IOException("server refused (rcode ${resp.rcode})")
+                    }
+                    // SERVFAIL from the provider is passed on as is: it is often a security
+                    // (DNSSEC) failure, and retrying over plain DNS would defeat it.
+                    finish(t, Outcome.OK)
+                    status(true, null)
+                    return Result(resp, url)
+                } catch (_: DohSlowException) {
+                    finish(t, Outcome.SLOW)
+                } catch (_: Exception) {
+                    finish(t, Outcome.FAILED)
                 }
-                // SERVFAIL from the provider is passed on as is: it is often a security
-                // (DNSSEC) failure, and retrying over plain DNS would defeat it.
-                dohWorked()
-                status(true, null)
-                return Result(resp, url)
-            } catch (_: Exception) {
-                dohFailed(p)
             }
         }
         var poor: Result? = null
@@ -322,43 +376,123 @@ internal class UpstreamChain(
     }
 
     private fun reportFallback(p: DnsProvider) {
-        if (p.dohUrl == null) status(false, null) // the user chose plain DNS: nothing is wrong
-        else status(false, "Encrypted DNS (${p.shortName}) can't be reached — using your network's DNS for now")
-    }
-
-    @Synchronized
-    private fun dohAllowed(p: DnsProvider): Boolean {
-        if (failures == 0) return true
-        if (p != failedProvider || networkId() != failedNetwork) {
-            failures = 0
-            return true
+        when {
+            p.dohUrl == null -> status(false, null) // the user chose plain DNS: nothing is wrong
+            // This lookup went out unencrypted, but DoH hasn't failed (it is still being
+            // checked, or was only slow on one name): no warning, but not "encrypted" either.
+            !dohFailing() -> status(false, null)
+            else -> status(false, "Encrypted DNS (${p.shortName}) can't be reached — using your network's DNS for now")
         }
-        return clock() >= retryAt
     }
 
-    @Synchronized
-    private fun dohWorked() {
+    private fun dohFailing(): Boolean {
+        lock.lock()
+        try {
+            return failures > 0
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    /** Decides whether this lookup uses DoH, is the probe, or goes to the network's DNS. */
+    private fun route(p: DnsProvider): Ticket {
+        val net = networkId()
+        lock.lock()
+        try {
+            if (!known || p != stateProvider || net != stateNetwork) startOver(p, net)
+            if (verified && failures == 0) return Ticket(Route.DOH, epoch)
+            if (!probing) {
+                if (clock() >= retryAt) {
+                    probing = true
+                    return Ticket(Route.PROBE, epoch)
+                }
+                return Ticket(Route.FALLBACK, epoch)
+            }
+            // A probe is running. After repeated failures, don't wait for it.
+            if (failures >= 2) return Ticket(Route.FALLBACK, epoch)
+            val myEpoch = epoch
+            val seen = probesDone
+            var left = TimeUnit.MILLISECONDS.toNanos(probeWaitMs)
+            while (probing && probesDone == seen && epoch == myEpoch && known && left > 0) {
+                left = try {
+                    probeFinished.awaitNanos(left)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
+            val ok = known && epoch == myEpoch && verified && failures == 0
+            return Ticket(if (ok) Route.DOH else Route.FALLBACK, epoch)
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private fun startOver(p: DnsProvider, net: Any?) {
+        known = true
+        epoch++
+        stateProvider = p
+        stateNetwork = net
+        verified = false
         failures = 0
+        retryAt = 0L
+        lastOkAt = 0L
+        probing = false
+        probeFinished.signalAll()
     }
 
-    @Synchronized
-    private fun dohFailed(p: DnsProvider) {
-        failedProvider = p
-        failedNetwork = networkId()
+    private fun finish(t: Ticket, outcome: Outcome) {
+        lock.lock()
+        try {
+            if (t.epoch != epoch) return // started on an older network or provider
+            val now = clock()
+            if (t.route == Route.PROBE) {
+                probing = false
+                probesDone++
+            }
+            when (outcome) {
+                Outcome.OK -> {
+                    verified = true
+                    failures = 0
+                    lastOkAt = now
+                }
+                // Reached but slow on this one name: not a failure if DoH answered recently.
+                Outcome.SLOW -> if (!verified || now - lastOkAt >= RECENT_OK_MS) failed(now)
+                Outcome.FAILED -> failed(now)
+            }
+            probeFinished.signalAll()
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    private fun failed(now: Long) {
         failures++
-        // One failure can be a blip on mobile data; wait only after two in a row.
-        if (failures >= 2) retryAt = clock() + minOf(15_000L shl minOf(failures - 2, 3), 120_000L)
+        // One failure can be a blip on mobile data: probe again at once (one lookup only).
+        // From the second failure in a row, wait 15 s, doubling up to 5 min.
+        retryAt = if (failures < 2) now else now + minOf(15_000L shl minOf(failures - 2, 5), MAX_BACKOFF_MS)
     }
 
     companion object {
         const val NO_DNS = "No DNS server is answering — check your internet connection"
+        /** How long a lookup waits for another lookup's DoH check before using the network's DNS. */
+        const val PROBE_WAIT_MS = 1500L
+        const val MAX_BACKOFF_MS = 300_000L
+        /** A DoH answer this recent means the provider is reachable, so one slow answer isn't a failure. */
+        const val RECENT_OK_MS = 30_000L
     }
 }
 
 /** Provider name without the "(recommended)" note, for messages. */
 val DnsProvider.shortName: String get() = title.substringBefore(" (")
 
-/** Names that only the local network's own DNS can answer, so they never go to the provider. */
+/**
+ * Names that only the local network's own DNS can answer, so they never go to the provider.
+ * Only names that can't exist on the public internet count: a single label ("router"),
+ * special-use and never-delegated suffixes (.local, .lan, .home.arpa, ...) and reverse lookups
+ * of private addresses. The network's search domains (from DHCP) are deliberately not trusted:
+ * a hostile Wi-Fi could announce "com" and then read or change every .com lookup.
+ */
 object LocalNames {
     private val SUFFIXES = listOf(
         "local", "lan", "home", "home.arpa", "internal", "intranet", "localdomain", "corp",
@@ -369,11 +503,10 @@ object LocalNames {
     ) + (16..31).map { "$it.172.in-addr.arpa" }
 
     /** [name] is lowercase without a trailing dot. */
-    fun isLocal(name: String, searchDomains: List<String> = emptyList()): Boolean {
+    fun isLocal(name: String): Boolean {
         if (name.isEmpty()) return false
         if (name.indexOf('.') < 0) return true // single label, e.g. "router" or "nas"
         for (s in SUFFIXES) if (under(name, s)) return true
-        for (s in searchDomains) if (s.isNotEmpty() && under(name, s)) return true
         return false
     }
 

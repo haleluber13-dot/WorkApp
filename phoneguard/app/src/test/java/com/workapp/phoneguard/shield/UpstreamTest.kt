@@ -9,10 +9,17 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.DataInputStream
 import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class UpstreamTest {
@@ -46,7 +53,6 @@ class UpstreamTest {
             okAnswer(q, q.id)
         },
         networkId = { network },
-        localDomains = { listOf("corp.example.com") },
         status = { e, p -> encrypted = e; problem = p },
         clock = { now },
     )
@@ -153,13 +159,28 @@ class UpstreamTest {
 
     @Test
     fun localNamesGoToNetworkDns() {
-        for (name in listOf("router", "nas.lan", "fritz.box", "printer.home.arpa", "wiki.corp.example.com", "4.1.168.192.in-addr.arpa")) {
+        for (name in listOf("router", "nas.lan", "fritz.box", "printer.home.arpa", "4.1.168.192.in-addr.arpa")) {
             udpCalls = 0
             assertNotNull(chain.resolve(Dns.parseQuery(TestDns.query(1, name))))
             assertEquals(name, 1, udpCalls)
         }
         assertEquals(0, dohCalls)
         assertEquals("unset", problem) // local lookups don't change the status
+    }
+
+    /**
+     * A Wi-Fi network picks its own search domain (DHCP). If names under it went to the
+     * network's DNS, a hostile network announcing "com" would get every .com lookup in the
+     * clear while the app says "encrypted". Only single-label names count as local now.
+     */
+    @Test
+    fun namesUnderTheNetworksSearchDomainStillUseDoh() {
+        for (name in listOf("wiki.corp.example.com", "mybank.com", "mail.example.net")) {
+            assertNotNull(chain.resolve(Dns.parseQuery(TestDns.query(1, name))))
+        }
+        assertEquals(3, dohCalls)
+        assertEquals(0, udpCalls)
+        assertEquals(true, encrypted)
     }
 
     @Test
@@ -171,9 +192,236 @@ class UpstreamTest {
         assertFalse(LocalNames.isLocal("8.8.8.8.in-addr.arpa"))
         assertFalse(LocalNames.isLocal("example.com"))
         assertFalse(LocalNames.isLocal("mylan.com"))
-        assertTrue(LocalNames.isLocal("x.corp.example.com", listOf("corp.example.com")))
-        assertFalse(LocalNames.isLocal("xcorp.example.com", listOf("corp.example.com")))
+        assertFalse(LocalNames.isLocal("x.corp.example.com"))
         assertFalse(LocalNames.isLocal(""))
+    }
+
+    // ---- single-flight DoH probing ----
+
+    private class Outage(val dohDelayMs: Long, @Volatile var dohWorks: Boolean = false, val probeWaitMs: Long = 200) {
+        val dohCalls = AtomicInteger()
+        val udpCalls = AtomicInteger()
+        val inDoh = AtomicInteger()
+        val maxInDoh = AtomicInteger()
+        @Volatile var now = 0L
+        @Volatile var network: Any = "wifi-1"
+        @Volatile var encrypted: Boolean? = null
+        @Volatile var problem: String? = null
+        val servers = listOf(InetAddress.getByAddress(byteArrayOf(192.toByte(), 168.toByte(), 1, 1)))
+
+        fun answer(q: DnsQuery, id: Int) =
+            TestDns.response(id, q.question.name, q.question.type, answers = listOf(rr(Q, Dns.TYPE_A, 60, a(1, 2, 3, 4))))
+
+        val chain = UpstreamChain(
+            provider = { DnsProvider.QUAD9 },
+            doh = { _, body ->
+                dohCalls.incrementAndGet()
+                val n = inDoh.incrementAndGet()
+                maxInDoh.accumulateAndGet(n) { x, y -> maxOf(x, y) }
+                try {
+                    Thread.sleep(dohDelayMs) // like a connect timeout on a network that drops DoH
+                    if (!dohWorks) throw IOException("connect timed out")
+                    answer(Dns.parseQuery(body), 0)
+                } finally {
+                    inDoh.decrementAndGet()
+                }
+            },
+            servers = { servers },
+            udp = { q, _ -> udpCalls.incrementAndGet(); answer(q, q.id) },
+            networkId = { network },
+            status = { e, p -> encrypted = e; problem = p },
+            clock = { now },
+            probeWaitMs = probeWaitMs,
+        )
+
+        /** Runs [n] different lookups at once; returns how long each took (ms). */
+        fun burst(n: Int): List<Long> {
+            val pool = Executors.newFixedThreadPool(n)
+            val start = CountDownLatch(1)
+            val futures = (0 until n).map { i ->
+                pool.submit<Long> {
+                    start.await()
+                    val t0 = System.nanoTime()
+                    assertNotNull(chain.resolve(Dns.parseQuery(TestDns.query(i, "host$i.example.com"))))
+                    (System.nanoTime() - t0) / 1_000_000
+                }
+            }
+            start.countDown()
+            val times = futures.map { it.get(10, TimeUnit.SECONDS) }
+            pool.shutdown()
+            return times
+        }
+
+        fun fail(times: Int) = repeat(times) { chain.resolve(Dns.parseQuery(TestDns.query(1, "warmup.example.com"))) }
+    }
+
+    @Test
+    fun duringAnOutageOnlyOneLookupProbesDoh() {
+        val o = Outage(dohDelayMs = 1000)
+        o.fail(2) // two failures in a row: backing off
+        assertEquals(2, o.dohCalls.get())
+        o.now += 16_000 // the backoff is over: time for one probe
+        val times = o.burst(20)
+        assertEquals("only one lookup may try DoH", 3, o.dohCalls.get())
+        assertEquals(1, o.maxInDoh.get())
+        // The other 19 went straight to the network's DNS, without paying the DoH timeout.
+        assertEquals(19, times.count { it < 500 })
+        assertEquals(20 + 2, o.udpCalls.get())
+        assertEquals(false, o.encrypted)
+        assertTrue(o.problem!!.contains("Quad9"))
+    }
+
+    @Test
+    fun backoffGrowsToFiveMinutes() {
+        val o = Outage(dohDelayMs = 0)
+        o.fail(2)
+        var expected = 15_000L
+        repeat(7) {
+            val calls = o.dohCalls.get()
+            o.now += expected - 1
+            o.fail(1)
+            assertEquals("still waiting before probe ${it + 1}", calls, o.dohCalls.get())
+            o.now += 1
+            o.fail(1)
+            assertEquals("probe ${it + 1} due", calls + 1, o.dohCalls.get())
+            expected = minOf(expected * 2, UpstreamChain.MAX_BACKOFF_MS)
+        }
+        assertEquals(UpstreamChain.MAX_BACKOFF_MS, expected)
+    }
+
+    @Test
+    fun onANewNetworkOthersWaitBrieflyForTheFirstCheck() {
+        // DoH works but is slowish: lookups arriving during the first check wait for it and
+        // then use DoH too, instead of going out unencrypted.
+        val o = Outage(dohDelayMs = 100, dohWorks = true, probeWaitMs = 2000)
+        o.burst(10)
+        assertEquals(0, o.udpCalls.get())
+        assertEquals(10, o.dohCalls.get())
+        assertEquals(true, o.encrypted)
+
+        // A new network where DoH is blocked: one probe; the rest wait at most probeWaitMs.
+        val blocked = Outage(dohDelayMs = 1500)
+        val times = blocked.burst(16)
+        assertEquals(1, blocked.dohCalls.get())
+        assertEquals(15, times.count { it < 1000 })
+    }
+
+    @Test
+    fun networkChangeProbesAgainAtOnce() {
+        val o = Outage(dohDelayMs = 0)
+        o.fail(3)
+        val calls = o.dohCalls.get()
+        o.fail(1)
+        assertEquals(calls, o.dohCalls.get()) // backing off
+        o.dohWorks = true
+        o.chain.networkChanged()
+        o.fail(1)
+        assertEquals(calls + 1, o.dohCalls.get())
+        assertEquals(true, o.encrypted)
+        assertNull(o.problem)
+    }
+
+    // ---- slow answers ----
+
+    @Test
+    fun oneSlowAnswerAfterRecentSuccessIsNotAFailure() {
+        var slow = false
+        var calls = 0
+        var enc: Boolean? = null
+        var prob: String? = "unset"
+        var t = 0L
+        val c = UpstreamChain(
+            provider = { DnsProvider.QUAD9 },
+            doh = { _, body ->
+                calls++
+                if (slow) throw DohSlowException("slow")
+                okAnswer(Dns.parseQuery(body), 0)
+            },
+            servers = { servers },
+            udp = { qq, _ -> okAnswer(qq, qq.id) },
+            networkId = { "n" },
+            status = { e, p -> enc = e; prob = p },
+            clock = { t },
+        )
+        c.resolve(q)
+        assertEquals(true, enc)
+        slow = true
+        repeat(3) { assertNotNull(c.resolve(q)) } // answered by the network's DNS this time...
+        assertEquals(4, calls) // ...but DoH keeps being used: no backoff
+        assertNull(prob) // and no false "can't be reached" warning
+        assertEquals(false, enc) // these lookups did go out unencrypted, though
+        // With no DoH answer for a while, slow answers do count as failures.
+        t += UpstreamChain.RECENT_OK_MS
+        repeat(3) { c.resolve(q) }
+        assertTrue(prob!!.contains("Quad9"))
+        assertEquals(6, calls) // two failures, then backing off
+    }
+
+    /** A plain-text HTTP/2 server that answers the first request and ignores the rest. */
+    @Test
+    fun dohClientDoesNotRetryASlowAnswerOnANewConnection() {
+        val server = ServerSocket(0, 5, InetAddress.getLoopbackAddress())
+        val accepted = AtomicInteger()
+        val answer = TestDns.response(0, "example.com", 1, answers = listOf(rr(Q, 1, 60, a(1, 2, 3, 4))))
+        val t = thread(isDaemon = true) {
+            try {
+                while (true) {
+                    val s = server.accept()
+                    accepted.incrementAndGet()
+                    thread(isDaemon = true) {
+                        try {
+                            s.use { serveFirstRequestOnly(it, answer) }
+                        } catch (_: IOException) {
+                        }
+                    }
+                }
+            } catch (_: IOException) {
+            }
+        }
+        val client = DohClient(
+            connect = { _, _, _ -> Socket(InetAddress.getLoopbackAddress(), server.localPort) },
+            timeoutMs = 400,
+            openH2 = { s, _, _ -> H2Connection.openPlainForTest(s) },
+        )
+        val body = TestDns.query(0, "example.com")
+        val r = Dns.parseResponse(client.query("https://dns.example/dns-query", body))
+        assertEquals(1, r.answers.size)
+        val t0 = System.nanoTime()
+        try {
+            client.query("https://dns.example/dns-query", body)
+            throw AssertionError("expected a timeout")
+        } catch (_: DohSlowException) {
+        }
+        val ms = (System.nanoTime() - t0) / 1_000_000
+        assertEquals("no second connection for a slow answer", 1, accepted.get())
+        assertTrue("took $ms ms", ms < 800)
+        server.close()
+        t.join(1000)
+    }
+
+    private fun serveFirstRequestOnly(s: Socket, answer: ByteArray) {
+        val input = DataInputStream(s.getInputStream())
+        val out = s.getOutputStream()
+        input.readFully(ByteArray(24)) // preface
+        var answered = false
+        while (true) {
+            val len = input.readUnsignedByte() shl 16 or (input.readUnsignedByte() shl 8) or input.readUnsignedByte()
+            val type = input.readUnsignedByte()
+            val flags = input.readUnsignedByte()
+            val stream = input.readInt() and 0x7FFFFFFF
+            input.readFully(ByteArray(len))
+            if (type == 0 && flags and 1 != 0 && !answered) { // DATA with END_STREAM: the request is complete
+                answered = true
+                fun frame(t: Int, f: Int, payload: ByteArray) {
+                    out.write(byteArrayOf((payload.size ushr 16).toByte(), (payload.size ushr 8).toByte(), payload.size.toByte(), t.toByte(), f.toByte()))
+                    out.write(TestDns.u32(stream.toLong()))
+                    out.write(payload)
+                }
+                frame(1, 0x4, byteArrayOf(0x88.toByte())) // HEADERS :status 200
+                frame(0, 0x1, answer) // DATA, END_STREAM
+                out.flush()
+            }
+        }
     }
 
     @Test

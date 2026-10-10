@@ -18,6 +18,13 @@ internal class DnsCore(
     /** Raw IPv4/IPv6 address -> the name the app asked for. */
     private val onAddress: (ByteArray, String) -> Unit,
     private val monotonic: () -> Long = { System.nanoTime() / 1_000_000 },
+    /** True if the user's own allowlist covers the name; then its aliases (CNAMEs) aren't checked. */
+    private val userAllowed: (String) -> Boolean = { false },
+    /**
+     * False while the blocklists are still loading. Answers given then aren't filtered yet, so
+     * they get a short TTL and apps ask again soon, once filtering is on.
+     */
+    private val filtering: () -> Boolean = { true },
 ) {
     @Volatile
     private var closed = false
@@ -59,10 +66,15 @@ internal class DnsCore(
             return Dns.errorResponse(q, Dns.SERVFAIL)
         }
         val resp = result.response
-        cnameVerdict(Dns.cnameTargets(resp))?.let { return blocked(uid, q, it) }
+        cnameVerdict(name, Dns.cnameTargets(resp))?.let { return blocked(uid, q, it) }
         for (a in Dns.addresses(resp)) onAddress(a, name)
         recordAllowed(uid, name)
-        return Dns.prepareReply(resp.raw, q)
+        val out = Dns.prepareReply(resp.raw, q)
+        if (!filtering()) {
+            val records = resp.answers + resp.authority + resp.additional
+            capTtls(out, records.filter { it.type != Dns.TYPE_OPT }.map { it.ttlOffset }.toIntArray())
+        }
+        return out
     }
 
     fun close() {
@@ -70,24 +82,37 @@ internal class DnsCore(
     }
 
     private fun fromCache(uid: Int, q: DnsQuery, e: DnsCache.Entry, stale: Boolean): ByteArray {
-        cnameVerdict(e.cnames)?.let { return blocked(uid, q, it) }
+        cnameVerdict(q.question.key, e.cnames)?.let { return blocked(uid, q, it) }
         // Refresh the IP -> name map: another name may have claimed the same IP since.
         for (a in e.addresses) onAddress(a, q.question.key)
         recordAllowed(uid, q.question.key)
-        return cache.reply(e, q, stale)
+        val out = cache.reply(e, q, stale)
+        if (!filtering()) capTtls(out, e.ttlOffsets)
+        return out
+    }
+
+    /** Lowers every TTL in [msg] (at [offsets]) to at most [UNFILTERED_TTL]. */
+    private fun capTtls(msg: ByteArray, offsets: IntArray) {
+        for (off in offsets) {
+            if (off < 0 || off + 4 > msg.size) continue
+            if (Dns.u32(msg, off) > UNFILTERED_TTL) Dns.putU32(msg, off, UNFILTERED_TTL)
+        }
     }
 
     /**
      * Trackers often hide behind a site's own subdomain that is an alias (CNAME) for the
-     * tracker's server. Checking the alias targets catches those.
+     * tracker's server. Checking the alias targets catches those. If the user allowed the name
+     * they asked for (or a parent), its aliases are not checked, so "always allow" works.
+     * The verdict names the alias, so the activity log shows what else could be allowed.
      */
-    private fun cnameVerdict(cnames: List<String>): Verdict? {
-        for (c in cnames) check(c)?.let { return it }
+    private fun cnameVerdict(name: String, cnames: List<String>): Verdict? {
+        if (cnames.isEmpty() || userAllowed(name)) return null
+        for (c in cnames) check(c)?.let { return it.copy(via = c) }
         return null
     }
 
     private fun blocked(uid: Int, q: DnsQuery, v: Verdict): ByteArray {
-        DnsStatus.countBlocked()
+        DnsStatus.countBlocked(q.question.key, monotonic())
         onEvent(ConnEvent(System.currentTimeMillis(), uid, Kind.DNS, VIRTUAL_DNS, 53, q.question.key, true, v.reason))
         return Dns.blockedResponse(q)
     }
@@ -132,5 +157,7 @@ internal class DnsCore(
         const val VIRTUAL_DNS = "10.215.173.53"
         const val ALLOWED_LOG_GAP_MS = 30_000L
         const val FOLLOWER_WAIT_MS = 15_000L
+        /** TTL (seconds) of answers given before the blocklists have finished loading. */
+        const val UNFILTERED_TTL = 10L
     }
 }
