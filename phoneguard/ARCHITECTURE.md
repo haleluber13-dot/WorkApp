@@ -37,12 +37,19 @@ are contracts other agents code against: keep them, add to them if needed (repor
 - IPv4 and IPv6; TCP and UDP. ICMP is dropped.
 - TCP: terminate locally. On SYN: resolve uid (`getConnectionOwnerUid`), ask `FirewallPolicy`;
   blocked → RST + `ConnEvent(blocked=true)`. Allowed → non-blocking `SocketChannel.connect`; on
-  success SYN-ACK (MSS option, no window scaling/SACK/timestamps), then relay with seq/ack
+  success SYN-ACK (MSS option; RFC 7323 window scaling only when the app's SYN offered it;
+  no SACK/timestamps), then relay with seq/ack
   tracking, respect the app's advertised window, back-pressure both ways, retransmit unacked
   data after a timeout, FIN/RST handling, connect timeout, idle cleanup.
 - UDP: per-flow `DatagramChannel`, idle timeout (60 s; 15 s for port 53 not-to-virtual-DNS).
 - DNS: UDP to the virtual DNS IP port 53 → `DnsHandler.handle` on a small executor → response
   written back as a UDP packet from the virtual DNS IP. TCP port 53 / 853 to the virtual IP → RST.
+- Buffers grow per busy connection (up to 1 MB down / 512 KB up, 32 MB total budget). Relay
+  sockets are opened and protected on the lookup pool, never on the loop thread. While no app
+  is blocked, the server handshake overlaps the owner lookup; the SYN-ACK still waits for the
+  policy. FULL mode uses MTU 9000 (fewer packets through the tun).
+- Unknown owner (uid -1, socket already gone) fails closed while any app is blocked, except
+  UDP to broadcast/multicast/LAN (not port 53/853), which can't reach the internet.
 - Byte accounting → `TrafficStore.onBytes` (batched, e.g. once per second per uid).
 - Must never wedge the phone's internet: exceptions in a flow close that flow only; the
   service falls back to BASIC mode and notifies if the engine thread dies.

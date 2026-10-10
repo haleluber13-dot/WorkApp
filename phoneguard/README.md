@@ -72,9 +72,8 @@ shows a **Try Full protection again** button.
    then tap **Install**. If Play Protect says it doesn't recognise the app, choose
    **Install anyway** (it isn't from the Play Store). Afterwards, turn "Install unknown
    apps" back off for your browser.
-   - If you had the first version of PhoneGuard and Android says **App not installed**,
-     uninstall the old version first, then install again. Your firewall choices will
-     need to be set again.
+   - If you have the first version of PhoneGuard, this installs over it as an update and
+     keeps your firewall choices.
 3. Open PhoneGuard → **Turn on protection** → accept the VPN request.
 4. **Allow alerts** when asked (Android 13), so PhoneGuard can warn you.
 5. **Scan** tab → **Scan my phone**.
