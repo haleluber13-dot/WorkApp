@@ -1,0 +1,30 @@
+{
+  "generated": "2026-10-10T08:52:02Z",
+  "generatedMillis": 1791622322000,
+  "lists": {
+    "MALWARE": {
+      "file": "malware.txt.gz",
+      "count": 395,
+      "source": "https://urlhaus.abuse.ch/downloads/hostfile/",
+      "license": "CC0 1.0 (abuse.ch URLhaus)"
+    },
+    "PHISHING": {
+      "file": "phishing.txt.gz",
+      "count": 35040,
+      "source": "https://malware-filter.gitlab.io/malware-filter/phishing-filter-hosts.txt",
+      "license": "CC BY-SA 4.0 (malware-filter phishing-filter; sources OpenPhish, PhishTank, IPThreat)"
+    },
+    "STALKERWARE": {
+      "file": "stalkerware.txt.gz",
+      "count": 928,
+      "source": "https://raw.githubusercontent.com/AssoEchap/stalkerware-indicators/master/generated/hosts",
+      "license": "CC BY 4.0 (Echap stalkerware-indicators)"
+    },
+    "TRACKERS": {
+      "file": "trackers.txt.gz",
+      "count": 72525,
+      "source": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
+      "license": "MIT (StevenBlack/hosts: ads, trackers and malware)"
+    }
+  }
+}
