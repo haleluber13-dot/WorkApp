@@ -143,10 +143,10 @@ class HomeScreen(host: Host) : Screen(host) {
             else -> C.RED
         }
         val c = ctx.card(C.CARD2).apply { gravity = Gravity.CENTER_HORIZONTAL }
-        c.put(ImageView(ctx).apply {
+        c.addView(ImageView(ctx).apply {
             setImageResource(R.drawable.ic_shield)
             setColorFilter(color)
-        }.also { it.layoutParams = LinearLayout.LayoutParams(ctx.dp(72), ctx.dp(72)) }, 8, wrap = true)
+        }, LinearLayout.LayoutParams(ctx.dp(72), ctx.dp(72)).apply { bottomMargin = ctx.dp(8) })
         c.put(ctx.label(status.title, 24f, color, true).apply { gravity = Gravity.CENTER }, 4)
         c.put(ctx.label(status.summary, 14f, C.SUB).apply { gravity = Gravity.CENTER }, if (status.issues.isEmpty()) 16 else 8)
         if (status.level != Level.OFF && status.issues.isNotEmpty()) {
