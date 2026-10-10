@@ -139,7 +139,7 @@ class FirewallService : VpnService() {
             networks[network] = caps
             if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && wifiSeen.add(network)) {
                 try {
-                    WifiGuard.onWifiConnected(this@FirewallService, caps)
+                    WifiGuard.onWifiConnected(this@FirewallService, caps, network)
                 } catch (_: Exception) {
                 }
             }
