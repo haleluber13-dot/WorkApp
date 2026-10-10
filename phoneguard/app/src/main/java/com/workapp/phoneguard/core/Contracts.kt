@@ -20,7 +20,10 @@ data class ConnEvent(
     /** Domain name, if known (DNS question, or reverse-mapped from earlier DNS answers). */
     val domain: String?,
     val blocked: Boolean,
-    /** Why it was blocked, in plain words, e.g. "Firewall: no Wi-Fi", "Phishing site". */
+    /**
+     * Why it was blocked, in plain words, e.g. "Firewall: no Wi-Fi", "Phishing site". The
+     * firewall's own reasons always contain the word "firewall".
+     */
     val reason: String? = null,
     /** True when the Web Shield (a blocklist) blocked it; false for firewall blocks. */
     val byShield: Boolean = false,
@@ -44,6 +47,15 @@ interface FirewallPolicy {
      * the service allows it only while no app is blocked on the current network.
      */
     fun isAllowed(uid: Int): Boolean
+
+    /**
+     * True only while no app at all is blocked, so [isAllowed] would say yes to everyone. The
+     * engine then starts a new connection to the server while it still looks up which app it
+     * belongs to, which saves that lookup's time on every connection. When this is false a
+     * connection is not started before the firewall allowed it, so a blocked app's attempts
+     * never leave the phone. Must be quick; may be called from any engine thread.
+     */
+    fun allowsEveryone(): Boolean = false
 }
 
 /** IP address -> domain name, learned from DNS answers, so connections can be shown by name. */

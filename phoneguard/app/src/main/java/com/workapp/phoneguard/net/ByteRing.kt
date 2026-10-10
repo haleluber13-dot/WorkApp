@@ -6,13 +6,15 @@ import java.nio.channels.ReadableByteChannel
 import java.nio.channels.WritableByteChannel
 
 /**
- * Fixed-size circular byte buffer for one direction of a TCP connection. Reads from and writes
- * to channels go straight into/out of the backing array, so relayed data is copied as little
- * as possible.
+ * Circular byte buffer for one direction of a TCP connection. Reads from and writes to channels
+ * go straight into/out of the backing array, so relayed data is copied as little as possible.
+ * It can [grow] (keeping its contents) when a busy connection needs more room.
  */
-internal class ByteRing(val capacity: Int) {
-    private val array = ByteArray(capacity)
-    private val bb: ByteBuffer = ByteBuffer.wrap(array)
+internal class ByteRing(capacity: Int) {
+    var capacity = capacity
+        private set
+    private var array = ByteArray(capacity)
+    private var bb: ByteBuffer = ByteBuffer.wrap(array)
     private var head = 0
 
     var size = 0
@@ -27,6 +29,18 @@ internal class ByteRing(val capacity: Int) {
     private fun tail(): Int {
         val t = head + size
         return if (t >= capacity) t - capacity else t
+    }
+
+    /** Makes the buffer [newCapacity] bytes big, keeping what it holds. */
+    fun grow(newCapacity: Int) {
+        require(newCapacity >= capacity)
+        if (newCapacity == capacity) return
+        val a = ByteArray(newCapacity)
+        copyOut(0, a, 0, size)
+        array = a
+        bb = ByteBuffer.wrap(a)
+        head = 0
+        capacity = newCapacity
     }
 
     /** Appends len bytes; the caller makes sure they fit. */

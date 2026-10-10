@@ -11,11 +11,16 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.StandardProtocolFamily
 import java.nio.ByteBuffer
 import java.nio.channels.CancelledKeyException
+import java.nio.channels.Channel
+import java.nio.channels.DatagramChannel
 import java.nio.channels.Selector
+import java.nio.channels.SocketChannel
 import java.security.SecureRandom
 import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.RejectedExecutionException
@@ -56,9 +61,10 @@ interface Protector {
  * closed it at once (a one-off datagram, a connect given up straight away) or, rarely, the
  * lookup itself failed. A blocked app could close its socket on purpose to look unknown, so the
  * engine asks the [FirewallPolicy] about uid -1 like any other app (the service allows it only
- * while no app is blocked) and, when -1 is not allowed, never relays the flow: TCP stays silent
- * so a still-waiting app's next SYN asks again, UDP drops the datagrams and asks again on the
- * next one (at most every [EngineConfig.unknownRetryMs]).
+ * while no app is blocked) and, when -1 is not allowed, never relays the flow to the internet:
+ * TCP stays silent so a still-waiting app's next SYN asks again, UDP drops the datagrams and asks
+ * again on the next one (at most every [EngineConfig.unknownRetryMs]). Datagrams that stay on the
+ * local network (broadcast, multicast, local addresses; not DNS) still go: see [udpStaysLocal].
  */
 fun interface UidResolver {
     fun uidOf(protocol: Int, local: InetSocketAddress, remote: InetSocketAddress): Int
@@ -101,13 +107,27 @@ class EngineConfig(
     val ownerCheckMs: Long = 30_000,
     /** The same blocked attempt (app, destination, port) is logged once per this time; apps retry in tight loops. */
     val blockedLogGapMs: Long = 15_000,
+    /** Retransmission timeout toward the app until a round trip has been measured. */
     val rtoMs: Long = 1_000,
+    /** Lower bound once the round trip is known (an app on the same phone answers within milliseconds). */
+    val rtoMinMs: Long = 200,
     val rtoMaxMs: Long = 30_000,
     val maxRetries: Int = 8,
     /** Closed connections are remembered this long to re-acknowledge a repeated FIN. */
     val lingerMs: Long = 5_000,
     val maxTcpFlows: Int = 4_000,
     val maxUdpFlows: Int = 2_000,
+    /**
+     * Use TCP window scaling (RFC 7323) with apps that offer it, so a busy connection isn't held
+     * to 64 KB in flight. Without it both windows stay plain 16-bit values.
+     */
+    val windowScaling: Boolean = true,
+    /** Most server data one connection holds for the app (unacknowledged or not yet sent). */
+    val maxSendBuffer: Int = 1 shl 20,
+    /** Most app data one connection holds for the server; also its largest receive window. */
+    val maxRecvBuffer: Int = 512 * 1024,
+    /** Memory all connections together may use beyond their first 64 KB per buffer. */
+    val bufferBudget: Long = 32L shl 20,
 )
 
 /** Identifies a flow; the app's side is the source. Stored keys are never modified. */
@@ -226,7 +246,12 @@ internal class Packet(size: Int) {
  *
  * Threads: a reader thread moves packets from the tun into a queue; one loop thread (a
  * java.nio Selector) owns all flow state and does all tun writes; small pools look up uids and
- * policy, and answer DNS, so slow system calls never hold up traffic.
+ * policy, open and protect the relay sockets, and answer DNS, so slow system calls never hold up
+ * traffic.
+ *
+ * Per round the loop handles a batch of packets, then writes what apps sent to each socket once
+ * and sends one ACK per connection, so a busy upload costs one socket write per round rather
+ * than one per packet.
  *
  * A problem in one flow closes only that flow. If the loop itself fails, the engine closes
  * everything and calls [EngineListener.onDied].
@@ -243,8 +268,9 @@ class Engine(
     private val blockReason: () -> String = { "Blocked by firewall" },
 ) {
     private companion object {
-        const val INBOUND_MAX = 4096
-        const val SPARE_MAX = 1024
+        /** Bytes of packets the reader may queue for the loop, and keep for reuse. */
+        const val INBOUND_BYTES = 16_000_000
+        const val SPARE_BYTES = 2_000_000
         const val MAX_BATCH = 512
         const val OUT_SIZE = 65_600
         const val BACKLOG_MAX = 4096
@@ -255,20 +281,37 @@ class Engine(
         const val RING_POOL = 32
         /** Blocked attempts remembered for [EngineConfig.blockedLogGapMs]. */
         const val BLOCKED_SEEN_MAX = 4096
-        /** Pass as knownUid to look the owner up. */
-        const val RESOLVE = Int.MIN_VALUE
+        /**
+         * Owner lookups and socket setup are slow system calls that mostly wait (on the system
+         * server, on netd), so a burst of new connections is worked on side by side.
+         */
+        const val LOOKUP_THREADS = 8
 
         fun clock(): Long = System.nanoTime() / 1_000_000
     }
 
     internal val selector: Selector = Selector.open()
     private val packetSize = config.mtu.coerceAtLeast(1280) + 128
-    private val inbound = ArrayBlockingQueue<Packet>(INBOUND_MAX)
-    private val spare = ArrayBlockingQueue<Packet>(SPARE_MAX)
+    private val inbound = ArrayBlockingQueue<Packet>((INBOUND_BYTES / packetSize).coerceIn(256, 4096))
+    private val spare = ArrayBlockingQueue<Packet>((SPARE_BYTES / packetSize).coerceIn(64, 1024))
     private val tasks = ConcurrentLinkedQueue<Runnable>()
     private val sleeping = AtomicBoolean(false)
-    private val lookups = pool("pg-lookup", 4, 1024)
+    private val lookups = pool("pg-lookup", LOOKUP_THREADS, 1024)
     private val dnsPool = pool("pg-dns", 16, 512)
+    /** Sockets opened off the loop and not yet handed to their flow; closed if the engine stops first. */
+    private val pendingChannels: MutableSet<Channel> = ConcurrentHashMap.newKeySet()
+
+    /** Size of a connection's buffers to start with (and of pooled ones). */
+    internal val ringSize = RING_SIZE
+    internal val maxSendBuffer = config.maxSendBuffer.coerceAtLeast(RING_SIZE)
+    /** At most what a scaled 16-bit window field can offer. */
+    internal val maxRecvBuffer = config.maxRecvBuffer.coerceIn(RING_SIZE, 65535 shl 14)
+    /** Window scale shift we offer: the smallest that can express [maxRecvBuffer]. */
+    internal val rcvShift: Int = run {
+        var s = 0
+        while ((65535L shl s) < maxRecvBuffer) s++
+        s
+    }
     @Volatile private var stopping = false
     /** Set when the loop thread has finished, for whatever reason. */
     @Volatile private var loopDone = false
@@ -286,7 +329,8 @@ class Engine(
     internal val writer = PacketWriter()
     internal val out = ByteArray(OUT_SIZE)
     internal val outBuffer: ByteBuffer = ByteBuffer.wrap(out)
-    internal val random = SecureRandom()
+    /** Initial sequence numbers. Tests may set another source before [start]. */
+    internal var random: java.util.Random = SecureRandom()
     private val dnsAddr: ByteArray = config.dnsServer.address
     private val tcp = HashMap<FlowKey, TcpFlow>()
     private val udp = HashMap<FlowKey, UdpFlow>()
@@ -295,8 +339,11 @@ class Engine(
     private val view = PacketView()
     private val backlog = ArrayDeque<ByteArray>()
     private val ackQueue = ArrayList<TcpFlow>()
+    private val flushQueue = ArrayList<TcpFlow>()
     private val scratch = ArrayList<Flow>()
     private val rings = ArrayDeque<ByteRing>()
+    /** Bytes that grown buffers hold beyond [RING_SIZE] each; kept within [EngineConfig.bufferBudget]. */
+    private var grownBytes = 0L
     private val doneBytes = HashMap<Int, LongArray>()
     private var bytesDueAt = 0L
     private var nextTimerAt = Long.MAX_VALUE
@@ -444,11 +491,13 @@ class Engine(
                 now = clock()
                 if (now >= nextTimerAt) runTimers()
                 flushBacklog()
+                flushWrites()
                 flushAcks()
                 if (stopping) break
                 waitForEvents()
                 now = clock()
                 handleKeys()
+                flushWrites()
                 flushAcks()
             }
         } catch (t: Throwable) {
@@ -569,7 +618,7 @@ class Engine(
             tcp[nf.key] = nf
             tcpFlows = tcp.size
             nf.onSyn(v)
-            lookup(nf, RESOLVE)
+            startTcp(nf)
             armTimer(nf.nextDeadline())
             return
         }
@@ -660,41 +709,199 @@ class Engine(
         bytesPending()
     }
 
-    // ------------------------------------------------------------------ owner lookups and policy
+    // ------------------------------------------------------------------ owner lookups, policy, sockets
 
     /**
-     * Finds the flow's owner (or takes [knownUid]) and asks the policy, then calls
-     * [Flow.onResolved] on the loop. [remote] is the destination to look up with; by default the
-     * flow key's own (a UDP flow passes the destination of the datagram that started it).
+     * A new TCP connection: finds its owner, asks the policy and opens the socket to the server,
+     * all off the loop. Normally the socket is only opened once the policy said yes, so nothing of
+     * a blocked app's attempt leaves the phone. While no app at all is blocked
+     * ([FirewallPolicy.allowsEveryone]) the answer is yes whoever the owner is, so the server's
+     * handshake is started first and the owner looked up meanwhile. Either way the app gets its
+     * SYN-ACK only after the policy allowed it ([TcpFlow.onResolved]).
      */
-    internal fun lookup(f: Flow, knownUid: Int, remote: InetSocketAddress? = null) {
+    internal fun startTcp(f: TcpFlow) {
         val gen = policyGen
-        val proto = if (f is TcpFlow) PROTO_TCP else PROTO_UDP
         val local = InetSocketAddress(f.key.srcInet, f.key.srcPort)
-        val to = remote ?: InetSocketAddress(f.key.dstInet, f.key.dstPort)
+        val remote = InetSocketAddress(f.key.dstInet, f.key.dstPort)
+        // Asked here, on the loop: the service updates its answer before it tells us rules changed.
+        val early = allowsEveryone()
         try {
+            if (early) connectTcp(f) // on a second pool thread, while this one looks up the owner
             lookups.execute {
                 if (stopping) return@execute
-                val uid = if (knownUid != RESOLVE) knownUid else resolveUid(proto, local, to)
+                val uid = resolveUid(PROTO_TCP, local, remote)
                 val allowed = isAllowed(uid)
-                post {
-                    if (f.closed) return@post
-                    try {
-                        // Rules changed while we were asking: ask again with the new rules.
-                        if (gen != policyGen) lookup(f, uid, to) else f.onResolved(uid, allowed)
-                    } catch (e: Exception) {
-                        kill(f)
-                    }
-                    if (!f.closed) armTimer(f.nextDeadline())
-                }
+                if (!early && allowed) deliverTcp(f, openTcp(remote))
+                post { resolved(f, uid, allowed, gen) }
             }
         } catch (_: RejectedExecutionException) {
             f.onLookupFailed()
         }
     }
 
-    /** Looks up who owns a new UDP flow, which sent its first datagram to [remote]. */
-    internal fun resolve(f: UdpFlow, remote: InetSocketAddress) = lookup(f, RESOLVE, remote)
+    /** Opens the socket of [f] on a pool thread; [TcpFlow.onChannel] gets it. */
+    internal fun connectTcp(f: TcpFlow) {
+        val remote = InetSocketAddress(f.key.dstInet, f.key.dstPort)
+        f.socketOnTheWay()
+        try {
+            lookups.execute {
+                if (!stopping) deliverTcp(f, openTcp(remote))
+            }
+        } catch (_: RejectedExecutionException) {
+            f.onChannel(null, false)
+        }
+    }
+
+    /** Looks up who owns a new UDP flow, which sent its first datagram to [remote]; opens its socket if allowed. */
+    internal fun resolve(f: UdpFlow, remote: InetSocketAddress) {
+        val gen = policyGen
+        val local = InetSocketAddress(f.key.srcInet, f.key.srcPort)
+        try {
+            lookups.execute {
+                if (stopping) return@execute
+                val uid = resolveUid(PROTO_UDP, local, remote)
+                val allowed = isAllowed(uid)
+                if (allowed) deliverUdp(f, openUdp(f.ipv4Socket))
+                post { resolved(f, uid, allowed, gen) }
+            }
+        } catch (_: RejectedExecutionException) {
+            f.onLookupFailed()
+        }
+    }
+
+    /** Opens the socket of a UDP flow that may send without one yet (see [UdpFlow.onChannel]). */
+    internal fun openUdpFor(f: UdpFlow) {
+        try {
+            lookups.execute {
+                if (!stopping) deliverUdp(f, openUdp(f.ipv4Socket))
+            }
+        } catch (_: RejectedExecutionException) {
+            f.onChannel(null)
+        }
+    }
+
+    /** The policy's answer for [uid], on the loop. Rules that changed meanwhile mean asking again. */
+    private fun resolved(f: Flow, uid: Int, allowed: Boolean, gen: Int) {
+        if (f.closed) return
+        try {
+            if (gen != policyGen) recheck(f, uid) else f.onResolved(uid, allowed)
+        } catch (e: Exception) {
+            kill(f)
+        }
+        if (!f.closed) armTimer(f.nextDeadline())
+    }
+
+    private fun recheck(f: Flow, uid: Int) {
+        val gen = policyGen
+        try {
+            lookups.execute {
+                if (stopping) return@execute
+                val allowed = isAllowed(uid)
+                post { resolved(f, uid, allowed, gen) }
+            }
+        } catch (_: RejectedExecutionException) {
+            f.onLookupFailed()
+        }
+    }
+
+    private class OpenedTcp(val ch: SocketChannel, val connected: Boolean)
+
+    /** Opens, protects and starts connecting a socket to [remote] (lookup pool); null if that failed at once. */
+    private fun openTcp(remote: InetSocketAddress): OpenedTcp? {
+        val c = try {
+            SocketChannel.open()
+        } catch (_: Exception) {
+            return null
+        }
+        return try {
+            c.configureBlocking(false)
+            protector.protect(c.socket())
+            try {
+                c.socket().tcpNoDelay = true // the app already decided how to pack its data
+            } catch (_: Exception) {
+            }
+            OpenedTcp(c, c.connect(remote))
+        } catch (_: Exception) {
+            // No route, no network, refused straight away.
+            closeQuietly(c)
+            null
+        }
+    }
+
+    /** Opens and protects an unconnected datagram socket (lookup pool); null if that failed. */
+    private fun openUdp(v4: Boolean): DatagramChannel? {
+        val c = try {
+            DatagramChannel.open(if (v4) StandardProtocolFamily.INET else StandardProtocolFamily.INET6)
+        } catch (_: Exception) {
+            return null
+        }
+        return try {
+            c.configureBlocking(false)
+            protector.protect(c.socket())
+            if (v4) {
+                try {
+                    c.socket().broadcast = true // lets apps reach broadcast addresses (e.g. wake-on-LAN)
+                } catch (_: Exception) {
+                }
+            }
+            c
+        } catch (_: Exception) {
+            closeQuietly(c)
+            null
+        }
+    }
+
+    /** Hands a socket opened on a pool thread to its flow on the loop (or closes it if too late). */
+    private fun deliverTcp(f: TcpFlow, o: OpenedTcp?) {
+        val c = o?.ch
+        if (!adopt(c)) return
+        post {
+            if (c != null && !pendingChannels.remove(c)) return@post // the engine stopped meanwhile
+            try {
+                f.onChannel(c, o?.connected == true)
+            } catch (e: Exception) {
+                kill(f)
+            }
+            if (!f.closed) armTimer(f.nextDeadline())
+        }
+    }
+
+    private fun deliverUdp(f: UdpFlow, c: DatagramChannel?) {
+        if (!adopt(c)) return
+        post {
+            if (c != null && !pendingChannels.remove(c)) return@post
+            try {
+                f.onChannel(c)
+            } catch (e: Exception) {
+                kill(f)
+            }
+            if (!f.closed) armTimer(f.nextDeadline())
+        }
+    }
+
+    /** Tracks [c] until its flow takes it, so a stopping engine closes it. False if already stopped. */
+    private fun adopt(c: Channel?): Boolean {
+        if (c == null) return true
+        pendingChannels.add(c)
+        if (loopDone || stopping) {
+            if (pendingChannels.remove(c)) closeQuietly(c)
+            return false
+        }
+        return true
+    }
+
+    private fun closeQuietly(c: Channel) {
+        try {
+            if (c is SocketChannel) abortChannel(c) else c.close()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun allowsEveryone(): Boolean = try {
+        policy.allowsEveryone()
+    } catch (_: Throwable) {
+        false
+    }
 
     /**
      * Asks again who owns a UDP flow's app port; [UdpFlow.onOwnerChecked] gets the answer on the
@@ -908,6 +1115,7 @@ class Engine(
         oldest?.let { kill(it) }
     }
 
+    /** A buffer of [ringSize] bytes, from the pool if one is free. */
     internal fun takeRing(): ByteRing {
         val r = rings.removeLastOrNull() ?: return ByteRing(RING_SIZE)
         r.clear()
@@ -915,12 +1123,51 @@ class Engine(
     }
 
     internal fun giveRing(r: ByteRing) {
+        if (r.capacity > RING_SIZE) {
+            // A grown buffer isn't pooled; its memory goes back to the budget.
+            grownBytes -= r.capacity - RING_SIZE
+            return
+        }
         // Never pool a buffer twice: two connections sharing one could mix up their data.
         if (rings.size < RING_POOL && rings.none { it === r }) rings.addLast(r)
     }
 
+    /** Grows [r] to [newCapacity] if the memory budget allows. */
+    internal fun growRing(r: ByteRing, newCapacity: Int): Boolean {
+        val more = newCapacity - r.capacity
+        if (more <= 0 || grownBytes + more > config.bufferBudget) return false
+        try {
+            r.grow(newCapacity)
+        } catch (_: OutOfMemoryError) {
+            return false
+        }
+        grownBytes += more
+        return true
+    }
+
     internal fun queueAck(f: TcpFlow) {
         ackQueue.add(f)
+    }
+
+    /** [f] has app data to write to its socket at the end of this round. */
+    internal fun queueFlush(f: TcpFlow) {
+        flushQueue.add(f)
+    }
+
+    /** Writes each connection's app data of this round to its socket in one go. */
+    private fun flushWrites() {
+        var i = 0
+        while (i < flushQueue.size) {
+            val f = flushQueue[i++]
+            if (f.closed) continue
+            try {
+                f.flushUp()
+            } catch (e: Exception) {
+                kill(f)
+            }
+            if (!f.closed) armTimer(f.nextDeadline())
+        }
+        flushQueue.clear()
     }
 
     /** ACKs for data received in this round go out together, one per connection. */
@@ -942,8 +1189,10 @@ class Engine(
     // ------------------------------------------------------------------ writing to the tun
 
     /** Sends a TCP segment from the flow's server side to the app; payload already at tcpPayloadOffset. */
-    internal fun sendTcp(k: FlowKey, seq: Int, ack: Int, flags: Int, window: Int, mss: Int = 0, payloadLen: Int = 0) {
-        val n = writer.tcp(out, k.v6, k.dst, k.src, k.dstPort, k.srcPort, seq, ack, flags, window, mss, payloadLen)
+    internal fun sendTcp(
+        k: FlowKey, seq: Int, ack: Int, flags: Int, window: Int, mss: Int = 0, payloadLen: Int = 0, wscale: Int = -1,
+    ) {
+        val n = writer.tcp(out, k.v6, k.dst, k.src, k.dstPort, k.srcPort, seq, ack, flags, window, mss, payloadLen, wscale)
         tunWrite(out, n)
     }
 
@@ -1016,6 +1265,10 @@ class Engine(
         udp.clear()
         tcpFlows = 0
         udpFlows = 0
+        // Sockets opened for flows that never got them.
+        for (c in pendingChannels) {
+            if (pendingChannels.remove(c)) closeQuietly(c)
+        }
         try {
             flushBacklog()
         } catch (_: Throwable) {

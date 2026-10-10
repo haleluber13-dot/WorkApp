@@ -122,4 +122,34 @@ class NetworkPickAndAddrTest {
         assertNotEquals(FlowKey().setEndpoint(six, false).copy(), FlowKey().setEndpoint(mapped, true).copy())
         assertEquals(FlowKey().setEndpoint(six, false).copy(), FlowKey().setEndpoint(six, false).copy())
     }
+
+    @Test
+    fun datagramsThatStayOnTheLocalNetwork() {
+        fun at(a: String, port: Int) = java.net.InetSocketAddress(InetAddress.getByName(a), port)
+        // Broadcast and multicast: one hop only.
+        assertTrue("wake-on-LAN", udpStaysLocal(at("255.255.255.255", 9)))
+        assertTrue("SSDP", udpStaysLocal(at("239.255.255.250", 1900)))
+        assertTrue("mDNS", udpStaysLocal(at("224.0.0.251", 5353)))
+        assertTrue("mDNS over IPv6", udpStaysLocal(at("ff02::fb", 5353)))
+        // Local-network addresses, subnet broadcasts included.
+        assertTrue(udpStaysLocal(at("192.168.1.255", 9)))
+        assertTrue(udpStaysLocal(at("192.168.1.20", 4000)))
+        assertTrue(udpStaysLocal(at("10.1.2.3", 1900)))
+        assertTrue(udpStaysLocal(at("172.20.0.5", 5000)))
+        assertTrue(udpStaysLocal(at("169.254.10.1", 80)))
+        assertTrue(udpStaysLocal(at("fe80::1", 9)))
+        assertTrue(udpStaysLocal(at("fd12:3456::1", 9)))
+        assertTrue(udpStaysLocal(at("::ffff:192.168.1.5", 9)))
+        // The internet.
+        assertFalse(udpStaysLocal(at("8.8.8.8", 443)))
+        assertFalse(udpStaysLocal(at("1.1.1.1", 9)))
+        assertFalse(udpStaysLocal(at("172.32.0.1", 9)))
+        assertFalse(udpStaysLocal(at("2001:4860:4860::8888", 443)))
+        assertFalse(udpStaysLocal(at("100.64.0.1", 9)))
+        // DNS to a local resolver goes on to the internet.
+        assertFalse(udpStaysLocal(at("192.168.1.1", 53)))
+        assertFalse(udpStaysLocal(at("fd00::1", 53)))
+        assertFalse(udpStaysLocal(at("192.168.1.1", 853)))
+        assertFalse(udpStaysLocal(at("224.0.0.251", 53)))
+    }
 }

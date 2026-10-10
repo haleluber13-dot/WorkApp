@@ -1,27 +1,33 @@
 package com.workapp.phoneguard.net
 
 import java.io.IOException
-import java.net.InetSocketAddress
 import java.nio.channels.SelectionKey
 import java.nio.channels.SocketChannel
 
 /**
  * One app TCP connection, terminated here and relayed over a real socket.
  *
- * Toward the app this is a small TCP stack: no window scaling, SACK or timestamps (so both
- * windows are plain 16-bit values), segment size from the app's SYN, and our receive window is
- * the free space in the upload buffer. Server data waits in [down] until the app acknowledges
- * it, which is also where retransmissions come from; app data the socket can't take yet waits
- * in [up]. The SYN-ACK is only sent once the real server accepted, so the app sees refused and
- * unreachable servers exactly as it would without us.
+ * Toward the app this is a small TCP stack: segment size from the app's SYN, no SACK or
+ * timestamps, and window scaling (RFC 7323) when the app's SYN offers it, so a busy connection
+ * can have far more than 64 KB in flight. Server data waits in [down] until the app acknowledges
+ * it, which is also where retransmissions come from. App data collects in [up] and goes to the
+ * socket once per engine round, in one write instead of one per packet. Both buffers start at
+ * the engine's base size and grow for busy connections, within the engine's memory budget.
+ *
+ * The SYN-ACK is only sent once the owner is known, the firewall allowed it and the real server
+ * accepted, so the app sees refused and unreachable servers exactly as it would without us. The
+ * engine opens the server socket off the loop thread: after the firewall said yes, or, while no
+ * app at all is blocked, at once, alongside the owner lookup (see [Engine.startTcp]).
  */
 internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(key, now) {
     private enum class State { RESOLVING, CONNECTING, SYN_RCVD, ESTABLISHED, CLOSED }
 
     private companion object {
-        const val MAX_WINDOW = 65535
+        const val MAX_FIELD = 65535
         const val SYNACK_RETRIES = 5
         const val PERSIST_MAX_MS = 60_000L
+        /** A grown download buffer that stays empty this long goes back to the budget. */
+        const val TRIM_MS = 5_000L
     }
 
     private val cfg = e.config
@@ -29,13 +35,38 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
     private val mssCap = cfg.mtu - if (key.v6) 60 else 40
     private var state = State.RESOLVING
 
+    // The socket to the server.
+    private var ch: SocketChannel? = null
+    private var sk: SelectionKey? = null
+    private var ops = 0
+    private var connected = false
+    /** The server couldn't be reached; the app is told once its owner is known. */
+    private var connectFailed = false
+    /** The engine is opening the socket on a pool thread. */
+    private var socketComing = false
+    private var connectStarted = 0L
+
+    // Window scaling, only when the app's SYN offered it.
+    private var scaled = false
+    /** Applied to the windows the app advertises. */
+    private var sndShift = 0
+    /** Applied to the windows we advertise. */
+    private var rcvShift = 0
+
     // App -> server.
     private var appIsn = 0
     private var appMss = 0
     private var rcvNxt = 0
     private var appFin = false
     private var outShut = false
+    /** The window we advertised last, in bytes. */
     private var lastAdv = 0
+    /** The right edge of the window we advertised; it is never moved back. */
+    private var advEdge = 0
+    /** Size of the upload buffer; grows for busy uploads (and the window with it). */
+    private var upCap = e.ringSize
+    /** Waiting in the engine's list to be written to the socket at the end of the round. */
+    private var flushQueued = false
 
     // Server -> app.
     private var sendMss = 536
@@ -52,14 +83,20 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
     /** True once the FIN's sequence number is fixed (it was sent at least once). */
     private var finSeqValid = false
     private var finAcked = false
+    /** Recovering from a loss: one segment is resent per acknowledgement until [recover] is reached. */
+    private var inRecovery = false
+    private var recover = 0
 
-    private var ch: SocketChannel? = null
-    private var sk: SelectionKey? = null
-    private var ops = 0
     private var down: ByteRing? = null
     private var up: ByteRing? = null
 
+    // Retransmission timeout from the measured round trip (RFC 6298; Karn: no samples from resends).
     private var rto = cfg.rtoMs
+    private var srtt = -1L
+    private var rttVar = 0L
+    private var rttTiming = false
+    private var rttSeq = 0
+    private var rttStart = 0L
     private var retries = 0
     private var rtoAt = 0L
     private var persistAt = 0L
@@ -76,7 +113,12 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         appMss = v.mss
         val mss = if (appMss > 0) appMss else if (key.v6) 1220 else 536
         sendMss = minOf(mss, mssCap).coerceAtLeast(64)
-        lastWnd = v.window
+        lastWnd = v.window // a SYN's window is never scaled
+        if (v.wscale >= 0 && cfg.windowScaling) {
+            scaled = true
+            sndShift = minOf(v.wscale, 14) // RFC 7323: larger shifts count as 14
+            rcvShift = e.rcvShift
+        }
     }
 
     /**
@@ -98,6 +140,8 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         resolved = true
         e.report(this, !allowed, null)
         if (!allowed) {
+            // A socket opened early (nothing was blocked then) is reset before anything was sent.
+            closeChannel(abort = true)
             // Nobody owns the connection (uid -1): the app gave up at once, which is also how a
             // blocked app could try to pass for unknown. Never connect it, and stay silent: an app
             // still waiting sends its SYN again, and that gets a fresh owner lookup.
@@ -105,7 +149,26 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             finish()
             return
         }
-        connect()
+        when {
+            connectFailed -> {
+                refuse()
+                finish()
+            }
+            connected -> onConnected()
+            else -> {
+                state = State.CONNECTING
+                // No socket yet nor on its way (the first answer was no, a recheck said yes): open one.
+                if (ch == null && !socketComing) e.connectTcp(this)
+                if (closed) return
+                deadline = connectStarted + cfg.connectTimeoutMs
+            }
+        }
+    }
+
+    /** The engine started opening this connection's socket ([onChannel] follows). */
+    fun socketOnTheWay() {
+        socketComing = true
+        connectStarted = e.now
     }
 
     override fun onLookupFailed() {
@@ -113,32 +176,47 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         finish()
     }
 
-    private fun connect() {
-        val c = try {
-            SocketChannel.open()
-        } catch (ex: IOException) {
-            refuse()
-            finish()
+    /**
+     * The socket to the server, opened by the engine off the loop thread and already connecting
+     * ([connectedNow] if it connected at once), or null if it couldn't even start (no route,
+     * refused at once). Takes ownership of [c].
+     */
+    fun onChannel(c: SocketChannel?, connectedNow: Boolean) {
+        socketComing = false
+        if (closed || ch != null || connectFailed || (state != State.RESOLVING && state != State.CONNECTING)) {
+            c?.let { abortChannel(it) }
+            return
+        }
+        if (c == null) {
+            connectFailed()
             return
         }
         ch = c
-        state = State.CONNECTING
-        deadline = e.now + cfg.connectTimeoutMs
+        if (connectStarted == 0L) connectStarted = e.now
         try {
-            c.configureBlocking(false)
-            e.protector.protect(c.socket())
-            try {
-                c.socket().tcpNoDelay = true // the app already decided how to pack its data
-            } catch (_: Exception) {
-            }
-            val done = c.connect(InetSocketAddress(key.dstInet, key.dstPort))
             sk = c.register(e.selector, 0, this)
-            if (done) onConnected() else setOps(SelectionKey.OP_CONNECT)
         } catch (ex: Exception) {
-            // No route, no network, refused straight away: tell the app now.
+            closeChannel(abort = true)
+            connectFailed()
+            return
+        }
+        if (connectedNow) markConnected() else setOps(SelectionKey.OP_CONNECT)
+    }
+
+    /** The server can't be reached. Before the owner is known nothing is said yet; see [onResolved]. */
+    private fun connectFailed() {
+        connectFailed = true
+        closeChannel(abort = false)
+        if (state == State.CONNECTING) {
             refuse()
             finish()
         }
+    }
+
+    private fun markConnected() {
+        connected = true
+        setOps(0)
+        if (state == State.CONNECTING) onConnected()
     }
 
     fun onReady(ready: Int) {
@@ -154,16 +232,15 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
     }
 
     private fun finishConnect() {
-        if (state != State.CONNECTING) return
+        if (connected || connectFailed) return
         val c = ch ?: return
         val ok = try {
             c.finishConnect()
         } catch (ex: Exception) {
-            refuse()
-            finish()
+            connectFailed()
             return
         }
-        if (ok) onConnected()
+        if (ok) markConnected()
     }
 
     private fun onConnected() {
@@ -181,10 +258,13 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
     }
 
     private fun sendSynAck() {
-        val w = window()
-        // MSS that fits the tun; no window scale, SACK or timestamp options.
-        e.sendTcp(key, isn, rcvNxt, TCP_SYN or TCP_ACK, w, if (appMss > 0) minOf(appMss, mssCap) else mssCap)
+        // MSS that fits the tun, window scale if the app offered it; no SACK or timestamps. The
+        // window of a SYN is never scaled.
+        val w = minOf(freeSpace(), MAX_FIELD)
+        val mss = if (appMss > 0) minOf(appMss, mssCap) else mssCap
+        e.sendTcp(key, isn, rcvNxt, TCP_SYN or TCP_ACK, w, mss, 0, if (scaled) rcvShift else -1)
         lastAdv = w
+        advEdge = rcvNxt + w
     }
 
     fun onPacket(v: PacketView, p: Packet) {
@@ -215,8 +295,9 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
                 rtoAt = 0L
                 retries = 0
                 rto = cfg.rtoMs
-                wndRight = v.ack + v.window
-                lastWnd = v.window
+                val wnd = v.window shl sndShift
+                wndRight = v.ack + wnd
+                lastWnd = wnd
                 updateOps()
                 segment(v, p, ackDone = true)
             }
@@ -232,7 +313,7 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             return
         }
         if (f and TCP_ACK == 0) return
-        if (!ackDone && !onAck(v.ack, v.window, v.payloadLen == 0 && f and TCP_FIN == 0)) return
+        if (!ackDone && !onAck(v.ack, v.window shl sndShift, v.payloadLen == 0 && f and TCP_FIN == 0)) return
         if (v.payloadLen > 0 || f and TCP_FIN != 0) {
             onData(v, p)
             if (closed) return
@@ -243,7 +324,7 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         maybeDone()
     }
 
-    /** Handles the app's acknowledgement and window. False if the segment must be dropped. */
+    /** Handles the app's acknowledgement and window ([wnd] already scaled). False if the segment must be dropped. */
     private fun onAck(ack: Int, wnd: Int, pure: Boolean): Boolean {
         if (seqGt(ack, sndMax)) {
             sendAck() // acknowledges something we never sent
@@ -263,31 +344,65 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             if (d != null && n > 0) d.consume(minOf(n, d.size))
             sndUna = ack
             if (seqLt(sndNxt, sndUna)) sndNxt = sndUna
+            if (rttTiming && !seqLt(ack, rttSeq)) {
+                rttTiming = false
+                sampleRtt(e.now - rttStart)
+            }
             dupAcks = 0
             retries = 0
-            rto = cfg.rtoMs
-            rtoAt = if (sndNxt != sndUna) e.now + rto else 0L
+            rto = baseRto()
             persistAt = 0L
             persistGap = cfg.rtoMs
-            if (d != null && d.size == 0) {
-                e.giveRing(d)
-                down = null
+            releaseDownIfEmpty()
+            wndRight = ack + wnd
+            lastWnd = wnd
+            if (inRecovery) {
+                // Everything sent before the loss is through: back to normal. Otherwise this
+                // acknowledges up to the next hole, so resend that at once (NewReno).
+                if (seqLt(ack, recover)) resendFirst() else inRecovery = false
             }
+            rtoAt = if (sndNxt != sndUna) e.now + rto else 0L
             updateOps() // room again: read more from the server
-        } else if (pure && sndNxt != sndUna && wnd == lastWnd) {
+            return true
+        }
+        if (pure && sndNxt != sndUna && wnd == lastWnd) {
             // The same ACK again while data is outstanding: a segment got lost, resend it now.
-            if (++dupAcks == 3) resendFirst()
+            if (++dupAcks == 3 && !inRecovery) startRecovery()
         }
         wndRight = ack + wnd
         lastWnd = wnd
         return true
     }
 
+    /** Resends the first unacknowledged segment and holds back new data until the hole is filled. */
+    private fun startRecovery() {
+        rttTiming = false
+        inRecovery = true
+        recover = sndMax
+        resendFirst()
+    }
+
     private fun resendFirst() {
         val d = down
         val data = if (d == null) 0 else minOf(sndNxt - sndUna, d.size)
         if (data > 0) sendData(sndUna, 0, minOf(data, sendMss))
-        else if (finSent && !finAcked) sendFin()
+        else if (finSeqValid && !finAcked) sendFin()
+    }
+
+    private fun sampleRtt(r: Long) {
+        if (srtt < 0) {
+            srtt = r
+            rttVar = r / 2
+        } else {
+            rttVar = (3 * rttVar + Math.abs(srtt - r)) / 4
+            srtt = (7 * srtt + r) / 8
+        }
+    }
+
+    /** The timeout without backoff: the configured one until a round trip was measured. */
+    private fun baseRto(): Long {
+        if (srtt < 0) return cfg.rtoMs
+        return (srtt + maxOf(4 * rttVar, 1L)).coerceIn(minOf(cfg.rtoMinMs, cfg.rtoMs), cfg.rtoMaxMs)
     }
 
     private fun onData(v: PacketView, p: Packet) {
@@ -327,42 +442,63 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         }
     }
 
-    /** Passes app data toward the server. Returns how many bytes were taken. */
+    /**
+     * Takes app data toward the server: into the upload buffer, which goes to the socket at the
+     * end of the engine's round ([flushUp]). Returns how many bytes were taken.
+     */
     private fun accept(p: Packet, off: Int, len: Int): Int {
-        val c = ch ?: return 0
-        if (outShut) return 0
-        var took = 0
-        try {
-            var u = up
-            if (u == null || u.size == 0) {
-                // Nothing queued ahead of it: hand it straight to the socket.
-                p.bb.window(off, off + len)
-                took = c.write(p.bb)
-            }
-            if (took < len) {
-                if (u == null) {
-                    u = e.takeRing()
-                    up = u
-                }
-                val n = minOf(len - took, u.free)
-                u.write(p.buf, off + took, n)
-                took += n
-            }
-        } catch (ex: IOException) {
-            abort(rstApp = true)
-            return 0
+        if (ch == null || outShut) return 0
+        val u = up ?: e.takeRing().also { up = it }
+        val n = minOf(len, u.free)
+        if (n <= 0) return 0
+        u.write(p.buf, off, n)
+        pendingSent += n
+        e.bytesPending()
+        if (!flushQueued) {
+            flushQueued = true
+            e.queueFlush(this)
         }
-        if (took > 0) {
-            pendingSent += took
-            e.bytesPending()
+        return n
+    }
+
+    /** End of the engine's round: writes what the app sent to the socket in one go. */
+    fun flushUp() {
+        flushQueued = false
+        if (closed || state != State.ESTABLISHED) return
+        val u = up ?: return
+        val c = ch ?: return
+        if (u.size > 0) {
+            try {
+                u.writeTo(c)
+            } catch (ex: IOException) {
+                abort(rstApp = true)
+                return
+            }
+            lastActive = e.now
+            // The app used up most of the window we offered, yet the socket took everything: our
+            // window is what holds it back, so offer a bigger one.
+            if (u.size == 0 && advEdge - rcvNxt < upCap / 4) growUp(u)
         }
-        val u = up
-        if (u != null && u.size == 0) {
+        releaseUpIfEmpty()
+        shutdownIfDrained()
+        if (closed) return
+        updateOps()
+        maybeDone()
+    }
+
+    private fun growUp(u: ByteRing) {
+        if (!scaled) return
+        val target = minOf(upCap * 2, e.maxRecvBuffer)
+        if (target > upCap && e.growRing(u, target)) upCap = target
+    }
+
+    /** An empty upload buffer of the base size goes back to the pool; a grown one stays with the connection. */
+    private fun releaseUpIfEmpty() {
+        val u = up ?: return
+        if (u.size == 0 && u.capacity <= e.ringSize) {
             e.giveRing(u)
             up = null
         }
-        updateOps()
-        return took
     }
 
     /** After the app's FIN and once its data is all written: half-close toward the server. */
@@ -382,7 +518,7 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
 
     /** Sends whatever server data and FIN the app's window allows. */
     private fun trySend() {
-        if (state != State.ESTABLISHED) return
+        if (state != State.ESTABLISHED || inRecovery) return
         val d = down
         if (d != null) {
             while (true) {
@@ -395,6 +531,12 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
                 // Don't send a runt just because the window is nearly full; the next ACK opens it.
                 if (n < sendMss && n < unsent && sent > 0) break
                 sendData(sndNxt, sent, n)
+                if (!rttTiming && !seqLt(sndNxt, sndMax)) {
+                    // Time one new segment at a time.
+                    rttTiming = true
+                    rttSeq = sndNxt + n
+                    rttStart = e.now
+                }
                 sndNxt += n
                 if (seqGt(sndNxt, sndMax)) sndMax = sndNxt
                 if (rtoAt == 0L) rtoAt = e.now + rto
@@ -423,24 +565,18 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
     private fun sendData(seq: Int, ringOff: Int, n: Int) {
         val d = down ?: return
         d.copyOut(ringOff, e.out, PacketWriter.tcpPayloadOffset(key.v6), n)
-        val w = window()
         val psh = if (ringOff + n >= d.size) TCP_PSH else 0
-        e.sendTcp(key, seq, rcvNxt, TCP_ACK or psh, w, 0, n)
-        lastAdv = w
+        e.sendTcp(key, seq, rcvNxt, TCP_ACK or psh, windowField(), 0, n)
         ackPending = false
     }
 
     private fun sendFin() {
-        val w = window()
-        e.sendTcp(key, finSeq, rcvNxt, TCP_FIN or TCP_ACK, w)
-        lastAdv = w
+        e.sendTcp(key, finSeq, rcvNxt, TCP_FIN or TCP_ACK, windowField())
         ackPending = false
     }
 
     fun sendAck() {
-        val w = window()
-        e.sendTcp(key, sndNxt, rcvNxt, TCP_ACK, w)
-        lastAdv = w
+        e.sendTcp(key, sndNxt, rcvNxt, TCP_ACK, windowField())
         ackPending = false
     }
 
@@ -451,10 +587,25 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         }
     }
 
-    /** Our receive window: what still fits in the upload buffer. */
-    private fun window(): Int {
-        val u = up
-        return if (u == null) MAX_WINDOW else minOf(MAX_WINDOW, u.free)
+    /** Room for app data: the upload buffer's size less what waits in it. */
+    private fun freeSpace(): Int = upCap - (up?.size ?: 0)
+
+    /**
+     * The window field for a segment going out now. With scaling the window is rounded down to
+     * what the field can express, but the right edge offered before is kept when the buffer has
+     * room for it (RFC 7323: don't shrink the window). Never offers more than the buffer holds.
+     */
+    private fun windowField(): Int {
+        val free = minOf(freeSpace(), MAX_FIELD shl rcvShift)
+        var w = (free ushr rcvShift) shl rcvShift
+        if (seqLt(rcvNxt + w, advEdge)) {
+            val unit = (1 shl rcvShift) - 1
+            val keep = (advEdge - rcvNxt + unit) and unit.inv()
+            if (keep <= free) w = keep
+        }
+        lastAdv = w
+        if (seqGt(rcvNxt + w, advEdge)) advEdge = rcvNxt + w
+        return w ushr rcvShift
     }
 
     private fun onReadable() {
@@ -463,11 +614,7 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             return
         }
         val c = ch ?: return
-        var d = down
-        if (d == null) {
-            d = e.takeRing()
-            down = d
-        }
+        val d = down ?: e.takeRing().also { down = it }
         val n = try {
             d.readFrom(c)
         } catch (ex: IOException) {
@@ -481,13 +628,28 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             pendingRecv += n
             e.bytesPending()
         }
-        if (d.size == 0) {
-            e.giveRing(d)
-            down = null
-        }
+        releaseDownIfEmpty()
         trySend()
         updateOps()
         maybeDone()
+    }
+
+    /**
+     * An empty download buffer of the base size goes back to the pool. A grown one stays while the
+     * connection is busy (a fast download empties it all the time), see [onTimer].
+     */
+    private fun releaseDownIfEmpty() {
+        val d = down ?: return
+        if (d.size == 0 && d.capacity <= e.ringSize) {
+            e.giveRing(d)
+            down = null
+        }
+    }
+
+    /** A grown download buffer, empty: released once the connection has been quiet for [TRIM_MS]. */
+    private fun idleGrownDown(): Boolean {
+        val d = down ?: return false
+        return d.size == 0 && d.capacity > e.ringSize
     }
 
     private fun onWritable() {
@@ -505,30 +667,36 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
                 return
             }
             lastActive = e.now
-            if (u.size == 0) {
-                e.giveRing(u)
-                up = null
-            }
+            releaseUpIfEmpty()
         }
         shutdownIfDrained()
         if (closed) return
         // Space freed up after we told the app to slow down: say so rather than wait for its probe.
-        val w = window()
+        val w = freeSpace()
         if (!appFin && w > lastAdv && (lastAdv < sendMss || w - lastAdv >= 2 * sendMss)) sendAck()
         updateOps()
         maybeDone()
     }
 
+    /** The download buffer is full, yet the app's window would take more than it holds: grow it. */
+    private fun growDown(d: ByteRing): Boolean {
+        if (!scaled || d.capacity >= e.maxSendBuffer) return false
+        if (wndRight - sndUna <= d.capacity) return false
+        return e.growRing(d, minOf(d.capacity * 2, e.maxSendBuffer))
+    }
+
     private fun updateOps() {
         var want = 0
         when (state) {
-            State.CONNECTING -> want = SelectionKey.OP_CONNECT
+            State.RESOLVING, State.CONNECTING ->
+                if (ch != null && !connected && !connectFailed) want = SelectionKey.OP_CONNECT
             State.ESTABLISHED -> {
                 val d = down
                 // Stop reading while the app hasn't made room: that pushes back on the server.
-                if (!serverEof && (d == null || d.free > 0)) want = want or SelectionKey.OP_READ
+                if (!serverEof && (d == null || d.free > 0 || growDown(d))) want = want or SelectionKey.OP_READ
                 val u = up
-                if (u != null && u.size > 0) want = want or SelectionKey.OP_WRITE
+                // Data that the end-of-round write couldn't place: write when the socket has room.
+                if (u != null && u.size > 0 && !flushQueued) want = want or SelectionKey.OP_WRITE
             }
             else -> {}
         }
@@ -559,6 +727,7 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         when (state) {
             State.RESOLVING, State.CONNECTING -> if (now >= deadline) {
                 refuse()
+                closeChannel(abort = true)
                 finish()
             }
             State.SYN_RCVD -> if (now >= rtoAt) {
@@ -577,9 +746,13 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
                 }
                 if (persistAt != 0L && now >= persistAt) {
                     // An already-acknowledged sequence number makes the app answer with its current window.
-                    e.sendTcp(key, sndUna - 1, rcvNxt, TCP_ACK, window())
+                    e.sendTcp(key, sndUna - 1, rcvNxt, TCP_ACK, windowField())
                     persistGap = minOf(persistGap * 2, PERSIST_MAX_MS)
                     persistAt = now + persistGap
+                }
+                if (idleGrownDown() && now - lastActive >= TRIM_MS) {
+                    down?.let { e.giveRing(it) }
+                    down = null
                 }
                 if (now - lastActive >= idleLimit()) abort(rstApp = true)
             }
@@ -595,12 +768,11 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             return
         }
         rto = minOf(rto * 2, cfg.rtoMaxMs)
-        // Go back and resend everything not yet acknowledged, as far as the window allows.
-        sndNxt = sndUna
-        if (finSent && !finAcked) finSent = false
         dupAcks = 0
-        trySend()
-        if (rtoAt == 0L && sndNxt != sndUna) rtoAt = e.now + rto
+        // Resend the first unacknowledged segment only. The app keeps what arrived after a gap, so
+        // its next ACK shows what is really missing (see onAck), instead of everything being sent twice.
+        startRecovery()
+        rtoAt = e.now + rto
     }
 
     private fun idleLimit() = when {
@@ -619,6 +791,7 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             var t = lastActive + idleLimit()
             if (rtoAt != 0L && rtoAt < t) t = rtoAt
             if (persistAt != 0L && persistAt < t) t = persistAt
+            if (idleGrownDown()) t = minOf(t, lastActive + TRIM_MS)
             t
         }
     }
@@ -648,15 +821,12 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         ch = null
         sk?.cancel()
         sk = null
-        if (abort) {
+        ops = 0
+        if (abort) abortChannel(c) else {
             try {
-                c.socket().setSoLinger(true, 0) // close with a reset instead of a FIN
+                c.close()
             } catch (_: Exception) {
             }
-        }
-        try {
-            c.close()
-        } catch (_: Exception) {
         }
     }
 
@@ -673,5 +843,17 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         down = null
         up?.let { e.giveRing(it) }
         up = null
+    }
+}
+
+/** Closes a socket with a reset instead of a FIN (the server learns the connection is void). */
+internal fun abortChannel(c: SocketChannel) {
+    try {
+        c.socket().setSoLinger(true, 0)
+    } catch (_: Exception) {
+    }
+    try {
+        c.close()
+    } catch (_: Exception) {
     }
 }

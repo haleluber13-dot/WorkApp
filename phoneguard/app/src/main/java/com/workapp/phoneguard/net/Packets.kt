@@ -43,17 +43,31 @@ internal fun Buffer.window(position: Int, limit: Int) {
 
 /** The Internet checksum (RFC 1071). */
 object Checksum {
-    /** Adds the big-endian 16-bit words of buf[off, off+len) to [sum]; an odd last byte is padded with zero. */
+    /**
+     * Adds the big-endian 16-bit words of buf[off, off+len) to [sum]; an odd last byte is padded
+     * with zero. High and low bytes are summed apart, eight bytes per step: every relayed byte
+     * goes through here, and this is quicker than assembling each word.
+     */
     fun add(sum: Long, buf: ByteArray, off: Int, len: Int): Long {
-        var s = sum
+        var hi = 0L
+        var lo = 0L
         var i = off
-        val last = off + len - 1
-        while (i < last) {
-            s += ((buf[i].toInt() and 0xFF) shl 8) or (buf[i + 1].toInt() and 0xFF)
+        val end = off + len
+        val end8 = end - 7
+        while (i < end8) {
+            hi += (buf[i].toInt() and 0xFF) + (buf[i + 2].toInt() and 0xFF) +
+                (buf[i + 4].toInt() and 0xFF) + (buf[i + 6].toInt() and 0xFF)
+            lo += (buf[i + 1].toInt() and 0xFF) + (buf[i + 3].toInt() and 0xFF) +
+                (buf[i + 5].toInt() and 0xFF) + (buf[i + 7].toInt() and 0xFF)
+            i += 8
+        }
+        while (i < end - 1) {
+            hi += buf[i].toInt() and 0xFF
+            lo += buf[i + 1].toInt() and 0xFF
             i += 2
         }
-        if (i == last) s += (buf[i].toInt() and 0xFF) shl 8
-        return s
+        if (i < end) hi += buf[i].toInt() and 0xFF
+        return sum + (hi shl 8) + lo
     }
 
     /** Folds the carries back in and returns the one's complement, ready to store. */
@@ -106,6 +120,9 @@ class PacketView {
     /** MSS option of a SYN, or 0 if absent. */
     var mss = 0
         private set
+    /** Window scale option (RFC 7323) of a SYN: the shift, or -1 if absent. */
+    var wscale = -1
+        private set
 
     /** Returns false for anything we don't relay: other protocols, fragments, truncated or malformed packets. */
     fun parse(b: ByteArray, n: Int): Boolean {
@@ -155,7 +172,9 @@ class PacketView {
                 ack = s32(b, l4 + 8)
                 flags = u8(b, l4 + 13)
                 window = u16(b, l4 + 14)
-                mss = if (flags and TCP_SYN != 0) findMss(b, l4 + 20, l4 + dataOff) else 0
+                mss = 0
+                wscale = -1
+                if (flags and TCP_SYN != 0) synOptions(b, l4 + 20, l4 + dataOff)
                 payloadOff = l4 + dataOff
                 payloadLen = end - payloadOff
             }
@@ -175,7 +194,8 @@ class PacketView {
         return true
     }
 
-    private fun findMss(b: ByteArray, start: Int, end: Int): Int {
+    /** Reads the MSS and window scale options of a SYN; a malformed option ends the list. */
+    private fun synOptions(b: ByteArray, start: Int, end: Int) {
         var i = start
         while (i < end) {
             val kind = u8(b, i)
@@ -187,10 +207,10 @@ class PacketView {
             if (i + 1 >= end) break
             val optLen = u8(b, i + 1)
             if (optLen < 2 || i + optLen > end) break
-            if (kind == 2 && optLen == 4) return u16(b, i + 2)
+            if (kind == 2 && optLen == 4) mss = u16(b, i + 2)
+            if (kind == 3 && optLen == 3) wscale = u8(b, i + 2)
             i += optLen
         }
-        return 0
     }
 }
 
@@ -212,16 +232,16 @@ class PacketWriter {
     }
 
     /**
-     * Writes a TCP segment with [payloadLen] bytes of payload. [mss] > 0 adds an MSS option
-     * (only used on SYN-ACK, which has no payload). Addresses are read from the first 4 or 16
-     * bytes of [src]/[dst]. Returns the packet length.
+     * Writes a TCP segment with [payloadLen] bytes of payload. [mss] > 0 adds an MSS option and
+     * [wscale] >= 0 a window scale option (both only on SYN-ACKs, which have no payload).
+     * Addresses are read from the first 4 or 16 bytes of [src]/[dst]. Returns the packet length.
      */
     fun tcp(
         out: ByteArray, v6: Boolean, src: ByteArray, dst: ByteArray, srcPort: Int, dstPort: Int,
-        seq: Int, ack: Int, flags: Int, window: Int, mss: Int, payloadLen: Int,
+        seq: Int, ack: Int, flags: Int, window: Int, mss: Int, payloadLen: Int, wscale: Int = -1,
     ): Int {
         val ip = ipHeaderLen(v6)
-        val headerLen = if (mss > 0) 24 else 20
+        val headerLen = 20 + (if (mss > 0) 4 else 0) + (if (wscale >= 0) 4 else 0)
         val l4Len = headerLen + payloadLen
         ip(out, v6, src, dst, PROTO_TCP, l4Len)
         put16(out, ip, srcPort)
@@ -233,10 +253,18 @@ class PacketWriter {
         put16(out, ip + 14, window)
         put16(out, ip + 16, 0)
         put16(out, ip + 18, 0)
+        var o = ip + 20
         if (mss > 0) {
-            out[ip + 20] = 2
-            out[ip + 21] = 4
-            put16(out, ip + 22, mss)
+            out[o] = 2
+            out[o + 1] = 4
+            put16(out, o + 2, mss)
+            o += 4
+        }
+        if (wscale >= 0) {
+            out[o] = 1 // NOP, so the option ends on a 4-byte boundary
+            out[o + 1] = 3
+            out[o + 2] = 3
+            out[o + 3] = wscale.toByte()
         }
         put16(out, ip + 16, Checksum.finish(Checksum.add(pseudo(out, v6, PROTO_TCP, l4Len), out, ip, l4Len)))
         return ip + l4Len
