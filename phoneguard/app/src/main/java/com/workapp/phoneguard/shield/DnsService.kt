@@ -160,6 +160,12 @@ class DnsService(context: Context) : DnsHandler {
     }
 
     /** Release sockets/threads. */
+    /**
+     * The phone moved to a different network (Wi-Fi <-> mobile, or another Wi-Fi). Called by
+     * the firewall service. Drops answers learned on the old network. (Stub; Web Shield fills in.)
+     */
+    fun onNetworkChanged() {}
+
     fun close() {
         core.close()
         doh.closeAll()
