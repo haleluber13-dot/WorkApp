@@ -105,4 +105,15 @@ class DnsCacheTest {
         now -= 10_000
         assertNull(cache.get(key("a.com")))
     }
+
+    @Test
+    fun putAfterClearWithOldGenerationIsSkipped() {
+        val gen = cache.generation
+        cache.clear() // network changed while the lookup was out
+        assertFalse(cache.put(key("a.com"), answer("a.com", 300), gen))
+        assertNull(cache.get(key("a.com")))
+        assertTrue(cache.put(key("a.com"), answer("a.com", 300), cache.generation))
+        assertNotNull(cache.get(key("a.com")))
+        assertTrue(cache.put(key("b.com"), answer("b.com", 300))) // no generation: always stored
+    }
 }

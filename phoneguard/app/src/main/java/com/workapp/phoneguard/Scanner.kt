@@ -292,9 +292,48 @@ object ScanLogic {
         return "app:$pkg|$p|${if (knownSpyware) "spy" else "-"}|$cert"
     }
 
-    /** Which findings the user's trusted ids hide. Findings that aren't trustable are never hidden. */
-    fun hiddenByTrust(findings: List<Finding>, trusted: Set<String>): List<Finding> =
-        findings.filter { it.trustable && it.id in trusted }
+    /** An app finding id ([appFindingId]) taken apart. */
+    data class AppState(val pkg: String, val powers: Set<String>, val spy: Boolean, val cert: String)
+
+    /** Parses an [appFindingId] (also ones saved by earlier versions, which use the same form); null for other ids. */
+    fun parseAppFindingId(id: String): AppState? {
+        if (!id.startsWith("app:")) return null
+        val parts = id.substring(4).split('|')
+        if (parts.size != 4 || parts[0].isEmpty()) return null
+        val powers = parts[1].split(',').filter { it.isNotEmpty() }.toSet()
+        return AppState(parts[0], powers, parts[2] == "spy", parts[3])
+    }
+
+    private const val INSTALLERS = "dev:installers:"
+
+    /**
+     * Which findings the user's trusted ids hide. Findings that aren't trustable are never hidden.
+     * A trusted app stays hidden while it has the same signer and only powers it had when it was
+     * trusted, or fewer (a permission it lost, or that Android took back, doesn't bring it back);
+     * any new power shows it again. The same goes for the list of apps that can install apps.
+     */
+    fun hiddenByTrust(findings: List<Finding>, trusted: Set<String>): List<Finding> {
+        val apps = trusted.mapNotNull { parseAppFindingId(it) }.groupBy { it.pkg }
+        val installerSets = trusted.filter { it.startsWith(INSTALLERS) }.map { installerSet(it) }
+        return findings.filter { f ->
+            if (!f.trustable) return@filter false
+            if (f.id in trusted) return@filter true
+            val app = parseAppFindingId(f.id)
+            if (app != null) {
+                return@filter apps[app.pkg].orEmpty().any { t ->
+                    t.spy == app.spy && t.cert == app.cert && t.powers.containsAll(app.powers)
+                }
+            }
+            if (f.id.startsWith(INSTALLERS)) {
+                val now = installerSet(f.id)
+                return@filter now.isNotEmpty() && installerSets.any { it.containsAll(now) }
+            }
+            false
+        }
+    }
+
+    private fun installerSet(id: String): Set<String> =
+        id.substring(INSTALLERS.length).split(',').filter { it.isNotEmpty() }.toSet()
 
     /**
      * One-time move from the old "app:<pkg>" trusts: they count as trusting the app as it is now.
@@ -305,7 +344,7 @@ object ScanLogic {
             .map { it.id }
 
     /** Changes when the set of apps changes, so "I trust this" doesn't hide a newly allowed app. */
-    fun installersFindingId(pkgs: Collection<String>): String = "dev:installers:" + pkgs.sorted().joinToString(",")
+    fun installersFindingId(pkgs: Collection<String>): String = INSTALLERS + pkgs.sorted().joinToString(",")
 }
 
 /** The Settings screens that each [Fix] opens, best first. Used by the UI's fix buttons. */

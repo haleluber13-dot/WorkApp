@@ -35,13 +35,15 @@ class DnsCoreTest {
         ShieldCategory.values().toSet(),
     )
 
+    private val cache = DnsCache(clock = { now })
+
     private val core = DnsCore(
         check = { blocklist.check(it) },
         upstream = { q ->
             upstreamCalls.incrementAndGet()
             upstreamAnswer(q)?.let { UpstreamChain.Result(Dns.parseResponse(it), "test") }
         },
-        cache = DnsCache(clock = { now }),
+        cache = cache,
         onEvent = { events += it },
         onAddress = { ip, name -> addresses += InetAddress.getByAddress(ip).hostAddress!! to name },
         monotonic = { now },
@@ -77,6 +79,7 @@ class DnsCoreTest {
         assertEquals(10123, e.uid)
         assertEquals("login.phish.com", e.domain)
         assertEquals("Phishing & scams", e.reason)
+        assertTrue("the Web Shield's own blocks are marked as such", e.byShield)
         assertTrue(DnsStatus.blocked > blockedBefore)
     }
 
@@ -94,6 +97,7 @@ class DnsCoreTest {
         assertEquals(1, upstreamCalls.get()) // served from cache
         // Allowed lookups are logged, but repeats within 30 s only once.
         assertEquals(1, events.count { !it.blocked })
+        assertTrue(events.none { it.byShield })
     }
 
     @Test
@@ -123,6 +127,7 @@ class DnsCoreTest {
         assertEquals("metrics.shop.com", e.domain)
         // The reason names the alias that matched, so the user can see what to allow.
         assertEquals("Ads & trackers (via collect.tracker.net)", e.reason)
+        assertTrue(e.byShield)
         assertTrue(addresses.isEmpty())
         // Still blocked when the answer comes from the cache.
         events.clear()
@@ -238,5 +243,45 @@ class DnsCoreTest {
         core.close()
         assertNull(core.handle(1, TestDns.query(1, "a.com")))
         assertFalse(upstreamCalls.get() > 0)
+    }
+
+    @Test
+    fun answerFromBeforeANetworkChangeIsNotCachedAfterIt() {
+        upstreamAnswer = { q ->
+            // The phone switches networks while this lookup is out: the cache is emptied.
+            cache.clear()
+            TestDns.response(0, q.question.name, q.question.type, answers = listOf(rr(Q, Dns.TYPE_A, 300, a(6, 6, 6, 6))))
+        }
+        val r = ask("www.example.com")
+        assertEquals(1, r.answers.size) // the app still gets its answer...
+        assertEquals(0, cache.size) // ...but it isn't kept for the new network
+        upstreamAnswer = { q -> TestDns.response(0, q.question.name, q.question.type, answers = listOf(rr(Q, Dns.TYPE_A, 300, a(7, 7, 7, 7)))) }
+        ask("www.example.com")
+        assertEquals(2, upstreamCalls.get())
+        assertEquals(1, cache.size)
+    }
+
+    @Test
+    fun intranetAnswersStillGetAliasChecks() {
+        val chain = UpstreamChain(
+            provider = { DnsProvider.QUAD9 },
+            doh = { _, body -> val q = Dns.parseQuery(body); TestDns.response(0, q.question.name, q.question.type, rcode = Dns.NXDOMAIN) },
+            servers = { listOf(InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1))) },
+            udp = { q, _ -> cnameAnswer("collect.tracker.net")(q).also { Dns.setId(it, q.id) } },
+            networkId = { "office" },
+            status = { _, _ -> },
+            searchDomains = { listOf("corp.example.com") },
+        )
+        val c = DnsCore(
+            check = { blocklist.check(it) },
+            upstream = { chain.resolve(it) },
+            cache = DnsCache(clock = { now }),
+            onEvent = { events += it },
+            onAddress = { _, _ -> },
+            monotonic = { now },
+        )
+        val r = Dns.parseResponse(c.handle(1, TestDns.query(5, "wiki.corp.example.com"))!!)
+        assertEquals(0, Dns.addresses(r).sumOf { it.sum() })
+        assertEquals("Ads & trackers (via collect.tracker.net)", events.single { it.blocked }.reason)
     }
 }

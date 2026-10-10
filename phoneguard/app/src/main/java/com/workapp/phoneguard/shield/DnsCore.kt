@@ -113,7 +113,7 @@ internal class DnsCore(
 
     private fun blocked(uid: Int, q: DnsQuery, v: Verdict): ByteArray {
         DnsStatus.countBlocked(q.question.key, monotonic())
-        onEvent(ConnEvent(System.currentTimeMillis(), uid, Kind.DNS, VIRTUAL_DNS, 53, q.question.key, true, v.reason))
+        onEvent(ConnEvent(System.currentTimeMillis(), uid, Kind.DNS, VIRTUAL_DNS, 53, q.question.key, true, v.reason, byShield = true))
         return Dns.blockedResponse(q)
     }
 
@@ -141,9 +141,12 @@ internal class DnsCore(
             return leader.result
         }
         try {
+            val gen = cache.generation
             val r = try { upstream(q) } catch (_: Exception) { null }
-            // Cache before letting followers go, so a lookup arriving just after finds it.
-            if (r != null) cache.put(key, r.response)
+            // Cache before letting followers go, so a lookup arriving just after finds it. Not
+            // if the network changed meanwhile (the cache was cleared): the answer may be the
+            // old network's.
+            if (r != null) cache.put(key, r.response, gen)
             mine.result = r
         } finally {
             inFlight.remove(key, mine)

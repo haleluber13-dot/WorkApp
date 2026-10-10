@@ -321,6 +321,179 @@ class UpstreamTest {
         assertNull(o.problem)
     }
 
+    /**
+     * DoH is healthy, so every lookup uses it at once; then a short outage makes all ten
+     * in-flight lookups fail together. That must count as one failure, not ten (which used to
+     * mean 5 minutes of unencrypted DNS): the next lookup checks DoH again right away.
+     */
+    @Test
+    fun aBurstOfFailuresCountsOnceAndDohIsCheckedAgainSoon() {
+        val o = Outage(dohDelayMs = 400, dohWorks = true)
+        o.fail(1)
+        assertEquals(true, o.encrypted)
+        o.dohWorks = false
+        o.burst(10)
+        assertEquals(11, o.dohCalls.get())
+        assertEquals(10, o.udpCalls.get()) // everyone still got an answer
+        // The outage is over. Well within 15 s (here: at once) the next lookup uses DoH again.
+        o.dohWorks = true
+        o.fail(1)
+        assertEquals(12, o.dohCalls.get())
+        assertEquals(true, o.encrypted)
+        assertNull(o.problem)
+    }
+
+    @Test
+    fun aBurstThenAFailedCheckWaitsOnly15Seconds() {
+        val o = Outage(dohDelayMs = 400, dohWorks = true)
+        o.fail(1)
+        o.dohWorks = false
+        o.burst(10)
+        o.fail(1) // the check right after the burst fails too
+        assertEquals(12, o.dohCalls.get())
+        o.now += 14_999
+        o.fail(1)
+        assertEquals(12, o.dohCalls.get())
+        o.now += 1
+        o.dohWorks = true
+        o.fail(1)
+        assertEquals(13, o.dohCalls.get())
+        assertEquals(true, o.encrypted)
+    }
+
+    @Test
+    fun networkPassingItsInternetCheckEndsTheBackoff() {
+        val o = Outage(dohDelayMs = 0)
+        o.fail(2)
+        repeat(6) { o.now += UpstreamChain.MAX_BACKOFF_MS; o.fail(1) } // backoff now at 5 min
+        val calls = o.dohCalls.get()
+        o.now += 1_000
+        o.fail(1)
+        assertEquals(calls, o.dohCalls.get()) // still backing off
+        o.chain.retryNow()
+        o.fail(1)
+        assertEquals("checked at once", calls + 1, o.dohCalls.get())
+        // Still failing: the backoff starts again from 15 s, not 5 min.
+        o.now += 15_000
+        o.fail(1)
+        assertEquals(calls + 2, o.dohCalls.get())
+        // And retryNow() changes nothing while DoH works.
+        o.dohWorks = true
+        o.now += 60_000
+        o.fail(1)
+        o.chain.retryNow()
+        o.fail(1)
+        assertEquals(calls + 4, o.dohCalls.get())
+        assertEquals(true, o.encrypted)
+    }
+
+    // ---- intranet names under the network's search domain ----
+
+    private class Split(val domains: List<String>) {
+        var dohRcode = Dns.NXDOMAIN
+        var dohAnswers = false
+        var udpRcode = Dns.NOERROR
+        var udpAnswers = true
+        var dohCalls = 0
+        var udpCalls = 0
+        var encrypted: Boolean? = null
+        var problem: String? = "unset"
+
+        private fun resp(q: DnsQuery, id: Int, rcode: Int, withAnswer: Boolean, ip: ByteArray) =
+            TestDns.response(id, q.question.name, q.question.type, answers = if (withAnswer) listOf(rr(Q, Dns.TYPE_A, 60, ip)) else emptyList(), rcode = rcode)
+
+        val chain = UpstreamChain(
+            provider = { DnsProvider.QUAD9 },
+            doh = { _, body -> dohCalls++; resp(Dns.parseQuery(body), 0, dohRcode, dohAnswers, a(8, 8, 8, 8)) },
+            servers = { listOf(InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1))) },
+            udp = { q, _ -> udpCalls++; resp(q, q.id, udpRcode, udpAnswers, a(10, 0, 0, 5)) },
+            networkId = { "office" },
+            status = { e, p -> encrypted = e; problem = p },
+            clock = { 0L },
+            searchDomains = { domains },
+        )
+
+        fun ask(name: String) = chain.resolve(Dns.parseQuery(TestDns.query(1, name)))!!
+    }
+
+    private fun UpstreamChain.Result.ip() = Dns.addresses(response).map { InetAddress.getByAddress(it).hostAddress }
+
+    @Test
+    fun intranetNameUnknownToDohIsAskedOnTheNetwork() {
+        val s = Split(listOf("corp.example.com", "attlocal.net"))
+        val r = s.ask("intranet.corp.example.com")
+        assertEquals(listOf("10.0.0.5"), r.ip())
+        assertTrue(r.intranet)
+        assertEquals(1, s.dohCalls) // DoH was asked first
+        assertEquals(true, s.encrypted) // an intranet answer is expected: no false warning
+        assertNull(s.problem)
+        assertEquals(listOf("10.0.0.5"), s.ask("printer.attlocal.net").ip())
+        // NOERROR without records from DoH also gets the second chance.
+        s.dohRcode = Dns.NOERROR
+        assertTrue(s.ask("wiki.corp.example.com").intranet)
+    }
+
+    @Test
+    fun publicAnswerFromDohWins() {
+        val s = Split(listOf("corp.example.com"))
+        s.dohRcode = Dns.NOERROR
+        s.dohAnswers = true
+        val r = s.ask("www.corp.example.com")
+        assertEquals(listOf("8.8.8.8"), r.ip())
+        assertFalse(r.intranet)
+        assertEquals(0, s.udpCalls)
+    }
+
+    @Test
+    fun networkMustReallyKnowTheName() {
+        val s = Split(listOf("corp.example.com"))
+        s.udpRcode = Dns.NXDOMAIN
+        s.udpAnswers = false
+        var r = s.ask("gone.corp.example.com")
+        assertEquals(Dns.NXDOMAIN, r.response.rcode)
+        assertFalse(r.intranet)
+        s.udpRcode = Dns.NOERROR // NOERROR but empty: the provider's answer stands
+        r = s.ask("gone.corp.example.com")
+        assertEquals(Dns.NXDOMAIN, r.response.rcode)
+        assertEquals(2, s.udpCalls)
+        // SERVFAIL from DoH (often a failed security check) is never retried in the clear.
+        s.dohRcode = Dns.SERVFAIL
+        s.udpAnswers = true
+        assertEquals(Dns.SERVFAIL, s.ask("x.corp.example.com").response.rcode)
+        assertEquals(2, s.udpCalls)
+    }
+
+    @Test
+    fun broadOrMissingSearchDomainsAreNotTrusted() {
+        for (domains in listOf(listOf("com"), listOf("co.uk"), listOf("com.au"), listOf("github.io"), emptyList())) {
+            val s = Split(domains)
+            for (name in listOf("nosuchbank.com", "shop.co.uk", "x.com.au", "me.github.io")) {
+                assertEquals(Dns.NXDOMAIN, s.ask(name).response.rcode)
+            }
+            assertEquals("$domains", 0, s.udpCalls)
+        }
+        val s = Split(listOf("corp.example.com"))
+        s.ask("corp.example.com") // the search domain itself
+        s.ask("evil-corp.example.com") // only similar, not under it
+        s.ask("other.example.net")
+        assertEquals(0, s.udpCalls)
+    }
+
+    @Test
+    fun searchDomainRules() {
+        for (d in listOf("corp.example.com", "attlocal.net", "example.co.uk", "home.example", "Corp.Example.COM.")) {
+            assertTrue(d, SearchDomains.usable(d))
+        }
+        for (d in listOf("", "com", "lan", "co.uk", "com.au", "ne.jp", "org.nz", "github.io", "duckdns.org", "in-addr.arpa", "1.168.192.in-addr.arpa", "10.0.0.1", "a..b", "bäd.example")) {
+            assertFalse(d, SearchDomains.usable(d))
+        }
+        assertEquals(listOf("corp.example.com", "attlocal.net"), SearchDomains.parse("Corp.Example.com. attlocal.net"))
+        assertEquals(listOf("a.example", "b.example"), SearchDomains.parse("a.example,b.example a.example"))
+        assertEquals(emptyList<String>(), SearchDomains.parse(null))
+        assertTrue(SearchDomains.covers("x.corp.example.com", listOf("com", "corp.example.com.")))
+        assertFalse(SearchDomains.covers("x.example.com", listOf("com")))
+    }
+
     // ---- slow answers ----
 
     @Test
