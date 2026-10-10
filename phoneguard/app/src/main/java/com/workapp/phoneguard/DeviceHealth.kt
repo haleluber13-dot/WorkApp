@@ -217,6 +217,8 @@ object WifiGuard {
      * Android 10–11: WifiInfo has no security type, so match the connected access point against
      * scan results. That needs location permission, which PhoneGuard normally doesn't have.
      */
+    // Guarded by the location check below; any SecurityException is caught by the caller.
+    @android.annotation.SuppressLint("MissingPermission")
     @Suppress("DEPRECATION")
     private fun legacyCheck(context: Context): WifiSafety {
         if (context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

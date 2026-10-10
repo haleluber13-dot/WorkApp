@@ -36,6 +36,11 @@ interface DnsHandler {
 
 /** Decides whether an app may use the network right now (firewall rules for the current network). */
 interface FirewallPolicy {
+    /**
+     * @param uid the app's uid, or -1 when the owner couldn't be identified (in practice the
+     * socket is already gone). For -1 the answer means "may an unidentified app connect":
+     * the service allows it only while no app is blocked on the current network.
+     */
     fun isAllowed(uid: Int): Boolean
 }
 

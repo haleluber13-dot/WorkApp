@@ -340,6 +340,9 @@ class FirewallService : VpnService() {
         }
     }
 
+    // Only reached below Android 14 (startFromBackground sets EXTRA_FOREGROUND only there),
+    // where no foregroundServiceType is required.
+    @android.annotation.SuppressLint("ForegroundServiceType")
     private fun enterForeground(): Boolean = try {
         val nm = getSystemService(NotificationManager::class.java)
         nm?.createNotificationChannel(
@@ -687,7 +690,7 @@ class FirewallService : VpnService() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
             val details = "$FALLBACK_MESSAGE. Blocked apps are still blocked, but the Web Shield and " +
-                "the traffic monitor are paused. To try Full protection again, turn the firewall off and on in PhoneGuard."
+                "the traffic monitor are paused. Open PhoneGuard and tap \"Try Full protection again\"."
             nm.notify(
                 FALLBACK_NOTIFICATION,
                 Notification.Builder(this, ALERT_CHANNEL)
@@ -728,9 +731,12 @@ class FirewallService : VpnService() {
     }
 
     @Suppress("DEPRECATION")
+    /**
+     * Installed and on its own app uid. Packages sharing a system uid (< 10000) are never
+     * blocked: in Basic mode routing one of them would capture the whole system uid.
+     */
     private fun isInstalled(pkg: String): Boolean = try {
-        packageManager.getApplicationInfo(pkg, 0)
-        true
+        packageManager.getApplicationInfo(pkg, 0).uid % 100_000 >= 10_000
     } catch (_: PackageManager.NameNotFoundException) {
         false
     }
