@@ -26,9 +26,9 @@ object TrafficStore {
         var receivedScreenOff = 0L
         var connections = 0
         var blocked = 0
-        /** Connections the firewall stopped (TCP/UDP events). */
+        /** Connections (and lookups) the firewall stopped. */
         var firewallBlocked = 0
-        /** Site lookups the Web Shield blocked (DNS events). */
+        /** Site lookups the Web Shield blocked. */
         var siteBlocked = 0
         var lastSeen = 0L
         val domains = HashMap<String, Int>()
@@ -43,11 +43,12 @@ object TrafficStore {
             blockedEvents.addFirst(e)
             while (blockedEvents.size > MAX_BLOCKED_EVENTS) blockedEvents.removeLast()
         }
+        // Unidentified owners (uid -1) get one entry of their own: shown as such, never as an app's.
         val a = apps.getOrPut(e.uid) { MutableApp(e.uid) }
         a.lastSeen = e.time
         if (e.blocked) {
             a.blocked++
-            if (e.kind == Kind.DNS) a.siteBlocked++ else a.firewallBlocked++
+            if (isSiteBlock(e)) a.siteBlocked++ else a.firewallBlocked++
         } else if (e.kind != Kind.DNS) {
             a.connections++
         }
@@ -84,19 +85,38 @@ object TrafficStore {
     @Synchronized
     fun app(uid: Int): AppTraffic? = apps[uid]?.snapshot()
 
+    /** Everything blocked, unidentified owners included: what the blocked log ([recentBlocked]) holds. */
     @Synchronized
     fun totalBlocked(): Int = apps.values.sumOf { it.blocked }
 
     @Synchronized
     fun blockedFor(uid: Int): Int = apps[uid]?.blocked ?: 0
 
-    /** Connections stopped by the firewall (all apps). Excludes Web Shield site blocks. */
+    /**
+     * Connections of apps stopped by the firewall (all identified apps). Excludes Web Shield site
+     * blocks and attempts whose app couldn't be identified (see [totalUnidentifiedBlocked]).
+     */
     @Synchronized
-    fun totalFirewallBlocked(): Int = apps.values.sumOf { it.firewallBlocked }
+    fun totalFirewallBlocked(): Int = apps.values.sumOf { if (it.uid < 0) 0 else it.firewallBlocked }
 
-    /** Site lookups blocked by the Web Shield (all apps). */
+    /** Site lookups of apps blocked by the Web Shield (all identified apps). */
     @Synchronized
-    fun totalSiteBlocked(): Int = apps.values.sumOf { it.siteBlocked }
+    fun totalSiteBlocked(): Int = apps.values.sumOf { if (it.uid < 0) 0 else it.siteBlocked }
+
+    /**
+     * Blocked attempts whose app couldn't be identified (uid -1: the app had already closed its
+     * connection). They stay in the blocked log, but aren't any app's blocks.
+     */
+    @Synchronized
+    fun totalUnidentifiedBlocked(): Int = apps.values.sumOf { if (it.uid < 0) it.blocked else 0 }
+
+    /**
+     * A Web Shield site block rather than a firewall block: [ConnEvent.byShield] says so. A DNS
+     * block from code that doesn't set the flag yet counts as a site block unless its reason
+     * names the firewall, as the firewall's own reasons always do.
+     */
+    private fun isSiteBlock(e: ConnEvent): Boolean =
+        e.byShield || (e.kind == Kind.DNS && e.reason?.contains("firewall", ignoreCase = true) == false)
 
     /** When counting started (process start or last clear). */
     @Synchronized
