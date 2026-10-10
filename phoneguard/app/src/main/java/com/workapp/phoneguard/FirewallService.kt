@@ -70,6 +70,7 @@ class FirewallService : VpnService() {
         private const val MTU = 1500
         private const val ALERT_CHANNEL = "protection"
         private const val FALLBACK_NOTIFICATION = 0x5047
+        private const val WATCHDOG_MS = 20_000L
 
         /** True while the firewall is on. */
         @Volatile
@@ -189,6 +190,15 @@ class FirewallService : VpnService() {
         override fun onDied(error: Throwable) {
             // A revoke also kills the engine; give it a moment to arrive so we don't rebuild for nothing.
             main.postDelayed({ if (alive) onEngineDied() }, 1000)
+        }
+    }
+
+    /** Checks that the engine isn't hung; a hung engine would leave every app without internet. */
+    private val watchdog = object : Runnable {
+        override fun run() {
+            val eng = engine ?: return
+            if (!alive || !running || activeMode != ProtectionMode.FULL) return
+            if (eng.isStuck()) fallBackToBasic() else main.postDelayed(this, WATCHDOG_MS)
         }
     }
 
@@ -357,6 +367,8 @@ class FirewallService : VpnService() {
         if (!fallback) problem = null
         updateBlockedCount()
         startShield()
+        main.removeCallbacks(watchdog)
+        main.postDelayed(watchdog, WATCHDOG_MS)
         return Outcome.OK
     }
 
@@ -434,6 +446,7 @@ class FirewallService : VpnService() {
     }
 
     private fun stopEngine() {
+        main.removeCallbacks(watchdog)
         val eng = engine
         engine = null
         liveEngine = null
@@ -469,6 +482,11 @@ class FirewallService : VpnService() {
     private fun onEngineDied() {
         val eng = engine ?: return
         if (!running || activeMode != ProtectionMode.FULL || !eng.died) return
+        fallBackToBasic()
+    }
+
+    /** Full protection failed while running: keep the phone online and protected in basic mode. */
+    private fun fallBackToBasic() {
         enterFallback()
         establish(ProtectionMode.BASIC)
     }

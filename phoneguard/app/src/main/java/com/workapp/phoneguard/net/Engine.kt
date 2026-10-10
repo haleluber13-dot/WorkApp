@@ -264,6 +264,16 @@ class Engine(
     /** Packets dropped because the engine fell behind (diagnostics). */
     @Volatile var droppedPackets = 0L
         private set
+    /** When the loop last started a round; see [isStuck]. */
+    @Volatile private var loopBeat = clock()
+
+    /**
+     * True if work is waiting but the loop hasn't come round for [maxMs]: it is stuck (a bug),
+     * not idle. The service then falls back to basic mode so the phone stays online.
+     */
+    fun isStuck(maxMs: Long = 10_000): Boolean =
+        loopThread != null && !loopDone && !stopping &&
+            (!inbound.isEmpty() || !tasks.isEmpty()) && clock() - loopBeat > maxMs
 
     private fun pool(name: String, threads: Int, queue: Int): ThreadPoolExecutor {
         val n = AtomicInteger()
@@ -344,7 +354,8 @@ class Engine(
                     wake()
                     batch = 0
                 }
-                tun.await(1000)
+                // Long wait: stop() wakes us at once, and an idle phone shouldn't wake every second.
+                tun.await(30_000)
             }
         } catch (t: Throwable) {
             if (!stopping) {
@@ -361,6 +372,7 @@ class Engine(
         try {
             now = clock()
             while (!stopping) {
+                loopBeat = now
                 readerError?.let { throw IOException("Reading from the VPN interface failed", it) }
                 tunError?.let { throw IOException("Writing to the VPN interface failed", it) }
                 drainInbound()

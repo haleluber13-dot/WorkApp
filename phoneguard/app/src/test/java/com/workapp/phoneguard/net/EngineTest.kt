@@ -21,6 +21,7 @@ import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.ConcurrentHashMap
@@ -77,6 +78,8 @@ class AppTcp(
     /** The ACK number we sent last. */
     var lastAck = 0
     var finReceived = false
+    /** Smallest window the engine advertised to us. */
+    var minEngWnd = Int.MAX_VALUE
 
     fun send(
         flags: Int, data: ByteArray = ByteArray(0), off: Int = 0, len: Int = data.size - off,
@@ -124,12 +127,21 @@ class AppTcp(
         return sa
     }
 
-    /** Handles one packet: track the engine's ACK/window, take in-order data and FIN, acknowledge. */
-    fun handle(s: Seg, rx: ByteArrayOutputStream) {
+    /** Set when received data still needs an ACK (see [flushAck]). */
+    private var needAck = false
+
+    /**
+     * Handles one packet: track the engine's ACK/window, take in-order data and FIN, and
+     * acknowledge now or (with [ackNow] false) later in [flushAck]. Data must fit inside the
+     * window we last advertised: callers that check a whole burst must not ACK in the middle of
+     * it, or the right edge would move before the engine could have seen it.
+     */
+    fun handle(s: Seg, rx: ByteArrayOutputStream, ackNow: Boolean = true) {
         assertFalse("unexpected reset: $s", s.has(TCP_RST))
         if (s.has(TCP_ACK) && !seqLt(s.ack, engUna)) {
             engUna = s.ack
             engWnd = s.window
+            if (engWnd < minEngWnd) minEngWnd = engWnd
         }
         if (s.payload.isNotEmpty()) {
             assertFalse(
@@ -145,7 +157,21 @@ class AppTcp(
             rcvNxt += 1
             finReceived = true
         }
-        if (s.payload.isNotEmpty() || s.has(TCP_FIN)) send(TCP_ACK)
+        if (s.payload.isNotEmpty() || s.has(TCP_FIN)) {
+            if (ackNow) send(TCP_ACK) else needAck = true
+        }
+    }
+
+    fun flushAck() {
+        if (needAck) {
+            needAck = false
+            send(TCP_ACK)
+        }
+    }
+
+    /** Takes whatever else the engine already sent (the rest of a burst) without acknowledging. */
+    private fun drainBurst(rx: ByteArrayOutputStream) {
+        while (true) handle(next(3) ?: return, rx, ackNow = false)
     }
 
     fun receive(n: Int, timeoutMs: Long = 10_000): ByteArray {
@@ -153,7 +179,9 @@ class AppTcp(
         val end = System.currentTimeMillis() + timeoutMs
         while (rx.size() < n) {
             val s = next(end - System.currentTimeMillis()) ?: die("timed out after ${rx.size()} of $n bytes")
-            handle(s, rx)
+            handle(s, rx, ackNow = false)
+            drainBurst(rx)
+            flushAck()
         }
         return rx.toByteArray()
     }
@@ -181,7 +209,8 @@ class AppTcp(
                 val room = engUna + engWnd - sndNxt
                 if (room <= 0) break
                 val n = minOf(1400, upload.size - off, room)
-                send(TCP_ACK or TCP_PSH, upload, off, n)
+                // Repeat the last ACK number: our window only moves when a whole burst is acknowledged.
+                send(TCP_ACK or TCP_PSH, upload, off, n, ack = lastAck)
                 sndNxt += n
             }
             val s = next(20)
@@ -193,7 +222,9 @@ class AppTcp(
                 continue
             }
             val before = engUna
-            handle(s, rx)
+            handle(s, rx, ackNow = false)
+            drainBurst(rx)
+            flushAck()
             if (seqGt(engUna, before)) lastProgress = System.currentTimeMillis()
             if (seqLt(sndNxt, engUna)) sndNxt = engUna
         }
@@ -232,9 +263,13 @@ class EngineTest {
     private var engine: Engine? = null
     private var nextPort = 30000 + Random.nextInt(20000)
 
+    /** When set, connection events block on it: a way to hang the engine's loop thread. */
+    @Volatile private var hold: CountDownLatch? = null
+
     private val listener = object : EngineListener {
         override fun onConnection(event: ConnEvent) {
             events.add(event)
+            hold?.await(10, TimeUnit.SECONDS)
         }
 
         override fun onBytes(uid: Int, sent: Long, received: Long) {
@@ -264,8 +299,15 @@ class EngineTest {
         }
     }
 
+    /** If set, relay TCP sockets get this send buffer (protect() runs before connect, like on the phone). */
+    @Volatile private var relaySendBuffer = 0
+
     private val protector = object : Protector {
-        override fun protect(socket: Socket) = true
+        override fun protect(socket: Socket): Boolean {
+            if (relaySendBuffer > 0) socket.sendBufferSize = relaySendBuffer
+            return true
+        }
+
         override fun protect(socket: DatagramSocket) = true
     }
 
@@ -437,6 +479,35 @@ class EngineTest {
         val a = app(ss.localPort)
         a.connect(win = 1000)
         assertArrayEquals(data, a.receive(total, 50_000))
+    }
+
+    @Test(timeout = 60_000)
+    fun uploadToSlowServerClosesOurWindowThenReopensIt() {
+        val total = 1_000_000
+        val data = pattern(total)
+        val ss = ServerSocket()
+        ss.receiveBufferSize = 8192 // small, so the engine's socket fills up quickly
+        ss.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0))
+        toClose += ss
+        thread(isDaemon = true) {
+            try {
+                ss.accept().use { s ->
+                    Thread.sleep(1000) // not reading yet: the engine must stop taking data from the app
+                    val got = s.getInputStream().readNBytes(total)
+                    s.getOutputStream().write((if (got.contentEquals(data)) "ok" else "bad").toByteArray())
+                }
+            } catch (_: Exception) {
+            }
+        }
+        relaySendBuffer = 8192 // and no big kernel buffer on the engine's side either
+        start()
+        val a = app(ss.localPort)
+        a.connect()
+        // The app (our test client) never probes, so this only finishes if the engine announces
+        // on its own that its window opened again.
+        val answer = a.exchange(data, 2, timeoutMs = 20_000)
+        assertEquals("ok", String(answer))
+        assertTrue("the engine's window should have closed (min ${a.minEngWnd})", a.minEngWnd < 1460)
     }
 
     @Test(timeout = 30_000)
@@ -702,6 +773,23 @@ class EngineTest {
         a.connect()
         a.expect("reset after idle time") { it.has(TCP_RST) }
         waitUntil("connection removed") { engine!!.tcpFlows == 0 }
+    }
+
+    @Test(timeout = 20_000)
+    fun hungLoopIsReportedAsStuck() {
+        val ss = server(::echo)
+        val e = start()
+        assertFalse("an idle engine is not stuck", e.isStuck(0))
+        val latch = CountDownLatch(1)
+        hold = latch
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460) // its connection event hangs the loop
+        waitUntil("loop to hang") { events.isNotEmpty() }
+        a.send(TCP_ACK, seq = a.sndNxt + 1, ack = 1) // work that now waits
+        waitUntil("stuck to be noticed") { e.isStuck(300) }
+        latch.countDown()
+        waitUntil("loop to recover") { !e.isStuck(300) }
+        assertFalse(e.died)
     }
 
     @Test(timeout = 20_000)
