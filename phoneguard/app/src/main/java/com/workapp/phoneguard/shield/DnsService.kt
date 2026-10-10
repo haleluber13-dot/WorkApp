@@ -77,7 +77,13 @@ class DnsService(context: Context) : DnsHandler {
     private val openSockets: MutableSet<Closeable> = ConcurrentHashMap.newKeySet()
 
     /** The real network and its DNS servers, refreshed on network changes or after 5 s. */
-    private class NetInfo(val network: Network?, val servers: List<InetAddress>, val at: Long)
+    private class NetInfo(
+        val network: Network?,
+        val servers: List<InetAddress>,
+        /** The network's search domains (e.g. "corp.example.com"), answered by its own DNS. */
+        val domains: List<String>,
+        val at: Long,
+    )
     @Volatile private var net: NetInfo? = null
 
     private val callback = object : ConnectivityManager.NetworkCallback() {
@@ -111,6 +117,7 @@ class DnsService(context: Context) : DnsHandler {
         servers = { currentNet().servers },
         udp = { q, server -> udp.query(q, server) },
         networkId = { currentNet().network },
+        localDomains = { currentNet().domains },
         status = { encrypted, problem ->
             DnsStatus.encrypted = encrypted
             DnsStatus.problem = problem
@@ -167,36 +174,39 @@ class DnsService(context: Context) : DnsHandler {
     private fun currentNet(): NetInfo {
         val now = SystemClock.elapsedRealtime()
         net?.let { if (now - it.at in 0 until 5000) return it }
-        val fresh = try { readNet(now) } catch (e: Exception) { NetInfo(null, emptyList(), now) }
+        val fresh = try { readNet(now) } catch (e: Exception) { NetInfo(null, emptyList(), emptyList(), now) }
         net = fresh
         return fresh
     }
 
     /**
-     * TCP connection for DoH, bound to the real network. The provider's name is looked up on
-     * that network; if that fails (some networks block DoH names) the known addresses are used.
+     * TCP connection for DoH, bound to the real network. For the built-in providers the
+     * well-known addresses are tried first: that needs no plain DNS lookup (which the network
+     * could see, block or slow down). TLS still checks the certificate for the provider's name.
      */
     private fun connectOnRealNetwork(host: String, port: Int, timeoutMs: Int): Socket {
         val n = currentNet().network ?: throw IOException("no network")
-        val addrs = try {
-            n.getAllByName(host).toList()
-        } catch (_: UnknownHostException) {
-            emptyList()
-        }.ifEmpty {
-            DohClient.BOOTSTRAP[host].orEmpty().map { InetAddress.getByName(it) } // IP literals: no lookup
-        }
-        if (addrs.isEmpty()) throw UnknownHostException(host)
+        val known = DohClient.BOOTSTRAP[host].orEmpty().map { InetAddress.getByName(it) } // IP literals: no lookup
         var last: IOException? = null
-        for (a in addrs.take(2)) {
+        fun attempt(a: InetAddress): Socket? {
             val s = n.socketFactory.createSocket()
-            try {
+            return try {
                 s.connect(InetSocketAddress(a, port), timeoutMs)
-                return s
+                s
             } catch (e: IOException) {
                 s.close()
                 last = e
+                null
             }
         }
+        for (a in known.take(2)) attempt(a)?.let { return it }
+        val resolved = try {
+            n.getAllByName(host).filter { it !in known }
+        } catch (e: UnknownHostException) {
+            if (known.isEmpty()) throw e
+            emptyList()
+        }
+        for (a in resolved.take(2)) attempt(a)?.let { return it }
         throw last ?: IOException("can't connect to $host")
     }
 
@@ -205,7 +215,7 @@ class DnsService(context: Context) : DnsHandler {
 
     @Suppress("DEPRECATION") // allNetworks: still the simplest way to find a non-VPN network
     private fun readNet(now: Long): NetInfo {
-        val cm = cm ?: return NetInfo(null, emptyList(), now)
+        val cm = cm ?: return NetInfo(null, emptyList(), emptyList(), now)
         var n: Network? = cm.activeNetwork
         // Our own app is outside the VPN, so this should already be the real network; never
         // send DNS into a VPN (that would loop back into ourselves).
@@ -217,11 +227,13 @@ class DnsService(context: Context) : DnsHandler {
                     c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             }
         }
-        if (n == null) return NetInfo(null, emptyList(), now)
-        var servers = cm.getLinkProperties(n)?.dnsServers.orEmpty()
+        if (n == null) return NetInfo(null, emptyList(), emptyList(), now)
+        val lp = cm.getLinkProperties(n)
+        var servers = lp?.dnsServers.orEmpty()
             .filter { it.hostAddress != DnsCore.VIRTUAL_DNS && !it.isAnyLocalAddress && !it.isLoopbackAddress }
         if (servers.isEmpty()) servers = FALLBACK_SERVERS
-        return NetInfo(n, servers, now)
+        val domains = lp?.domains.orEmpty().split(' ', ',').map { it.trim().lowercase().trimEnd('.') }.filter { it.isNotEmpty() }
+        return NetInfo(n, servers, domains, now)
     }
 
     private companion object {

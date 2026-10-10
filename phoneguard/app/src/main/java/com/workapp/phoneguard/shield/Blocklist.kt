@@ -220,18 +220,24 @@ object HostsParser {
 
     /** Calls [out] for each valid domain on one line. */
     fun parseLine(line: String, out: (String) -> Unit) {
-        var s = line
-        val hash = s.indexOf('#')
-        if (hash >= 0) s = s.substring(0, hash)
-        s = s.trim().trimStart('﻿').trim()
-        if (s.isEmpty()) return
-        val tokens = s.split(WHITESPACE)
-        var first = 0
-        if (isIp(tokens[0])) first = 1
-        for (i in first until tokens.size) {
-            val t = tokens[i]
-            if (t.isEmpty()) continue
-            normalize(t)?.let(out)
+        // Hand-rolled tokenizer: the bundled lists are parsed on first start, so keep it quick.
+        var end = line.indexOf('#')
+        if (end < 0) end = line.length
+        var i = 0
+        var first = true
+        while (i < end) {
+            while (i < end && (line[i].isWhitespace() || line[i] == '\uFEFF')) i++
+            if (i >= end) break
+            val start = i
+            while (i < end && !line[i].isWhitespace()) i++
+            val token = line.substring(start, i)
+            // In hosts files the first column is an address; plain lists have only the name.
+            if (first && isIp(token)) {
+                first = false
+                continue
+            }
+            first = false
+            normalize(token)?.let(out)
         }
     }
 
@@ -284,8 +290,6 @@ object HostsParser {
         while (s.startsWith("*.") || s.startsWith(".")) s = s.removePrefix("*").removePrefix(".")
         return normalize(s)
     }
-
-    private val WHITESPACE = Regex("\\s+")
 }
 
 /**

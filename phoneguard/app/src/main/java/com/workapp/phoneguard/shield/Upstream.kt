@@ -263,6 +263,8 @@ internal class UpstreamChain(
     private val servers: () -> List<InetAddress>,
     private val udp: (q: DnsQuery, server: InetAddress) -> ByteArray,
     private val networkId: () -> Any?,
+    /** Search domains of the current network: names under them are answered by its own DNS. */
+    private val localDomains: () -> List<String> = { emptyList() },
     private val status: (encrypted: Boolean, problem: String?) -> Unit,
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
 ) {
@@ -276,7 +278,9 @@ internal class UpstreamChain(
     fun resolve(q: DnsQuery): Result? {
         val p = provider()
         val url = p.dohUrl
-        if (url != null && dohAllowed(p)) {
+        // Home and office names (router, printer, NAS) only exist on the local network's DNS.
+        val local = LocalNames.isLocal(q.question.key, localDomains())
+        if (url != null && !local && dohAllowed(p)) {
             try {
                 val body = q.raw.copyOf()
                 Dns.setId(body, 0)
@@ -303,17 +307,17 @@ internal class UpstreamChain(
                     if (poor == null) poor = r
                     continue // another server may do better
                 }
-                reportFallback(p)
+                if (!local) reportFallback(p)
                 return r
             } catch (_: Exception) {
                 // try the next server
             }
         }
         if (poor != null) {
-            reportFallback(p)
+            if (!local) reportFallback(p)
             return poor
         }
-        status(false, NO_DNS)
+        if (!local) status(false, NO_DNS)
         return null
     }
 
@@ -353,3 +357,26 @@ internal class UpstreamChain(
 
 /** Provider name without the "(recommended)" note, for messages. */
 val DnsProvider.shortName: String get() = title.substringBefore(" (")
+
+/** Names that only the local network's own DNS can answer, so they never go to the provider. */
+object LocalNames {
+    private val SUFFIXES = listOf(
+        "local", "lan", "home", "home.arpa", "internal", "intranet", "localdomain", "corp",
+        "private", "fritz.box",
+        // Reverse lookups of private, link-local and unique-local addresses.
+        "10.in-addr.arpa", "168.192.in-addr.arpa", "254.169.in-addr.arpa",
+        "d.f.ip6.arpa", "8.e.f.ip6.arpa", "9.e.f.ip6.arpa", "a.e.f.ip6.arpa", "b.e.f.ip6.arpa",
+    ) + (16..31).map { "$it.172.in-addr.arpa" }
+
+    /** [name] is lowercase without a trailing dot. */
+    fun isLocal(name: String, searchDomains: List<String> = emptyList()): Boolean {
+        if (name.isEmpty()) return false
+        if (name.indexOf('.') < 0) return true // single label, e.g. "router" or "nas"
+        for (s in SUFFIXES) if (under(name, s)) return true
+        for (s in searchDomains) if (s.isNotEmpty() && under(name, s)) return true
+        return false
+    }
+
+    private fun under(name: String, suffix: String) =
+        name == suffix || (name.length > suffix.length && name.endsWith(suffix) && name[name.length - suffix.length - 1] == '.')
+}

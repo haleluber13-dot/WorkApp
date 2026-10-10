@@ -46,6 +46,7 @@ class UpstreamTest {
             okAnswer(q, q.id)
         },
         networkId = { network },
+        localDomains = { listOf("corp.example.com") },
         status = { e, p -> encrypted = e; problem = p },
         clock = { now },
     )
@@ -148,6 +149,31 @@ class UpstreamTest {
         } finally {
             silent.close()
         }
+    }
+
+    @Test
+    fun localNamesGoToNetworkDns() {
+        for (name in listOf("router", "nas.lan", "fritz.box", "printer.home.arpa", "wiki.corp.example.com", "4.1.168.192.in-addr.arpa")) {
+            udpCalls = 0
+            assertNotNull(chain.resolve(Dns.parseQuery(TestDns.query(1, name))))
+            assertEquals(name, 1, udpCalls)
+        }
+        assertEquals(0, dohCalls)
+        assertEquals("unset", problem) // local lookups don't change the status
+    }
+
+    @Test
+    fun localNameRules() {
+        assertTrue(LocalNames.isLocal("router"))
+        assertTrue(LocalNames.isLocal("a.b.local"))
+        assertTrue(LocalNames.isLocal("1.0.20.172.in-addr.arpa"))
+        assertFalse(LocalNames.isLocal("1.0.32.172.in-addr.arpa"))
+        assertFalse(LocalNames.isLocal("8.8.8.8.in-addr.arpa"))
+        assertFalse(LocalNames.isLocal("example.com"))
+        assertFalse(LocalNames.isLocal("mylan.com"))
+        assertTrue(LocalNames.isLocal("x.corp.example.com", listOf("corp.example.com")))
+        assertFalse(LocalNames.isLocal("xcorp.example.com", listOf("corp.example.com")))
+        assertFalse(LocalNames.isLocal(""))
     }
 
     @Test
