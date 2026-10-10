@@ -6,6 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import com.workapp.phoneguard.core.ConnEvent
+import com.workapp.phoneguard.core.DomainMap
+import com.workapp.phoneguard.core.Kind
+import com.workapp.phoneguard.core.TrafficStore
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -300,10 +304,12 @@ class FirewallService : VpnService() {
                     )
                 } catch (_: Exception) { -1 }
             } else -1
-            BlockLog.add(
-                BlockLog.Entry(
-                    System.currentTimeMillis(), uid, dst.hostAddress ?: "?", dport,
-                    if (proto == 6) "TCP" else "UDP"
+            val host = dst.hostAddress ?: "?"
+            TrafficStore.onEvent(
+                ConnEvent(
+                    System.currentTimeMillis(), uid,
+                    if (dport == 53) Kind.DNS else if (proto == 6) Kind.TCP else Kind.UDP,
+                    host, dport, DomainMap.get(host), blocked = true, reason = "Blocked by firewall",
                 )
             )
         }

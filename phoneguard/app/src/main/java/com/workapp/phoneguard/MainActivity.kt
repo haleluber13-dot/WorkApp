@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
+import com.workapp.phoneguard.core.Kind
+import com.workapp.phoneguard.core.TrafficStore
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
@@ -270,7 +272,7 @@ class MainActivity : Activity() {
             NetType.NONE -> "no network"
         }
         val n = FirewallService.blockedCount
-        val attempts = BlockLog.total()
+        val attempts = TrafficStore.totalBlocked()
         return "On · connected to $net · blocking $n app${if (n == 1) "" else "s"} here" +
             if (attempts > 0) " · stopped $attempts connection${if (attempts == 1) "" else "s"}" else ""
     }
@@ -383,7 +385,7 @@ class MainActivity : Activity() {
             setTextColor(if (on) C.RED else C.ON_ACCENT)
             background = if (on) rounded(0, 22, C.RED, 1.5) else rounded(C.GREEN, 22)
         }
-        val total = BlockLog.total()
+        val total = TrafficStore.totalBlocked()
         logButton?.text = if (total > 0) "Blocked log ($total)" else "Blocked log"
     }
 
@@ -477,7 +479,7 @@ class MainActivity : Activity() {
             if (e.icon == null) e.icon = try { e.info.loadIcon(packageManager) } catch (_: Exception) { null }
             h.icon.setImageDrawable(e.icon)
             h.name.text = e.label
-            val attempts = BlockLog.countFor(e.uid)
+            val attempts = TrafficStore.blockedFor(e.uid)
             h.sub.text = if (attempts > 0) "Stopped $attempts connection${if (attempts == 1) "" else "s"}" else e.pkg
             h.sub.setTextColor(if (attempts > 0) C.AMBER else C.SUB)
             bindToggle(h.wifi, "Wi-Fi", e.pkg, NetType.WIFI)
@@ -502,7 +504,7 @@ class MainActivity : Activity() {
     }
 
     private fun showLog() {
-        val entries = BlockLog.recent()
+        val entries = TrafficStore.recent().filter { it.blocked }
         val pm = packageManager
         val names = HashMap<Int, String>()
         fun appName(uid: Int): String = names.getOrPut(uid) {
@@ -518,7 +520,7 @@ class MainActivity : Activity() {
                 else "The firewall is off.", 14f, C.SUB), 0)
         } else {
             for (e in entries) {
-                val what = if (e.port == 53) "DNS lookup" else "${e.host} : ${e.port} (${e.proto})"
+                val what = if (e.kind == Kind.DNS) "DNS lookup ${e.domain ?: ""}" else "${e.domain ?: e.host} : ${e.port} (${e.kind})"
                 body.put(label("${fmt.format(Date(e.time))}  ${appName(e.uid)}", 14f, C.TEXT, true), 0)
                 body.put(label("→ $what", 13f, C.SUB), 8)
             }
@@ -528,7 +530,7 @@ class MainActivity : Activity() {
             .setView(ScrollView(this).apply { addView(body) })
             .setPositiveButton("Close", null)
             .setNeutralButton("Clear") { _, _ ->
-                BlockLog.clear()
+                TrafficStore.clear()
                 updateFirewallStatus()
                 appAdapter?.notifyDataSetChanged()
             }

@@ -5,6 +5,10 @@ import android.content.SharedPreferences
 
 enum class NetType { WIFI, MOBILE, NONE }
 
+/** FULL: all traffic goes through PhoneGuard (Web Shield + firewall + traffic monitor).
+ *  BASIC: only blocked apps are captured (lightest, no Web Shield). */
+enum class ProtectionMode { FULL, BASIC }
+
 /** Per-app firewall rules and app settings, stored only on this phone. */
 class Rules(context: Context) {
     private val rules: SharedPreferences =
@@ -39,6 +43,10 @@ class Rules(context: Context) {
     fun forget(pkg: String) {
         rules.edit().remove("w:$pkg").remove("d:$pkg").apply()
     }
+
+    var mode: ProtectionMode
+        get() = try { ProtectionMode.valueOf(settings.getString("mode", null) ?: "FULL") } catch (_: Exception) { ProtectionMode.FULL }
+        set(v) = settings.edit().putString("mode", v.name).apply()
 
     var enabled: Boolean
         get() = settings.getBoolean("enabled", false)
