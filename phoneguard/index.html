@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PhoneGuard</title>
+  <meta name="description" content="Firewall and spyware scanner for Android. Block apps on Wi-Fi or 4G/5G and find hidden spy apps.">
+  <meta name="theme-color" content="#0E1621">
+  <style>
+    :root { --bg:#0E1621; --card:#172333; --text:#E8EEF5; --sub:#8FA3B8; --green:#2ECC71; --line:#2A3B52; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    main { max-width:640px; margin:0 auto; padding:24px 16px 48px; }
+    h1 { font-size:28px; margin:8px 0 4px; display:flex; align-items:center; gap:10px; }
+    h2 { font-size:18px; margin:0 0 8px; }
+    p, li { color:var(--sub); }
+    .card { background:var(--card); border-radius:18px; padding:18px; margin:14px 0; }
+    .btn { display:block; text-align:center; background:var(--green); color:var(--bg); font-weight:700;
+           text-decoration:none; padding:14px; border-radius:28px; font-size:18px; margin:16px 0 6px; }
+    ol, ul { padding-left:20px; margin:0; }
+    li { margin:6px 0; }
+    b { color:var(--text); }
+    small { color:var(--sub); }
+  </style>
+</head>
+<body>
+<main>
+  <h1><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path fill="#2ECC71" d="M12,1L3,5v6c0,5.55 3.84,10.74 9,12 5.16,-1.26 9,-6.45 9,-12V5L12,1zM10,17l-4,-4 1.41,-1.41L10,14.17l6.59,-6.59L18,9l-8,8z"/></svg>PhoneGuard</h1>
+  <p>Firewall and spyware scanner for Android. Block any app on Wi-Fi or mobile data (4G/5G) and find hidden apps someone may have put on your phone.</p>
+  <a class="btn" href="PhoneGuard.apk" download>Download for Android</a>
+  <small>Android 8.0 or newer · about 90 KB · no internet permission, so it can't send your data anywhere</small>
+
+  <div class="card">
+    <h2>Install</h2>
+    <ol>
+      <li>Tap <b>Download for Android</b>, then open the file.</li>
+      <li>If asked, allow your browser to <b>Install unknown apps</b>, then tap <b>Install</b>. If Play Protect says it doesn't recognise the app, choose <b>Install anyway</b> (it isn't from the Play Store).</li>
+      <li>Open PhoneGuard, tap <b>Turn on</b> and accept the VPN request.</li>
+      <li>Go to <b>Scan</b> and tap <b>Scan my phone</b>.</li>
+      <li>Keep it on after restarts: Settings → Network → VPN → ⚙ next to PhoneGuard → <b>Always-on VPN</b>. Leave <b>Block connections without VPN</b> off.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>What it does</h2>
+    <ul>
+      <li><b>Firewall:</b> per-app switches for Wi-Fi and mobile data, plus a log of every connection a blocked app tried to make.</li>
+      <li><b>Spy app scan:</b> checks against 600+ known stalkerware apps, finds apps without an icon, and apps that can read your screen, notifications or texts, or track your location.</li>
+      <li><b>Traffic snooping checks:</b> extra security certificates, hidden proxies, unknown VPNs, USB or wireless debugging, missing screen lock, rooting, old updates.</li>
+      <li><b>Lock new apps:</b> new apps get no internet until you allow them, with an alert showing what they can access.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Good to know</h2>
+    <p>No app can catch every kind of spyware. Spyware sold to governments, or anything on a rooted phone, can hide from all apps. If you think someone close to you is spying on you and you feel unsafe, contact a local domestic-violence helpline before removing anything.</p>
+    <p><small>Spy app database: <a style="color:var(--green)" href="https://github.com/AssoEchap/stalkerware-indicators">Echap stalkerware-indicators</a> (CC-BY 4.0).</small></p>
+  </div>
+</main>
+</body>
+</html>

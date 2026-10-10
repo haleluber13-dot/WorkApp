@@ -1,0 +1,33 @@
+name: Build PhoneGuard (Android)
+
+on:
+  push:
+    paths: ["phoneguard/**", ".github/workflows/phoneguard.yml"]
+  pull_request:
+    paths: ["phoneguard/**", ".github/workflows/phoneguard.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: phoneguard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
+      - name: Build and lint
+        run: ./gradlew --no-daemon assembleRelease lintRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhoneGuard-apk
+          path: phoneguard/app/build/outputs/apk/release/app-release.apk

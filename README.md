@@ -110,6 +110,12 @@ assets/icons/            app icons
   scrolling sheet music, and listens to your real piano through the microphone
   (or a MIDI keyboard) to move on when you play it right. Live at `/piano/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
+- **[🛡 PhoneGuard](phoneguard/)** — `phoneguard/` — a native **Android** app:
+  per-app firewall for Wi-Fi and mobile data (4G/5G) with a log of blocked
+  connections, plus a spyware scan (600+ known stalkerware apps, hidden apps,
+  apps that can read your screen/notifications/texts, rogue certificates,
+  proxies, debugging, rooting). Download the APK from `/phoneguard/`. No
+  internet permission. See [phoneguard/README.md](phoneguard/README.md).
 
 ## Publish a shareable link (GitHub Pages)
 
