@@ -52,6 +52,8 @@ class FirewallService : VpnService() {
         var blockedCount = 0
             private set
 
+        @Volatile var activeMode: ProtectionMode? = null
+
         fun send(context: Context, action: String) {
             context.startService(Intent(context, FirewallService::class.java).setAction(action))
         }

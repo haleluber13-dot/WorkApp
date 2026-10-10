@@ -7,7 +7,9 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Switch
 import android.widget.TextView
 
 object C {
@@ -56,6 +58,7 @@ fun Context.pill(
 ): TextView = label(text, 14f, if (filled) C.ON_ACCENT else color, bold = true).apply {
     gravity = Gravity.CENTER
     setPadding(dp(16), dp(10), dp(16), dp(10))
+    minHeight = dp(44)
     background = if (filled) rounded(color, 22) else rounded(0, 22, color, 1.5)
     isClickable = true
     isFocusable = true
@@ -89,3 +92,111 @@ fun LinearLayout.put(child: View, bottomDp: Int = 12, wrap: Boolean = false, wei
 }
 
 fun Context.bullet(text: String, color: Int = C.SUB): TextView = label("•  $text", 14f, color)
+
+fun Context.sectionTitle(text: String): TextView = label(text, 18f, bold = true)
+
+/** A thin line between groups inside a card. */
+fun Context.divider(): View = View(this).apply {
+    setBackgroundColor(C.LINE)
+    layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
+}
+
+/** A rounded filter/option chip, big enough to hit with a thumb. */
+fun Context.chip(text: String, selected: Boolean, onClick: (View) -> Unit): TextView =
+    label(text, 14f, C.TEXT, bold = true).apply {
+        gravity = Gravity.CENTER
+        minHeight = dp(44)
+        setPadding(dp(16), dp(8), dp(16), dp(8))
+        isClickable = true
+        isFocusable = true
+        setOnClickListener(onClick)
+        setChipSelected(selected)
+    }
+
+fun TextView.setChipSelected(selected: Boolean) {
+    setTextColor(if (selected) C.ON_ACCENT else C.TEXT)
+    background = if (selected) context.rounded(C.GREEN, 22) else context.rounded(0, 22, C.LINE, 1.5)
+}
+
+/**
+ * A title + explanation with a switch on the right. Tapping anywhere on the row
+ * flips the switch, so it is easy to hit.
+ */
+fun Context.switchRow(
+    title: String,
+    sub: CharSequence?,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+): LinearLayout {
+    val r = row().apply { minimumHeight = dp(52) }
+    val texts = column()
+    texts.put(label(title, 16f, bold = true), if (sub.isNullOrEmpty()) 0 else 2)
+    if (!sub.isNullOrEmpty()) texts.put(label(sub, 13f, C.SUB), 0)
+    r.put(texts, 8, weight = 1f)
+    val sw = Switch(this).apply { isChecked = checked }
+    sw.setOnCheckedChangeListener { _, on -> onChange(on) }
+    r.put(sw, 0, wrap = true)
+    r.isClickable = true
+    r.setOnClickListener { sw.toggle() }
+    return r
+}
+
+/** One choice in a list of options; [selected] shows a filled dot. */
+fun Context.radioRow(title: String, sub: String?, selected: Boolean, onClick: () -> Unit): LinearLayout {
+    val r = row().apply {
+        minimumHeight = dp(52)
+        setPadding(dp(4), dp(8), dp(4), dp(8))
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { onClick() }
+    }
+    val dot = View(this).apply {
+        background = if (selected) rounded(C.GREEN, 11, C.CARD, 5) else rounded(0, 11, C.SUB, 2)
+    }
+    r.addView(dot, LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(14) })
+    val texts = column()
+    texts.put(label(title, 16f, if (selected) C.GREEN else C.TEXT, bold = true), if (sub == null) 0 else 2)
+    if (sub != null) texts.put(label(sub, 13f, C.SUB), 0)
+    r.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    return r
+}
+
+/**
+ * A setup step: a green tick when [done], an amber dot when not, or a blue arrow when
+ * PhoneGuard can't tell ([done] = null). The button shows unless the step is done.
+ */
+fun Context.checkItem(
+    done: Boolean?,
+    title: String,
+    sub: String?,
+    action: String? = null,
+    onAction: (() -> Unit)? = null,
+): LinearLayout {
+    val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+    val (mark, markColor) = when (done) {
+        true -> "✓" to C.GREEN
+        false -> "●" to C.AMBER
+        null -> "›" to C.BLUE
+    }
+    r.addView(label(mark, 16f, markColor, bold = true).apply {
+        gravity = Gravity.CENTER_HORIZONTAL
+    }, LinearLayout.LayoutParams(dp(26), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) })
+    val texts = column()
+    val showAction = action != null && onAction != null && done != true
+    texts.put(label(title, 15f, if (done == true) C.SUB else C.TEXT, bold = done != true), if (sub != null || showAction) 2 else 0)
+    if (sub != null) texts.put(label(sub, 13f, C.SUB), if (showAction) 8 else 0)
+    if (showAction) texts.put(pill(action!!, C.GREEN, filled = false) { onAction!!() }, 0, wrap = true)
+    r.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    return r
+}
+
+/** A single-line text box in the app's style. */
+fun Context.textBox(hint: String): EditText = EditText(this).apply {
+    this.hint = hint
+    setHintTextColor(C.SUB)
+    setTextColor(C.TEXT)
+    isSingleLine = true
+    background = rounded(C.CARD2, 22)
+    minHeight = dp(48)
+    setPadding(dp(16), dp(10), dp(16), dp(10))
+}
