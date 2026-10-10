@@ -17,6 +17,8 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowInsets
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -102,7 +104,12 @@ class MainActivity : Activity(), Host {
         reloadContext = applicationContext
         savedScreens = savedInstanceState?.getBundle("screens")
 
-        val root = column().apply { setBackgroundColor(C.BG) }
+        val root = column().apply {
+            setBackgroundColor(C.BG)
+            // Holds focus itself, so a text box (the Firewall search) doesn't grab it and pop up
+            // the keyboard when the app opens or comes back.
+            isFocusableInTouchMode = true
+        }
         val header = row().apply { setPadding(dp(20), dp(8), dp(8), dp(4)) }
         header.put(ImageView(this).apply {
             setImageResource(R.drawable.ic_shield)
@@ -194,6 +201,11 @@ class MainActivity : Activity(), Host {
         resumed = false
         main.removeCallbacks(ticker)
         current()?.hidden()
+        // Leaving the app with the search box focused would reopen the keyboard on every return.
+        (currentFocus as? EditText)?.let { box ->
+            getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(box.windowToken, 0)
+            box.clearFocus()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

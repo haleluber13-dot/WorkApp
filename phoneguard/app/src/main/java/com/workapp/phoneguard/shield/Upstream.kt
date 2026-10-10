@@ -280,7 +280,16 @@ class UdpDns(
  * or go straight to the network's DNS (after repeated failures), so a network that blocks DoH
  * can't tie up every DNS thread with connect timeouts. After two failures in a row the next
  * probe waits 15 s, doubling up to 5 min. A new network or provider, or [networkChanged],
- * starts over with an immediate probe.
+ * starts over with an immediate probe; [retryNow] (the network just passed Android's internet
+ * check) cuts a running backoff short.
+ *
+ * While DoH is healthy every lookup uses it at once, so a short outage makes all the lookups in
+ * flight fail together. That burst counts as one failure (the next lookup becomes the probe);
+ * only failed probes make the backoff grow, so a blip can't jump straight to 5 minutes.
+ *
+ * Names under the network's own search domain (from DHCP, e.g. an office "corp.example.com")
+ * go to DoH like any other name, but if DoH says they don't exist the network's DNS is asked
+ * too (see [SearchDomains]): that is where intranet names live.
  */
 internal class UpstreamChain(
     private val provider: () -> DnsProvider,
@@ -291,8 +300,15 @@ internal class UpstreamChain(
     private val status: (encrypted: Boolean, problem: String?) -> Unit,
     private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
     private val probeWaitMs: Long = PROBE_WAIT_MS,
+    /** The network's search domains (from DHCP), lowercase. See [SearchDomains]. */
+    private val searchDomains: () -> List<String> = { emptyList() },
 ) {
-    class Result(val response: DnsResponse, val server: String)
+    /**
+     * [intranet]: DoH said the name doesn't exist, so this answer came from the network's own
+     * DNS because the name is under the network's search domain. Expected for office names, so
+     * it doesn't count as "not encrypted".
+     */
+    class Result(val response: DnsResponse, val server: String, val intranet: Boolean = false)
 
     private enum class Route { DOH, PROBE, FALLBACK }
     private enum class Outcome { OK, SLOW, FAILED }
@@ -324,6 +340,24 @@ internal class UpstreamChain(
         }
     }
 
+    /**
+     * The network just passed Android's internet check (for example after signing in to a
+     * hotel Wi-Fi page): if DoH has been failing, check it again with the next lookup instead of
+     * waiting out the backoff, and let a new failure start the backoff from 15 s again.
+     */
+    fun retryNow() {
+        lock.lock()
+        try {
+            if (known && failures > 0) {
+                retryAt = minOf(retryAt, clock())
+                if (failures > 1) failures = 1
+            }
+            probeFinished.signalAll()
+        } finally {
+            lock.unlock()
+        }
+    }
+
     fun resolve(q: DnsQuery): Result? {
         val p = provider()
         val url = p.dohUrl
@@ -344,6 +378,9 @@ internal class UpstreamChain(
                     // (DNSSEC) failure, and retrying over plain DNS would defeat it.
                     finish(t, Outcome.OK)
                     status(true, null)
+                    if (isMissing(resp) && SearchDomains.covers(q.question.key, searchDomains())) {
+                        intranetAnswer(q)?.let { return it }
+                    }
                     return Result(resp, url)
                 } catch (_: DohSlowException) {
                     finish(t, Outcome.SLOW)
@@ -372,6 +409,28 @@ internal class UpstreamChain(
             return poor
         }
         if (!local) status(false, NO_DNS)
+        return null
+    }
+
+    /** NXDOMAIN, or NOERROR without any answer. */
+    private fun isMissing(resp: DnsResponse) =
+        resp.rcode == Dns.NXDOMAIN || (resp.rcode == Dns.NOERROR && resp.answers.isEmpty())
+
+    /**
+     * Asks the network's DNS for a name DoH didn't know. Only a real answer (NOERROR with
+     * records) is used; otherwise the provider's "doesn't exist" stands.
+     */
+    private fun intranetAnswer(q: DnsQuery): Result? {
+        for (server in servers()) {
+            try {
+                val resp = Dns.parseResponse(udp(q, server))
+                if (resp.rcode == Dns.NOERROR && resp.answers.isNotEmpty()) {
+                    return Result(resp, server.hostAddress ?: server.toString(), intranet = true)
+                }
+            } catch (_: Exception) {
+                // try the next server
+            }
+        }
         return null
     }
 
@@ -457,8 +516,8 @@ internal class UpstreamChain(
                     lastOkAt = now
                 }
                 // Reached but slow on this one name: not a failure if DoH answered recently.
-                Outcome.SLOW -> if (!verified || now - lastOkAt >= RECENT_OK_MS) failed(now)
-                Outcome.FAILED -> failed(now)
+                Outcome.SLOW -> if (!verified || now - lastOkAt >= RECENT_OK_MS) failed(t, now)
+                Outcome.FAILED -> failed(t, now)
             }
             probeFinished.signalAll()
         } finally {
@@ -466,7 +525,11 @@ internal class UpstreamChain(
         }
     }
 
-    private fun failed(now: Long) {
+    private fun failed(t: Ticket, now: Long) {
+        // Lookups that went straight to DoH fail together in an outage. The first one counts
+        // (and makes the next lookup the probe); the rest of the burst just use the network's
+        // DNS this time. Only probes push the backoff further.
+        if (t.route == Route.DOH && failures > 0) return
         failures++
         // One failure can be a blip on mobile data: probe again at once (one lookup only).
         // From the second failure in a row, wait 15 s, doubling up to 5 min.
@@ -490,8 +553,10 @@ val DnsProvider.shortName: String get() = title.substringBefore(" (")
  * Names that only the local network's own DNS can answer, so they never go to the provider.
  * Only names that can't exist on the public internet count: a single label ("router"),
  * special-use and never-delegated suffixes (.local, .lan, .home.arpa, ...) and reverse lookups
- * of private addresses. The network's search domains (from DHCP) are deliberately not trusted:
- * a hostile Wi-Fi could announce "com" and then read or change every .com lookup.
+ * of private addresses. The network's search domains (from DHCP) are deliberately not trusted
+ * here: a hostile Wi-Fi could announce "com" and then read or change every .com lookup. Names
+ * under a search domain only get a second chance on the network's DNS when the provider says
+ * they don't exist (see [SearchDomains]).
  */
 object LocalNames {
     private val SUFFIXES = listOf(
@@ -512,4 +577,59 @@ object LocalNames {
 
     private fun under(name: String, suffix: String) =
         name == suffix || (name.length > suffix.length && name.endsWith(suffix) && name[name.length - suffix.length - 1] == '.')
+}
+
+/**
+ * The network's search domains (sent by DHCP, e.g. "corp.example.com" in an office or
+ * "attlocal.net" on some home routers) hold intranet names the public internet doesn't know.
+ * Such names still go to the encrypted provider first; only if it says the name doesn't exist
+ * is the network's DNS asked. That keeps intranet sites working, while a hostile network
+ * can't change any name that exists publicly. A search domain is only used if it has at least
+ * two labels and isn't a public suffix ("com", "co.uk", ...), which would cover everyone's sites.
+ */
+object SearchDomains {
+    /** Second-level labels used for public registrations under country codes (co.uk, com.au, ne.jp...). */
+    private val CC_SECOND_LEVEL = setOf(
+        "co", "com", "net", "org", "gov", "edu", "ac", "or", "ne", "go", "gob", "mil", "nic",
+        "ltd", "plc", "me", "sch", "nom", "biz", "info", "int", "web", "gen", "firm", "id", "in",
+    )
+
+    /** Other well-known suffixes where anyone can get a name (hosting and dynamic-DNS services). */
+    private val PUBLIC = setOf(
+        "eu.org", "us.com", "uk.com", "eu.com", "de.com", "uk.net",
+        "github.io", "gitlab.io", "pages.dev", "workers.dev", "netlify.app", "vercel.app",
+        "herokuapp.com", "appspot.com", "blogspot.com", "web.app", "firebaseapp.com",
+        "cloudfront.net", "amazonaws.com", "azurewebsites.net", "cloudapp.net", "azureedge.net",
+        "duckdns.org", "dyndns.org", "no-ip.org", "no-ip.com", "ddns.net", "hopto.org",
+        "ngrok.io", "ngrok-free.app", "myqnapcloud.com", "synology.me", "fly.dev", "onrender.com",
+    )
+
+    /** [domain] is specific enough to trust for intranet names. */
+    fun usable(domain: String): Boolean {
+        val d = normalize(domain)
+        if (d.isEmpty() || d.startsWith('.') || ".." in d) return false
+        if (!d.all { it in 'a'..'z' || it in '0'..'9' || it == '-' || it == '.' || it == '_' }) return false
+        val labels = d.split('.')
+        if (labels.size < 2) return false // "com", "net", "lan"
+        if (d in PUBLIC || d.endsWith(".arpa")) return false
+        if (labels.size == 2 && labels[1].length == 2 && labels[0] in CC_SECOND_LEVEL) return false
+        if (labels.all { l -> l.all { it in '0'..'9' } }) return false // an address, not a domain
+        return true
+    }
+
+    /** True if [name] (lowercase, no trailing dot) lies strictly under one of the usable [domains]. */
+    fun covers(name: String, domains: List<String>): Boolean {
+        for (raw in domains) {
+            val d = normalize(raw)
+            if (d.isEmpty()) continue
+            if (name.length > d.length + 1 && name.endsWith(d) && name[name.length - d.length - 1] == '.' && usable(d)) return true
+        }
+        return false
+    }
+
+    /** Splits LinkProperties.getDomains() ("a.example b.example", sometimes comma-separated). */
+    fun parse(domains: String?): List<String> =
+        domains.orEmpty().split(' ', ',', ';', '\t').map { normalize(it) }.filter { it.isNotEmpty() }.distinct()
+
+    private fun normalize(d: String) = d.trim().trimEnd('.').lowercase()
 }

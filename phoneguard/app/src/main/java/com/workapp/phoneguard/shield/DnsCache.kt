@@ -31,8 +31,19 @@ class DnsCache(
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Key, Entry>?) = size > maxEntries
     }
 
-    /** Stores [resp] if it is cacheable. Returns true if stored. */
-    fun put(key: Key, resp: DnsResponse): Boolean {
+    // Guarded by map. Bumped by clear(), so an answer looked up before a network change isn't
+    // put back afterwards.
+    private var gen = 0L
+
+    /** Changes on every [clear]. Read it before asking upstream and pass it to [put]. */
+    val generation: Long get() = synchronized(map) { gen }
+
+    /**
+     * Stores [resp] if it is cacheable. Returns true if stored. With [generation], nothing is
+     * stored if the cache was cleared since that value was read (the answer may be from the
+     * previous network).
+     */
+    fun put(key: Key, resp: DnsResponse, generation: Long? = null): Boolean {
         val ttl = Dns.cacheTtl(resp) ?: return false
         val records = resp.answers + resp.authority + resp.additional
         val timed = records.filter { it.type != Dns.TYPE_OPT }
@@ -46,7 +57,10 @@ class DnsCache(
             Dns.addresses(resp),
             Dns.cnameTargets(resp),
         )
-        synchronized(map) { map[key] = e }
+        synchronized(map) {
+            if (generation != null && generation != gen) return false
+            map[key] = e
+        }
         return true
     }
 
@@ -86,7 +100,10 @@ class DnsCache(
         return out
     }
 
-    fun clear() = synchronized(map) { map.clear() }
+    fun clear() = synchronized(map) {
+        map.clear()
+        gen++
+    }
 
     val size: Int get() = synchronized(map) { map.size }
 

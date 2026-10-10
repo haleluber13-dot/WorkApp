@@ -95,11 +95,12 @@ class DnsService(context: Context) : DnsHandler {
     private val cm = app.getSystemService(ConnectivityManager::class.java)
     private val openSockets: MutableSet<Closeable> = ConcurrentHashMap.newKeySet()
 
-    /** The real network and its DNS servers, refreshed on network changes or after 5 s. */
+    /** The real network, its DNS servers and search domains, refreshed on network changes or after 5 s. */
     private class NetInfo(
         val network: Network?,
         val servers: List<InetAddress>,
         val at: Long,
+        val domains: List<String> = emptyList(),
     )
     @Volatile private var net: NetInfo? = null
 
@@ -107,7 +108,19 @@ class DnsService(context: Context) : DnsHandler {
         override fun onAvailable(network: Network) = onNetworkChanged()
         override fun onLost(network: Network) = onNetworkChanged()
         override fun onLinkPropertiesChanged(network: Network, lp: LinkProperties) { net = null }
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            // Passing Android's internet check (e.g. after a Wi-Fi sign-in page) usually means
+            // DoH works now too: check it at once instead of waiting out the backoff.
+            val validated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            if (validated && validatedNet != network) {
+                validatedNet = network
+                chain.retryNow()
+            } else if (!validated && validatedNet == network) {
+                validatedNet = null
+            }
+        }
     }
+    @Volatile private var validatedNet: Network? = null
     private var callbackRegistered = false
 
     /** Lookups wait for the blocklists to load only until then (elapsedRealtime ms), see handle(). */
@@ -138,6 +151,7 @@ class DnsService(context: Context) : DnsHandler {
             DnsStatus.encrypted = encrypted
             DnsStatus.problem = problem
         },
+        searchDomains = { currentNet().domains },
     )
 
     private val core = DnsCore(
@@ -268,7 +282,7 @@ class DnsService(context: Context) : DnsHandler {
         var servers = lp?.dnsServers.orEmpty()
             .filter { it.hostAddress != DnsCore.VIRTUAL_DNS && !it.isAnyLocalAddress && !it.isLoopbackAddress }
         if (servers.isEmpty()) servers = FALLBACK_SERVERS
-        return NetInfo(n, servers, now)
+        return NetInfo(n, servers, now, SearchDomains.parse(lp?.domains))
     }
 
     private companion object {

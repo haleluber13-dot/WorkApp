@@ -102,6 +102,11 @@ shows a **Try Full protection again** button.
 - **Private DNS in strict mode** (a provider name in Settings), and apps that use their
   own encrypted DNS or fixed addresses, skip the Web Shield. The firewall still decides
   whether those apps may go online.
+- **Office and home network names.** Names that only your network knows (like
+  `printer.lan`, or `intranet.yourcompany.com` at work) are looked up on the network's own
+  DNS, unencrypted. For a work name, PhoneGuard first asks the encrypted provider and only
+  asks the network if the provider says the name doesn't exist, so the network can't change
+  the address of a real public site.
 - **"Ping" doesn't work in Full mode.** PhoneGuard only passes normal app traffic (TCP
   and UDP), so ping tests fail even though apps and websites work.
 - **No app catches all spyware.** Spyware sold to governments (Pegasus and the like),

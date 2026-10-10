@@ -6,6 +6,7 @@ import com.workapp.phoneguard.Severity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -77,6 +78,38 @@ class TrustAndInstallTest {
         // Known stalkerware is never hidden, even if its id were somehow trusted.
         val spy = ScanLogic.appFindingId("x.app", emptyList(), true, "aaaa")
         assertTrue(ScanLogic.hiddenByTrust(listOf(finding(spy, "x.app", trustable = false)), setOf(spy)).isEmpty())
+    }
+
+    @Test
+    fun trustedAppStaysHiddenWhenItLosesAPower() {
+        // Saved by an earlier version: same form, so it keeps working.
+        val saved = "app:x.app|perm:camera,perm:read_sms,sideloaded|-|aaaa"
+        assertEquals(saved, ScanLogic.appFindingId("x.app", listOf("sideloaded", "perm:read_sms", "perm:camera"), false, "aaaa"))
+        val trusted = setOf(saved, "dev:adb")
+        fun hidden(powers: List<String>, spy: Boolean = false, cert: String = "aaaa", pkg: String = "x.app") =
+            ScanLogic.hiddenByTrust(listOf(finding(ScanLogic.appFindingId(pkg, powers, spy, cert), pkg)), trusted).size == 1
+        assertTrue(hidden(listOf("sideloaded", "perm:read_sms", "perm:camera")))
+        // A one-time camera permission ran out, or Android took back an unused permission.
+        assertTrue(hidden(listOf("sideloaded", "perm:read_sms")))
+        assertTrue(hidden(listOf("sideloaded")))
+        // A new power, another signer, another app, or a stalkerware match: shown again.
+        assertFalse(hidden(listOf("sideloaded", "perm:read_sms", "a11y")))
+        assertFalse(hidden(listOf("sideloaded"), cert = "bbbb"))
+        assertFalse(hidden(listOf("sideloaded"), pkg = "y.app"))
+        assertFalse(hidden(listOf("sideloaded"), spy = true))
+        assertEquals(ScanLogic.AppState("x.app", setOf("perm:camera", "perm:read_sms", "sideloaded"), false, "aaaa"), ScanLogic.parseAppFindingId(saved))
+        assertNull(ScanLogic.parseAppFindingId("app:x.app")) // the old per-app form is migrated separately
+        assertNull(ScanLogic.parseAppFindingId("dev:adb"))
+    }
+
+    @Test
+    fun trustedInstallerListStaysHiddenWhenAnAppDropsOff() {
+        val trusted = setOf(ScanLogic.installersFindingId(listOf("a.app", "b.app")))
+        fun hidden(vararg pkgs: String) =
+            ScanLogic.hiddenByTrust(listOf(finding(ScanLogic.installersFindingId(pkgs.toList()), null)), trusted).size == 1
+        assertTrue(hidden("b.app", "a.app"))
+        assertTrue(hidden("a.app"))
+        assertFalse(hidden("a.app", "c.app"))
     }
 
     @Test
