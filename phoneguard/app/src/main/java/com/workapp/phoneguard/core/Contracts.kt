@@ -22,6 +22,8 @@ data class ConnEvent(
     val blocked: Boolean,
     /** Why it was blocked, in plain words, e.g. "Firewall: no Wi-Fi", "Phishing site". */
     val reason: String? = null,
+    /** True when the Web Shield (a blocklist) blocked it; false for firewall blocks. */
+    val byShield: Boolean = false,
 )
 
 /** Answers DNS queries captured by the engine. Called on a background thread; may block. */
