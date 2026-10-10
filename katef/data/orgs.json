@@ -1,0 +1,2472 @@
+[
+ {
+  "id": "mod-rehabilitation-division",
+  "name": "אגף השיקום – משרד הביטחון",
+  "nameEn": "Ministry of Defense Rehabilitation Division",
+  "desc": "הגוף הממלכתי האחראי על הכרה, טיפול ושיקום של נכי ונכות צה\"ל וכוחות הביטחון, כולל פוסט טראומה: זכויות, טיפולים, לימודים ותעסוקה.",
+  "categories": [
+   "medical",
+   "mental",
+   "financial",
+   "employment"
+  ],
+  "audiences": [
+   "wounded",
+   "veteran"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*8150",
+  "whatsapp": "",
+  "website": "https://shikum.mod.gov.il",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/משרד_הביטחון_-_אגף_שיקום_נכים"
+ },
+ {
+  "id": "nefesh-achat-hotline-8944",
+  "name": "קו \"נפש אחת\" – קו תמיכה נפשית של אגף השיקום",
+  "nameEn": "Nefesh Achat Support Line (MOD, operated by NATAL)",
+  "desc": "קו תמיכה וסיוע נפשי טלפוני של אגף השיקום במשרד הביטחון, מאויש ע\"י אנשי מקצוע של נט\"ל, לנכי צה\"ל, פצועים, משוחררים המתמודדים עם פוסט טראומה ובני משפחותיהם.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "wounded",
+   "veteran",
+   "released",
+   "soldier",
+   "reservist"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*8944",
+  "whatsapp": "",
+  "website": "https://shikum.mod.gov.il",
+  "email": "",
+  "hours": "24/7",
+  "type": "hotline",
+  "source": "https://shikum-umb.mod.gov.il/media/0tzbkekn/haravot-barzel-guide-2024.pdf"
+ },
+ {
+  "id": "mod-families-commemoration",
+  "name": "אגף משפחות, הנצחה ומורשת – משרד הביטחון",
+  "nameEn": "MOD Families, Commemoration and Heritage Division",
+  "desc": "הגוף הממלכתי המלווה את המשפחות השכולות של חללי צה\"ל וכוחות הביטחון: תגמולים, מענקים, טיפול נפשי, קבוצות תמיכה והנצחה.",
+  "categories": [
+   "financial",
+   "mental",
+   "family",
+   "legal"
+  ],
+  "audiences": [
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-7776700",
+  "whatsapp": "",
+  "website": "https://mishpahot-hantzaha.mod.gov.il",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://yadlabanim.org/wp-content/uploads/2023/04/אגרת-מידע-לאחים-השכולים.pdf"
+ },
+ {
+  "id": "mod-released-soldiers-reserves-division",
+  "name": "האגף לחיילים משוחררים ומילואים – משרד הביטחון",
+  "nameEn": "MOD Division for Released Soldiers and Reserves (Hachvana)",
+  "desc": "מעניק לחיילים משוחררים ולמשרתי מילואים מענק שחרור ופיקדון אישי, מלגות לימודים, הכשרות מקצועיות, ייעוץ והכוונה לתעסוקה וסיוע לחיילים בודדים משוחררים.",
+  "categories": [
+   "employment",
+   "financial",
+   "business",
+   "housing"
+  ],
+  "audiences": [
+   "released",
+   "reservist",
+   "lone_soldier"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*5266",
+  "whatsapp": "",
+  "website": "https://www.hachvana.mod.gov.il",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.hachvana.mod.gov.il/Pages/default.aspx"
+ },
+ {
+  "id": "btl-reserve-service-benefits",
+  "name": "ביטוח לאומי – תגמולי מילואים",
+  "nameEn": "National Insurance Institute – Reserve Duty Compensation",
+  "desc": "משלם תגמולי מילואים למשרתי המילואים (שכירים, עצמאים ולא עובדים) ומטפל בבירורים על חישוב וזכאות.",
+  "categories": [
+   "financial"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6050",
+  "whatsapp": "",
+  "website": "https://www.btl.gov.il/benefits/Reserve_Service/Pages/default.aspx",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/Pages/default.aspx"
+ },
+ {
+  "id": "idf-reservists-hotline",
+  "name": "מוקד המילואים של צה\"ל",
+  "nameEn": "IDF Reserves Call Center",
+  "desc": "מוקד צה\"ל למשרתי המילואים לבירורים על זימונים, זכויות וסיוע (שלוחה 4 במוקד 1111), כולל פניות לסיוע משפטי למי שפוטר עקב שירות מילואים.",
+  "categories": [
+   "legal",
+   "employment",
+   "financial"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1111",
+  "whatsapp": "",
+  "website": "https://www.idf.il/miluim",
+  "email": "Miluim.moked@digital.idf.il",
+  "hours": "",
+  "type": "hotline",
+  "source": "https://www.mod.gov.il/media/plfjgyme/%D7%94%D7%9E%D7%91-6203-2025.pdf"
+ },
+ {
+  "id": "mod-legal-aid-dismissed-reservists",
+  "name": "סיוע משפטי למשרתי מילואים שפוטרו – משרד הביטחון",
+  "nameEn": "MOD Legal Aid for Reservists Dismissed due to Service",
+  "desc": "ייצוג חינם ע\"י עורכי דין לדיני עבודה למשרתי מילואים שפוטרו, זומנו לשימוע או שתנאי העסקתם הורעו עקב שירות המילואים; בתנאים מסוימים גם לבני/בנות זוג. הפנייה דרך מוקד המילואים 1111 שלוחה 4.",
+  "categories": [
+   "legal",
+   "employment"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1111",
+  "whatsapp": "",
+  "website": "",
+  "email": "Miluim.moked@digital.idf.il",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/סיוע_משפטי_לעובד_שפוטר_מעבודתו_עקב_שירות_מילואים"
+ },
+ {
+  "id": "moj-legal-aid-soldiers",
+  "name": "הסיוע המשפטי – משרד המשפטים (ייעוץ חינם לחיילים)",
+  "nameEn": "Ministry of Justice Legal Aid – free civil legal aid for soldiers",
+  "desc": "ייעוץ וייצוג משפטי חינם לחיילי צה\"ל בנושאים אזרחיים כגון חובות, צרכנות, דיור, תעסוקה ומשפחה; ניתן לפנות ישירות או דרך קצינת הת\"ש.",
+  "categories": [
+   "legal"
+  ],
+  "audiences": [
+   "soldier",
+   "lone_soldier"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6405",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/סיוע_משפטי_חינם_לחיילי_צה%22ל_מטעם_משרד_המשפטים"
+ },
+ {
+  "id": "labor-enforcement-administration",
+  "name": "מינהל הסדרה ואכיפת חוקי עבודה – משרד העבודה",
+  "nameEn": "Labor Law Enforcement Administration",
+  "desc": "מקבל תלונות על הפרת זכויות עובדים, כולל פגיעה במשרתי מילואים ובני זוגם בעבודה ואי תשלום תגמולי מילואים ע\"י המעסיק.",
+  "categories": [
+   "legal",
+   "employment"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*2570",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/departments/units/regularization-and-enforcement",
+  "email": "",
+  "hours": "א'-ה' 09:00-16:00",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/מוקד_שירות_ארצי:מינהל_הסדרה_ואכיפת_חוקי_עבודה"
+ },
+ {
+  "id": "tax-authority-reservist-business-grant",
+  "name": "רשות המסים – מענק לעוסקים משרתי מילואים",
+  "nameEn": "Israel Tax Authority – Grant for Self-Employed Reservists",
+  "desc": "מענק לעצמאים ובעלי עסקים ששירתו במילואים בצו 8 ועסקם נפגע כלכלית, במסלול משותף של קרן הסיוע של צה\"ל וקרן הפיצויים – מס רכוש.",
+  "categories": [
+   "business",
+   "financial"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*4954",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/service/grant-for-reservists",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.gov.il/he/service/grant-for-reservists"
+ },
+ {
+  "id": "sme-agency-maof",
+  "name": "הסוכנות לעסקים קטנים ובינוניים (מעו\"ף)",
+  "nameEn": "Small and Medium Business Agency (MAOF)",
+  "desc": "ייעוץ וליווי עסקי מסובסד, קרן הלוואות בערבות מדינה ותוכניות סיוע לעסקים, כולל תוכניות לעסקים של משרתי מילואים שנפגעו.",
+  "categories": [
+   "business",
+   "financial"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/departments/units/small_medium_business_agency_about",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.gov.il/he/departments/units/small_medium_business_agency_about"
+ },
+ {
+  "id": "national-resilience-hotline",
+  "name": "מוקד חוסן ארצי",
+  "nameEn": "National Resilience Center Hotline",
+  "desc": "מוקד טיפולי ארצי למי שאין מרכז חוסן באזור מגוריו; מרכזי החוסן מעניקים טיפול נפשי חינם לנפגעי חרדה וטראומה.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "reservist",
+   "reservist_family",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*5486",
+  "whatsapp": "",
+  "website": "https://www.btl.gov.il/StateOfEmergency/AmKelavi/Harada_HB/Pages/MrkaziHosenResima.aspx",
+  "email": "",
+  "hours": "א'-ה' 08:00-20:00",
+  "type": "hotline",
+  "source": "https://btl.gov.il/English%20Homepage/Updates-security-situation/Harada_HB/Pages/HOZENmercazhb.aspx"
+ },
+ {
+  "id": "amit-program-mod",
+  "name": "תוכנית עמית – משרד הביטחון",
+  "nameEn": "Amit Program (MOD) – resilience benefits app",
+  "desc": "תוכנית לאומית לחיזוק החוסן של משרתי מילואים וחיילים משוחררים ששירתו במלחמה: אפליקציה עם סל הטבות לטיפולים פסיכולוגיים, רפואה משלימה, ספורט וסדנאות.",
+  "categories": [
+   "mental",
+   "social"
+  ],
+  "audiences": [
+   "reservist",
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://apps.apple.com/il/app/id6692622144",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kipa.co.il/חדשות/1194992-0/"
+ },
+ {
+  "id": "welfare-ministry-hotline-118",
+  "name": "מוקד משרד הרווחה 118",
+  "nameEn": "Ministry of Welfare Hotline 118",
+  "desc": "מוקד ממשלתי חינמי למידע וסיוע ראשוני ליחידים ומשפחות במצוקה, כולל קשיים כלכליים ומשבר משפחתי.",
+  "categories": [
+   "financial",
+   "family",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "118",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "24/7",
+  "type": "hotline",
+  "source": "https://www.kolzchut.org.il/he/מוקד_רווחה"
+ },
+ {
+  "id": "eran",
+  "name": "ער\"ן – עזרה ראשונה נפשית",
+  "nameEn": "ERAN – Emotional First Aid",
+  "desc": "קו סיוע נפשי טלפוני ובצ'אט/וואטסאפ לכל אדם במצוקה, באופן אנונימי.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "soldier",
+   "reservist",
+   "reservist_family",
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1201",
+  "whatsapp": "052-8451201",
+  "website": "",
+  "email": "",
+  "hours": "24/7",
+  "type": "hotline",
+  "source": "https://israeltraumacoalition.org/"
+ },
+ {
+  "id": "natal",
+  "name": "נט\"ל – מרכז לנפגעי טראומה על רקע לאומי",
+  "nameEn": "NATAL – Israel Trauma and Resiliency Center",
+  "desc": "קו סיוע נפשי וטיפולים לנפגעי טראומה על רקע לאומי, כולל לוחמים, מילואימניקים, משוחררים ובני משפחותיהם; גם 1-800-363-363.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "soldier",
+   "reservist",
+   "reservist_family",
+   "released",
+   "veteran",
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*3362",
+  "whatsapp": "",
+  "website": "https://www.natal.org.il",
+  "email": "",
+  "hours": "24/7",
+  "type": "nonprofit",
+  "source": "https://www.natal.org.il"
+ },
+ {
+  "id": "israel-trauma-coalition",
+  "name": "הקואליציה הישראלית לטראומה",
+  "nameEn": "Israel Trauma Coalition",
+  "desc": "ארגון גג של ארגוני טראומה וחוסן בישראל; מרכז מידע ומפנה לקווי סיוע ולמרכזי חוסן.",
+  "categories": [
+   "mental"
+  ],
+  "audiences": [
+   "general",
+   "reservist_family",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "02-6722618",
+  "whatsapp": "",
+  "website": "https://israeltraumacoalition.org",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://israeltraumacoalition.org/"
+ },
+ {
+  "id": "metiv-psychotrauma-center",
+  "name": "מטיב – המרכז הישראלי לפסיכוטראומה",
+  "nameEn": "Metiv – The Israel Psychotrauma Center",
+  "desc": "מרכז טיפול בטראומה במרכז הרפואי הרצוג בירושלים, עם מרפאות למבוגרים ולילדים ותוכניות ללוחמים משוחררים.",
+  "categories": [
+   "mental"
+  ],
+  "audiences": [
+   "general",
+   "veteran",
+   "released"
+  ],
+  "regions": [
+   "jerusalem"
+  ],
+  "phone": "02-5952234",
+  "whatsapp": "",
+  "website": "https://metiv.org",
+  "email": "info@metiv.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://metiv.org/"
+ },
+ {
+  "id": "masa-shichrur-peace-of-mind",
+  "name": "מסע שחרור (Peace of Mind)",
+  "nameEn": "Peace of Mind (Masa Shichrur)",
+  "desc": "תוכנית טיפולית לקבוצות אורגניות של לוחמים משוחררים לעיבוד חוויות הלחימה בליווי מטפלים, במסע בארץ או בחו\"ל, בשיתוף משרד הביטחון.",
+  "categories": [
+   "mental",
+   "social"
+  ],
+  "audiences": [
+   "released",
+   "reservist",
+   "veteran"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://peaceofmind.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://peaceofmind.org.il/"
+ },
+ {
+  "id": "helem-krav-house",
+  "name": "הבית להלומי קרב – לא מפקירים פצועים בשטח",
+  "nameEn": "The Home for Shell-Shocked Soldiers",
+  "desc": "קהילה טיפולית ושיקומית חינמית למתמודדים עם פוסט טראומה על רקע צבאי ובני משפחותיהם, ללא צורך בהכרה וללא בירוקרטיה.",
+  "categories": [
+   "mental",
+   "social",
+   "family"
+  ],
+  "audiences": [
+   "veteran",
+   "wounded",
+   "released",
+   "reservist"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "050-6078202",
+  "whatsapp": "050-6078202",
+  "website": "https://helemkrav.org.il",
+  "email": "info@helemkrav.org.il",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://helemkrav.org.il/"
+ },
+ {
+  "id": "new-rise",
+  "name": "New Rise",
+  "nameEn": "New Rise",
+  "desc": "מענה נפשי מיידי וללא עלות לחיילים, מילואימניקים ואזרחים המתמודדים עם טראומה ופוסט טראומה בזמן ההמתנה להכרה ולטיפול מהמערכת.",
+  "categories": [
+   "mental",
+   "housing"
+  ],
+  "audiences": [
+   "soldier",
+   "reservist",
+   "released",
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "055-5790077",
+  "whatsapp": "055-5790077",
+  "website": "https://www.new-rise.org",
+  "email": "contact@new-rise.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.new-rise.org/"
+ },
+ {
+  "id": "trauma4good",
+  "name": "טראומה פור גוד – העמותה למען נפגעי פוסט טראומה",
+  "nameEn": "Trauma4Good",
+  "desc": "עמותה שהקים לוחם הלום קרב, המסייעת להלומי קרב ונפגעי PTSD מכוחות הביטחון בתהליך ההכרה, בליווי ובשיקום.",
+  "categories": [
+   "mental",
+   "legal"
+  ],
+  "audiences": [
+   "veteran",
+   "wounded",
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "052-6417641",
+  "whatsapp": "",
+  "website": "https://www.trauma4good.org",
+  "email": "office@trauma4good.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.trauma4good.org/"
+ },
+ {
+  "id": "asufi",
+  "name": "עמותת אסופי – סיוע ללוחמים פוסט טראומטיים",
+  "nameEn": "Asufi",
+  "desc": "עמותה שהקים הלום קרב, המסייעת ללוחמים עם פוסט טראומה שבתהליכי הכרה מול משרד הביטחון או שלא הוכרו, כולל ליווי, מזון ותעסוקה.",
+  "categories": [
+   "mental",
+   "legal",
+   "food",
+   "employment"
+  ],
+  "audiences": [
+   "veteran",
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://asufi.org.il",
+  "email": "asufi.npo@gmail.com",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://asufinpo.wixsite.com/asufi"
+ },
+ {
+  "id": "kav-levanon",
+  "name": "עמותת קו לבנון",
+  "nameEn": "Kav Levanon",
+  "desc": "עמותה להנצחת מורשת הלחימה ברצועת הביטחון בלבנון ותמיכה בלוחמי התקופה המתמודדים עם פוסט טראומה, כולל ליווי מול משרד הביטחון.",
+  "categories": [
+   "mental",
+   "legal",
+   "social"
+  ],
+  "audiences": [
+   "veteran"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://kavlevanon.org.il/ptsd/",
+  "email": "kavlevanon@gmail.com",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://kavlevanon.org.il/ptsd/"
+ },
+ {
+  "id": "zahal-disabled-veterans-org",
+  "name": "ארגון נכי צה\"ל",
+  "nameEn": "Zahal Disabled Veterans Organization (ZDVO)",
+  "desc": "הארגון היציג של נכי צה\"ל, המייצג אותם מול משרד הביטחון ומפעיל את בתי הלוחם לשיקום, ספורט ופנאי.",
+  "categories": [
+   "legal",
+   "social",
+   "medical"
+  ],
+  "audiences": [
+   "wounded",
+   "veteran"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-6461600",
+  "whatsapp": "",
+  "website": "https://www.inz.org.il",
+  "email": "irgun@inz.org.il",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/ארגון_נכי_צה%22ל"
+ },
+ {
+  "id": "beit-halochem",
+  "name": "בית הלוחם",
+  "nameEn": "Beit Halochem",
+  "desc": "מרכזי שיקום, ספורט ופנאי של ארגון נכי צה\"ל לנכי צה\"ל ובני משפחותיהם, בתל אביב, חיפה, ירושלים ובאר שבע.",
+  "categories": [
+   "social",
+   "medical",
+   "family"
+  ],
+  "audiences": [
+   "wounded",
+   "veteran"
+  ],
+  "regions": [
+   "tlv",
+   "haifa",
+   "jerusalem",
+   "south"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://zdvo.org",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://zdvo.org/"
+ },
+ {
+  "id": "achim-lachaim",
+  "name": "אחים לחיים",
+  "nameEn": "Brothers for Life",
+  "desc": "עמותה שמנוהלת ע\"י לוחמים פצועים ומסייעת ללוחמי צה\"ל שנפצעו בשיקום, בליווי מול משרד הביטחון, מלגות, תעסוקה וקהילה תומכת.",
+  "categories": [
+   "mental",
+   "social",
+   "employment",
+   "legal"
+  ],
+  "audiences": [
+   "wounded",
+   "veteran"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-5622789",
+  "whatsapp": "",
+  "website": "https://www.achimlachaim.org",
+  "email": "info@achimlachaim.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/אחים_לחיים"
+ },
+ {
+  "id": "israel-guide-dog-center",
+  "name": "המרכז הישראלי לכלבי נחייה לעיוורים",
+  "nameEn": "Israel Guide Dog Center",
+  "desc": "מכשיר ומעניק ללא תשלום כלבי שירות לנכי צה\"ל המתמודדים עם פוסט טראומה, לצד כלבי נחייה לעיוורים.",
+  "categories": [
+   "pets",
+   "mental"
+  ],
+  "audiences": [
+   "wounded",
+   "veteran"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "08-9408213",
+  "whatsapp": "",
+  "website": "https://www.israelguidedog.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.israelguidedog.org.il/"
+ },
+ {
+  "id": "etgarim",
+  "name": "עמותת אתגרים",
+  "nameEn": "Etgarim – Israel Outdoor Sports & Recreation",
+  "desc": "עמותה שהוקמה ע\"י נכי צה\"ל, המפעילה ספורט אתגרי שיקומי לנכי צה\"ל, נפגעי טראומה ואנשים עם מוגבלות.",
+  "categories": [
+   "social",
+   "medical"
+  ],
+  "audiences": [
+   "wounded",
+   "veteran"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-5613585",
+  "whatsapp": "",
+  "website": "https://etgarim.org",
+  "email": "frontdesk@etgarim.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://etgarim.org/"
+ },
+ {
+  "id": "idf-widows-orphans",
+  "name": "ארגון אלמנות ויתומי צה\"ל",
+  "nameEn": "IDF Widows and Orphans Organization",
+  "desc": "הארגון היציג של אלמנות ויתומי חללי צה\"ל: ליווי, ייצוג מול משרד הביטחון, פעילות קהילתית ומלגות ליתומים.",
+  "categories": [
+   "family",
+   "legal",
+   "employment",
+   "mental"
+  ],
+  "audiences": [
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-6918403",
+  "whatsapp": "",
+  "website": "https://www.idfwo.org",
+  "email": "office@idfwo.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.idfwo.org/"
+ },
+ {
+  "id": "yad-labanim",
+  "name": "יד לבנים",
+  "nameEn": "Yad LaBanim",
+  "desc": "הארגון היציג של המשפחות השכולות של חללי מערכות ישראל, העוסק בהנצחה ובייעוץ, סיוע ותוכניות תמיכה להורים ולאחים שכולים.",
+  "categories": [
+   "family",
+   "mental",
+   "social"
+  ],
+  "audiences": [
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*8381",
+  "whatsapp": "050-4328381",
+  "website": "https://yadlabanim.org",
+  "email": "office@yadlabanim.org.il",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/יד_לבנים"
+ },
+ {
+  "id": "hotir-acharav-chaver",
+  "name": "הותיר אחריו חבר.ה",
+  "nameEn": "Left Behind a Partner",
+  "desc": "ליווי טיפולי ושיקומי לבני ובנות זוג שכולים (שאינם נשואים) של חללי צה\"ל וכוחות הביטחון: קבוצות תמיכה, טיפול פרטני וייעוץ תעסוקתי.",
+  "categories": [
+   "mental",
+   "family",
+   "employment"
+  ],
+  "audiences": [
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "077-7703166",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/%D7%94%D7%95%D7%AA%D7%99%D7%A8_%D7%90%D7%97%D7%A8%D7%99%D7%95_%D7%97%D7%91%D7%A8.%D7%94"
+ },
+ {
+  "id": "our-brothers",
+  "name": "האחים שלנו",
+  "nameEn": "Our Brothers",
+  "desc": "קהילה של אחים ואחיות שכולים: מפגשי שיח, סדנאות, ריטריטים, טיולים והנצחה.",
+  "categories": [
+   "social",
+   "mental"
+  ],
+  "audiences": [
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "055-4422579",
+  "whatsapp": "",
+  "website": "https://ourbrothers.co.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://ourbrothers.co.il/"
+ },
+ {
+  "id": "onefamily",
+  "name": "משפחה אחת",
+  "nameEn": "OneFamily",
+  "desc": "ליווי רגשי, טיפולים, קבוצות תמיכה וסיוע כלכלי למשפחות שכולות ולנפגעי טרור ומלחמה, כולל משפחות חללים ופצועי צה\"ל.",
+  "categories": [
+   "mental",
+   "financial",
+   "family",
+   "social"
+  ],
+  "audiences": [
+   "bereaved",
+   "wounded",
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "02-5399000",
+  "whatsapp": "",
+  "website": "https://onefamilytogether.org",
+  "email": "Info@onefamilyfund.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://onefamilytogether.org/contact-us/"
+ },
+ {
+  "id": "awis",
+  "name": "האגודה למען החייל",
+  "nameEn": "Association for the Wellbeing of Israel's Soldiers (AWIS)",
+  "desc": "ארגון ותיק לרווחת חיילי צה\"ל: בתי חייל ודירות לחיילים בודדים, סיוע לחיילים נזקקים ולחיילים בודדים ופרויקטים לרווחת החיילים.",
+  "categories": [
+   "housing",
+   "financial",
+   "social",
+   "equipment"
+  ],
+  "audiences": [
+   "soldier",
+   "lone_soldier"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "072-2702222",
+  "whatsapp": "050-2100458",
+  "website": "https://ufis.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/האגודה_למען_החייל"
+ },
+ {
+  "id": "lone-soldier-center-michael-levin",
+  "name": "המרכז לחיילים בודדים לזכרו של מייקל לוין",
+  "nameEn": "The Lone Soldier Center in memory of Michael Levin",
+  "desc": "ליווי חיילים בודדים לפני הגיוס, במהלך השירות ואחרי השחרור: דיור, ארוחות שבת וחג, ליווי רגשי וטיפולים, תמיכה כלכלית ופעילות קהילתית.",
+  "categories": [
+   "housing",
+   "food",
+   "mental",
+   "social",
+   "financial"
+  ],
+  "audiences": [
+   "lone_soldier",
+   "released"
+  ],
+  "regions": [
+   "jerusalem",
+   "tlv",
+   "south"
+  ],
+  "phone": "02-5022211",
+  "whatsapp": "",
+  "website": "https://lonesoldiercenter.com",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://lonesoldiercenter.com/"
+ },
+ {
+  "id": "nbn-lone-soldiers-program",
+  "name": "נפש בנפש – תוכנית חיילים בודדים",
+  "nameEn": "Nefesh B'Nefesh – FIDF Lone Soldiers Program",
+  "desc": "קו חם ותמיכה לחיילים בודדים מחו\"ל ולהוריהם בכל שלבי השירות: בירוקרטיה, זכויות, ליווי ותמיכה.",
+  "categories": [
+   "social",
+   "legal",
+   "mental"
+  ],
+  "audiences": [
+   "lone_soldier"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6563",
+  "whatsapp": "",
+  "website": "https://www.nbn.org.il/nbnlsp/",
+  "email": "lonesoldierparents@nbn.org.il",
+  "hours": "24/7",
+  "type": "nonprofit",
+  "source": "https://www.nbn.org.il/nbnlsp/contact/"
+ },
+ {
+  "id": "benji-hillman-foundation",
+  "name": "קרן בנג'י הילמן – הבית של בנג'י",
+  "nameEn": "Benji Hillman Foundation – HaBayit shel Benji",
+  "desc": "בית לחיילים בודדים לוחמים ברעננה עם חדר פרטי, ארוחות ושירותי כביסה, ומרכז הכוונה לחיילים בודדים אחרי השחרור.",
+  "categories": [
+   "housing",
+   "food",
+   "social",
+   "employment"
+  ],
+  "audiences": [
+   "lone_soldier",
+   "released"
+  ],
+  "regions": [
+   "center"
+  ],
+  "phone": "09-7712723",
+  "whatsapp": "",
+  "website": "https://benjihillman.org",
+  "email": "information@benjihillman.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://benjihillman.org/"
+ },
+ {
+  "id": "garin-tzabar",
+  "name": "צופים גרעין צבר",
+  "nameEn": "Tzofim Garin Tzabar",
+  "desc": "תוכנית של תנועת הצופים לצעירים מחו\"ל המתגייסים כחיילים בודדים: הכנה, קליטה בקיבוצים מאמצים וליווי לאורך השירות.",
+  "categories": [
+   "housing",
+   "social"
+  ],
+  "audiences": [
+   "lone_soldier"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "054-2441192",
+  "website": "https://garintzabar.org",
+  "email": "garintzabar@israelscouts.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://garintzabar.org/about/faq/"
+ },
+ {
+  "id": "bayit-cham-lekol-chayal",
+  "name": "בית חם לכל חייל",
+  "nameEn": "A Warm Home for Every Soldier",
+  "desc": "עמותת מתנדבים המסייעת לחיילים ולחיילות בודדים במציאת משפחות מאמצות או משפחות מלוות.",
+  "categories": [
+   "housing",
+   "family",
+   "social"
+  ],
+  "audiences": [
+   "lone_soldier"
+  ],
+  "regions": [
+   "jerusalem"
+  ],
+  "phone": "02-5662105",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/בית_חם_לכל_חייל"
+ },
+ {
+  "id": "beit-eli-lone-soldiers",
+  "name": "בית אלי – בית חם לחיילים בודדים",
+  "nameEn": "Beit Eli – Home for Lone Soldiers",
+  "desc": "מעניק לחיילים בודדים לינה, ארוחות חמות, תמיכה רגשית וקהילתית, וכן מפעיל פרויקט לפצועים בשיקום.",
+  "categories": [
+   "housing",
+   "food",
+   "social",
+   "mental"
+  ],
+  "audiences": [
+   "lone_soldier",
+   "wounded"
+  ],
+  "regions": [
+   "center"
+  ],
+  "phone": "072-2335252",
+  "whatsapp": "",
+  "website": "",
+  "email": "eshnav2u@gmail.com",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/בית_אלי_-_בית_חם_לחיילים_בודדים"
+ },
+ {
+  "id": "yashar-lachayal",
+  "name": "ישר לחייל",
+  "nameEn": "Yashar LaChayal",
+  "desc": "עמותה המספקת לחיילי צה\"ל ציוד וצרכים בסיסיים, עם קרנות לחיילים נזקקים, לפצועים ולמשפחות חללים.",
+  "categories": [
+   "equipment",
+   "food",
+   "financial"
+  ],
+  "audiences": [
+   "soldier",
+   "wounded",
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "058-7220288",
+  "whatsapp": "",
+  "website": "https://yasharlachayal.org",
+  "email": "info@yasharlachayal.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://yasharlachayal.org/contact-us/"
+ },
+ {
+  "id": "miluim-association",
+  "name": "העמותה למען משרתי המילואים",
+  "nameEn": "Association for Reserve Soldiers",
+  "desc": "עמותה מיסודם של פורומי מפקדי מילואים הפועלת לקידום זכויות משרתי המילואים ולסיוע להם.",
+  "categories": [
+   "legal",
+   "social"
+  ],
+  "audiences": [
+   "reservist"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "08-8523113",
+  "whatsapp": "",
+  "website": "https://www.miluim.co.il",
+  "email": "admin@miluim.co.il",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/העמותה_למען_משרתי_המילואים"
+ },
+ {
+  "id": "ten-gav",
+  "name": "תן גב",
+  "nameEn": "Ten Gav",
+  "desc": "סיוע כלכלי ממוקד למשפחות במשבר, כולל קרן חירום למשפחות מילואימניקים; הבקשות מוגשות דרך עובד/ת סוציאלי/ת.",
+  "categories": [
+   "financial",
+   "family"
+  ],
+  "audiences": [
+   "reservist_family",
+   "reservist"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://www.tengav.org.il",
+  "email": "admin@tengav.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.tengav.org/stories/emergency-relief-fund-2025-support-for-families-of-reservists/"
+ },
+ {
+  "id": "paamonim",
+  "name": "פעמונים",
+  "nameEn": "Paamonim",
+  "desc": "ליווי והכוונה כלכלית למשפחות ע\"י מתנדבים, כולל תוכנית ליווי למשפחות מילואימניקים שנקלעו לקשיים כלכליים.",
+  "categories": [
+   "financial"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family",
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-9127100",
+  "whatsapp": "",
+  "website": "https://www.paamonim.org/he/",
+  "email": "family@paamonim.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/פעמונים"
+ },
+ {
+  "id": "ogen",
+  "name": "עוגן – קרן הלוואות ומנטורינג חברתית",
+  "nameEn": "Ogen",
+  "desc": "ארגון פיננסי חברתי המעניק הלוואות בתנאים נוחים וליווי עסקי בהתנדבות, כולל מסלול הלוואות לעצמאים ובעלי עסקים קטנים ממשרתי המילואים.",
+  "categories": [
+   "business",
+   "financial"
+  ],
+  "audiences": [
+   "reservist",
+   "reservist_family"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*3309",
+  "whatsapp": "054-4445395",
+  "website": "https://www.ogen.org",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.ogen.org/"
+ },
+ {
+  "id": "lev-echad",
+  "name": "לב אחד",
+  "nameEn": "Lev Echad",
+  "desc": "ארגון סיוע אזרחי בחירום המגייס מתנדבים לסיוע למשפחות מילואימניקים, מפונים ואוכלוסיות שנפגעו.",
+  "categories": [
+   "volunteers",
+   "emergency",
+   "family"
+  ],
+  "audiences": [
+   "reservist_family",
+   "evacuee",
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*3197",
+  "whatsapp": "",
+  "website": "https://www.levechad.org",
+  "email": "moked@levechad.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.levechad.org/"
+ },
+ {
+  "id": "fidf-impact-scholarships",
+  "name": "מלגות IMPACT – אגודת הידידים של צה\"ל (FIDF)",
+  "nameEn": "FIDF IMPACT! Scholarship Program",
+  "desc": "מלגות לימודים אקדמיים ללוחמים ותומכי לחימה משוחררים מרקע סוציו-אקונומי מוחלש, בתמורה להתנדבות בקהילה.",
+  "categories": [
+   "employment",
+   "financial"
+  ],
+  "audiences": [
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-6968855",
+  "whatsapp": "",
+  "website": "https://www.fidf.org/impact",
+  "email": "impact@fidf.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://dekanat.haifa.ac.il/student-services/scholarship-department/scholarship-types/other-financial-aid-scholarships/impact-program-scholarships-of-friends-of-the-idf-usa/?lang=en"
+ },
+ {
+  "id": "momentum-released-soldiers",
+  "name": "מומנטום למשתחררים",
+  "nameEn": "Momentum",
+  "desc": "עמותה המכינה חיילים לקראת השחרור ואחריו: סדנאות בבסיסים, הכוונה תעסוקתית ולימודית, מנטורינג והכשרות.",
+  "categories": [
+   "employment"
+  ],
+  "audiences": [
+   "soldier",
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://www.momentum4u.org",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.momentum4u.org/"
+ },
+ {
+  "id": "sahar",
+  "name": "סה\"ר – סיוע והקשבה ברשת",
+  "nameEn": "SAHAR – Online Emotional Support",
+  "desc": "תמיכה רגשית אנונימית בצ'אט ובוואטסאפ לאנשים במצוקה ובסיכון אובדני, ובמיוחד לבני נוער וצעירים.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "055-957-1399",
+  "website": "https://sahar.org.il",
+  "email": "",
+  "hours": "א'-ה' 16:00-03:00; שישי, שבת וערבי חג 18:00-00:00",
+  "type": "hotline",
+  "source": "https://sahar.org.il/"
+ },
+ {
+  "id": "latet",
+  "name": "לתת",
+  "nameEn": "Latet",
+  "desc": "ארגון גג ובנק מזון ארצי שפועל לצמצום העוני: ביטחון תזונתי, הצלת מזון, סיוע לניצולי שואה ולקשישים נזקקים, וסיוע הומניטרי בחירום. הסיוע ניתן בעיקר דרך עמותות מקומיות ומחלקות רווחה.",
+  "categories": [
+   "food",
+   "elderly",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6833",
+  "whatsapp": "",
+  "website": "https://www.latet.org.il",
+  "email": "latet@latet.org.il",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.latet.org.il/contact/"
+ },
+ {
+  "id": "yad-sarah",
+  "name": "יד שרה",
+  "nameEn": "Yad Sarah",
+  "desc": "השאלת ציוד רפואי ושיקומי בחינם (כ-150 סוגי ציוד) ביותר מ-100 סניפים בארץ, וכן שירותים לקשישים ולמטפלים בבני משפחה (יד לתומך).",
+  "categories": [
+   "equipment",
+   "medical",
+   "elderly"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6444",
+  "whatsapp": "",
+  "website": "https://www.yadsarah.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/יד_שרה"
+ },
+ {
+  "id": "ezer-mizion",
+  "name": "עזר מציון",
+  "nameEn": "Ezer Mizion",
+  "desc": "ארגון סיוע רפואי וחברתי: השאלת ציוד רפואי, הסעות באמבולנס, תמיכה בחולי סרטן ובני משפחותיהם, שירותים לקשישים, בריאות הנפש ומאגר מח עצם.",
+  "categories": [
+   "medical",
+   "equipment",
+   "transport",
+   "mental",
+   "elderly"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-6144444",
+  "whatsapp": "",
+  "website": "https://www.ezermizion.org",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/עזר_מציון"
+ },
+ {
+  "id": "pitchon-lev",
+  "name": "פתחון לב",
+  "nameEn": "Pitchon Lev",
+  "desc": "עמותה לסיוע למשפחות במצוקה: סלי מזון לחגים ובחירום, סיוע הומניטרי, עזרה במיצוי זכויות ותוכניות ליציאה ממעגל העוני.",
+  "categories": [
+   "food",
+   "financial",
+   "social"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-5576000",
+  "whatsapp": "",
+  "website": "https://www.pitchonlev.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.pitchonlev.org.il/"
+ },
+ {
+  "id": "leket-israel",
+  "name": "לקט ישראל",
+  "nameEn": "Leket Israel",
+  "desc": "בנק המזון הלאומי להצלת מזון: אוסף עודפי מזון ותוצרת חקלאית ומחלק אותם דרך עמותות שותפות למשפחות נזקקות. מגייס גם מתנדבים לעזרה לחקלאים.",
+  "categories": [
+   "food",
+   "volunteers"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "09-7441757",
+  "whatsapp": "053-3486320",
+  "website": "https://www.leket.org",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.leket.org/"
+ },
+ {
+  "id": "meir-panim",
+  "name": "מאיר פנים",
+  "nameEn": "Meir Panim",
+  "desc": "רשת מסעדות חינם בסגנון מסעדה לנזקקים, ארוחות עד הבית, סלי מזון לחגים וכרטיסי קנייה למשפחות במצוקה.",
+  "categories": [
+   "food",
+   "elderly"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://www.meirpanim.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://meirpanim.org/contact"
+ },
+ {
+  "id": "eshel-chabad",
+  "name": "אשל חב\"ד – המיזם הלאומי לביטחון תזונתי",
+  "nameEn": "Eshel Chabad – National Food Security Program",
+  "desc": "סיוע במזון למשפחות באי-ביטחון תזונתי: כרטיס טעון לרכישת מזון ברשתות וסל פירות וירקות חודשי. הזכאות נקבעת דרך העובד/ת הסוציאלי/ת במחלקת הרווחה.",
+  "categories": [
+   "food"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "02-6501036",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/המיזם_הלאומי_לביטחון_תזונתי"
+ },
+ {
+  "id": "kol-zchut",
+  "name": "כל זכות",
+  "nameEn": "Kol Zchut – All Rights",
+  "desc": "אתר מידע מקיף ובחינם על זכויות ושירותים בישראל – ביטוח לאומי, רווחה, דיור, תעסוקה, מצבי חירום ומלחמה – כולל רשימות ארגוני סיוע לפי נושא.",
+  "categories": [
+   "legal",
+   "financial",
+   "social"
+  ],
+  "audiences": [
+   "general",
+   "evacuee",
+   "bereaved",
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://www.kolzchut.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/"
+ },
+ {
+  "id": "legal-aid-moj",
+  "name": "הסיוע המשפטי – משרד המשפטים",
+  "nameEn": "Legal Aid Administration – Ministry of Justice",
+  "desc": "ייצוג משפטי בהליכים אזרחיים (דיור, משפחה, ביטוח לאומי, צווי הגנה ועוד) לזכאים, ללא תשלום או באגרה לפי הכנסה. סיוע חינם לנפגעות ונפגעי עבירות מין.",
+  "categories": [
+   "legal"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6405",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/service/legal_aid_application",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/הסיוע_המשפטי_במשרד_המשפטים"
+ },
+ {
+  "id": "kav-laoved",
+  "name": "קו לעובד",
+  "nameEn": "Kav LaOved – Worker's Hotline",
+  "desc": "עמותה להגנה על זכויות עובדים – ישראלים, מהגרי עבודה, פלסטינים ופליטים – עם ייעוץ וסיוע משפטי בדיני עבודה ובביטוח לאומי. סניפים בתל אביב, חיפה וירושלים.",
+  "categories": [
+   "legal",
+   "employment"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://www.kavlaoved.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/קו_לעובד"
+ },
+ {
+  "id": "sexual-assault-centers",
+  "name": "איגוד מרכזי הסיוע לנפגעות ולנפגעי תקיפה מינית",
+  "nameEn": "Association of Rape Crisis Centers in Israel",
+  "desc": "קווי חירום ארציים לנפגעות ולנפגעי תקיפה מינית: 1202 (מענה נשים) ו-1203 (מענה גברים), וכן ליווי, תמיכה רגשית, צ'אט אנונימי ווואטסאפ.",
+  "categories": [
+   "mental",
+   "legal",
+   "emergency"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1202",
+  "whatsapp": "052-8361202",
+  "website": "https://www.1202.org.il",
+  "email": "",
+  "hours": "24/7",
+  "type": "hotline",
+  "source": "https://www.1202.org.il/"
+ },
+ {
+  "id": "welfare-118",
+  "name": "מוקד 118 – משרד הרווחה",
+  "nameEn": "Ministry of Welfare Hotline 118",
+  "desc": "מוקד ארצי של משרד הרווחה למידע וסיוע, כולל קו חירום לאלימות במשפחה, בעברית, ערבית, רוסית ואמהרית. קיים גם קו שקט להודעות טקסט.",
+  "categories": [
+   "family",
+   "social",
+   "emergency"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "118",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/departments/molsa",
+  "email": "",
+  "hours": "24/7",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/אלימות_במשפחה"
+ },
+ {
+  "id": "naamat-violence-line",
+  "name": "נעמת – קו ייעוץ לנשים",
+  "nameEn": "Na'amat – Women's Counseling Line",
+  "desc": "קו ייעוץ לנשים במצבי משבר ואלימות במשפחה, לצד מרכזי טיפול ומניעת אלימות של נעמת.",
+  "categories": [
+   "family",
+   "legal",
+   "mental"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*9201",
+  "whatsapp": "",
+  "website": "https://www.naamat.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.naamat.org.il/"
+ },
+ {
+  "id": "bat-melech",
+  "name": "בת מלך",
+  "nameEn": "Bat Melech",
+  "desc": "סיוע לנשים דתיות וחרדיות נפגעות אלימות במשפחה: קו סיוע, מקלטים בירושלים ובמרכז, וסיוע נפשי ומשפטי.",
+  "categories": [
+   "family",
+   "housing",
+   "legal"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1-800-292-333",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "24/7",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/עמותת_בת_מלך"
+ },
+ {
+  "id": "btl",
+  "name": "המוסד לביטוח לאומי",
+  "nameEn": "National Insurance Institute (Bituach Leumi)",
+  "desc": "קצבאות ותשלומים: אבטלה, הבטחת הכנסה, נכות, זקנה, דמי מילואים, וכן זכויות נפגעי פעולות איבה ופיצויים בחירום.",
+  "categories": [
+   "financial"
+  ],
+  "audiences": [
+   "general",
+   "evacuee",
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6050",
+  "whatsapp": "",
+  "website": "https://www.btl.gov.il",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/default.aspx"
+ },
+ {
+  "id": "btl-hostilities-line",
+  "name": "ביטוח לאומי – קו לסיוע מיידי לנפגעי פעולות איבה",
+  "nameEn": "NII Immediate Assistance Line for Victims of Hostilities",
+  "desc": "קו ייעודי של ביטוח לאומי לנפגעי פעולות איבה ולמשפחותיהם – פיגועים, ירי רקטות ואירועי מלחמה – לבירור זכויות וסיוע מיידי.",
+  "categories": [
+   "financial",
+   "emergency",
+   "legal"
+  ],
+  "audiences": [
+   "general",
+   "bereaved",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "02-6269999",
+  "whatsapp": "",
+  "website": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/default.aspx",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/default.aspx"
+ },
+ {
+  "id": "resilience-sderot",
+  "name": "מרכז החוסן שדרות",
+  "nameEn": "Sderot Resilience Center",
+  "desc": "מרכז חוסן לתושבי שדרות: טיפול נפשי, תמיכה וליווי לנפגעי חרדה וטראומה ממצבי חירום.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "gaza_envelope",
+   "south"
+  ],
+  "phone": "08-6677740",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/MerkazeiSiua.aspx"
+ },
+ {
+  "id": "resilience-eshkol",
+  "name": "מרכז החוסן מועצה אזורית אשכול",
+  "nameEn": "Eshkol Regional Council Resilience Center",
+  "desc": "מרכז חוסן לתושבי מועצה אזורית אשכול: טיפול ותמיכה נפשית לנפגעי חרדה וטראומה.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "gaza_envelope"
+  ],
+  "phone": "08-9965264",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/MerkazeiSiua.aspx"
+ },
+ {
+  "id": "resilience-shaar-hanegev",
+  "name": "מרכז החוסן מועצה אזורית שער הנגב",
+  "nameEn": "Sha'ar HaNegev Resilience Center",
+  "desc": "מרכז חוסן לתושבי מועצה אזורית שער הנגב: טיפול ותמיכה נפשית לנפגעי חרדה וטראומה.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "gaza_envelope"
+  ],
+  "phone": "052-6122141",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/MerkazeiSiua.aspx"
+ },
+ {
+  "id": "resilience-sdot-negev",
+  "name": "מרכז החוסן מועצה אזורית שדות נגב",
+  "nameEn": "Sdot Negev Resilience Center",
+  "desc": "מרכז חוסן לתושבי מועצה אזורית שדות נגב: טיפול ותמיכה נפשית לנפגעי חרדה וטראומה.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "gaza_envelope"
+  ],
+  "phone": "050-5727378",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/MerkazeiSiua.aspx"
+ },
+ {
+  "id": "resilience-hof-ashkelon",
+  "name": "מרכז החוסן מועצה אזורית חוף אשקלון",
+  "nameEn": "Hof Ashkelon Resilience Center",
+  "desc": "מרכז חוסן לתושבי מועצה אזורית חוף אשקלון: טיפול ותמיכה נפשית לנפגעי חרדה וטראומה.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "gaza_envelope",
+   "south"
+  ],
+  "phone": "08-6576728",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/MerkazeiSiua.aspx"
+ },
+ {
+  "id": "resilience-ashkelon",
+  "name": "מרכז החוסן אשקלון",
+  "nameEn": "Ashkelon Resilience Center",
+  "desc": "מרכז חוסן לתושבי אשקלון: טיפול ותמיכה נפשית לנפגעי חרדה וטראומה ממצבי חירום.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "south"
+  ],
+  "phone": "*2452",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/MerkazeiSiua.aspx"
+ },
+ {
+  "id": "resilience-galilee",
+  "name": "מרכזי החוסן בגליל",
+  "nameEn": "Galilee Resilience Centers",
+  "desc": "מרכזי חוסן בגליל המערבי והמזרחי לתושבי הצפון ולמפונים: תמיכה וטיפול נפשי. קווים גם בערבית (04-7702649), אנגלית (04-7702651) ורוסית (04-7702650).",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "north"
+  ],
+  "phone": "04-6900603",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "06:00-24:00",
+  "type": "government",
+  "source": "https://www.btl.gov.il/benefits/Victims_of_Hostilities/Pages/MerkazeiSiua.aspx"
+ },
+ {
+  "id": "irgun-nifgaei-eiva",
+  "name": "ארגון נפגעי פעולות איבה",
+  "nameEn": "Organization of Victims of Hostile Actions",
+  "desc": "הארגון היציג על פי חוק של נפגעי פעולות איבה המוכרים על ידי המדינה; מספק מידע וייעוץ משפטי לחברים בנוגע לזכויותיהם.",
+  "categories": [
+   "legal",
+   "social"
+  ],
+  "audiences": [
+   "general",
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-6884729",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/נפגעי_פעולות_איבה/ארגוני_סיוע"
+ },
+ {
+  "id": "selah",
+  "name": "סלע – מרכז סיוע לעולה במשבר",
+  "nameEn": "Selah – Israel Crisis Management Center",
+  "desc": "מרכז התנדבותי לסיוע רגשי, כלכלי ומעשי לעולים חדשים במשבר, כולל עולים שנפגעו בפיגועים או איבדו בן משפחה. צוותי חירום בפריסה ארצית.",
+  "categories": [
+   "mental",
+   "financial",
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "bereaved"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-7964000",
+  "whatsapp": "",
+  "website": "",
+  "email": "icmc@selah.org.il",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/סלע_-_מרכז_סיוע_לעולה_במשבר"
+ },
+ {
+  "id": "home-front-command",
+  "name": "פיקוד העורף – מוקד 104",
+  "nameEn": "Home Front Command – 104",
+  "desc": "מוקד מידע והנחיות התגוננות לאזרחים בשעת חירום: הנחיות מיגון, חסימות צירים ודיווח על תקלות בהתרעות. ניתן לפנות גם בוואטסאפ.",
+  "categories": [
+   "emergency"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "104",
+  "whatsapp": "052-9104104",
+  "website": "https://www.oref.org.il",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/מוקדים_לפניות_הציבור_ולבירור_מידע_במהלך_מבצע_חרבות_ברזל"
+ },
+ {
+  "id": "mda",
+  "name": "מגן דוד אדום",
+  "nameEn": "Magen David Adom",
+  "desc": "שירותי רפואת חירום ואמבולנסים בכל הארץ. במקרה של סכנת חיים חייגו 101.",
+  "categories": [
+   "medical",
+   "emergency"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "101",
+  "whatsapp": "",
+  "website": "https://www.mdais.org",
+  "email": "",
+  "hours": "24/7",
+  "type": "hotline",
+  "source": "https://www.mdais.org/"
+ },
+ {
+  "id": "municipal-106",
+  "name": "מוקד עירוני 106",
+  "nameEn": "Municipal Hotline 106",
+  "desc": "המוקד של הרשות המקומית לפניות תושבים: מפגעים, תקלות, מידע עירוני וסיוע בשעת חירום (פתיחת מקלטים, דיווח על נזקים). ברשויות מסוימות המספר שונה.",
+  "categories": [
+   "emergency",
+   "social",
+   "home"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "106",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/בית_שמש_-_מדריך_לשירותים_חברתיים"
+ },
+ {
+  "id": "mas-rechush",
+  "name": "רשות המסים – מס רכוש וקרן פיצויים",
+  "nameEn": "Israel Tax Authority – Property Tax & Compensation Fund",
+  "desc": "פיצוי על נזק לרכוש (דירה, תכולה, רכב, עסק) שנגרם במלחמה או בפעולת איבה. יש להודיע על הנזק בהקדם ולתאם עם שמאי לפני תיקון.",
+  "categories": [
+   "financial",
+   "home",
+   "business"
+  ],
+  "audiences": [
+   "general",
+   "evacuee"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*4954",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/שאלות_ותשובות_למי_שרכושם_נפגע_במלחמה_או_בפעולת_איבה"
+ },
+ {
+  "id": "employment-service",
+  "name": "שירות התעסוקה הישראלי",
+  "nameEn": "Israeli Employment Service",
+  "desc": "רישום כדורשי עבודה, השמה, ייעוץ והכוונה תעסוקתית והכשרות מקצועיות – בחינם.",
+  "categories": [
+   "employment"
+  ],
+  "audiences": [
+   "general",
+   "evacuee",
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*9687",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/שירות_התעסוקה"
+ },
+ {
+  "id": "taasuk-kav",
+  "name": "תעסו-קו – קו סיוע לתעסוקה",
+  "nameEn": "Taasuk-Kav Employment Support Line",
+  "desc": "קו טלפוני חינמי של עמותת בעצמי, המופעל על ידי מתנדבים: ליווי מחפשי עבודה ומובטלים, תמיכה רגשית, הכוונה למיצוי זכויות ובניית תוכנית תעסוקתית.",
+  "categories": [
+   "employment",
+   "mental"
+  ],
+  "audiences": [
+   "general",
+   "released"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*2119",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "hotline",
+  "source": "https://www.kolzchut.org.il/he/\"תעסו-קו\"_לסיוע_בהשתלבות_בתעסוקה"
+ },
+ {
+  "id": "housing-ministry",
+  "name": "משרד הבינוי והשיכון – מוקד מידע",
+  "nameEn": "Ministry of Construction and Housing – Info Line",
+  "desc": "מידע על סיוע בדיור: סיוע בשכר דירה, דיור ציבורי ותעודות זכאות לאוכלוסיות זכאיות.",
+  "categories": [
+   "housing",
+   "financial"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*5442",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/סיוע_בשכר_דירה"
+ },
+ {
+  "id": "health-ministry-5400",
+  "name": "קול הבריאות – מוקד משרד הבריאות",
+  "nameEn": "Ministry of Health Call Center 'Kol HaBriut'",
+  "desc": "מידע ומענה בנושאים שבאחריות משרד הבריאות: זכויות במערכת הבריאות, מכשירי שיקום וניידות, אשפוז סיעודי ותלונות. בחינם ובכמה שפות.",
+  "categories": [
+   "medical",
+   "equipment"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*5400",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/service/kol-briut-moked",
+  "email": "",
+  "hours": "א'-ה' 08:00-18:00, שישי וערבי חג עד 13:00",
+  "type": "government",
+  "source": "https://www.gov.il/he/service/kol-briut-moked"
+ },
+ {
+  "id": "seniors-8840",
+  "name": "המוקד לאזרחים ותיקים *8840",
+  "nameEn": "Senior Citizens Call Center *8840",
+  "desc": "מוקד ממשלתי לאזרחים ותיקים, ניצולי שואה ובני משפחותיהם: מידע וסיוע בבירור זכויות בביטוח לאומי, בריאות, סיעוד, דיור ופנסיה, ופתרון בעיות מול רשויות.",
+  "categories": [
+   "elderly",
+   "legal",
+   "financial"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*8840",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/service/senior_citizen_call_center_8840",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.gov.il/he/service/senior_citizen_call_center_8840"
+ },
+ {
+  "id": "holocaust-survivors-authority",
+  "name": "הרשות לזכויות ניצולי השואה",
+  "nameEn": "Holocaust Survivors' Rights Authority",
+  "desc": "גוף ממשלתי המטפל בזכויות ניצולי שואה: תגמולים, הטבות וליווי בפתרון בעיות ומצוקות.",
+  "categories": [
+   "elderly",
+   "financial",
+   "legal"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*5105",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/הרשות_לזכויות_ניצולי_השואה"
+ },
+ {
+  "id": "amcha",
+  "name": "עמך",
+  "nameEn": "AMCHA",
+  "desc": "תמיכה נפשית וחברתית לניצולי שואה ולבני הדור השני והשלישי, באמצעות רשת מרכזים טיפוליים-חברתיים ברחבי הארץ.",
+  "categories": [
+   "mental",
+   "elderly",
+   "social"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "02-6250745",
+  "whatsapp": "",
+  "website": "https://www.amcha.org",
+  "email": "amcha@amcha.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.amcha.org/"
+ },
+ {
+  "id": "melabev",
+  "name": "מלבב",
+  "nameEn": "Melabev",
+  "desc": "שירותים לאנשים עם דמנציה ולבני משפחותיהם: מרכזי יום, סיעוד, ליווי בבית, תמיכה למשפחות ומוקד טלפוני להפגת בדידות.",
+  "categories": [
+   "elderly",
+   "family",
+   "mental"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "jerusalem"
+  ],
+  "phone": "1-700-70-4533",
+  "whatsapp": "",
+  "website": "https://www.melabev.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.melabev.org.il/"
+ },
+ {
+  "id": "elem",
+  "name": "עלם – נוער בסיכון",
+  "nameEn": "ELEM – Youth in Distress",
+  "desc": "סיוע לבני נוער וצעירים במצבי סיכון ומצוקה ברחבי הארץ, כולל צ'אט אנונימי בוואטסאפ (ELEM Digital), יחידות ניידות ומרכזי לינת חירום.",
+  "categories": [
+   "mental",
+   "social",
+   "emergency"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-7686666",
+  "whatsapp": "054-6786776",
+  "website": "https://www.elem.org.il",
+  "email": "elem@elem.org.il",
+  "hours": "צ'אט: א'-ה' 19:00-24:00",
+  "type": "nonprofit",
+  "source": "https://www.elem.org.il/"
+ },
+ {
+  "id": "noar-lemaan-noar",
+  "name": "נוער למען נוער",
+  "nameEn": "Noar Lemaan Noar",
+  "desc": "מוקד תמיכה לבני נוער המתמודדים עם שיימינג, בריונות ובעיות חברתיות, המופעל בידי מתנדבים ובני נוער שעברו הכשרה מקצועית.",
+  "categories": [
+   "mental",
+   "social"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-5384988",
+  "whatsapp": "055-7235858",
+  "website": "",
+  "email": "",
+  "hours": "24/7",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/נוער_למען_נוער"
+ },
+ {
+  "id": "moked-105",
+  "name": "מוקד 105 – הגנה על ילדים ברשת",
+  "nameEn": "105 – National Child Online Protection Center",
+  "desc": "מוקד משולב משטרתי-אזרחי לדיווח וסיוע במקרי פגיעה בילדים ובני נוער ברשת: פגיעות מיניות, בריונות וביוש, וחשש לחיי אדם.",
+  "categories": [
+   "family",
+   "emergency",
+   "legal"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "105",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.maariv.co.il/news/israel/Article-671477"
+ },
+ {
+  "id": "council-for-child",
+  "name": "המועצה לשלום הילד",
+  "nameEn": "Israel National Council for the Child",
+  "desc": "ארגון לקידום זכויות ילדים; מפעיל את נציבות קבילות ילדים ונוער – מענה, ייעוץ והפניה בנושאי הגנה וזכויות ילדים, חינם ובסודיות.",
+  "categories": [
+   "family",
+   "legal"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "02-6780606",
+  "whatsapp": "",
+  "website": "https://www.children.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/חינוך/ארגוני_סיוע"
+ },
+ {
+  "id": "lenefesh-tidreshenu",
+  "name": "לנפש תדרשנו",
+  "nameEn": "Lenefesh Tidreshenu",
+  "desc": "מוקד טלפוני לעזרה ראשונה רגשית ומניעת אובדנות לציבור החרדי והדתי, אנונימי וללא תשלום. גברים – שלוחה 1, נשים – שלוחה 2.",
+  "categories": [
+   "mental",
+   "emergency"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "0747-800-380",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "24/7",
+  "type": "hotline",
+  "source": "https://www.kolzchut.org.il/he/לנפש_תדרשנו"
+ },
+ {
+  "id": "shalom-banayich",
+  "name": "שלום בנייך",
+  "nameEn": "Shalom Banayich",
+  "desc": "קו חם וסיוע טיפולי לנפגעי ולפוגעים בפגיעות מיניות ואלימות, בהתאמה לציבור הדתי והחרדי (המספר המקוצר פועל מקווי בזק).",
+  "categories": [
+   "mental",
+   "family"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*9595",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/שלום_בנייך_-_קו_חם_וסיוע_טיפולי_לפוגעים_ונפגעים"
+ },
+ {
+  "id": "enosh",
+  "name": "אנוש – העמותה הישראלית לבריאות הנפש",
+  "nameEn": "Enosh – Israeli Mental Health Association",
+  "desc": "שירותי שיקום וליווי לאנשים המתמודדים עם קשיים נפשיים ולבני משפחותיהם: דיור, תעסוקה, חלופות אשפוז, הלנת חירום ותוכניות לנוער ולצעירים.",
+  "categories": [
+   "mental",
+   "housing",
+   "employment",
+   "family"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "074-7556155",
+  "whatsapp": "",
+  "website": "https://www.enosh.org.il",
+  "email": "info@enosh.org.il",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.enosh.org.il/"
+ },
+ {
+  "id": "akim",
+  "name": "אקים ישראל",
+  "nameEn": "AKIM Israel",
+  "desc": "עמותה לאנשים עם מוגבלות שכלית התפתחותית ולמשפחותיהם: קו סיוע להורים, סנגור משפטי וקהילתי, דיור בקהילה, תעסוקה ואפוטרופסות.",
+  "categories": [
+   "family",
+   "legal",
+   "housing",
+   "employment"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1-800-399-333",
+  "whatsapp": "",
+  "website": "https://www.akim.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.akim.org.il/"
+ },
+ {
+  "id": "alut",
+  "name": "אלו\"ט – האגודה הלאומית לילדים ובוגרים עם אוטיזם",
+  "nameEn": "ALUT – Israeli Society for Autistic Children",
+  "desc": "עמותת הורים לאנשים על הרצף האוטיסטי: ליווי משפחות, סיוע טלפוני במיצוי זכויות, קו תמיכה להורים, ומסגרות ושירותים.",
+  "categories": [
+   "family",
+   "legal",
+   "education"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "03-5718188",
+  "whatsapp": "",
+  "website": "https://www.alut.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/אלו\"ט"
+ },
+ {
+  "id": "disability-rights-commission",
+  "name": "נציבות שוויון זכויות לאנשים עם מוגבלות",
+  "nameEn": "Commission for Equal Rights of Persons with Disabilities",
+  "desc": "גוף ממשלתי במשרד המשפטים: מידע, ייעוץ וטיפול בתלונות על אפליה ועל הפרת חובות נגישות כלפי אנשים עם מוגבלות.",
+  "categories": [
+   "legal",
+   "social"
+  ],
+  "audiences": [
+   "general",
+   "wounded"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "*6763",
+  "whatsapp": "",
+  "website": "https://www.gov.il/he/service/application_for_information_people_with_disabilities",
+  "email": "pniotnez@justice.gov.il",
+  "hours": "",
+  "type": "government",
+  "source": "https://www.kolzchut.org.il/he/מוקד_שירות_ארצי:מוקד_נציבות_שוויון_זכויות_לאנשים_עם_מוגבלות"
+ },
+ {
+  "id": "access-israel",
+  "name": "נגישות ישראל",
+  "nameEn": "Access Israel",
+  "desc": "עמותה לקידום נגישות לאנשים עם מוגבלות: ייעוץ נגישות, מוקד מידע לנגישות והנגשת מידע ומסמכים.",
+  "categories": [
+   "social",
+   "legal"
+  ],
+  "audiences": [
+   "general",
+   "wounded"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "",
+  "whatsapp": "",
+  "website": "https://www.aisrael.org",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.aisrael.org/"
+ },
+ {
+  "id": "cancer-association",
+  "name": "האגודה למלחמה בסרטן",
+  "nameEn": "Israel Cancer Association",
+  "desc": "מידע, תמיכה וליווי לחולי סרטן ולבני משפחותיהם, כולל קו מידע (טלמידע), זכויות ותמיכה רגשית.",
+  "categories": [
+   "medical",
+   "mental"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1-800-599-995",
+  "whatsapp": "",
+  "website": "https://www.cancer.org.il",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.cancer.org.il/"
+ },
+ {
+  "id": "zichron-menachem",
+  "name": "זכרון מנחם",
+  "nameEn": "Zichron Menachem",
+  "desc": "תמיכה בילדים ובני נוער חולי סרטן ובמשפחותיהם: תמיכה רגשית, ליווי בבתי חולים, תמיכה באחים, מחנות נופש ופאות.",
+  "categories": [
+   "medical",
+   "mental",
+   "family"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "02-6400800",
+  "whatsapp": "",
+  "website": "https://www.zichron.org",
+  "email": "info@zichron.org",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.zichron.org/"
+ },
+ {
+  "id": "or-leolam",
+  "name": "אור לעולם",
+  "nameEn": "Or LeOlam",
+  "desc": "השאלת ציוד רפואי בחינם באמצעות סניפים ברחבי הארץ, ממטולה ועד מצפה רמון.",
+  "categories": [
+   "equipment",
+   "medical"
+  ],
+  "audiences": [
+   "general"
+  ],
+  "regions": [
+   "all"
+  ],
+  "phone": "1599-53-54-55",
+  "whatsapp": "",
+  "website": "",
+  "email": "",
+  "hours": "",
+  "type": "nonprofit",
+  "source": "https://www.kolzchut.org.il/he/אור_לעולם"
+ }
+]

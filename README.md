@@ -109,6 +109,10 @@ assets/icons/            app icons
   to Bach, Satie and jazz voicings. Shows every key and finger on a keyboard,
   scrolling sheet music, and listens to your real piano through the microphone
   (or a MIDI keyboard) to move on when you play it right. Live at `/piano/`.
+- **🤝 [כתף · Katef](katef/)** — `katef/` — connects soldiers, reservists, families
+  and anyone who needs help with the nonprofits that can help them: a "find help"
+  wizard, a request board with a map, a directory of 100+ verified organizations
+  and hotlines, and dashboards for nonprofits. Hebrew, RTL. Live at `/katef/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
 
 ## Publish a shareable link (GitHub Pages)
