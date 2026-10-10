@@ -1,7 +1,7 @@
 /* Offline app shell for Katef. Data (requests, messages) always comes from the
    network or local storage — only the app files are cached.
    Bump CACHE when app files change. */
-const CACHE = "katef-v1";
+const CACHE = "katef-v2";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest", "./styles.css",
   "./js/app.js", "./js/store.js", "./js/seed.js", "./js/taxonomy.js", "./js/ui.js", "./js/directory.js",

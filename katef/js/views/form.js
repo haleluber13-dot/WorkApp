@@ -43,6 +43,8 @@ export async function render(main, { name, parts, query, me, store }) {
 
   main.innerHTML = `<section class="page narrow">
     <h1>${editing ? "עריכת הבקשה" : "בקשת עזרה"}</h1>
+    ${store.mode === "demo" ? `<div class="alert crisis"><b>⚠️ האתר עדיין בהרצה — בקשות שמתפרסמות כאן עוד לא מגיעות לעמותות.</b>
+      כדי לקבל עזרה עכשיו, פנו ישירות לעמותה מתאימה: <a href="#/find">מצאו עמותה לפי הצורך והאזור שלכם</a>, או לקווי הסיוע: ער״ן <a href="tel:1201">1201</a>.</div>` : ""}
     ${offerNote}
     <form id="f" class="form" novalidate>
       <fieldset class="card">
