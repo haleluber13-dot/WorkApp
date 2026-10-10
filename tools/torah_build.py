@@ -5,8 +5,14 @@ Downloads the five books of the Torah from tanach.us (WLC 4.20, freely
 distributable transcription of a public-domain text) and emits one compact
 JSON file per book containing, for every verse:
 
-  * the consonantal letters, word by word  -> drives the letter->note mapping
+  * the pointed text, word by word         -> the letters AND their niqqud
   * the cantillation accent on each word   -> drives the trope mode
+
+The vowel points are what tell you how a word is actually said, so they are
+kept: niqqud, dagesh/mappiq, the shin and sin dots, meteg and qamats qatan all
+survive. Only the cantillation accents are lifted out, into the packed codes,
+because the trope mode reads them separately. Final letter forms are left as
+they are written; folding them onto their base letters is the app's job.
 
 Usage:
     python3 tools/torah_build.py [--out torah/data] [--cache .cache/wlc]
@@ -32,10 +38,15 @@ BOOKS = [
     ("deuteronomy", "Deuteronomy", "דברים", "Deuteronomy"),
 ]
 
-# The 22 letters. Final forms fold onto their base letter.
-FINALS = {"ך": "כ", "ם": "מ", "ן": "נ",
-          "ף": "פ", "ץ": "צ"}
+# The 22 letters, plus the five final forms, which are kept as written.
 LETTERS = set(chr(c) for c in range(0x05D0, 0x05EB))
+BASE = {"ך": "כ", "ם": "מ", "ן": "נ", "ף": "פ", "ץ": "צ"}
+
+# Everything that hangs off a letter and changes how it is said.
+POINTS = set(chr(c) for c in range(0x05B0, 0x05BE))   # sheva..meteg, incl. dagesh
+POINTS |= {"\u05bf",                                   # rafe
+           "\u05c1", "\u05c2",                         # shin dot, sin dot
+           "\u05c7"}                                   # qamats qatan
 
 # Cantillation accents, in the order the app's trope table expects them.
 # Index becomes a single character (chr(48 + i)) in the packed accent string.
@@ -92,20 +103,24 @@ def fetch(name: str, cache: pathlib.Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def strip_word(raw: str) -> tuple[str, str]:
-    """Return (consonants, accent-code) for one WLC word."""
+def strip_word(raw: str) -> tuple[str, str, int]:
+    """Return (pointed text, accent-code, letter count) for one WLC word."""
     text = TAG_RE.sub("", raw)
-    letters = []
+    out = []
     accent = NO_ACCENT
+    count = 0
     for ch in text:
-        if ch in FINALS:
-            letters.append(FINALS[ch])
-        elif ch in LETTERS:
-            letters.append(ch)
+        if ch in LETTERS:
+            out.append(ch)
+            count += 1
+        elif ch in POINTS:
+            # A point before any letter would be orphaned; drop it.
+            if out:
+                out.append(ch)
         elif ch in ACCENT_INDEX and accent == NO_ACCENT and ch != "׃":
             # First accent on the word wins; sof pasuq is handled per verse.
             accent = chr(48 + ACCENT_INDEX[ch])
-    return "".join(letters), accent
+    return "".join(out), accent, count
 
 
 def build_book(xml: str) -> dict:
@@ -116,10 +131,10 @@ def build_book(xml: str) -> dict:
         for _, vchunk in VERSE_RE.findall(chunk):
             words, codes = [], []
             for raw in WORD_RE.findall(vchunk):
-                cons, code = strip_word(raw)
-                if not cons:
+                pointed, code, n = strip_word(raw)
+                if not n:
                     continue
-                words.append(cons)
+                words.append(pointed)
                 codes.append(code)
             if words:
                 verses.append(" ".join(words))
@@ -145,7 +160,8 @@ def main() -> int:
     for bid, src, he, en in BOOKS:
         print(f"{en}…", file=sys.stderr)
         book = build_book(fetch(src, cache))
-        letters = sum(len(v.replace(" ", "")) for ch in book["chapters"] for v in ch)
+        letters = sum(1 for ch in book["chapters"] for v in ch
+                      for c in v if c in LETTERS)
         words = sum(len(v.split(" ")) for ch in book["chapters"] for v in ch)
         verses = sum(len(ch) for ch in book["chapters"])
         payload = {

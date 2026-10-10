@@ -32,6 +32,38 @@ gets to it. The motifs here are a plain approximation of the Ashkenazi trope,
 enough to hear how the accents punctuate a verse. A real reader does far more
 with them.
 
+## The points
+
+A Hebrew letter on its own does not tell you how it is said. The dots and
+dashes around it — the **niqqud** — carry the vowels, the doubling, and the
+hard or soft reading of a consonant. They are written in the text and they are
+sounded in the music.
+
+- **Vowels bend the pitch.** Bright vowels sit high and dark ones low, which is
+  roughly how the second formant really behaves: `i` +2 degrees, `e` +1,
+  `a` 0, `o` −1, `u` −2. The shift is in degrees of the mode, so the note never
+  leaves the nusach.
+- **Vowels set the length.** A qamats or a holam is held; a patah or a hiriq is
+  shorter; a hataf or a sounded sheva is barely there. This is what makes a
+  word move the way it is spoken rather than as an even row of notes.
+- **A dagesh accents.** A dagesh chazak doubles its letter, so the note is
+  struck twice; a dagesh kal or a mappiq just lands harder.
+- **Silent letters become ghosts** rather than notes — a sheva nach, a resting
+  alef, a final he without a mappiq, a yod or vav that is only carrying a
+  vowel.
+
+Tap or hover any word and it tells you roughly how it sounds:
+בְּרֵאשִׁית is `bəreshit`, הַשָּׁמַיִם is `hashshamayim` with the dagesh
+doubling the shin.
+
+All four can be switched off in ☰, and so can the points themselves if you want
+the bare consonants back. The vowel table sits under the 22 letters in **The 22
+letters**.
+
+The syllable rules here — whether a sheva is sounded, whether a dagesh doubles
+or hardens — are the standard teaching rules. They are a good approximation,
+not a full grammatical parse, and they will be wrong on some words.
+
 ## The styles
 
 The mapping decides which note a letter gets. The **style** decides what kind of
@@ -180,9 +212,10 @@ a few minutes of audio; pick a shorter selection for that.
 The consonantal text is the **Westminster Leningrad Codex**, from
 [tanach.us](https://tanach.us) — a freely distributable transcription of a
 public-domain text. Final letter forms are folded onto their base letters (ך→כ
-and so on), since they are the same letter and would otherwise get a different
-note. Vowel points are ignored; the cantillation marks are kept and drive the
-trope mapping.
+and so on) **for the music**, since they are the same letter and would otherwise get a different
+note — but the final forms are kept as written, and so is every point: niqqud,
+dagesh and mappiq, the shin and sin dots, meteg and qamats qatan. The
+cantillation accents are lifted out separately and drive the trope mapping.
 
 Rebuild the data files with:
 

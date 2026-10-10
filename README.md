@@ -106,8 +106,10 @@ assets/icons/            app icons
   the weather at your arrival time, and which stop you can still reach before
   your hours run out. Live at `/truck/` once Pages is enabled.
 - **[א Otiyot](torah/)** — `torah/` — the letters of the Torah played as music.
-  Every letter of all five books becomes a note; four different mappings decide
-  which one (Sefer Yetzirah's three mothers / seven doubles / twelve simples,
+  Every letter of all five books becomes a note, with its **niqqud** sounding too
+  — vowels bend the pitch and set how long each letter is held, a dagesh doubles
+  it, silent letters drop to ghosts, and any word tells you how it is
+  pronounced. Four different mappings decide the note (Sefer Yetzirah's three mothers / seven doubles / twelve simples,
   gematria value, plain alphabetical order, or the cantillation marks), over the
   Jewish prayer modes. Fifteen musical styles — Goa, Dark Psy, Forest,
   Zenonesque, Hi-Tech, Psycore, Trap, Boom Bap, Drum & Bass, Techno, Dub and

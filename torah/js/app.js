@@ -3,7 +3,7 @@
 import * as data from './data.js';
 import {
   LETTERS, LETTER_INFO, MODES, MAPPINGS, RHYTHMS, TROPE,
-  sequence, analyse, letterMidi, midiToName, gematria, degreeToMidi,
+  sequence, analyse, letterMidi, midiToName, gematria, degreeToMidi, clustersOf,
 } from './mapping.js';
 import { STYLES, STYLE_LIST, bpmRange } from './styles.js';
 import { Transport, render } from './audio.js';
@@ -11,6 +11,7 @@ import { toWav, toMidi, download } from './export.js';
 import { defaultFx, fxFromStyle } from './fx.js';
 import { SampleBank, Recorder, defaultPads } from './samples.js';
 import * as lyrics from './lyrics.js';
+import { VOWELS, translit } from './niqqud.js';
 import { mount } from './panes.js';
 
 const $ = id => document.getElementById(id);
@@ -36,6 +37,8 @@ const state = {
     style: 'scroll',
     mapping: 'yetzirah', mode: 'ahavaRabbah', root: 57, bpm: 132,
     rhythm: 'even', snapSimples: true, bass: true, pad: true, percussion: true,
+    showPoints: true,
+    vowels: { pitch: true, length: true, accent: true },
     mix: {},          // per-track {gain, mute, solo}
     patterns: {},     // edits to the style's drum patterns
     groove: '',       // a beat preset laid over the style, or '' for its own
@@ -258,6 +261,10 @@ async function afterProjectLoad() {
   $('bassChk').checked = state.opt.bass;
   $('padChk').checked = state.opt.pad;
   $('percChk').checked = state.opt.percussion;
+  $('pointsChk').checked = state.opt.showPoints !== false;
+  $('vowPitchChk').checked = state.opt.vowels.pitch;
+  $('vowLenChk').checked = state.opt.vowels.length;
+  $('vowAccChk').checked = state.opt.vowels.accent;
   $('verb').value = Math.round((state.fx.reverb?.mix ?? 0.3) * 100);
   buildStyleChoices();
   buildChoices();
@@ -294,6 +301,7 @@ function updateScopeStat() {
 const letterEls = new Map();   // "vi:wi:li" -> span
 
 function renderReader(centerVerse, force = false) {
+  const showPoints = state.opt.showPoints !== false;
   const total = state.verses.length;
   const windowed = total > READER_WINDOW;
   const start = windowed
@@ -311,10 +319,15 @@ function renderReader(centerVerse, force = false) {
     parts.push(`<div class="v" data-v="${vi}">`);
     for (let wi = 0; wi < v.words.length; wi++) {
       const w = v.words[wi];
-      parts.push(`<span class="w" data-v="${vi}" data-w="${wi}">`);
-      for (let li = 0; li < w.length; li++) {
-        const cls = LETTER_INFO.get(w[li])?.cls || '';
-        parts.push(`<span class="c ${cls}" data-k="${vi}:${wi}:${li}">${w[li]}</span>`);
+      const cl = clustersOf(w);
+      // A letter and its points are one unit: they light up together and the
+      // marks must never be split off into a span of their own.
+      parts.push(`<span class="w" data-v="${vi}" data-w="${wi}" title="${translit(w)}">`);
+      for (let li = 0; li < cl.length; li++) {
+        const c = cl[li];
+        const cls = LETTER_INFO.get(c.base)?.cls || '';
+        const text = showPoints ? c.letter + c.marks.join('') : c.letter;
+        parts.push(`<span class="c ${cls}" data-k="${vi}:${wi}:${li}">${text}</span>`);
       }
       parts.push('</span>');
     }
@@ -626,6 +639,18 @@ function renderLetterPane() {
       </div></div>`;
   }).join('');
 
+  const LEN_NAME = { long: 'long', short: 'short', ultra: 'barely there' };
+  const vowRows = Object.entries(VOWELS).map(([mark, v]) => `
+    <div class="vcell">
+      <div class="vcell__m">א<span class="vcell__p">${mark}</span></div>
+      <div class="lcell__m">
+        <div class="lcell__n">${v.he}</div>
+        <div class="lcell__p">${v.tr} · ${v.q === 'ə' ? 'murmur' : v.q}
+          ${VOWEL_ARROW[v.q] ?? ''}</div>
+        <div class="lcell__s">${LEN_NAME[v.len]}</div>
+      </div>
+    </div>`).join('');
+
   $('letters').innerHTML = `
     <div class="legend">
       <span><i style="background:var(--mother)"></i>3 mothers</span>
@@ -633,7 +658,11 @@ function renderLetterPane() {
       <span><i style="background:var(--simple)"></i>12 simples</span>
     </div>
     <div class="ltab">${rows}</div>
-    <p class="note">The number beside each name is its gematria value; the line beneath is what the Sefer Yetzirah assigns it. The pitch is what that letter sounds like right now, under ${MAPPINGS[state.opt.mapping].name} in ${MODES[state.opt.mode].name}.</p>`;
+    <p class="note">The number beside each name is its gematria value; the line beneath is what the Sefer Yetzirah assigns it. The pitch is what that letter sounds like right now, under ${MAPPINGS[state.opt.mapping].name} in ${MODES[state.opt.mode].name}.</p>
+
+    <h3 class="sec">The points</h3>
+    <p class="note" style="margin-top:0">A letter alone does not say how it is pronounced — the points do. Each one bends its letter's note and sets how long it is held. The arrow is the pitch shift, in degrees of the mode.</p>
+    <div class="ltab">${vowRows}</div>`;
 }
 
 /* ------------------------------------------------------------------- loop */
@@ -805,6 +834,19 @@ function wire() {
     rebuild(true);
   });
 
+  $('pointsChk').addEventListener('change', e => {
+    state.opt.showPoints = e.target.checked;
+    renderReader(state.windowStart, true);
+    saveProject();
+  });
+  for (const [id, key] of [['vowPitchChk', 'pitch'], ['vowLenChk', 'length'],
+                           ['vowAccChk', 'accent']]) {
+    $(id).addEventListener('change', e => {
+      state.opt.vowels[key] = e.target.checked;
+      rebuild(true);
+    });
+  }
+
   for (const [id, key] of [['snapChk', 'snapSimples'], ['bassChk', 'bass'],
                            ['padChk', 'pad'], ['percChk', 'percussion']]) {
     $(id).addEventListener('change', e => {
@@ -958,6 +1000,9 @@ function applyTheme(t) {
   }
   paint.clear();       // canvas colours are read from the tokens
 }
+
+/* The pitch shift each vowel quality makes, shown in the table. */
+const VOWEL_ARROW = { i: '+2', e: '+1', a: '0', 'ə': '0', o: '−1', u: '−2' };
 
 /* Canvas drawing cannot use var(), so the tokens are read once per theme. */
 const paint = {

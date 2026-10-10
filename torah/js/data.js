@@ -97,7 +97,11 @@ export async function select(sel) {
   return out;
 }
 
+/* Words now carry their vowel points, so a character count is not a letter
+ * count — only the consonants are letters. */
+const LETTER_RE = /[\u05D0-\u05EA]/g;
 export const countLetters = verses =>
-  verses.reduce((n, v) => n + v.words.reduce((w, x) => w + x.length, 0), 0);
+  verses.reduce((n, v) => n + v.words.reduce(
+    (w, x) => w + (x.match(LETTER_RE)?.length || 0), 0), 0);
 
 export const countWords = verses => verses.reduce((n, v) => n + v.words.length, 0);

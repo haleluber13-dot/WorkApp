@@ -739,3 +739,16 @@ input[type=range]::-moz-range-thumb {
   .grid__c { height: 30px; }
   .karaoke__next { display: none; }
 }
+
+/* The vowel table, beneath the 22 letters. */
+.vcell {
+  background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--gold-dim);
+  border-radius: 9px; padding: 8px 10px;
+  display: grid; grid-template-columns: auto 1fr; gap: 9px; align-items: center;
+}
+.vcell__m {
+  font-family: var(--font-he); font-size: 27px; line-height: 1;
+  color: var(--faint); position: relative;
+}
+/* The mark itself, shown on a carrier alef so it has something to sit on. */
+.vcell__p { color: var(--gold); }

@@ -6,6 +6,7 @@
  */
 
 import { STYLES, BASS_PATTERNS, steps as parseSteps } from './styles.js';
+import { read as readPoints, consonants, colour, BASE } from './niqqud.js';
 
 /* ---------------------------------------------------------------- letters */
 
@@ -48,11 +49,27 @@ const SIMPLES = LETTERS.filter(x => x.cls === 'simple').map(x => x.l);
 
 export const GEMATRIA = new Map(LETTERS.map(x => [x.l, x.v]));
 
-/** Sum of the gematria values of a string of letters. */
+/** Sum of the gematria values of a word, points and final forms allowed. */
 export function gematria(word) {
   let sum = 0;
-  for (const ch of word) sum += GEMATRIA.get(ch) || 0;
+  for (const ch of word) sum += GEMATRIA.get(BASE[ch] || ch) || 0;
   return sum;
+}
+
+/** How many letters a pointed word actually has. */
+export const letterCount = word => consonants(word).length;
+
+/* Reading a word's points is not free and the same words recur constantly,
+ * so the result is kept. The Torah has far fewer distinct words than words. */
+const pointCache = new Map();
+export function clustersOf(word) {
+  let c = pointCache.get(word);
+  if (!c) {
+    c = readPoints(word);
+    if (pointCache.size > 20000) pointCache.clear();
+    pointCache.set(word, c);
+  }
+  return c;
 }
 
 /* ------------------------------------------------------------------ modes */
@@ -260,6 +277,8 @@ function sequenceFree(verses, opt) {
   } = opt || {};
 
   const steps = (MODES[mode] || MODES.ahavaRabbah).steps;
+  // The points are a layer over the letters; each part of it can be switched off.
+  const vowels = { pitch: true, length: true, accent: true, ...(opt.vowels || {}) };
   const spb = 60 / bpm;                         // seconds per pulse
   const notes = [];
   const index = [];
@@ -295,42 +314,59 @@ function sequenceFree(verses, opt) {
           push({
             t: at(t), dur: step * (k === degs.length - 1 ? 1.8 : 1.05),
             midi, vel: k === 0 ? 0.9 : 0.72, voice: 'lead',
-            letter: word[Math.min(k, word.length - 1)] || word[0],
+            letter: clustersOf(word)[Math.min(k, clustersOf(word).length - 1)]?.letter || '',
             word, wordIndex: wi, verseIndex: vi, trope: tr.key,
           });
           t += step;
         }
         index.push({ verseIndex: vi, wordIndex: wi, letterIndex: 0,
-                     t: wordStart, letter: word[0], trope: tr.key });
+                     t: wordStart, letter: clustersOf(word)[0]?.letter || '', trope: tr.key });
       } else {
-        for (let li = 0; li < word.length; li++) {
-          const letter = word[li];
-          const info = LETTER_INFO.get(letter);
+        const cls = clustersOf(word);
+        for (let li = 0; li < cls.length; li++) {
+          const c = cls[li];
+          const info = LETTER_INFO.get(c.base);
           if (!info) continue;
 
-          const m = mapping === 'gematria' ? degreeGematria(letter)
-                  : mapping === 'ordinal' ? degreeOrdinal(letter)
-                  : degreeYetzirah(letter, snapSimples);
+          const m = mapping === 'gematria' ? degreeGematria(c.base)
+                  : mapping === 'ordinal' ? degreeOrdinal(c.base)
+                  : degreeYetzirah(c.base, snapSimples);
           if (!m) continue;
 
+          // What the points written on this letter ask for.
+          const col = colour(c);
+          const shift = vowels.pitch ? col.step : 0;
           const midi = m.degree === null
-            ? root + 12 * m.octave + m.semitone
-            : degreeToMidi(root + 12 * m.octave, steps, m.degree);
+            ? root + 12 * m.octave + m.semitone + shift
+            : degreeToMidi(root + 12 * m.octave, steps, m.degree + shift);
 
-          const lastLetter = li === word.length - 1;
-          let beats = letterBeats(letter, rhythm);
+          const lastLetter = li === cls.length - 1;
+          let beats = letterBeats(c.base, rhythm);
+          if (vowels.length) beats *= col.hold;
           if (lastLetter) beats *= 1.45;                 // a breath at each word
           if (lastWord && lastLetter) beats *= 1.8;      // and a longer one at the verse
 
+          let vel = lastLetter ? 0.92 : 0.66 + (info.cls === 'mother' ? 0.16 : 0);
+          if (vowels.accent) vel += col.accent;
+          if (col.silent) vel *= 0.45;                   // written, not sounded
+
           const dur = beats * spb;
           push({
-            t: at(t), dur: dur * 0.98, midi,
-            vel: lastLetter ? 0.92 : 0.66 + (info.cls === 'mother' ? 0.16 : 0),
-            voice: leadVoice, lead: true, letter, word, wordIndex: wi, letterIndex: li,
-            verseIndex: vi, cls: info.cls,
+            t: at(t), dur: dur * 0.98, midi, vel,
+            voice: leadVoice, lead: true, letter: c.letter, word,
+            wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls,
+            vowel: c.vowel?.key || null, silent: col.silent, base: c.base,
           });
+          // A dagesh chazak doubles the letter, so it is struck twice.
+          if (vowels.accent && col.doubled && dur > 0.12) {
+            push({
+              t: at(t + dur * 0.55), dur: dur * 0.38, midi, vel: vel * 0.7,
+              voice: leadVoice, lead: true, letter: c.letter, word,
+              wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls, doubled: true,
+            });
+          }
           index.push({ verseIndex: vi, wordIndex: wi, letterIndex: li,
-                       t: t, letter, midi });
+                       t: t, letter: c.letter, midi });
           t += dur;
         }
       }
@@ -385,6 +421,8 @@ function sequenceGrid(verses, opt, style) {
   } = opt || {};
 
   const scale = (MODES[mode] || MODES.ahavaRabbah).steps;
+  // The points are a layer over the letters; each part of it can be switched off.
+  const vowels = { pitch: true, length: true, accent: true, ...(opt.vowels || {}) };
   const grid = style.grid;
   const per = style.per;
   const gate = style.gate ?? 0.8;
@@ -433,46 +471,62 @@ function sequenceGrid(verses, opt, style) {
         const tr = TROPE[ti] || { deg: [0], d: false, key: 'none' };
         const degs = lastWord ? TROPE[30].deg : tr.deg;
         index.push({ verseIndex: vi, wordIndex: wi, letterIndex: 0,
-                     t: tOf(step), letter: word[0], trope: tr.key });
+                     t: tOf(step), letter: clustersOf(word)[0]?.letter || '', trope: tr.key });
         for (let k = 0; k < degs.length; k++) {
           notes.push({
             t: tOf(step), dur: per * stepSec * gate,
             midi: degreeToMidi(root + 12 * leadOct, scale, degs[k]),
             vel: (k === 0 ? 0.92 : 0.74) * leadLevel, voice: leadVoice, lead: true,
-            letter: word[Math.min(k, word.length - 1)] || word[0],
+            letter: clustersOf(word)[Math.min(k, clustersOf(word).length - 1)]?.letter || '',
             word, wordIndex: wi, verseIndex: vi, trope: tr.key,
           });
           step += per;
         }
       } else {
-        for (let li = 0; li < word.length; li++) {
-          const letter = word[li];
-          const info = LETTER_INFO.get(letter);
+        const cls = clustersOf(word);
+        for (let li = 0; li < cls.length; li++) {
+          const c = cls[li];
+          const info = LETTER_INFO.get(c.base);
           if (!info) continue;
 
-          const m = mapping === 'gematria' ? degreeGematria(letter)
-                  : mapping === 'ordinal' ? degreeOrdinal(letter)
-                  : degreeYetzirah(letter, snapSimples);
+          const m = mapping === 'gematria' ? degreeGematria(c.base)
+                  : mapping === 'ordinal' ? degreeOrdinal(c.base)
+                  : degreeYetzirah(c.base, snapSimples);
           if (!m) continue;
 
+          const col = colour(c);
+          const shift = vowels.pitch ? col.step : 0;
           const octave = m.octave + leadOct;
           const midi = m.degree === null
-            ? root + 12 * octave + m.semitone
-            : degreeToMidi(root + 12 * octave, scale, m.degree);
+            ? root + 12 * octave + m.semitone + shift
+            : degreeToMidi(root + 12 * octave, scale, m.degree + shift);
 
-          const lastLetter = li === word.length - 1;
+          const lastLetter = li === cls.length - 1;
           // The last letter of a word gets an extra step — the same breath the
           // free styles take, rounded onto the grid.
-          const n = letterSteps(letter, rhythm, per) + (lastLetter ? 1 : 0);
+          let n = letterSteps(c.base, rhythm, per);
+          if (vowels.length) n = Math.max(1, Math.round(n * col.hold));
+          if (lastLetter) n += 1;
+
+          let vel = (lastLetter ? 0.95 : 0.72 + (info.cls === 'mother' ? 0.14 : 0)) * leadLevel;
+          if (vowels.accent) vel += col.accent * leadLevel;
+          if (col.silent) vel *= 0.45;
 
           notes.push({
-            t: tOf(step), dur: Math.max(0.03, n * stepSec * gate), midi,
-            vel: (lastLetter ? 0.95 : 0.72 + (info.cls === 'mother' ? 0.14 : 0)) * leadLevel,
-            voice: leadVoice, lead: true, letter, word, wordIndex: wi, letterIndex: li,
-            verseIndex: vi, cls: info.cls,
+            t: tOf(step), dur: Math.max(0.03, n * stepSec * gate), midi, vel,
+            voice: leadVoice, lead: true, letter: c.letter, word,
+            wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls,
+            vowel: c.vowel?.key || null, silent: col.silent, base: c.base,
           });
+          if (vowels.accent && col.doubled && n > 1) {
+            notes.push({
+              t: tOf(step) + stepSec * 0.5, dur: stepSec * 0.45, midi, vel: vel * 0.7,
+              voice: leadVoice, lead: true, letter: c.letter, word,
+              wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls, doubled: true,
+            });
+          }
           index.push({ verseIndex: vi, wordIndex: wi, letterIndex: li,
-                       t: tOf(step), letter, midi });
+                       t: tOf(step), letter: c.letter, midi });
           step += n;
         }
       }
@@ -625,7 +679,8 @@ export function analyse(score) {
     pitchClass[((n.midi % 12) + 12) % 12]++;
     lo = Math.min(lo, n.midi);
     hi = Math.max(hi, n.midi);
-    if (n.letter) letters.set(n.letter, (letters.get(n.letter) || 0) + 1);
+    const key = n.base || n.letter;
+    if (key) letters.set(key, (letters.get(key) || 0) + 1);
     if (prev !== null) {
       const iv = n.midi - prev;
       intervals.set(iv, (intervals.get(iv) || 0) + 1);
