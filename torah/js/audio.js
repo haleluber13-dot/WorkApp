@@ -10,6 +10,8 @@
 
 import { midiToFreq } from './mapping.js';
 import { FxRack, defaultFx } from './fx.js';
+import { sing, VOICE_TYPES } from './vocal.js';
+export { VOICE_TYPES };
 
 function noiseBuffer(ctx, seconds = 1) {
   const len = Math.max(1, Math.floor(ctx.sampleRate * seconds));
@@ -49,6 +51,17 @@ export const KICKS = {
   kick_click:  { name: 'Click',    f0: 205, f1: 58, bend: 0.018, dec: 0.13, click: 1.0,  dist: 0.15 },
 };
 
+/* What can carry the melody. */
+export const LEADS = {
+  pluck:  { name: 'Pluck',   blurb: 'Struck and damped. The original.' },
+  vox:    { name: 'Voice',   blurb: 'A vocal tract built from filters — it sings the actual syllables.' },
+  acid:   { name: 'Acid',    blurb: 'One saw through a very resonant filter.' },
+  saw:    { name: 'Supersaw', blurb: 'Three detuned saws. Festival lead.' },
+  bell:   { name: 'Bell',    blurb: 'FM at an inharmonic ratio, long decay.' },
+  rhodes: { name: 'Rhodes',  blurb: 'FM electric piano, soft attack.' },
+  stab:   { name: 'Stab',    blurb: 'Short filtered chord hit.' },
+};
+
 /* Seven bass timbres. The pattern comes from the style; this is the sound. */
 export const BASSES = {
   rollbass:  { name: 'Roll',    blurb: 'Short, filtered, gone before the next kick.' },
@@ -83,6 +96,7 @@ export class Voices {
     }
 
     this.noise = noiseBuffer(ctx, 1);
+    this.opt.vocal = opt.vocal || { type: 'tenor', vibrato: 0.5, breath: 0.35 };
     this.buffers = opt.buffers || new Map();   // sampleId -> AudioBuffer
     this.lastBass = null;                      // for 808 glides
 
@@ -112,6 +126,7 @@ export class Voices {
   setFxEnabled(id, on) { this.rack.setEnabled(id, on); }
   replaceFx(settings) { this.rack.replace(settings); }
   setTone(x) { this.opt.tone = x; }
+  setVocal(v) { this.opt.vocal = { ...(this.opt.vocal || {}), ...v }; }
 
   /** Schedule one note. `when` is an absolute context time. */
   play(note, when) {
@@ -132,6 +147,7 @@ export class Voices {
       case 'bell': return this._bell(note, when);
       case 'rhodes': return this._rhodes(note, when);
       case 'stab': return this._stab(note, when);
+      case 'vox': return sing(this, note, when, this.opt.vocal || {});
       // drums
       case 'kick_psy': return this._kick(note, when, KICKS.kick_psy);
       case 'kick_808': return this._kick(note, when, KICKS.kick_808);

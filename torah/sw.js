@@ -3,12 +3,12 @@
  * The app itself is small and the five books are static, so everything gets
  * cached on first run and the app works with no network at all afterwards.
  */
-const CACHE = 'otiyot-v3';
+const CACHE = 'otiyot-v4';
 const SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './js/app.js', './js/mapping.js', './js/audio.js', './js/data.js', './js/export.js',
   './js/styles.js', './js/fx.js', './js/samples.js', './js/lyrics.js',
-  './js/panes.js', './js/niqqud.js', './js/voice.js',
+  './js/panes.js', './js/niqqud.js', './js/voice.js', './js/vocal.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',
   './data/manifest.json',
   './data/genesis.json', './data/exodus.json', './data/leviticus.json',

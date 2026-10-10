@@ -243,6 +243,9 @@ function letterBeats(letter, rhythm) {
   return 1;
 }
 
+/** The address of one letter in the Torah — the key a note edit is filed under. */
+export const noteKey = (v, wi, li) => `${v.bookId}:${v.chapter}:${v.verse}:${wi}:${li}`;
+
 /** How many grid steps a letter takes, for the step-based styles. */
 function letterSteps(letter, rhythm, per) {
   const mul = rhythm === 'even' ? 1 : letterBeats(letter, rhythm);
@@ -279,6 +282,7 @@ function sequenceFree(verses, opt) {
   const steps = (MODES[mode] || MODES.ahavaRabbah).steps;
   // The points are a layer over the letters; each part of it can be switched off.
   const vowels = { pitch: true, length: true, accent: true, ...(opt.vowels || {}) };
+  const edits = opt.noteEdits || {};
   const spb = 60 / bpm;                         // seconds per pulse
   const notes = [];
   const index = [];
@@ -350,23 +354,35 @@ function sequenceFree(verses, opt) {
           if (vowels.accent) vel += col.accent;
           if (col.silent) vel *= 0.45;                   // written, not sounded
 
+          // Anything the reader has changed by hand wins over all of that.
+          const edit = edits[noteKey(v, wi, li)];
+          let noteMidi = midi;
+          if (edit) {
+            if (edit.mute) { t += beats * spb; continue; }
+            noteMidi += edit.semi || 0;
+            beats *= edit.len ?? 1;
+            vel *= edit.vel ?? 1;
+          }
           const dur = beats * spb;
           push({
-            t: at(t), dur: dur * 0.98, midi, vel,
-            voice: leadVoice, lead: true, letter: c.letter, word,
+            t: at(t), dur: dur * 0.98, midi: noteMidi, vel,
+            voice: leadVoice, lead: true, letter: c.letter, word, key: noteKey(v, wi, li),
+            edited: !!edit,
             wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls,
             vowel: c.vowel?.key || null, silent: col.silent, base: c.base,
+            cons: c.base, vq: c.vowel ? c.vowel.q : 'ə',
           });
           // A dagesh chazak doubles the letter, so it is struck twice.
           if (vowels.accent && col.doubled && dur > 0.12) {
             push({
-              t: at(t + dur * 0.55), dur: dur * 0.38, midi, vel: vel * 0.7,
+              t: at(t + dur * 0.55), dur: dur * 0.38, midi: noteMidi, vel: vel * 0.7,
               voice: leadVoice, lead: true, letter: c.letter, word,
               wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls, doubled: true,
+              cons: c.base, vq: c.vowel ? c.vowel.q : 'ə',
             });
           }
           index.push({ verseIndex: vi, wordIndex: wi, letterIndex: li,
-                       t: t, letter: c.letter, midi });
+                       t: t, letter: c.letter, midi: noteMidi });
           t += dur;
         }
       }
@@ -423,6 +439,7 @@ function sequenceGrid(verses, opt, style) {
   const scale = (MODES[mode] || MODES.ahavaRabbah).steps;
   // The points are a layer over the letters; each part of it can be switched off.
   const vowels = { pitch: true, length: true, accent: true, ...(opt.vowels || {}) };
+  const edits = opt.noteEdits || {};
   const grid = style.grid;
   const per = style.per;
   const gate = style.gate ?? 0.8;
@@ -447,7 +464,7 @@ function sequenceGrid(verses, opt, style) {
   const notes = [];
   const index = [];
   const spans = [];                                // one per word, in steps
-  const leadVoice = style.lead.voice;
+  const leadVoice = opt.leadVoice || style.lead.voice;
   const leadOct = style.lead.oct || 0;
   const leadLevel = level('lead');
   const bassLevel = level('bass');
@@ -512,21 +529,33 @@ function sequenceGrid(verses, opt, style) {
           if (vowels.accent) vel += col.accent * leadLevel;
           if (col.silent) vel *= 0.45;
 
+          const edit = edits[noteKey(v, wi, li)];
+          let noteMidi = midi;
+          if (edit) {
+            if (edit.mute) { step += n; continue; }
+            noteMidi += edit.semi || 0;
+            n = Math.max(1, Math.round(n * (edit.len ?? 1)));
+            vel *= edit.vel ?? 1;
+          }
+
           notes.push({
-            t: tOf(step), dur: Math.max(0.03, n * stepSec * gate), midi, vel,
-            voice: leadVoice, lead: true, letter: c.letter, word,
+            t: tOf(step), dur: Math.max(0.03, n * stepSec * gate), midi: noteMidi, vel,
+            voice: leadVoice, lead: true, letter: c.letter, word, key: noteKey(v, wi, li),
+            edited: !!edit,
             wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls,
             vowel: c.vowel?.key || null, silent: col.silent, base: c.base,
+            cons: c.base, vq: c.vowel ? c.vowel.q : 'ə',
           });
           if (vowels.accent && col.doubled && n > 1) {
             notes.push({
-              t: tOf(step) + stepSec * 0.5, dur: stepSec * 0.45, midi, vel: vel * 0.7,
+              t: tOf(step) + stepSec * 0.5, dur: stepSec * 0.45, midi: noteMidi, vel: vel * 0.7,
               voice: leadVoice, lead: true, letter: c.letter, word,
               wordIndex: wi, letterIndex: li, verseIndex: vi, cls: info.cls, doubled: true,
+              cons: c.base, vq: c.vowel ? c.vowel.q : 'ə',
             });
           }
           index.push({ verseIndex: vi, wordIndex: wi, letterIndex: li,
-                       t: tOf(step), letter: c.letter, midi });
+                       t: tOf(step), letter: c.letter, midi: noteMidi });
           step += n;
         }
       }
@@ -652,7 +681,7 @@ export function sequence(verses, opt = {}) {
   const style = STYLES[opt.style] || STYLES.scroll;
   const bpm = opt.bpm || style.bpm;
   const score = style.free
-    ? sequenceFree(verses, { ...opt, bpm, leadVoice: style.lead.voice })
+    ? sequenceFree(verses, { ...opt, bpm, leadVoice: opt.leadVoice || style.lead.voice })
     : sequenceGrid(verses, { ...opt, bpm }, style);
   score.bpm = bpm;
   score.styleName = style.name;

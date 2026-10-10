@@ -64,6 +64,40 @@ The syllable rules here — whether a sheva is sounded, whether a dagesh doubles
 or hardens — are the standard teaching rules. They are a good approximation,
 not a full grammatical parse, and they will be wrong on some words.
 
+## The voice the app builds itself
+
+The **Voice** lead, in the Beat tab, is not a recording and not the operating
+system's speech engine — it is a vocal tract made out of filters. A buzzing
+source stands in for the vocal folds and three bandpass filters stand in for
+the resonances of the mouth and throat; moving those three resonances is what
+turns one steady buzz into "a", "e" or "u".
+
+Because the niqqud reader already works out the consonant and the vowel on
+every letter, it sings the **actual syllables** of the text rather than
+humming through them. בְּרֵאשִׁית comes out as *bə-re-ʾ-shi-y-t*, one syllable
+per note, on the pitch that letter was given.
+
+Consonants are articulated by class: stops close and release with a burst,
+fricatives hiss ahead of the vowel at their own frequency, nasals hum through
+a lowpass before opening, liquids slide their formants into place. The
+**throat** control scales every resonance at once — a shorter tract is a
+smaller head making the same note, which is the whole difference between Bass
+and Child. Vibrato holds back a moment before it arrives, the way a singer's
+does.
+
+It is a crude voice. It is recognisably a voice.
+
+## Every note, one at a time
+
+The **Notes** tab lists every letter of a verse with the syllable it sings,
+and lets you change any of them: pitch by the semitone, length from a quarter
+to three times, level, or silence it outright.
+
+Edits are filed against the letter's address in the book — `genesis:1:1:0:2`
+— not its position in what is currently loaded. So a note you changed stays
+changed through a style change, a tempo change, leaving the chapter and
+coming back, and a reload. **Reset all** clears them.
+
 ## Read aloud
 
 The **Read aloud** tab narrates the text over the music, using the speech

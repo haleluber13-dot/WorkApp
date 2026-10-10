@@ -7,7 +7,8 @@
  */
 
 import { STYLES, BEAT_PRESETS, steps as parseSteps } from './styles.js';
-import { KICKS, BASSES } from './audio.js';
+import { KICKS, BASSES, LEADS, VOICE_TYPES } from './audio.js';
+import { midiToName, clustersOf, noteKey } from './mapping.js';
 import { FX_DEFS, FX_ORDER } from './fx.js';
 import { PAD_COUNT } from './samples.js';
 import { CHARACTERS, languageName } from './voice.js';
@@ -85,6 +86,10 @@ export function mount(app) {
       `<option value="${id}"${(o.kickVoice || styleKick) === id ? ' selected' : ''}>${k.name}</option>`).join('');
     const bassOpts = Object.entries(BASSES).map(([id, bs]) =>
       `<option value="${id}"${(o.bassVoice || styleBass) === id ? ' selected' : ''}>${bs.name}</option>`).join('');
+    const styleLead = st.lead.voice;
+    const leadNow = o.leadVoice || styleLead;
+    const leadOpts = Object.entries(LEADS).map(([id, l]) =>
+      `<option value="${id}"${leadNow === id ? ' selected' : ''}>${l.name}</option>`).join('');
     const grooveOpts = `<option value="">— this style's own —</option>` +
       Object.entries(BEAT_PRESETS).map(([id, g]) =>
         `<option value="${id}"${o.groove === id ? ' selected' : ''}>${g.name}</option>`).join('');
@@ -98,10 +103,21 @@ export function mount(app) {
       </div>
 
       <div class="picks">
+        <label><span>Lead</span><select id="leadSel">${leadOpts}</select></label>
         <label><span>Kick</span><select id="kickSel">${kickOpts}</select></label>
         <label><span>Bass</span><select id="bassSel">${bassOpts}</select></label>
         <label><span>Groove</span><select id="grooveSel">${grooveOpts}</select></label>
       </div>
+      ${leadNow === 'vox' ? `
+      <div class="picks" style="margin-top:8px">
+        <label><span>Throat</span><select id="voxType">${Object.entries(VOICE_TYPES).map(([id, v]) =>
+          `<option value="${id}"${(o.vocal?.type || 'tenor') === id ? ' selected' : ''}>${v.name}</option>`).join('')}</select></label>
+        <label><span>Vibrato</span><input type="range" id="voxVib" min="0" max="1" step="0.02" value="${o.vocal?.vibrato ?? 0.5}"></label>
+        <label><span>Breath</span><input type="range" id="voxBr" min="0" max="1" step="0.02" value="${o.vocal?.breath ?? 0.35}"></label>
+      </div>
+      <p class="note" style="margin-top:6px">${esc(LEADS.vox.blurb)}
+        A shorter throat raises every resonance — the same note, a different body making it.</p>` : ''}
+
       <p class="note" style="margin-top:6px">
         ${BASSES[o.bassVoice || styleBass]?.blurb || ''}
         A groove replaces the drum patterns below; the kick and bass sounds stay whatever you picked.
@@ -211,6 +227,130 @@ export function mount(app) {
       </p>
       <div class="lyrlist">${list}</div>`;
   }
+
+  /* ------------------------------------------------------ the note editor */
+
+  const SYL = { a: 'a', e: 'e', i: 'i', o: 'o', u: 'u', 'ə': 'ə' };
+
+  function renderNotes() {
+    const verses = app.state.verses;
+    const vi = Math.min(app.state.noteVerse ?? 0, Math.max(0, verses.length - 1));
+    const v = verses[vi];
+    const edits = app.state.opt.noteEdits;
+    const count = Object.keys(edits).length;
+
+    if (!v) { $('notes').innerHTML = '<p class="note">Nothing selected.</p>'; return; }
+
+    // Build the list from the letters themselves, not from the score: a muted
+    // note has no note in the score, and it still has to be here to un-mute.
+    const sounded = new Map();
+    for (const n of app.state.score?.notes || []) {
+      if (n.lead && !n.doubled && n.key && !sounded.has(n.key)) sounded.set(n.key, n);
+    }
+
+    const rows = v.words.flatMap((word, wi) =>
+      clustersOf(word).map((c, li) => {
+        const key = noteKey(v, wi, li);
+        const n = sounded.get(key);
+        const ed = edits[key] || {};
+        const semi = ed.semi || 0;
+        const syl = translitSyl({ cons: c.base, vq: c.vowel ? c.vowel.q : 'ə' });
+        const edited = !!(semi || (ed.len ?? 1) !== 1 || (ed.vel ?? 1) !== 1);
+        return `<div class="nrow${ed.mute ? ' muted' : ''}${edited ? ' edited' : ''}" data-key="${key}">
+          <div class="nrow__l">${c.letter}${c.marks.join('')}</div>
+          <div class="nrow__s">${esc(syl || '—')}</div>
+          <div class="nrow__p">
+            <button class="mini" data-nudge="-1" title="Down a semitone">−</button>
+            <b>${n ? midiToName(n.midi) : '—'}</b>
+            <button class="mini" data-nudge="1" title="Up a semitone">+</button>
+            <span class="nrow__n">${semi > 0 ? '+' + semi : semi || ''}</span>
+          </div>
+          <input class="nrow__v" type="range" min="0.25" max="3" step="0.05"
+                 value="${ed.len ?? 1}" data-len title="Length">
+          <span class="nrow__n">${((ed.len ?? 1)).toFixed(2)}×</span>
+          <input class="nrow__v" type="range" min="0" max="1.6" step="0.05"
+                 value="${ed.vel ?? 1}" data-vel title="Level">
+          <button class="mini${ed.mute ? ' on' : ''}" data-mute-note title="Silence this note">M</button>
+        </div>`;
+      })).join('');
+
+    $('notes').innerHTML = `
+      <div class="paneHead">
+        <div><h3 class="sec">Every note, one at a time</h3>
+          <p class="note" style="margin:0">Change the pitch, how long it is held, how loud, or silence it.
+          ${count ? `<b>${count} note${count === 1 ? '' : 's'} changed</b> — your edits are filed against the letter itself, so they survive changing style, tempo or chapter.` : ''}</p></div>
+        <button class="btn btn--sm" id="notesReset" ${count ? '' : 'disabled'}>Reset all</button>
+      </div>
+
+      <div class="picks" style="margin-bottom:10px">
+        <label><span>Verse</span><select id="noteVerse">${verses.map((x, i) =>
+          `<option value="${i}"${i === vi ? ' selected' : ''}>${x.chapter}:${x.verse}</option>`).join('')}</select></label>
+        <label><span></span><button class="btn btn--sm" id="noteHere">Jump to the playhead</button></label>
+      </div>
+
+      <div class="nhead"><span>letter</span><span>sung</span><span>pitch</span>
+        <span>length</span><span></span><span>level</span><span></span></div>
+      ${rows || '<p class="note">No notes in this verse.</p>'}`;
+  }
+
+  /* What the voice will actually sing on this note. */
+  function translitSyl(n) {
+    const c = { 'א': 'ʾ', 'ב': 'b', 'ג': 'g', 'ד': 'd', 'ה': 'h', 'ו': 'v', 'ז': 'z',
+      'ח': 'ch', 'ט': 't', 'י': 'y', 'כ': 'k', 'ל': 'l', 'מ': 'm', 'נ': 'n', 'ס': 's',
+      'ע': 'ʿ', 'פ': 'p', 'צ': 'ts', 'ק': 'q', 'ר': 'r', 'ש': 'sh', 'ת': 't' }[n.cons] || '';
+    return (c + (SYL[n.vq] || '')).replace(/ʾ|ʿ/g, '');
+  }
+
+  function editNote(key, patch) {
+    const edits = app.state.opt.noteEdits;
+    edits[key] = { ...(edits[key] || {}), ...patch };
+    const e = edits[key];
+    // Drop an entry that no longer changes anything.
+    if (!e.semi && (e.len ?? 1) === 1 && (e.vel ?? 1) === 1 && !e.mute) delete edits[key];
+    app.rebuild(true);
+  }
+
+  $('notes').addEventListener('click', e => {
+    if (e.target.id === 'notesReset') {
+      app.state.opt.noteEdits = {};
+      renderNotes();
+      app.rebuild(true);
+      return;
+    }
+    if (e.target.id === 'noteHere') { app.state.noteVerse = app.verseAtPlayhead(); renderNotes(); return; }
+    const row = e.target.closest('[data-key]');
+    if (!row) return;
+    const key = row.dataset.key;
+    const nudge = e.target.closest('[data-nudge]');
+    if (nudge) {
+      const cur = app.state.opt.noteEdits[key]?.semi || 0;
+      editNote(key, { semi: Math.max(-24, Math.min(24, cur + +nudge.dataset.nudge)) });
+      setTimeout(renderNotes, 0);
+      return;
+    }
+    if (e.target.closest('[data-mute-note]')) {
+      editNote(key, { mute: !app.state.opt.noteEdits[key]?.mute });
+      setTimeout(renderNotes, 0);
+    }
+  });
+
+  $('notes').addEventListener('change', e => {
+    if (e.target.id === 'noteVerse') { app.state.noteVerse = +e.target.value; renderNotes(); return; }
+    const row = e.target.closest('[data-key]');
+    if (!row) return;
+    if (e.target.hasAttribute('data-len')) editNote(row.dataset.key, { len: +e.target.value });
+    if (e.target.hasAttribute('data-vel')) editNote(row.dataset.key, { vel: +e.target.value });
+    setTimeout(renderNotes, 0);
+  });
+
+  $('notes').addEventListener('input', e => {
+    const row = e.target.closest('[data-key]');
+    if (!row) return;
+    if (e.target.hasAttribute('data-len')) {
+      const out = e.target.nextElementSibling;
+      if (out) out.textContent = (+e.target.value).toFixed(2) + '×';
+    }
+  });
 
   /* -------------------------------------------------------- the narrator */
 
@@ -415,6 +555,7 @@ export function mount(app) {
       app.state.opt.groove = '';
       app.state.opt.kickVoice = null;
       app.state.opt.bassVoice = null;
+      app.state.opt.leadVoice = null;
       renderBeat();
       app.rebuild(true);
     }
@@ -422,6 +563,8 @@ export function mount(app) {
 
   $('beat').addEventListener('change', e => {
     const o = app.state.opt;
+    if (e.target.id === 'leadSel') { o.leadVoice = e.target.value; renderBeat(); app.rebuild(true); return; }
+    if (e.target.id === 'voxType') { app.setVocal({ type: e.target.value }); return; }
     if (e.target.id === 'kickSel') { o.kickVoice = e.target.value; app.rebuild(true); return; }
     if (e.target.id === 'bassSel') { o.bassVoice = e.target.value; renderBeat(); app.rebuild(true); return; }
     if (e.target.id === 'grooveSel') {
@@ -441,6 +584,8 @@ export function mount(app) {
   });
 
   $('beat').addEventListener('input', e => {
+    if (e.target.id === 'voxVib') return app.setVocal({ vibrato: +e.target.value });
+    if (e.target.id === 'voxBr') return app.setVocal({ breath: +e.target.value });
     const g = e.target.closest('[data-gain]');
     if (!g) return;
     const key = g.dataset.gain;
@@ -639,6 +784,8 @@ export function mount(app) {
     if (out) out.textContent = spec.max <= 2 ? value.toFixed(2) : Math.round(value);
   });
 
-  return { renderBeat, renderSamples, renderLyrics, renderFx, renderVoice, updateKaraoke,
-           renderAll() { renderBeat(); renderSamples(); renderLyrics(); renderFx(); renderVoice(); } };
+  return { renderBeat, renderSamples, renderLyrics, renderFx, renderVoice, renderNotes,
+           updateKaraoke,
+           renderAll() { renderBeat(); renderSamples(); renderLyrics(); renderFx();
+                         renderVoice(); renderNotes(); } };
 }

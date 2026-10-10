@@ -121,7 +121,10 @@ assets/icons/            app icons
   sidechain, delay, reverb, width), eight sample pads fed by microphone
   recordings or your own audio files, and a lyrics track that lands your words
   on the bars with a karaoke ticker. Light and dark themes; the whole setup
-  saves in the browser and downloads as one file. **Reads itself aloud** in any
+  saves in the browser and downloads as one file. Carries the melody on a **formant singing voice** built from filters, which
+  sings the text's real syllables and whose throat length you set, and every
+  single note can be retuned, stretched or silenced by hand. **Reads itself
+  aloud** in any
   voice the device has, as the pointed Hebrew, a transliteration, or one of four
   bundled public-domain translations — following the music or at its own pace
   like an audiobook. Exports WAV, MIDI and .lrc.

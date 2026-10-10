@@ -798,3 +798,42 @@ input[type=range]::-moz-range-thumb {
   letter-spacing: .08em; }
 .vnow__t { font-size: 14px; line-height: 1.6; margin-top: 3px; }
 .vnow__t[dir=rtl] { font-family: var(--font-he); font-size: 19px; line-height: 1.9; }
+
+/* ------------------------------------------------------- the note editor */
+
+.nrow {
+  display: grid;
+  grid-template-columns: 46px 52px 1fr auto auto auto 26px;
+  gap: 7px; align-items: center;
+  padding: 5px 8px; border-radius: 8px; border: 1px solid transparent;
+  font-size: 12px;
+}
+.nrow:nth-child(odd) { background: var(--card); }
+.nrow:hover { border-color: var(--line); }
+.nrow.edited { border-color: var(--gold-dim); }
+.nrow.muted { opacity: .45; }
+.nrow.now { background: var(--active); }
+
+.nrow__l { font-family: var(--font-he); font-size: 23px; line-height: 1; color: var(--ink); }
+.nrow__s { color: var(--faint); font-size: 11px; }
+.nrow__p {
+  display: flex; align-items: center; gap: 4px;
+}
+.nrow__p b { color: var(--gold); font-size: 12px; min-width: 34px;
+  font-variant-numeric: tabular-nums; }
+.nrow__v { width: 62px; }
+.nrow__n { color: var(--faint); font-size: 10.5px; min-width: 30px; text-align: right;
+  font-variant-numeric: tabular-nums; }
+
+.nhead {
+  display: grid;
+  grid-template-columns: 46px 52px 1fr auto auto auto 26px;
+  gap: 7px; padding: 0 8px 5px;
+  color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+  border-bottom: 1px solid var(--line); margin-bottom: 5px;
+}
+
+@media (max-width: 620px) {
+  .nrow, .nhead { grid-template-columns: 38px 1fr auto auto 26px; }
+  .nrow__s, .nhead > :nth-child(2), .nrow__v, .nhead > :nth-child(5) { display: none; }
+}

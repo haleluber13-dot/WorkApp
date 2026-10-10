@@ -32,6 +32,7 @@ const state = {
   stats: null,
   windowStart: -1,
   litQueue: [],
+  noteVerse: 0,
   view: 'roll',
   sel: { scope: 'chapter', bookId: 'genesis', chapter: 1, verse: 1, count: 8 },
   opt: {
@@ -45,6 +46,9 @@ const state = {
     groove: '',       // a beat preset laid over the style, or '' for its own
     kickVoice: null,  // null = whichever kick the style names
     bassVoice: null,
+    leadVoice: null,
+    vocal: { type: 'tenor', vibrato: 0.5, breath: 0.35 },
+    noteEdits: {},    // "book:ch:v:word:letter" -> {semi, len, vel, mute}
     pads: defaultPads(),
   },
   fx: defaultFx(),
@@ -100,6 +104,7 @@ async function boot() {
   syncBpm();
   transport.fx = state.fx;
   transport.buffers = bank.buffers;
+  transport.settings.vocal = state.opt.vocal;
   panes = mount(appApi);
   wire();
 
@@ -250,6 +255,7 @@ async function rebuild(keepPosition = false) {
   renderLetterPane();
   updateScopeStat();
   panes?.renderLyrics();
+  if (state.view === 'notes') panes?.renderNotes();
   saveProject();
 
   $('tEnd').textContent = clock(state.score.duration);
@@ -790,6 +796,8 @@ function wire() {
       if (state.view === 'samples') panes?.renderSamples();
       if (state.view === 'lyrics') panes?.renderLyrics();
       if (state.view === 'fx') panes?.renderFx();
+      if (state.view === 'notes') panes?.renderNotes();
+      if (state.view === 'voice') panes?.renderVoice();
     });
   }
 
@@ -928,6 +936,8 @@ function wire() {
     state.opt.groove = '';
     state.opt.kickVoice = null;
     state.opt.bassVoice = null;
+    state.opt.leadVoice = null;
+    state.opt.noteEdits = {};
     state.opt.pads = defaultPads();
     state.lyrics = { text: '', barsPerLine: 1, offsetBars: 0 };
     state.fx = fxFromStyle({ ...STYLES[state.opt.style], id: state.opt.style });
@@ -1181,6 +1191,8 @@ function loadProject(fromObject) {
     Object.assign(state.opt, p.opt);
     state.opt.mix = p.opt.mix || {};
     state.opt.patterns = p.opt.patterns || {};
+    state.opt.noteEdits = p.opt.noteEdits || {};
+    state.opt.vocal = { type: 'tenor', vibrato: 0.5, breath: 0.35, ...(p.opt.vocal || {}) };
     const pads = defaultPads();
     if (Array.isArray(p.opt.pads)) {
       p.opt.pads.forEach((pd, i) => { if (pads[i]) Object.assign(pads[i], pd, { id: pads[i].id }); });
@@ -1256,6 +1268,27 @@ const appApi = {
   toggleRecord,
 
   translations: () => translationList,
+
+  setVocal(v) {
+    Object.assign(state.opt.vocal, v);
+    transport.voices?.setVocal(state.opt.vocal);
+    transport.settings.vocal = state.opt.vocal;
+    saveProject();
+  },
+
+  /** Which verse the music is in right now — for "jump to the playhead". */
+  verseAtPlayhead() {
+    const idx = state.score?.index;
+    if (!idx?.length) return 0;
+    const t = transport.position;
+    let lo = 0, hi = idx.length - 1, best = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (idx[mid].t <= t) { best = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    return idx[best].verseIndex;
+  },
+
   narrationText: () => verseLine(narrationVerse()),
   saveNarration: saveProject,
 
