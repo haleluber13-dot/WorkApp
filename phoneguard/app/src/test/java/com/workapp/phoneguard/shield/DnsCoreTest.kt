@@ -45,7 +45,20 @@ class DnsCoreTest {
         onEvent = { events += it },
         onAddress = { ip, name -> addresses += InetAddress.getByAddress(ip).hostAddress!! to name },
         monotonic = { now },
+        userAllowed = { blocklist.isUserAllowed(it) },
+        filtering = { filtering },
     )
+    private var filtering = true
+
+    /** An answer for the asked name that is an alias (CNAME) of [target], which has address 1.2.3.4. */
+    private fun cnameAnswer(target: String): (DnsQuery) -> ByteArray = { q ->
+        val t = TestDns.name(target)
+        val targetAt = 12 + q.question.nameWire.size + 4 + 2 + 10
+        TestDns.response(
+            0, q.question.name, q.question.type,
+            answers = listOf(rr(Q, Dns.TYPE_CNAME, 300, t), rr(ptr(targetAt), Dns.TYPE_A, 300, a(1, 2, 3, 4))),
+        )
+    }
 
     private fun ask(name: String, type: Int = Dns.TYPE_A, id: Int = 0x1111, uid: Int = 10123): DnsResponse =
         Dns.parseResponse(core.handle(uid, TestDns.query(id, name, type))!!)
@@ -103,23 +116,84 @@ class DnsCoreTest {
 
     @Test
     fun blocksTrackerHiddenBehindCname() {
-        upstreamAnswer = { q ->
-            val target = TestDns.name("collect.tracker.net")
-            val targetAt = 12 + q.question.nameWire.size + 4 + 2 + 10
-            TestDns.response(
-                0, q.question.name, q.question.type,
-                answers = listOf(rr(Q, Dns.TYPE_CNAME, 300, target), rr(ptr(targetAt), Dns.TYPE_A, 300, a(1, 2, 3, 4))),
-            )
-        }
+        upstreamAnswer = cnameAnswer("collect.tracker.net")
         val r = ask("metrics.shop.com")
         assertEquals(0, Dns.addresses(r).sumOf { it.sum() })
-        assertEquals("Ads & trackers", events.single { it.blocked }.reason)
+        val e = events.single { it.blocked }
+        assertEquals("metrics.shop.com", e.domain)
+        // The reason names the alias that matched, so the user can see what to allow.
+        assertEquals("Ads & trackers (via collect.tracker.net)", e.reason)
         assertTrue(addresses.isEmpty())
         // Still blocked when the answer comes from the cache.
         events.clear()
         ask("metrics.shop.com")
         assertEquals(1, upstreamCalls.get())
         assertTrue(events.single().blocked)
+    }
+
+    @Test
+    fun allowingTheAskedNameOverridesItsBlockedAlias() {
+        upstreamAnswer = cnameAnswer("h.online-tracker.net")
+        blocklist = Blocklist(
+            mapOf(ShieldCategory.TRACKERS to HashList.ofDomains(listOf("online-tracker.net"))),
+            ShieldCategory.values().toSet(),
+            allow = HashList.ofDomains(listOf("mybank.com")),
+        )
+        val r = ask("fp.mybank.com")
+        assertEquals(listOf("1.2.3.4"), Dns.addresses(r).map { InetAddress.getByAddress(it).hostAddress })
+        assertTrue(events.none { it.blocked })
+        // From the cache too.
+        ask("fp.mybank.com", type = Dns.TYPE_A, id = 9)
+        assertTrue(events.none { it.blocked })
+        assertEquals(1, upstreamCalls.get())
+    }
+
+    @Test
+    fun allowingTheAliasItselfWorks() {
+        upstreamAnswer = cnameAnswer("h.online-tracker.net")
+        blocklist = Blocklist(
+            mapOf(ShieldCategory.TRACKERS to HashList.ofDomains(listOf("online-tracker.net"))),
+            ShieldCategory.values().toSet(),
+        )
+        ask("fp.mybank.com")
+        assertEquals("Ads & trackers (via h.online-tracker.net)", events.single { it.blocked }.reason)
+        events.clear()
+        // The user allows the name shown in the reason; the cached answer is now let through.
+        blocklist = blocklist.withUser(HashList.ofDomains(listOf("h.online-tracker.net")), HashList.EMPTY)
+        val r = ask("fp.mybank.com")
+        assertEquals(1, Dns.addresses(r).size)
+        assertTrue(events.none { it.blocked })
+    }
+
+    @Test
+    fun blockedCountCountsANameOncePerFewSeconds() {
+        val before = DnsStatus.blocked
+        // An app asks for both address types of the same blocked name at once.
+        ask("www.phish.com", type = Dns.TYPE_A)
+        ask("www.phish.com", type = Dns.TYPE_AAAA)
+        assertEquals(before + 1, DnsStatus.blocked)
+        ask("other.phish.com")
+        assertEquals(before + 2, DnsStatus.blocked)
+        now += DnsStatus.BLOCKED_REPEAT_MS
+        ask("www.phish.com")
+        assertEquals(before + 3, DnsStatus.blocked)
+        // Every lookup is still answered as blocked and logged.
+        assertEquals(4, events.count { it.blocked })
+    }
+
+    @Test
+    fun answersBeforeListsLoadGetShortTtl() {
+        filtering = false
+        val r = ask("www.example.com")
+        assertEquals(DnsCore.UNFILTERED_TTL, r.answers[0].ttl)
+        // Once filtering is on, the cached answer gets its real remaining TTL again.
+        filtering = true
+        val r2 = ask("www.example.com")
+        assertEquals(300L, r2.answers[0].ttl)
+        assertEquals(1, upstreamCalls.get())
+        // And a cached answer handed out while still loading is capped too.
+        filtering = false
+        assertEquals(DnsCore.UNFILTERED_TTL, ask("www.example.com").answers[0].ttl)
     }
 
     @Test

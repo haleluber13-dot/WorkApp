@@ -16,9 +16,17 @@ import java.util.Arrays
  * @param category the list that blocks it, or null when the user blocked it themselves (denylist).
  * @param matched the entry that matched: the domain itself or one of its parents.
  */
-data class Verdict(val category: ShieldCategory?, val matched: String) {
-    /** Plain words for the activity log, e.g. "Phishing & scams" or "Blocked by you". */
-    val reason: String get() = category?.title ?: "Blocked by you"
+data class Verdict(
+    val category: ShieldCategory?,
+    val matched: String,
+    /** The alias (CNAME target) that was blocked when the asked name itself is fine, else null. */
+    val via: String? = null,
+) {
+    /**
+     * Plain words for the activity log, e.g. "Phishing & scams", "Blocked by you" or
+     * "Ads & trackers (via collect.tracker.net)" so the user can see which name to allow.
+     */
+    val reason: String get() = (category?.title ?: "Blocked by you") + (via?.let { " (via $it)" } ?: "")
 }
 
 /** 64-bit hash of a domain name: FNV-1a over the lowercased bytes, then the murmur3 finalizer. */
@@ -120,12 +128,13 @@ class Blocklist(
     fun withLists(changed: Map<ShieldCategory, HashList>) = Blocklist(listMap() + changed, enabledSet(), allow, deny)
     fun withUser(allow: HashList, deny: HashList) = Blocklist(listMap(), enabledSet(), allow, deny)
 
-    /**
-     * Checks [domain] and each parent domain (never the bare top-level domain like "com").
-     * Order: the user's allowlist wins over everything, then the user's denylist, then the
-     * enabled lists in category order (MALWARE first, so the most serious reason is shown).
-     */
-    fun check(domain: String): Verdict? {
+    /** [name] and its parents (at least two labels each), most specific first, with their hashes. */
+    private class Suffixes(val name: String, val starts: IntArray, val hashes: LongArray) {
+        val size: Int get() = hashes.size
+        fun text(i: Int): String = name.substring(starts[i])
+    }
+
+    private fun suffixes(domain: String): Suffixes? {
         val name = normalizeQueryName(domain) ?: return null
         // Start index of every suffix that has at least two labels.
         val starts = IntArray(MAX_LABELS)
@@ -139,21 +148,54 @@ class Blocklist(
         }
         n-- // drop the last label (the TLD)
         if (n <= 0) return null
-        val hashes = LongArray(n) { DomainHash.of(name, starts[it]) }
-        for (h in hashes) if (h in allow) return null
-        for (i in 0 until n) if (hashes[i] in deny) return Verdict(null, name.substring(starts[i]))
+        return Suffixes(name, starts, LongArray(n) { DomainHash.of(name, starts[it]) })
+    }
+
+    /**
+     * The user's own rule for [s]: walking from the full name up to its parents, the first
+     * (most specific) allow or deny entry decides. So a block of "ads.example.com" beats an
+     * allow of "example.com", and an allow of "shop.example.com" beats a block of "example.com".
+     * Returns null if no user entry applies, [ALLOWED] if allowed, else the deny verdict.
+     */
+    private fun userRule(s: Suffixes): Verdict? {
+        for (i in 0 until s.size) {
+            val h = s.hashes[i]
+            if (h in allow) return ALLOWED
+            if (h in deny) return Verdict(null, s.text(i))
+        }
+        return null
+    }
+
+    /**
+     * Checks [domain] and each parent domain (never the bare top-level domain like "com").
+     * Order: the user's own lists first (the most specific entry wins, see [userRule]), then
+     * the enabled lists in category order (MALWARE first, so the most serious reason is shown).
+     */
+    fun check(domain: String): Verdict? {
+        val s = suffixes(domain) ?: return null
+        val user = userRule(s)
+        if (user === ALLOWED) return null
+        if (user != null) return user
         for (c in CATEGORIES) {
             if (!enabled[c.ordinal]) continue
             val list = lists[c.ordinal]
             if (list.size == 0) continue
-            for (i in 0 until n) if (hashes[i] in list) return Verdict(c, name.substring(starts[i]))
+            for (i in 0 until s.size) if (s.hashes[i] in list) return Verdict(c, s.text(i))
         }
         return null
+    }
+
+    /** True if the user's own allowlist covers [domain] (and no more specific block of theirs overrides it). */
+    fun isUserAllowed(domain: String): Boolean {
+        val s = suffixes(domain) ?: return false
+        return userRule(s) === ALLOWED
     }
 
     companion object {
         private val CATEGORIES = ShieldCategory.values()
         private const val MAX_LABELS = 128
+        /** Marker returned by userRule() for "allowed by the user". Never handed out. */
+        private val ALLOWED = Verdict(null, "")
         val EMPTY = Blocklist(emptyMap(), emptySet())
 
         /** Lowercase, trim, strip trailing dots. Null if nothing is left or it is absurdly long. */
@@ -323,7 +365,15 @@ object HashFile {
 
     /** Reads a whole file; null if it is not a valid hash file. */
     fun read(file: File): Pair<Header, HashList>? = try {
-        val bytes = file.readBytes()
+        parse(file.readBytes())
+    } catch (_: IOException) {
+        null
+    } catch (_: OutOfMemoryError) {
+        null
+    }
+
+    /** Parses a whole hash file held in memory (e.g. a bundled asset); null if not valid. */
+    fun parse(bytes: ByteArray): Pair<Header, HashList>? = try {
         val header = readHeader(DataInputStream(bytes.inputStream()), bytes.size.toLong())
         if (header == null) null else {
             val arr = LongArray(header.count)

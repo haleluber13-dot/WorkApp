@@ -63,13 +63,45 @@ class BlocklistTest {
             deny = HashList.ofDomains(listOf("nosy.com", "x.site.com")),
         )
         assertNull(b.check("ads.site.com")) // a parent on the allowlist allows the whole site
-        assertNull(b.check("x.site.com")) // allow wins even over the user's own deny
         assertNull(b.check("ok.bad.com"))
         assertEquals(ShieldCategory.MALWARE, b.check("other.bad.com")?.category)
         val v = b.check("api.nosy.com")!!
         assertNull(v.category)
         assertEquals("nosy.com", v.matched)
         assertEquals("Blocked by you", v.reason)
+    }
+
+    @Test
+    fun mostSpecificUserRuleWins() {
+        val b = Blocklist(
+            lists(ShieldCategory.TRACKERS to listOf("tracker.example.com", "cdn.shop.com")),
+            all,
+            allow = HashList.ofDomains(listOf("example.com", "ok.shop.com")),
+            deny = HashList.ofDomains(listOf("ads.example.com", "shop.com")),
+        )
+        // Block of a subdomain beats allow of its parent...
+        val v = b.check("x.ads.example.com")!!
+        assertNull(v.category)
+        assertEquals("ads.example.com", v.matched)
+        assertFalse(b.isUserAllowed("ads.example.com"))
+        // ...and the parent's allow still covers everything else, lists included.
+        assertNull(b.check("www.example.com"))
+        assertNull(b.check("tracker.example.com"))
+        assertTrue(b.isUserAllowed("tracker.example.com"))
+        // Allow of a subdomain beats block of its parent.
+        assertNull(b.check("ok.shop.com"))
+        assertNull(b.check("a.ok.shop.com"))
+        assertTrue(b.isUserAllowed("a.ok.shop.com"))
+        assertEquals("shop.com", b.check("cdn.shop.com")!!.matched) // the user's block is the reason
+        assertFalse(b.isUserAllowed("unrelated.org"))
+        assertFalse(b.isUserAllowed(""))
+    }
+
+    @Test
+    fun verdictReasonNamesTheAlias() {
+        assertEquals("Ads & trackers", Verdict(ShieldCategory.TRACKERS, "t.net").reason)
+        assertEquals("Ads & trackers (via c.t.net)", Verdict(ShieldCategory.TRACKERS, "t.net", via = "c.t.net").reason)
+        assertEquals("Blocked by you (via x.com)", Verdict(null, "x.com", via = "x.com").reason)
     }
 
     @Test
