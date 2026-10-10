@@ -44,6 +44,28 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 
+/** What to tell the user after the VPN was taken away from outside PhoneGuard. */
+internal data class RevokeNotice(val title: String, val text: String, val quiet: Boolean)
+
+/**
+ * [otherVpn]: another VPN app is running now, so that is what turned protection off. Otherwise we
+ * can't tell who did (maybe the user's own Disconnect), so the message stays neutral and quiet.
+ */
+internal fun revokeNotice(otherVpn: Boolean): RevokeNotice =
+    if (otherVpn) {
+        RevokeNotice(
+            "PhoneGuard protection was turned off",
+            "Another VPN app has started, and Android runs only one VPN at a time. Tap to turn PhoneGuard back on.",
+            quiet = false,
+        )
+    } else {
+        RevokeNotice(
+            "PhoneGuard protection is off",
+            "PhoneGuard protection was turned off outside the app. Tap to turn it back on.",
+            quiet = true,
+        )
+    }
+
 /**
  * The firewall. Android only lets an app filter other apps' traffic by acting as a VPN, so this
  * is a local VPN on the phone; it never sends your traffic to a VPN server.
@@ -74,7 +96,14 @@ class FirewallService : VpnService() {
         private const val VPN_DNS = "10.215.173.53"
         /** Basic mode with nothing to block routes only this unused address into the VPN: nothing. */
         private const val IDLE_ROUTE = "10.215.173.2"
-        private const val MTU = 1500
+        /**
+         * Full mode's interface MTU. Packets never leave the phone in this form (the engine
+         * relays each connection over a normal socket), so large packets cost nothing on the real
+         * network, while every packet costs a system call and the app's network stack time: 9000
+         * moves the same data in about a sixth as many packets as 1500. (UDP datagrams up to
+         * this size also pass whole instead of in fragments, which the engine can't relay.)
+         */
+        private const val MTU = 9000
         private const val ALERT_CHANNEL = "protection"
         private const val FALLBACK_NOTIFICATION = 0x5047
         private const val WATCHDOG_MS = 20_000L
@@ -150,15 +179,20 @@ class FirewallService : VpnService() {
             context: Context,
             title: String = "PhoneGuard protection is off",
             text: String = "Tap to turn it back on.",
+            /** On the low-importance status channel (no sound) instead of the alerts channel. */
+            quiet: Boolean = false,
         ) {
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
             if (Build.VERSION.SDK_INT >= 33 &&
                 context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
             ) return
             try {
-                nm.createNotificationChannel(
+                val channel = if (quiet) {
+                    NotificationChannel(STATUS_CHANNEL, "Protection status", NotificationManager.IMPORTANCE_LOW)
+                } else {
                     NotificationChannel(ALERT_CHANNEL, "Protection alerts", NotificationManager.IMPORTANCE_DEFAULT)
-                )
+                }
+                nm.createNotificationChannel(channel)
                 val open = PendingIntent.getActivity(
                     context, 3,
                     Intent(context, MainActivity::class.java)
@@ -168,7 +202,7 @@ class FirewallService : VpnService() {
                 )
                 nm.notify(
                     TURN_ON_NOTIFICATION,
-                    Notification.Builder(context, ALERT_CHANNEL)
+                    Notification.Builder(context, channel.id)
                         .setSmallIcon(R.drawable.ic_shield)
                         .setContentTitle(title)
                         .setContentText(text)
@@ -186,6 +220,36 @@ class FirewallService : VpnService() {
                 context.getSystemService(NotificationManager::class.java)?.cancel(TURN_ON_NOTIFICATION)
             } catch (_: Exception) {
             }
+        }
+
+        /** How long after a revoke to look whether another VPN app has taken over. */
+        private const val REVOKE_CHECK_MS = 2_500L
+
+        /**
+         * After the VPN was taken away from outside PhoneGuard: names another VPN app if one is
+         * running now, else says it neutrally (it may have been the user's own Disconnect) on the
+         * quiet status channel.
+         */
+        private fun notifyRevoked(context: Context) {
+            // Turned back on meanwhile (or the user switched protection off in PhoneGuard).
+            if (running || Rules(context).enabled) return
+            val notice = revokeNotice(otherVpnActive(context))
+            notifyTurnBackOn(context, notice.title, notice.text, quiet = notice.quiet)
+        }
+
+        /**
+         * True if a VPN is running now. Ours is gone, so it belongs to another app; then
+         * [VpnService.prepare] also asks before PhoneGuard may take the VPN back.
+         */
+        @Suppress("DEPRECATION")
+        private fun otherVpnActive(context: Context): Boolean = try {
+            val cm = context.getSystemService(ConnectivityManager::class.java)
+            val vpnUp = cm != null && cm.allNetworks.any {
+                cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+            }
+            vpnUp && VpnService.prepare(context) != null
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -397,17 +461,17 @@ class FirewallService : VpnService() {
     }
 
     override fun onRevoke() {
-        // Another VPN app took over, or the VPN was switched off in Android's settings. (Turning
-        // protection off in PhoneGuard stops the service directly and never comes here.)
+        // Another VPN app took over, or someone tapped Disconnect in Android's VPN dialog or
+        // settings. (Turning protection off in PhoneGuard stops the service directly and never
+        // comes here.)
         val wasOn = rules.enabled
         rules.enabled = false
         stopFirewall()
         if (wasOn) {
-            notifyTurnBackOn(
-                this,
-                "PhoneGuard protection was turned off",
-                "This usually happens when another VPN app starts. Tap to turn it back on.",
-            )
+            // Give a VPN app that is taking over a moment to come up, then say what happened.
+            // Not on [main]: its callbacks are dropped when this service is destroyed.
+            val app = applicationContext
+            Handler(Looper.getMainLooper()).postDelayed({ notifyRevoked(app) }, REVOKE_CHECK_MS)
         }
         super.onRevoke()
     }
@@ -871,6 +935,9 @@ class FirewallService : VpnService() {
                 false
             }
         }
+
+        /** No app is blocked on this network: the engine may start connections before the owner is known. */
+        override fun allowsEveryone(): Boolean = unknownAllowed
 
         override fun isAllowed(uid: Int): Boolean {
             // Unknown owner (-1): the engine couldn't tell which app it is, almost always because

@@ -291,6 +291,78 @@ class PacketsTest {
     }
 
     @Test
+    fun synAckWithMssAndWindowScale() {
+        val out = ByteArray(200)
+        for (shift in intArrayOf(0, 4, 14)) {
+            val n = PacketWriter().tcp(out, false, v4b, v4a, 443, 40000, 7, 8, TCP_SYN or TCP_ACK, 65535, 1460, 0, shift)
+            assertEquals(20 + 28, n)
+            assertChecksumsValid(out.copyOf(n))
+            val v = PacketView()
+            assertTrue(v.parse(out, n))
+            assertEquals(1460, v.mss)
+            assertEquals(shift, v.wscale)
+            assertEquals(shift, TestPackets.windowScale(out.copyOf(n), v))
+        }
+        // Window scale alone (no MSS) still ends on a 4-byte boundary.
+        val n6 = PacketWriter().tcp(out, true, v6b, v6a, 443, 51000, 1, 2, TCP_SYN or TCP_ACK, 1000, 0, 0, 7)
+        assertEquals(40 + 24, n6)
+        assertChecksumsValid(out.copyOf(n6))
+        val v = PacketView()
+        assertTrue(v.parse(out, n6))
+        assertEquals(0, v.mss)
+        assertEquals(7, v.wscale)
+    }
+
+    @Test
+    fun windowScaleIsReadFromAFullAndroidSyn() {
+        // MSS, SACK permitted, timestamps, NOP, window scale: what Android's kernel sends.
+        val opts = hex("020405b4" + "0402" + "080a0001e2400000000" + "0" + "01" + "030307")
+        assertEquals(20, opts.size)
+        val out = ByteArray(200)
+        val n = PacketWriter().tcp(out, false, v4a, v4b, 40000, 443, 1, 0, TCP_SYN, 65535, 0, 0)
+        val p = ByteArray(n + opts.size)
+        System.arraycopy(out, 0, p, 0, 40)
+        System.arraycopy(opts, 0, p, 40, opts.size)
+        p[32] = (10 shl 4).toByte() // TCP header: 40 bytes
+        put16(p, 2, p.size)
+        val v = PacketView()
+        assertTrue(v.parse(p, p.size))
+        assertEquals(1460, v.mss)
+        assertEquals(7, v.wscale)
+        // Not in a SYN: options are not looked at.
+        p[33] = TCP_ACK.toByte()
+        assertTrue(v.parse(p, p.size))
+        assertEquals(0, v.mss)
+        assertEquals(-1, v.wscale)
+        // A SYN without the option.
+        val plain = PacketWriter().tcp(out, false, v4a, v4b, 40000, 443, 1, 0, TCP_SYN, 65535, 1460, 0)
+        assertTrue(v.parse(out, plain))
+        assertEquals(-1, v.wscale)
+    }
+
+    @Test
+    fun checksumMatchesAPlainReferenceForAllLengthsAndOffsets() {
+        val r = java.util.Random(7)
+        val b = ByteArray(3000).also { r.nextBytes(it) }
+        fun reference(off: Int, len: Int): Int {
+            var s = 0L
+            var i = 0
+            while (i < len) {
+                val hi = b[off + i].toInt() and 0xFF
+                val lo = if (i + 1 < len) b[off + i + 1].toInt() and 0xFF else 0
+                s += (hi shl 8) or lo
+                i += 2
+            }
+            while (s ushr 16 != 0L) s = (s and 0xFFFF) + (s ushr 16)
+            return s.toInt().inv() and 0xFFFF
+        }
+        for (len in 0..40) for (off in 0..9) assertEquals("len $len off $off", reference(off, len), Checksum.of(b, off, len))
+        for (len in intArrayOf(1459, 1460, 1461, 2047, 2048, 2990)) assertEquals(reference(3, len), Checksum.of(b, 3, len))
+        // A running sum carried into the next call, as the pseudo-header is.
+        assertEquals(Checksum.finish(Checksum.add(Checksum.add(0, b, 0, 100), b, 100, 901)), Checksum.of(b, 0, 1001))
+    }
+
+    @Test
     fun sequenceComparisonsWrap() {
         assertTrue(seqLt(0xFFFFFFF0.toInt(), 5))
         assertTrue(seqGt(5, 0xFFFFFFF0.toInt()))

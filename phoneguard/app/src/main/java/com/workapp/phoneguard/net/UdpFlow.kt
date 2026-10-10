@@ -4,11 +4,22 @@ import com.workapp.phoneguard.core.Kind
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.StandardProtocolFamily
 import java.nio.ByteBuffer
 import java.nio.channels.ClosedChannelException
 import java.nio.channels.DatagramChannel
 import java.nio.channels.SelectionKey
+
+/**
+ * True if a datagram to [to] stays on the local network: broadcast, multicast (our socket sends
+ * those one hop only) or a local-network address. DNS (53, and DNS over QUIC on 853) is left
+ * out: a resolver on the router passes questions on to the internet.
+ */
+internal fun udpStaysLocal(to: InetSocketAddress): Boolean {
+    if (to.port == 53 || to.port == 853) return false
+    val b = to.address?.address ?: return false
+    val v6 = b.size == 16
+    return !Addr.isUnicast(b, 0, v6) || Addr.isLan(b, 0, v6)
+}
 
 /**
  * One app UDP socket (the app's address and port), relayed over one real, unconnected datagram
@@ -27,14 +38,20 @@ import java.nio.channels.SelectionKey
  *
  * Each new destination is logged once, and bytes are counted for the app as a whole. The owner is
  * looked up before anything is sent on; if nobody owns the port (see [UidResolver]) and unknown
- * owners are not allowed, nothing is relayed and the next datagram asks again. The owner is checked
- * again when the app talks to a new destination and every [EngineConfig.ownerCheckMs]: if the port
- * changed hands (the app closed its socket, maybe another app took the port), the flow starts over.
+ * owners are not allowed, nothing goes to the internet and the next datagram asks again. Datagrams
+ * to the local network (broadcast, multicast, or a local address) still go out then: one-shot
+ * senders like wake-on-LAN or a TV remote close their socket at once, and these can't reach the
+ * internet. The owner is checked again when the app talks to a new destination and every
+ * [EngineConfig.ownerCheckMs]: if the port changed hands (the app closed its socket, maybe
+ * another app took the port), the flow starts over.
+ *
+ * The relay socket is opened (and protected) off the loop thread by the engine; datagrams wait
+ * in [held] until it arrives.
  */
 internal class UdpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(key, now) {
     private enum class State { RESOLVING, OPEN, BLOCKED, UNKNOWN }
 
-    /** A datagram held while the owner is looked up. */
+    /** A datagram held while the owner is looked up or the socket opens. */
     private class Held(val to: InetSocketAddress, val data: ByteArray)
 
     private companion object {
@@ -51,11 +68,17 @@ internal class UdpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         const val PAUSE_CHECK_MS = 5_000L
     }
 
+    private fun staysLocal(to: InetSocketAddress) = udpStaysLocal(to)
+
     /** IPv6 packets to IPv4-mapped addresses (::ffff:a.b.c.d): relayed over IPv4. */
     private val mapped = key.v6 && Addr.isMapped(key.dst, 0)
+    /** The relay socket is IPv4: for IPv4 apps, and for IPv6 packets to IPv4-mapped addresses. */
+    val ipv4Socket: Boolean = !key.v6 || mapped
     private var state = State.RESOLVING
     private var ch: DatagramChannel? = null
     private var sk: SelectionKey? = null
+    /** The engine is opening the relay socket. */
+    private var opening = false
     private var held: ArrayList<Held>? = null
     private var heldBytes = 0
     /** An owner lookup is running. */
@@ -118,20 +141,31 @@ internal class UdpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         val to = destination(v)
         if (to.port != 53) dnsOnly = false
         when (state) {
-            State.RESOLVING -> hold(v, to)
-            State.OPEN -> {
-                p.bb.window(v.payloadOff, v.payloadOff + v.payloadLen)
-                relay(p.bb, to, v.buf, v.payloadOff, v.payloadLen)
-            }
+            State.RESOLVING -> hold(v.buf, v.payloadOff, v.payloadLen, to, lookUp = true)
+            State.OPEN -> forward(p, v, to)
             State.BLOCKED -> {
                 if (note(to)) report(to, true, dnsName(to, v.buf, v.payloadOff, v.payloadLen))
                 maybeCheckOwner()
             }
-            State.UNKNOWN -> if (e.now >= retryAt) {
-                state = State.RESOLVING
-                hold(v, to)
+            State.UNKNOWN -> when {
+                staysLocal(to) -> forward(p, v, to)
+                e.now >= retryAt -> {
+                    state = State.RESOLVING
+                    hold(v.buf, v.payloadOff, v.payloadLen, to, lookUp = true)
+                }
             }
         }
+    }
+
+    /** Sends a datagram straight from the tun packet, or holds it while the socket opens. */
+    private fun forward(p: Packet, v: PacketView, to: InetSocketAddress) {
+        if (ch == null) {
+            hold(v.buf, v.payloadOff, v.payloadLen, to, lookUp = false)
+            needChannel()
+            return
+        }
+        p.bb.window(v.payloadOff, v.payloadOff + v.payloadLen)
+        relay(p.bb, to, v.buf, v.payloadOff, v.payloadLen)
     }
 
     /** The datagram's destination; the same object as last time if it didn't change. */
@@ -152,37 +186,46 @@ internal class UdpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         return true
     }
 
-    /** Keeps the first few datagrams until we know whether the app may send them. */
-    private fun hold(v: PacketView, to: InetSocketAddress) {
+    /** Keeps the first few datagrams until we know whether (and through which socket) they may go. */
+    private fun hold(b: ByteArray, off: Int, len: Int, to: InetSocketAddress, lookUp: Boolean) {
         val q = held ?: ArrayList<Held>(4).also { held = it }
-        if (q.size < MAX_QUEUED && heldBytes + v.payloadLen <= MAX_QUEUED_BYTES) {
-            q.add(Held(to, v.buf.copyOfRange(v.payloadOff, v.payloadOff + v.payloadLen)))
-            heldBytes += v.payloadLen
+        if (q.size < MAX_QUEUED && heldBytes + len <= MAX_QUEUED_BYTES) {
+            q.add(Held(to, b.copyOfRange(off, off + len)))
+            heldBytes += len
         }
-        if (!asking) {
+        if (lookUp && !asking) {
             asking = true
             askedAt = e.now
             e.resolve(this, to)
         }
     }
 
-    override fun onResolved(uid: Int, allowed: Boolean) {
-        if (closed || state != State.RESOLVING) return
-        asking = false
+    private fun takeHeld(): ArrayList<Held>? {
         val q = held
         held = null
         heldBytes = 0
+        return q
+    }
+
+    override fun onResolved(uid: Int, allowed: Boolean) {
+        if (closed || state != State.RESOLVING) return
+        asking = false
+        val q = takeHeld()
         if (uid < 0 && !allowed) {
             // Nobody owns the port: the app closed its socket straight away, which is also how a
-            // blocked app could try to pass for unknown. Never relay that. A live socket's next
-            // datagram asks again (soon, but not for every datagram: lookups cost the system).
+            // blocked app could try to pass for unknown. Nothing of that goes to the internet. A
+            // live socket's next datagram asks again (soon, but not for every datagram: lookups
+            // cost the system). What stays on the local network still goes.
             this.uid = -1
             resolved = false
             state = State.UNKNOWN
             retryAt = e.now + e.config.unknownRetryMs
             if (q != null) {
                 val seen = HashSet<InetSocketAddress>()
-                for (h in q) if (seen.add(h.to)) report(h.to, true, dnsName(h.to, h.data, 0, h.data.size))
+                for (h in q) {
+                    if (staysLocal(h.to)) sendHeld(h)
+                    else if (seen.add(h.to)) report(h.to, true, dnsName(h.to, h.data, 0, h.data.size))
+                }
             }
             return
         }
@@ -193,51 +236,71 @@ internal class UdpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         checkStarted = e.now
         if (!allowed) {
             state = State.BLOCKED
+            closeChannel() // opened while the answer was still yes (the rules changed since)
             if (q != null) for (h in q) if (note(h.to)) report(h.to, true, dnsName(h.to, h.data, 0, h.data.size))
             checkDue = false
             return
         }
-        if (!open()) {
-            close()
-            return
-        }
+        state = State.OPEN
         if (q != null) for (h in q) {
             if (closed) break
-            relay(ByteBuffer.wrap(h.data), h.to, h.data, 0, h.data.size)
+            sendHeld(h)
         }
         checkDue = false
     }
 
+    /** Sends one held datagram, or holds it again until the socket is open. */
+    private fun sendHeld(h: Held) {
+        if (ch == null) {
+            hold(h.data, 0, h.data.size, h.to, lookUp = false)
+            needChannel()
+            return
+        }
+        relay(ByteBuffer.wrap(h.data), h.to, h.data, 0, h.data.size)
+    }
+
     override fun onLookupFailed() = close()
 
-    private fun open(): Boolean {
-        // IPv4 for IPv4 apps and for IPv6 packets to IPv4-mapped addresses.
-        val v4 = !key.v6 || mapped
-        val c = try {
-            DatagramChannel.open(if (v4) StandardProtocolFamily.INET else StandardProtocolFamily.INET6)
-        } catch (ex: Exception) {
-            return false
+    /** Asks the engine for a relay socket, once. */
+    private fun needChannel() {
+        if (ch != null || opening || closed) return
+        opening = true
+        e.openUdpFor(this)
+    }
+
+    /** The relay socket, opened by the engine off the loop thread; null if it couldn't be. Takes ownership. */
+    fun onChannel(c: DatagramChannel?) {
+        opening = false
+        if (c == null) {
+            if (!closed && state != State.RESOLVING && state != State.BLOCKED) close() // can't send at all
+            return
+        }
+        if (closed || ch != null || state == State.BLOCKED) {
+            try {
+                c.close()
+            } catch (_: Exception) {
+            }
+            return
         }
         try {
-            c.configureBlocking(false)
-            e.protector.protect(c.socket())
-            if (v4) {
-                try {
-                    c.socket().broadcast = true // lets apps reach broadcast addresses (e.g. wake-on-LAN)
-                } catch (_: Exception) {
-                }
-            }
             // Not connected: one socket, and so one public port, for every destination.
             sk = c.register(e.selector, SelectionKey.OP_READ, this)
             ch = c
-            state = State.OPEN
-            return true
         } catch (ex: Exception) {
             try {
                 c.close()
             } catch (_: Exception) {
             }
-            return false
+            close()
+            return
+        }
+        // Datagrams that waited for the socket (in RESOLVING they wait for the owner instead).
+        if (state == State.OPEN || state == State.UNKNOWN) {
+            val q = takeHeld() ?: return
+            for (h in q) {
+                if (closed) break
+                if (state == State.OPEN || staysLocal(h.to)) sendHeld(h)
+            }
         }
     }
 
@@ -379,9 +442,7 @@ internal class UdpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
 
     override fun kill() = close()
 
-    fun close() {
-        if (closed) return
-        closed = true
+    private fun closeChannel() {
         sk?.cancel()
         sk = null
         ch?.let {
@@ -391,6 +452,12 @@ internal class UdpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             }
         }
         ch = null
+    }
+
+    fun close() {
+        if (closed) return
+        closed = true
+        closeChannel()
         held = null
         e.removeUdp(this)
     }

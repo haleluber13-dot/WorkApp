@@ -77,23 +77,37 @@ class AppTcp(
     var sndNxt = Random.nextInt()
     var rcvNxt = 0
     var engUna = 0
+    /** The engine's window in bytes (its window field scaled by [engShift]). */
     var engWnd = 0
-    /** The window we advertise. */
+    /** The window we advertise, in bytes. */
     var window = 65535
     /** The ACK number we sent last. */
     var lastAck = 0
+    /** The right edge of the window we advertised last. */
+    var lastEdge = 0
     var finReceived = false
-    /** Smallest window the engine advertised to us. */
+    /** Smallest and largest window the engine advertised to us, in bytes. */
     var minEngWnd = Int.MAX_VALUE
+    var maxEngWnd = 0
+    /** Window scaling as negotiated: the engine's shift (for its windows) and ours. */
+    var engShift = 0
+    var myShift = 0
+    /** The right edges the engine advertised (ack + scaled window), in order. */
+    val engEdges = ArrayList<Int>()
 
     fun send(
         flags: Int, data: ByteArray = ByteArray(0), off: Int = 0, len: Int = data.size - off,
-        seq: Int = sndNxt, ack: Int = rcvNxt, win: Int = window, mss: Int = 0,
+        seq: Int = sndNxt, ack: Int = rcvNxt, win: Int = window, mss: Int = 0, wscale: Int = -1,
     ) {
-        val po = PacketWriter.ipHeaderLen(v6) + if (mss > 0) 24 else 20
+        val po = PacketWriter.ipHeaderLen(v6) + 20 + (if (mss > 0) 4 else 0) + (if (wscale >= 0) 4 else 0)
         System.arraycopy(data, off, out, po, len)
-        val n = w.tcp(out, v6, src, dst, srcPort, dstPort, seq, ack, flags, win, mss, len)
-        if (flags and TCP_ACK != 0) lastAck = ack
+        // A SYN's window is never scaled; later ones are, by our shift.
+        val field = if (flags and TCP_SYN != 0) minOf(win, 65535) else minOf(win ushr myShift, 65535)
+        val n = w.tcp(out, v6, src, dst, srcPort, dstPort, seq, ack, flags, field, mss, len, wscale)
+        if (flags and TCP_ACK != 0) {
+            lastAck = ack
+            lastEdge = ack + (field shl myShift)
+        }
         tun.toEngine.put(out.copyOf(n))
     }
 
@@ -118,18 +132,29 @@ class AppTcp(
         }
     }
 
-    fun connect(win: Int = 65535): Seg {
+    /** Connects; [wscale] >= 0 offers window scaling with that shift (RFC 7323). */
+    fun connect(win: Int = 65535, wscale: Int = -1, synWin: Int = win): Seg {
         window = win
-        send(TCP_SYN, ack = 0, mss = 1460)
+        send(TCP_SYN, ack = 0, win = synWin, mss = 1460, wscale = wscale)
         val sa = expect("SYN-ACK") { it.has(TCP_SYN) || it.has(TCP_RST) }
         assertEquals("SYN-ACK flags in $sa", TCP_SYN or TCP_ACK, sa.flags)
         assertEquals(sndNxt + 1, sa.ack)
+        if (wscale < 0) assertEquals("window scale offered back although we offered none", -1, sa.wscale)
+        if (sa.wscale >= 0) {
+            engShift = minOf(sa.wscale, 14)
+            myShift = minOf(wscale, 14) // the engine counts shifts above 14 as 14 (RFC 7323)
+        }
+        finishHandshake(sa)
+        return sa
+    }
+
+    /** Acknowledges the engine's SYN-ACK [sa] to our SYN (sent earlier, sequence [sndNxt]). */
+    fun finishHandshake(sa: Seg) {
         sndNxt += 1
         rcvNxt = sa.seq + 1
         engUna = sa.ack
-        engWnd = sa.window
+        engWnd = sa.window // never scaled in a SYN-ACK
         send(TCP_ACK)
-        return sa
     }
 
     /** Set when received data still needs an ACK (see [flushAck]). */
@@ -145,13 +170,15 @@ class AppTcp(
         assertFalse("unexpected reset: $s", s.has(TCP_RST))
         if (s.has(TCP_ACK) && !seqLt(s.ack, engUna)) {
             engUna = s.ack
-            engWnd = s.window
+            engWnd = s.window shl engShift
             if (engWnd < minEngWnd) minEngWnd = engWnd
+            if (engWnd > maxEngWnd) maxEngWnd = engWnd
+            engEdges += s.ack + engWnd
         }
         if (s.payload.isNotEmpty()) {
             assertFalse(
-                "engine overran our window: $s (right edge ${lastAck + window})",
-                seqGt(s.seq + s.payload.size, lastAck + window),
+                "engine overran our window: $s (right edge $lastEdge)",
+                seqGt(s.seq + s.payload.size, lastEdge),
             )
             if (s.seq == rcvNxt) {
                 rx.write(s.payload)
@@ -197,8 +224,11 @@ class AppTcp(
         sndNxt += b.size
     }
 
-    /** Sends [upload] and receives [downloadLen] bytes at the same time, resending if the engine drops data. */
-    fun exchange(upload: ByteArray, downloadLen: Int, timeoutMs: Long = 90_000): ByteArray {
+    /**
+     * Sends [upload] and receives [downloadLen] bytes at the same time, resending if the engine
+     * drops data. Sends at most [burst] segments before looking at what came back.
+     */
+    fun exchange(upload: ByteArray, downloadLen: Int, timeoutMs: Long = 90_000, burst: Int = 16): ByteArray {
         val rx = ByteArrayOutputStream()
         val base = sndNxt
         val end = System.currentTimeMillis() + timeoutMs
@@ -207,8 +237,8 @@ class AppTcp(
             check(System.currentTimeMillis() < end) {
                 "transfer stuck: received ${rx.size()}/$downloadLen, acked ${engUna - base}/${upload.size}, engine window $engWnd"
             }
-            var burst = 16
-            while (burst-- > 0) {
+            var left = burst
+            while (left-- > 0) {
                 val off = sndNxt - base
                 if (off >= upload.size) break
                 val room = engUna + engWnd - sndNxt
@@ -290,9 +320,13 @@ class EngineTest {
         }
     }
 
+    /** What the policy says to "is nothing blocked at all?" (lets connections start before the lookup). */
+    @Volatile private var everyone = false
+
     private val policy = object : FirewallPolicy {
         // Like the service: an unknown owner (-1) may connect only while no app is blocked.
         override fun isAllowed(uid: Int) = if (uid < 0) blocked.isEmpty() else uid !in blocked
+        override fun allowsEveryone() = everyone
     }
 
     /** Answers for the next owner lookups, in order; once used up, [uid]. */
@@ -312,13 +346,20 @@ class EngineTest {
     /** If set, relay TCP sockets get this send buffer (protect() runs before connect, like on the phone). */
     @Volatile private var relaySendBuffer = 0
 
+    /** Runs inside every protect() call (on the phone that is a slow call into the system). */
+    @Volatile private var protectHook: (() -> Unit)? = null
+
     private val protector = object : Protector {
         override fun protect(socket: Socket): Boolean {
+            protectHook?.invoke()
             if (relaySendBuffer > 0) socket.sendBufferSize = relaySendBuffer
             return true
         }
 
-        override fun protect(socket: DatagramSocket) = true
+        override fun protect(socket: DatagramSocket): Boolean {
+            protectHook?.invoke()
+            return true
+        }
     }
 
     // A DNS query for example.com, type A.
@@ -330,6 +371,7 @@ class EngineTest {
     private fun start(
         config: EngineConfig = EngineConfig(rtoMs = 200, rtoMaxMs = 800, lingerMs = 200),
         io: TunIo = tun,
+        setup: (Engine) -> Unit = {},
     ): Engine {
         val resolver = UidResolver { _, _, _ ->
             slowLookup?.await(10, TimeUnit.SECONDS)
@@ -337,6 +379,7 @@ class EngineTest {
             answers.poll() ?: uid
         }
         val e = Engine(io, protector, resolver, policy, dnsHandler, listener, config)
+        setup(e)
         e.start()
         engine = e
         return e
@@ -1387,5 +1430,411 @@ class EngineTest {
         a.expect("reset after the half-closed time", 5_000) { it.has(TCP_RST) }
         waitUntil("connection removed") { engine!!.tcpFlows == 0 }
         assertEquals("a server may think for minutes", 10 * 60_000L, EngineConfig().halfClosedTimeoutMs)
+    }
+
+    // ------------------------------------------------------------------ window scaling (RFC 7323)
+
+    /** Takes the engine's segments for [ms] without acknowledging any; returns the bytes in flight. */
+    private fun inFlight(a: AppTcp, ms: Long): Int {
+        var maxEnd = a.rcvNxt
+        val end = System.currentTimeMillis() + ms
+        while (true) {
+            val left = end - System.currentTimeMillis()
+            if (left <= 0) break
+            val s = a.next(left) ?: break
+            assertFalse("unexpected reset: $s", s.has(TCP_RST))
+            if (s.payload.isNotEmpty() && seqGt(s.seq + s.payload.size, maxEnd)) maxEnd = s.seq + s.payload.size
+        }
+        return maxEnd - a.rcvNxt
+    }
+
+    /** The engine's right edge may move back only by rounding to its window unit, never by more. */
+    private fun assertEdgesNeverRetract(a: AppTcp, unit: Int) {
+        var max = a.engEdges.firstOrNull() ?: return
+        for (edge in a.engEdges) {
+            assertFalse("right edge moved back from $max to $edge", seqLt(edge, max - (unit - 1)))
+            if (seqGt(edge, max)) max = edge
+        }
+    }
+
+    @Test(timeout = 20_000)
+    fun windowScaleIsOfferedBackOnlyWhenTheAppOffersIt() {
+        val ss = server(::echo)
+        val e = start()
+        val a = app(ss.localPort)
+        val sa = a.connect(win = 1 shl 20, wscale = 7)
+        assertEquals("our shift", e.rcvShift, sa.wscale)
+        assertTrue("the shift can offer our biggest buffer", (65535L shl e.rcvShift) >= e.maxRecvBuffer)
+        assertEquals("MSS and window scale only, no SACK or timestamps", 28, sa.tcpHeaderLen)
+        assertEquals(1460, sa.mss)
+        assertTrue("a SYN-ACK's window is never scaled", sa.window in 1..65535)
+        a.sendData("scaled")
+        assertEquals("scaled", String(a.receive(6)))
+
+        // An app that offers no scaling gets none: both windows stay plain 16-bit values.
+        val b = app(ss.localPort)
+        val sb = b.connect()
+        assertEquals(-1, sb.wscale)
+        assertEquals(24, sb.tcpHeaderLen)
+        b.sendData("plain")
+        assertEquals("plain", String(b.receive(5)))
+        assertTrue(b.maxEngWnd <= 65535)
+    }
+
+    @Test(timeout = 20_000)
+    fun windowScalingCanBeTurnedOff() {
+        val ss = server(::echo)
+        start(EngineConfig(rtoMs = 200, rtoMaxMs = 800, lingerMs = 200, windowScaling = false))
+        val a = app(ss.localPort)
+        val sa = a.connect(wscale = 7)
+        assertEquals(-1, sa.wscale)
+        a.sendData("plain")
+        assertEquals("plain", String(a.receive(5)))
+    }
+
+    @Test(timeout = 60_000)
+    fun theAppsWindowIsScaledByItsShift() {
+        val data = pattern(200_000)
+        val ss = server { s ->
+            s.getOutputStream().write(data)
+            s.getOutputStream().flush()
+            Thread.sleep(10_000)
+        }
+        start()
+        // 15 is out of range: RFC 7323 says to use 14.
+        for (shift in listOf(0, 1, 3, 7, 13, 14, 15)) {
+            val eff = minOf(shift, 14)
+            val field = maxOf(1, 30_000 ushr eff)
+            val wnd = field shl eff
+            val a = app(ss.localPort)
+            val sa = a.connect(win = wnd, wscale = shift, synWin = 65535)
+            assertTrue("shift $shift: window scale offered back", sa.wscale >= 0)
+            val n = inFlight(a, 400)
+            // Whole segments up to the window (a runt waits for the next ACK), never beyond it.
+            assertEquals("shift $shift: bytes in flight for a window of $wnd", wnd / 1460 * 1460, n)
+            a.send(TCP_RST or TCP_ACK)
+        }
+    }
+
+    @Test(timeout = 60_000)
+    fun scaledTransferSurvivesSequenceWraparound() {
+        val total = 1_500_000
+        val upload = pattern(total)
+        val ss = server(::echo)
+        // Both sides start just below 2^32, so both directions wrap early on.
+        val e = start(setup = {
+            it.random = object : java.util.Random() {
+                override fun nextInt() = 0xFFFF_F000.toInt()
+            }
+        })
+        val a = app(ss.localPort)
+        a.sndNxt = 0xFFFF_F800.toInt()
+        val sa = a.connect(win = 1 shl 20, wscale = 7)
+        assertEquals(0xFFFF_F000.toInt(), sa.seq)
+        assertArrayEquals(upload, a.exchange(upload, total))
+        assertEdgesNeverRetract(a, 1 shl e.rcvShift)
+        a.closeFromApp()
+        waitUntil("connection removed") { engine!!.tcpFlows == 0 }
+    }
+
+    @Test(timeout = 60_000)
+    fun scaledDownloadKeepsMoreThan64KBInFlight() {
+        val total = 3_000_000
+        val data = pattern(total)
+        val ss = server { s ->
+            s.getOutputStream().write(data)
+            s.getOutputStream().flush()
+            Thread.sleep(20_000)
+        }
+        start()
+        val a = app(ss.localPort)
+        a.connect(win = 4 shl 20, wscale = 7)
+        // The app doesn't acknowledge: the engine fills its window, growing its buffer to do so.
+        val n = inFlight(a, 1_000)
+        assertTrue("more than 64 KB in flight: $n", n > 512 * 1024)
+        assertTrue("no more than the send buffer: $n", n <= EngineConfig().maxSendBuffer)
+        // This app dropped everything it got (it keeps nothing out of order). The engine must
+        // recover segment by segment and still deliver it all intact.
+        assertArrayEquals(data, a.receive(total, 50_000))
+    }
+
+    @Test(timeout = 30_000)
+    fun buffersStayAtTheBaseSizeWhenTheBudgetIsUsedUp() {
+        val ss = server { s ->
+            s.getOutputStream().write(pattern(1_000_000))
+            s.getOutputStream().flush()
+            Thread.sleep(10_000)
+        }
+        start(EngineConfig(rtoMs = 200, rtoMaxMs = 800, lingerMs = 200, bufferBudget = 0))
+        val a = app(ss.localPort)
+        a.connect(win = 4 shl 20, wscale = 7)
+        val n = inFlight(a, 600)
+        assertTrue("no more than one base buffer in flight: $n", n in 60_000..65_536)
+    }
+
+    @Test(timeout = 60_000)
+    fun scaledUploadWindowGrowsBeyond64KB() {
+        val total = 4_000_000
+        val data = pattern(total)
+        val ss = server { s ->
+            val got = s.getInputStream().readNBytes(total)
+            s.getOutputStream().write((if (got.contentEquals(data)) "ok" else "bad").toByteArray())
+        }
+        val e = start()
+        val a = app(ss.localPort)
+        a.connect(win = 1 shl 20, wscale = 7)
+        // Like a busy app: always fill whatever window the engine offers before waiting.
+        assertEquals("ok", String(a.exchange(data, 2, burst = 1000)))
+        assertTrue("the window grew past 64 KB (max ${a.maxEngWnd})", a.maxEngWnd > 65535)
+        assertTrue("within the receive buffer (max ${a.maxEngWnd})", a.maxEngWnd <= e.maxRecvBuffer)
+        assertEdgesNeverRetract(a, 1 shl e.rcvShift)
+    }
+
+    @Test(timeout = 60_000)
+    fun scaledUploadToSlowServerClosesTheWindowThenReopensIt() {
+        val total = 1_000_000
+        val data = pattern(total)
+        val ss = ServerSocket()
+        ss.receiveBufferSize = 8192
+        ss.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0))
+        toClose += ss
+        thread(isDaemon = true) {
+            try {
+                ss.accept().use { s ->
+                    Thread.sleep(1000) // not reading yet: the engine must stop taking data from the app
+                    val got = s.getInputStream().readNBytes(total)
+                    s.getOutputStream().write((if (got.contentEquals(data)) "ok" else "bad").toByteArray())
+                }
+            } catch (_: Exception) {
+            }
+        }
+        relaySendBuffer = 8192
+        val e = start()
+        val a = app(ss.localPort)
+        a.connect(win = 1 shl 20, wscale = 7)
+        assertEquals("ok", String(a.exchange(data, 2, timeoutMs = 30_000)))
+        assertTrue("the engine's window should have closed (min ${a.minEngWnd})", a.minEngWnd < 1460)
+        assertEdgesNeverRetract(a, 1 shl e.rcvShift)
+    }
+
+    // ------------------------------------------------------------------ setting up connections
+
+    @Test(timeout = 20_000)
+    fun withNothingBlockedTheServerIsReachedWhileTheOwnerIsLookedUp() {
+        val accepted = CountDownLatch(1)
+        val ss = server {
+            accepted.countDown()
+            echo(it)
+        }
+        everyone = true
+        val latch = CountDownLatch(1)
+        slowLookup = latch
+        start()
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        assertTrue("the server's handshake starts at once", accepted.await(5, TimeUnit.SECONDS))
+        assertNull("but the app hears nothing until the owner is known and allowed", a.next(300))
+        latch.countDown()
+        a.finishHandshake(a.expect("SYN-ACK") { it.has(TCP_SYN) })
+        a.sendData("hi")
+        assertEquals("hi", String(a.receive(2)))
+        assertEquals(1, lookupCount.get())
+        waitUntil("event") { events.isNotEmpty() }
+        assertEquals(listOf(uid to false), events.map { it.uid to it.blocked })
+    }
+
+    @Test(timeout = 20_000)
+    fun earlyConnectionIsResetWhenTheOwnerTurnsOutBlocked() {
+        // The rules changed between "nothing is blocked" and the answer for this connection.
+        val accepted = CountDownLatch(1)
+        val serverSaw = LinkedBlockingQueue<String>()
+        val ss = server { s ->
+            accepted.countDown()
+            try {
+                serverSaw.add(if (s.getInputStream().read() < 0) "eof" else "data")
+            } catch (e: IOException) {
+                serverSaw.add("reset")
+            }
+        }
+        everyone = true
+        blocked += uid
+        val latch = CountDownLatch(1)
+        slowLookup = latch
+        start()
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        assertTrue(accepted.await(5, TimeUnit.SECONDS))
+        latch.countDown()
+        val rst = a.expect("reset") { true }
+        assertEquals(TCP_RST or TCP_ACK, rst.flags)
+        assertEquals(a.sndNxt + 1, rst.ack)
+        assertEquals("the server's side is reset, nothing was sent", "reset", serverSaw.poll(5, TimeUnit.SECONDS))
+        waitUntil("event") { events.isNotEmpty() }
+        assertTrue(events.single().blocked)
+        waitUntil("connection removed") { engine!!.tcpFlows == 0 }
+    }
+
+    @Test(timeout = 20_000)
+    fun earlyConnectionOfAnUnknownOwnerGetsNoAnswer() {
+        val accepted = CountDownLatch(1)
+        val serverSaw = LinkedBlockingQueue<String>()
+        val ss = server { s ->
+            accepted.countDown()
+            try {
+                serverSaw.add(if (s.getInputStream().read() < 0) "eof" else "data")
+            } catch (e: IOException) {
+                serverSaw.add("reset")
+            }
+        }
+        everyone = true
+        blocked += 999 // the rules changed meanwhile: now unknown owners are blocked
+        answers += -1
+        val latch = CountDownLatch(1)
+        slowLookup = latch
+        start()
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        assertTrue(accepted.await(5, TimeUnit.SECONDS))
+        latch.countDown()
+        assertEquals("reset", serverSaw.poll(5, TimeUnit.SECONDS))
+        assertNull("no SYN-ACK and no reset for an unknown owner", a.next(300))
+        waitUntil("flow forgotten") { engine!!.tcpFlows == 0 }
+    }
+
+    @Test(timeout = 20_000)
+    fun refusedEarlyConnectionIsAnsweredOnlyOnceTheOwnerIsKnown() {
+        val port = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+        everyone = true
+        val latch = CountDownLatch(1)
+        slowLookup = latch
+        start()
+        val a = app(port)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        assertNull("nothing before the owner is known", a.next(400))
+        latch.countDown()
+        val rst = a.expect("reset") { true }
+        assertEquals(TCP_RST or TCP_ACK, rst.flags)
+        assertEquals(a.sndNxt + 1, rst.ack)
+        waitUntil("connection removed") { engine!!.tcpFlows == 0 }
+    }
+
+    @Test(timeout = 20_000)
+    fun whileAnAppIsBlockedNothingLeavesBeforeTheFirewallSaysYes() {
+        val accepted = CountDownLatch(1)
+        val ss = server {
+            accepted.countDown()
+            echo(it)
+        }
+        blocked += 999
+        val latch = CountDownLatch(1)
+        slowLookup = latch
+        start()
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        assertFalse("no connection before the firewall said yes", accepted.await(400, TimeUnit.MILLISECONDS))
+        latch.countDown()
+        a.finishHandshake(a.expect("SYN-ACK") { it.has(TCP_SYN) })
+        a.sendData("ok")
+        assertEquals("ok", String(a.receive(2)))
+    }
+
+    @Test(timeout = 20_000)
+    fun relaySocketsAreProtectedOffTheLoopThread() {
+        val ss = server(::echo)
+        val ds = udpEchoServer()
+        val threads = ConcurrentLinkedQueue<String>()
+        protectHook = { threads.add(Thread.currentThread().name) }
+        start()
+        val a = app(ss.localPort)
+        a.connect()
+        a.sendData("x")
+        assertEquals("x", String(a.receive(1)))
+        sendUdp(app4, 40130, loop4, ds.localPort, "u".toByteArray())
+        assertEquals("u", String((nextUdp() ?: die("no UDP reply")).payload))
+        assertEquals("one TCP and one UDP socket: $threads", 2, threads.size)
+        assertTrue("protect() ran on $threads", threads.none { it == "pg-engine" })
+    }
+
+    @Test(timeout = 20_000)
+    fun slowSocketSetupDoesNotHoldUpOtherTraffic() {
+        val ss = server(::echo)
+        start()
+        val a = app(ss.localPort)
+        a.connect()
+        // The next connection's protect() takes ages (a busy system).
+        val stuck = CountDownLatch(1)
+        protectHook = { stuck.await(10, TimeUnit.SECONDS) }
+        val b = app(ss.localPort)
+        b.send(TCP_SYN, ack = 0, mss = 1460)
+        Thread.sleep(100)
+        val t0 = System.currentTimeMillis()
+        a.sendData("still flowing")
+        assertEquals("still flowing", String(a.receive(13)))
+        assertTrue("the open connection waited for the other's setup", System.currentTimeMillis() - t0 < 2_000)
+        protectHook = null
+        stuck.countDown()
+        b.expect("SYN-ACK once its socket is ready") { it.has(TCP_SYN) && it.has(TCP_ACK) }
+    }
+
+    // ------------------------------------------------------------------ unknown owners on the local network
+
+    @Test(timeout = 20_000)
+    fun unknownOwnerMayStillReachTheLocalNetworkButNotTheInternet() {
+        // Wake-on-LAN and one-shot discovery: sent, then the socket is closed at once, so the
+        // owner comes back unknown. Some app is blocked, so unknown owners are blocked too.
+        blocked += 999
+        answers += -1
+        answers += -1
+        start(EngineConfig(unknownRetryMs = 50))
+        val bcast = InetAddress.getByName("255.255.255.255").address
+        sendUdp(app4, 40140, bcast, 9, "wake up".toByteArray())
+        waitUntil("broadcast event") { events.any { it.host == "255.255.255.255" } }
+        val ev = events.first { it.host == "255.255.255.255" }
+        assertEquals(-1, ev.uid)
+        assertFalse("a broadcast can't reach the internet: let through", ev.blocked)
+        sendUdp(app4, 40141, loop4, 9, "leak".toByteArray())
+        waitUntil("internet event") { events.any { it.host == "127.0.0.1" } }
+        assertTrue("an unknown owner can't reach the internet", events.first { it.host == "127.0.0.1" }.blocked)
+    }
+
+    @Test(timeout = 20_000)
+    fun unknownOwnersBroadcastIsDelivered() {
+        val rx = DatagramSocket(0)
+        toClose += rx
+        rx.soTimeout = 1000
+        // Only where this machine hears its own broadcasts.
+        val heard = try {
+            DatagramSocket().use { probe ->
+                probe.broadcast = true
+                probe.send(DatagramPacket(byteArrayOf(1), 1, InetSocketAddress("255.255.255.255", rx.localPort)))
+            }
+            rx.receive(DatagramPacket(ByteArray(10), 10))
+            true
+        } catch (e: IOException) {
+            false
+        }
+        assumeTrue("needs local delivery of broadcasts", heard)
+        blocked += 999
+        answers += -1
+        start()
+        sendUdp(app4, 40142, InetAddress.getByName("255.255.255.255").address, rx.localPort, "magic packet".toByteArray())
+        val p = DatagramPacket(ByteArray(100), 100)
+        rx.soTimeout = 5000
+        rx.receive(p)
+        assertEquals("magic packet", String(p.data, 0, p.length))
+    }
+
+    @Test(timeout = 20_000)
+    fun unknownOwnersDnsToTheRouterStaysBlocked() {
+        // A resolver on the router passes questions on: a way to the internet.
+        blocked += 999
+        answers += -1
+        start()
+        sendUdp(app4, 40143, InetAddress.getByName("192.168.1.1").address, 53, query)
+        waitUntil("event") { events.isNotEmpty() }
+        val ev = events.single()
+        assertEquals(Kind.DNS, ev.kind)
+        assertTrue(ev.blocked)
+        assertEquals(-1, ev.uid)
     }
 }

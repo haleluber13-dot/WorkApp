@@ -91,6 +91,31 @@ class ByteRingAndDnsTest {
     }
 
     @Test
+    fun ringGrowsKeepingItsContentsInOrder() {
+        val ring = ByteRing(8)
+        ring.write(byteArrayOf(1, 2, 3, 4, 5, 6), 0, 6)
+        ring.consume(4)
+        ring.write(byteArrayOf(7, 8, 9, 10, 11), 0, 5) // wraps around the end
+        ring.grow(32)
+        assertEquals(32, ring.capacity)
+        assertEquals(7, ring.size)
+        assertEquals(25, ring.free)
+        val tmp = ByteArray(7)
+        ring.copyOut(0, tmp, 0, 7)
+        assertArrayEquals(byteArrayOf(5, 6, 7, 8, 9, 10, 11), tmp)
+        // Keeps working as a ring at the new size.
+        val more = ByteArray(25) { (20 + it).toByte() }
+        ring.write(more, 0, 25)
+        ring.consume(7)
+        val rest = ByteArray(25)
+        ring.copyOut(0, rest, 0, 25)
+        assertArrayEquals(more, rest)
+        val out = Slow(1000)
+        ring.writeTo(out)
+        assertArrayEquals(more, out.got.toByteArray())
+    }
+
+    @Test
     fun ringReadFromReportsEndOfStream() {
         val ring = ByteRing(16)
         assertEquals(3, ring.readFrom(Channels.newChannel(byteArrayOf(1, 2, 3).inputStream())))

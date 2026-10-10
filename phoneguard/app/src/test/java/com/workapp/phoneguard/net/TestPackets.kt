@@ -58,6 +58,39 @@ object TestPackets {
         if (sum != 0xFFFF) fail("transport checksum wrong (proto $proto): sum=${Integer.toHexString(sum)}")
     }
 
+    /**
+     * The TCP options of a packet the engine built (its IP header has no options), as
+     * kind -> option bytes after the kind and length.
+     */
+    fun tcpOptions(raw: ByteArray, v: PacketView): Map<Int, ByteArray> {
+        val l4 = PacketWriter.ipHeaderLen(v.v6)
+        val end = v.payloadOff
+        val r = HashMap<Int, ByteArray>()
+        var i = l4 + 20
+        while (i < end) {
+            val kind = raw[i].toInt() and 0xFF
+            if (kind == 0) break
+            if (kind == 1) {
+                i++
+                continue
+            }
+            val len = raw[i + 1].toInt() and 0xFF
+            require(len >= 2 && i + len <= end) { "bad TCP option $kind length $len" }
+            r[kind] = raw.copyOfRange(i + 2, i + len)
+            i += len
+        }
+        return r
+    }
+
+    /** The window scale shift in a SYN or SYN-ACK the engine built, or -1 if it has none. */
+    fun windowScale(raw: ByteArray, v: PacketView): Int {
+        val o = tcpOptions(raw, v)[3] ?: return -1
+        require(o.size == 1) { "window scale option must be 3 bytes long" }
+        return o[0].toInt() and 0xFF
+    }
+
+    fun hasOption(raw: ByteArray, v: PacketView, kind: Int): Boolean = tcpOptions(raw, v).containsKey(kind)
+
     /** A parsed copy of a packet, convenient for assertions. */
     class Seg(val raw: ByteArray) {
         private val v = PacketView().also { require(it.parse(raw, raw.size)) { "engine wrote an unparseable packet" } }
@@ -74,6 +107,8 @@ object TestPackets {
         val mss = v.mss
         val payload: ByteArray = raw.copyOfRange(v.payloadOff, v.payloadOff + v.payloadLen)
         val tcpHeaderLen = if (proto == PROTO_TCP) v.payloadOff - PacketWriter.ipHeaderLen(v6) else 0
+        /** Window scale option (SYN-ACK only), or -1. */
+        val wscale = if (proto == PROTO_TCP && has(TCP_SYN)) windowScale(raw, v) else -1
 
         fun has(flag: Int) = flags and flag != 0
 
