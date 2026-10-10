@@ -2,6 +2,7 @@ package com.workapp.phoneguard.net
 
 import android.net.ConnectivityManager
 import android.net.VpnService
+import android.os.Build
 import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
@@ -25,19 +26,29 @@ class AndroidTun(private val fd: FileDescriptor) : TunIo {
     private val polls: Array<StructPollfd>
     private val one = ByteArray(1)
     private val drain = ByteArray(64)
+    /** False on Android 10, where the pipe stays blocking: it is then read only when poll says it has data. */
+    private val pipeNonBlocking: Boolean
 
     init {
-        try {
-            Os.fcntlInt(pipe[0], OsConstants.F_SETFL, OsConstants.O_NONBLOCK)
-            Os.fcntlInt(pipe[1], OsConstants.F_SETFL, OsConstants.O_NONBLOCK)
-            // The VPN builder is asked for a non-blocking fd; make sure, or a read could hang stop().
-            val flags = Os.fcntlInt(fd, OsConstants.F_GETFL, 0)
-            if (flags and OsConstants.O_NONBLOCK == 0) {
-                Os.fcntlInt(fd, OsConstants.F_SETFL, flags or OsConstants.O_NONBLOCK)
+        // Os.fcntlInt is public only from Android 11; on Android 10 it is a hidden API, so it is
+        // not used there. The VPN interface is non-blocking anyway, because the service asks for
+        // that (Builder.setBlocking(false)), and the pipe is handled without it (see await).
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                Os.fcntlInt(pipe[0], OsConstants.F_SETFL, OsConstants.O_NONBLOCK)
+                Os.fcntlInt(pipe[1], OsConstants.F_SETFL, OsConstants.O_NONBLOCK)
+                // The VPN builder is asked for a non-blocking fd; make sure, or a read could hang stop().
+                val flags = Os.fcntlInt(fd, OsConstants.F_GETFL, 0)
+                if (flags and OsConstants.O_NONBLOCK == 0) {
+                    Os.fcntlInt(fd, OsConstants.F_SETFL, flags or OsConstants.O_NONBLOCK)
+                }
+            } catch (e: ErrnoException) {
+                closePipe()
+                throw IOException(e)
             }
-        } catch (e: ErrnoException) {
-            closePipe()
-            throw IOException(e)
+            pipeNonBlocking = true
+        } else {
+            pipeNonBlocking = false
         }
         polls = arrayOf(
             StructPollfd().apply {
@@ -76,7 +87,13 @@ class AndroidTun(private val fd: FileDescriptor) : TunIo {
         }
         if (polls[1].revents.toInt() != 0) {
             try {
-                while (Os.read(pipe[0], drain, 0, drain.size) > 0) Unit
+                if (pipeNonBlocking) {
+                    while (Os.read(pipe[0], drain, 0, drain.size) > 0) Unit
+                } else {
+                    // Blocking pipe: poll just said it is readable (data, or closed), so one read
+                    // returns at once. Anything left over wakes the next poll straight away.
+                    Os.read(pipe[0], drain, 0, drain.size)
+                }
             } catch (_: Exception) {
             }
         }
