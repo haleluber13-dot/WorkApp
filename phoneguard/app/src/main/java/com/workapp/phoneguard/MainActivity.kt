@@ -40,6 +40,8 @@ class MainActivity : Activity(), Host {
 
     companion object {
         const val EXTRA_TAB = "tab"
+        /** From the "protection is off" notification: turn protection on (asks for VPN consent if needed). */
+        const val EXTRA_TURN_ON = "turn_on"
         const val TAB_HOME = 0
         const val TAB_FIREWALL = 1
         const val TAB_SCAN = 2
@@ -161,12 +163,20 @@ class MainActivity : Activity(), Host {
 
         backTab = savedInstanceState?.getInt("backTab", TAB_HOME) ?: TAB_HOME
         show(savedInstanceState?.getInt("tab", TAB_HOME) ?: (intent?.getIntExtra(EXTRA_TAB, TAB_HOME) ?: TAB_HOME))
+        if (savedInstanceState == null) handleTurnOn(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.hasExtra(EXTRA_TAB)) show(intent.getIntExtra(EXTRA_TAB, TAB_HOME))
+        handleTurnOn(intent)
+    }
+
+    private fun handleTurnOn(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_TURN_ON, false) != true) return
+        intent.removeExtra(EXTRA_TURN_ON) // only once, not again after the screen turns
+        if (!FirewallService.running) setProtection(true)
     }
 
     override fun onResume() {

@@ -112,6 +112,66 @@ class FirewallService : VpnService() {
         fun send(context: Context, action: String) {
             context.startService(Intent(context, FirewallService::class.java).setAction(action))
         }
+
+        /** Set on a start from [startFromBackground]: the service must go foreground at once. */
+        private const val EXTRA_FOREGROUND = "foreground"
+        private const val STATUS_CHANNEL = "status"
+        private const val STARTING_NOTIFICATION = 0x5048
+        private const val TURN_ON_NOTIFICATION = 0x5049
+
+        /**
+         * Turns protection on without the app on screen (after a restart or an update). Android
+         * only lets a background app start a service as a foreground service; the service shows
+         * a quiet notification while it sets up and removes it once the VPN is up. Android 14+
+         * also wants a declared foreground service type, so there a plain start is tried.
+         * Throws if Android refuses; the caller then asks the user with [notifyTurnBackOn].
+         */
+        fun startFromBackground(context: Context) {
+            val intent = Intent(context, FirewallService::class.java).setAction(ACTION_START)
+            if (Build.VERSION.SDK_INT < 34) {
+                context.startForegroundService(intent.putExtra(EXTRA_FOREGROUND, true))
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        /** Protection should be on but couldn't restart by itself: one tap turns it back on. */
+        fun notifyTurnBackOn(context: Context) {
+            val nm = context.getSystemService(NotificationManager::class.java) ?: return
+            if (Build.VERSION.SDK_INT >= 33 &&
+                context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) return
+            try {
+                nm.createNotificationChannel(
+                    NotificationChannel(ALERT_CHANNEL, "Protection alerts", NotificationManager.IMPORTANCE_DEFAULT)
+                )
+                val open = PendingIntent.getActivity(
+                    context, 3,
+                    Intent(context, MainActivity::class.java)
+                        .putExtra(MainActivity.EXTRA_TURN_ON, true)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+                nm.notify(
+                    TURN_ON_NOTIFICATION,
+                    Notification.Builder(context, ALERT_CHANNEL)
+                        .setSmallIcon(R.drawable.ic_shield)
+                        .setContentTitle("PhoneGuard protection is off")
+                        .setContentText("Tap to turn it back on.")
+                        .setContentIntent(open)
+                        .setAutoCancel(true)
+                        .build(),
+                )
+            } catch (_: Exception) {
+            }
+        }
+
+        fun cancelTurnBackOn(context: Context) {
+            try {
+                context.getSystemService(NotificationManager::class.java)?.cancel(TURN_ON_NOTIFICATION)
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private enum class Outcome { OK, NO_PERMISSION, FAILED }
@@ -213,6 +273,40 @@ class FirewallService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Started with startForegroundService: Android requires startForeground right away.
+        val foreground = intent?.getBooleanExtra(EXTRA_FOREGROUND, false) == true && enterForeground()
+        try {
+            return handleCommand(intent)
+        } finally {
+            // Once the VPN is up Android keeps the service running by itself; no notification needed.
+            if (foreground) {
+                try {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    private fun enterForeground(): Boolean = try {
+        val nm = getSystemService(NotificationManager::class.java)
+        nm?.createNotificationChannel(
+            NotificationChannel(STATUS_CHANNEL, "Protection status", NotificationManager.IMPORTANCE_LOW)
+        )
+        startForeground(
+            STARTING_NOTIFICATION,
+            Notification.Builder(this, STATUS_CHANNEL)
+                .setSmallIcon(R.drawable.ic_shield)
+                .setContentTitle("PhoneGuard")
+                .setContentText("Turning protection back on")
+                .build(),
+        )
+        true
+    } catch (_: Exception) {
+        false
+    }
+
+    private fun handleCommand(intent: Intent?): Int {
         when (intent?.action) {
             ACTION_STOP -> {
                 rules.enabled = false
@@ -240,6 +334,7 @@ class FirewallService : VpnService() {
                 rules.enabled = true
                 fallback = false
                 problem = null
+                cancelTurnBackOn(this)
             }
         }
         startFirewall()
