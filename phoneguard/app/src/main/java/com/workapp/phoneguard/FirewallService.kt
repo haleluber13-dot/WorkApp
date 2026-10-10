@@ -35,6 +35,8 @@ import com.workapp.phoneguard.net.ConnectivityUidResolver
 import com.workapp.phoneguard.net.Engine
 import com.workapp.phoneguard.net.EngineConfig
 import com.workapp.phoneguard.net.EngineListener
+import com.workapp.phoneguard.net.NetFacts
+import com.workapp.phoneguard.net.NetworkPick
 import com.workapp.phoneguard.net.VpnProtector
 import com.workapp.phoneguard.shield.DnsService
 import com.workapp.phoneguard.shield.Shield
@@ -52,7 +54,10 @@ import java.util.concurrent.ConcurrentHashMap
  * the VPN, so open connections of allowed apps are not disturbed.
  *
  * Basic mode: only blocked apps are routed into the VPN and their packets are dropped; allowed
- * apps skip it entirely. It is also the fallback if the engine ever fails.
+ * apps skip it entirely (with nothing blocked, the VPN takes in nothing at all). It is also the
+ * fallback if the engine ever fails.
+ *
+ * The rules that apply are those of the network traffic really goes over (see [NetworkPick]).
  */
 class FirewallService : VpnService() {
 
@@ -67,6 +72,8 @@ class FirewallService : VpnService() {
         private const val VPN_ADDRESS4 = "10.215.173.1"
         private const val VPN_ADDRESS6 = "fd00:2bd:5a7::1"
         private const val VPN_DNS = "10.215.173.53"
+        /** Basic mode with nothing to block routes only this unused address into the VPN: nothing. */
+        private const val IDLE_ROUTE = "10.215.173.2"
         private const val MTU = 1500
         private const val ALERT_CHANNEL = "protection"
         private const val FALLBACK_NOTIFICATION = 0x5047
@@ -135,8 +142,15 @@ class FirewallService : VpnService() {
             }
         }
 
-        /** Protection should be on but couldn't restart by itself: one tap turns it back on. */
-        fun notifyTurnBackOn(context: Context) {
+        /**
+         * Protection should be on but couldn't restart by itself, or was switched off from
+         * outside PhoneGuard: one tap turns it back on. Removed once protection is on again.
+         */
+        fun notifyTurnBackOn(
+            context: Context,
+            title: String = "PhoneGuard protection is off",
+            text: String = "Tap to turn it back on.",
+        ) {
             val nm = context.getSystemService(NotificationManager::class.java) ?: return
             if (Build.VERSION.SDK_INT >= 33 &&
                 context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -156,8 +170,9 @@ class FirewallService : VpnService() {
                     TURN_ON_NOTIFICATION,
                     Notification.Builder(context, ALERT_CHANNEL)
                         .setSmallIcon(R.drawable.ic_shield)
-                        .setContentTitle("PhoneGuard protection is off")
-                        .setContentText("Tap to turn it back on.")
+                        .setContentTitle(title)
+                        .setContentText(text)
+                        .setStyle(Notification.BigTextStyle().bigText(text))
                         .setContentIntent(open)
                         .setAutoCancel(true)
                         .build(),
@@ -193,6 +208,43 @@ class FirewallService : VpnService() {
     private var fallback = false
     private val networks = HashMap<Network, NetworkCapabilities>()
     private val wifiSeen = HashSet<Network>()
+    /**
+     * PhoneGuard's default network: the network traffic really goes over. PhoneGuard is never
+     * inside its own VPN (Full mode leaves it out, Basic mode only takes blocked apps, or none),
+     * so this is the real Wi-Fi or mobile network, not the VPN.
+     */
+    private var defaultNet: Network? = null
+    private var defaultCaps: NetworkCapabilities? = null
+    /** The default network the Web Shield was last told about. */
+    private var announcedNet: Network? = null
+
+    private val defaultCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            if (network != defaultNet) {
+                defaultNet = network
+                defaultCaps = try {
+                    cm.getNetworkCapabilities(network)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            refreshNetwork()
+        }
+
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            defaultNet = network
+            defaultCaps = caps
+            refreshNetwork()
+        }
+
+        override fun onLost(network: Network) {
+            if (network == defaultNet) {
+                defaultNet = null
+                defaultCaps = null
+            }
+            refreshNetwork()
+        }
+    }
 
     private val netCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
@@ -342,9 +394,18 @@ class FirewallService : VpnService() {
     }
 
     override fun onRevoke() {
-        // The user switched the VPN off in Settings, or another VPN app took over.
+        // Another VPN app took over, or the VPN was switched off in Android's settings. (Turning
+        // protection off in PhoneGuard stops the service directly and never comes here.)
+        val wasOn = rules.enabled
         rules.enabled = false
         stopFirewall()
+        if (wasOn) {
+            notifyTurnBackOn(
+                this,
+                "PhoneGuard protection was turned off",
+                "This usually happens when another VPN app starts. Tap to turn it back on.",
+            )
+        }
         super.onRevoke()
     }
 
@@ -471,8 +532,8 @@ class FirewallService : VpnService() {
     }
 
     private fun startBasic() {
-        val blocked = rules.blockedOn(currentNet) - packageName
-        val builder = baseBuilder()
+        val blocked = (rules.blockedOn(currentNet) - packageName).filter { isInstalled(it) }
+        var builder = baseBuilder()
         var count = 0
         for (pkg in blocked) {
             try {
@@ -481,13 +542,12 @@ class FirewallService : VpnService() {
             } catch (_: PackageManager.NameNotFoundException) {
             }
         }
-        // An empty list would capture every app, so list ourselves when nothing is blocked.
-        if (count == 0) {
-            try {
-                builder.addAllowedApplication(packageName)
-            } catch (_: PackageManager.NameNotFoundException) {
-            }
-        }
+        // Nothing to block. An empty list would capture every app, so instead the VPN takes
+        // in nothing: only an unused address is routed into it, everything else goes straight
+        // to the real network (DNS too, as the VPN names no DNS server). Nobody's internet is
+        // affected, PhoneGuard's own list updates included, and an always-on VPN setting stays
+        // satisfied. PhoneGuard is left out, so it still sees the real network (see defaultNet).
+        if (count == 0) builder = idleBuilder()
         val fd = try {
             builder.establish()
         } catch (_: Exception) {
@@ -504,12 +564,30 @@ class FirewallService : VpnService() {
         running = true
     }
 
-    private fun baseBuilder(): Builder = Builder()
+    /** A VPN that captures all traffic of the apps it applies to. */
+    private fun baseBuilder(): Builder = commonBuilder()
+        .addRoute("0.0.0.0", 0)
+        .addRoute("::", 0)
+
+    /**
+     * A VPN that captures nothing: one unused address is its only route. The addresses keep both
+     * IPv4 and IPv6 allowed for the apps it applies to, so their traffic falls through to the
+     * real network instead of being blocked.
+     */
+    private fun idleBuilder(): Builder {
+        val b = commonBuilder().addRoute(IDLE_ROUTE, 32)
+        try {
+            b.addDisallowedApplication(packageName)
+        } catch (_: PackageManager.NameNotFoundException) {
+        }
+        return b
+    }
+
+    private fun commonBuilder(): Builder = Builder()
         .setSession(getString(R.string.app_name))
         .addAddress(VPN_ADDRESS4, 32)
         .addAddress(VPN_ADDRESS6, 128)
-        .addRoute("0.0.0.0", 0)
-        .addRoute("::", 0)
+        // Non-blocking is the default, but the engine relies on it (it can't check on Android 10).
         .setBlocking(false)
         // Otherwise Android counts the VPN as metered and apps hold back (backups, updates) even on Wi-Fi.
         .setMetered(false)
@@ -664,11 +742,29 @@ class FirewallService : VpnService() {
             val caps = cm.getNetworkCapabilities(n) ?: continue
             if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) networks[n] = caps
         }
+        defaultNet = try {
+            cm.activeNetwork
+        } catch (_: Exception) {
+            null
+        }
+        defaultCaps = defaultNet?.let {
+            try {
+                cm.getNetworkCapabilities(it)
+            } catch (_: Exception) {
+                null
+            }
+        }
+        announcedNet = defaultNet
         currentNet = pickNetwork()
         policy.reset(currentNet)
         try {
             // The default request leaves out VPNs, so this only sees the real Wi-Fi and mobile networks.
             cm.registerNetworkCallback(NetworkRequest.Builder().build(), netCallback, main)
+        } catch (_: Exception) {
+        }
+        try {
+            // Which of them traffic actually goes over.
+            cm.registerDefaultNetworkCallback(defaultCallback, main)
         } catch (_: Exception) {
         }
         val packages = IntentFilter().apply {
@@ -698,6 +794,13 @@ class FirewallService : VpnService() {
         } catch (_: Exception) {
         }
         try {
+            cm.unregisterNetworkCallback(defaultCallback)
+        } catch (_: Exception) {
+        }
+        defaultNet = null
+        defaultCaps = null
+        announcedNet = null
+        try {
             unregisterReceiver(packageReceiver)
         } catch (_: Exception) {
         }
@@ -709,19 +812,29 @@ class FirewallService : VpnService() {
         watching = false
     }
 
-    private fun pickNetwork(): NetType {
-        var mobile = false
-        for (caps in networks.values) {
-            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-            ) return NetType.WIFI
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) mobile = true
-        }
-        return if (mobile) NetType.MOBILE else NetType.NONE
-    }
+    /** The rules of the network traffic really goes over; see [NetworkPick]. */
+    private fun pickNetwork(): NetType =
+        NetworkPick.pick(defaultCaps?.let { facts(it) }, networks.values.map { facts(it) })
+
+    private fun facts(c: NetworkCapabilities) = NetFacts(
+        wifi = c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || c.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET),
+        cellular = c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
+        vpn = c.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+        internet = c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+        validated = c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
+    )
 
     private fun refreshNetwork() {
+        val def = defaultNet
+        if (def != announcedNet) {
+            announcedNet = def
+            // Another network (Wi-Fi <-> mobile, or another Wi-Fi): answers learned on the old one
+            // may not hold here.
+            try {
+                dns?.onNetworkChanged()
+            } catch (_: Throwable) {
+            }
+        }
         val now = pickNetwork()
         if (now == currentNet) return
         currentNet = now
@@ -739,15 +852,27 @@ class FirewallService : VpnService() {
         private var net = NetType.NONE
         @Volatile
         private var cache = ConcurrentHashMap<Int, Boolean>()
+        /** Whether connections of unknown owners may go out: only while no app is blocked here. */
+        @Volatile
+        private var unknownAllowed = true
 
         fun reset(now: NetType) {
             net = now
             cache = ConcurrentHashMap() // a lookup still running stores into the old map, which is dropped
+            unknownAllowed = try {
+                rules.blockedOn(now).none { it != packageName && isInstalled(it) }
+            } catch (_: Exception) {
+                false
+            }
         }
 
         override fun isAllowed(uid: Int): Boolean {
-            // Unknown owners and Android's own system services are never blocked.
-            if (uid < 0 || uid % 100_000 < Process.FIRST_APPLICATION_UID) return true
+            // Unknown owner (-1): the engine couldn't tell which app it is, almost always because
+            // the socket was already closed. A blocked app could do that on purpose, so while any
+            // app is blocked these are blocked too; with nothing blocked there's nothing to dodge.
+            if (uid < 0) return unknownAllowed
+            // Android's own system services are never blocked.
+            if (uid % 100_000 < Process.FIRST_APPLICATION_UID) return true
             val c = cache
             c[uid]?.let { return it }
             val n = net
@@ -827,6 +952,7 @@ class FirewallService : VpnService() {
             } catch (_: Exception) {
                 -1
             }
+            if (uid == Process.myUid()) return // PhoneGuard is never captured; don't log itself if it ever is
             val host = dst.hostAddress ?: "?"
             TrafficStore.onEvent(
                 ConnEvent(

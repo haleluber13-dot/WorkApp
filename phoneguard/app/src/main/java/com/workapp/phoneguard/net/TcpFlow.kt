@@ -79,8 +79,18 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         lastWnd = v.window
     }
 
-    /** A new SYN with [seq] on this port means the app started over and this connection is finished. */
-    fun replacedBy(seq: Int) = state == State.CLOSED || (state == State.ESTABLISHED && seq != appIsn)
+    /**
+     * A new SYN with [seq] on this port means a new socket started over (a repeat of the app's
+     * own SYN has the same sequence number) and this connection is finished.
+     */
+    fun replacedBy(seq: Int) = state == State.CLOSED || seq != appIsn
+
+    /** Ends this connection because a new socket uses the port; see [replacedBy]. */
+    fun replace() {
+        // Before the handshake the old socket is gone and nothing needs an answer; a reset would
+        // only reach the new socket, which ignores it.
+        abort(rstApp = state == State.ESTABLISHED)
+    }
 
     override fun onResolved(uid: Int, allowed: Boolean) {
         if (closed || state != State.RESOLVING) return
@@ -88,7 +98,10 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         resolved = true
         e.report(this, !allowed, null)
         if (!allowed) {
-            refuse()
+            // Nobody owns the connection (uid -1): the app gave up at once, which is also how a
+            // blocked app could try to pass for unknown. Never connect it, and stay silent: an app
+            // still waiting sends its SYN again, and that gets a fresh owner lookup.
+            if (uid >= 0) refuse()
             finish()
             return
         }
@@ -184,16 +197,12 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
             return
         }
         when (state) {
-            State.RESOLVING, State.CONNECTING -> {
-                // Nothing to answer before the server side is up. A new ISN means the app restarted the handshake.
-                if (f and TCP_SYN != 0 && f and TCP_ACK == 0 && v.seq != appIsn) onSyn(v)
-            }
+            // Nothing to answer before the server side is up. (A SYN with a new sequence number
+            // never gets here: the engine starts a new connection for it, see replacedBy.)
+            State.RESOLVING, State.CONNECTING -> {}
             State.SYN_RCVD -> {
                 if (f and TCP_SYN != 0) {
-                    if (f and TCP_ACK == 0) {
-                        if (v.seq != appIsn) onSyn(v)
-                        sendSynAck() // ours was lost, or the app restarted
-                    }
+                    if (f and TCP_ACK == 0) sendSynAck() // the app sent its SYN again: ours was lost
                     return
                 }
                 if (f and TCP_ACK == 0) return
@@ -594,7 +603,14 @@ internal class TcpFlow(private val e: Engine, key: FlowKey, now: Long) : Flow(ke
         if (rtoAt == 0L && sndNxt != sndUna) rtoAt = e.now + rto
     }
 
-    private fun idleLimit() = if (appFin || serverEof) cfg.halfClosedTimeoutMs else cfg.idleTimeoutMs
+    private fun idleLimit() = when {
+        // Both sides are done; only the last acknowledgements are missing.
+        appFin && serverEof -> cfg.closingTimeoutMs
+        // One side is done, but the other may still be working on its answer (e.g. a request
+        // ended with shutdownOutput): allow a long silence, yet still clean up dead connections.
+        appFin || serverEof -> cfg.halfClosedTimeoutMs
+        else -> cfg.idleTimeoutMs
+    }
 
     override fun nextDeadline(): Long = when (state) {
         State.RESOLVING, State.CONNECTING, State.CLOSED -> deadline

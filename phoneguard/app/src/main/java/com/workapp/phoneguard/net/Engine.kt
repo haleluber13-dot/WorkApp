@@ -48,7 +48,18 @@ interface Protector {
     fun protect(socket: DatagramSocket): Boolean
 }
 
-/** Finds the app (uid) that owns a connection; -1 if unknown. May block briefly. */
+/**
+ * Finds the app (uid) that owns a connection; -1 if unknown. May block briefly.
+ *
+ * The engine asks before anything of a new flow is sent on, while the app is still waiting for
+ * an answer, so a live socket is always found. -1 in practice means the socket is gone: the app
+ * closed it at once (a one-off datagram, a connect given up straight away) or, rarely, the
+ * lookup itself failed. A blocked app could close its socket on purpose to look unknown, so the
+ * engine asks the [FirewallPolicy] about uid -1 like any other app (the service allows it only
+ * while no app is blocked) and, when -1 is not allowed, never relays the flow: TCP stays silent
+ * so a still-waiting app's next SYN asks again, UDP drops the datagrams and asks again on the
+ * next one (at most every [EngineConfig.unknownRetryMs]).
+ */
 fun interface UidResolver {
     fun uidOf(protocol: Int, local: InetSocketAddress, remote: InetSocketAddress): Int
 }
@@ -74,10 +85,22 @@ class EngineConfig(
     /** How long the app or the policy check may take before a new flow is given up. */
     val resolveTimeoutMs: Long = 10_000,
     val idleTimeoutMs: Long = 2 * 60 * 60_000L,
-    val halfClosedTimeoutMs: Long = 60_000,
+    /**
+     * Silence allowed once one side has finished sending: the other side may still be working on
+     * its answer (a request ended with shutdownOutput, a long poll), so this is generous.
+     */
+    val halfClosedTimeoutMs: Long = 10 * 60_000L,
+    /** Silence allowed once both sides have finished and only the last acknowledgements are missing. */
+    val closingTimeoutMs: Long = 60_000,
     val udpTimeoutMs: Long = 60_000,
     /** UDP to port 53 of other DNS servers: one question, one answer, so close sooner. */
     val dnsUdpTimeoutMs: Long = 15_000,
+    /** A UDP port whose owner couldn't be found is looked up again at most this often. */
+    val unknownRetryMs: Long = 250,
+    /** How often a UDP flow's owner is checked again (the app may have closed or handed on its port). */
+    val ownerCheckMs: Long = 30_000,
+    /** The same blocked attempt (app, destination, port) is logged once per this time; apps retry in tight loops. */
+    val blockedLogGapMs: Long = 15_000,
     val rtoMs: Long = 1_000,
     val rtoMaxMs: Long = 30_000,
     val maxRetries: Int = 8,
@@ -117,6 +140,29 @@ internal class FlowKey {
         var h = if (v6) 1 else 0
         h = h * 31 + srcPort
         h = h * 31 + dstPort
+        for (i in 0 until n) h = h * 31 + src[i] * 17 + dst[i]
+        hash = h
+        return this
+    }
+
+    /**
+     * A UDP flow's key: the app's address and port only, so one relay socket serves every
+     * destination the app's socket talks to. [mapped] marks IPv6 packets to IPv4-mapped
+     * addresses, which need an IPv4 relay socket of their own.
+     */
+    fun setEndpoint(v: PacketView, mapped: Boolean): FlowKey {
+        v6 = v.v6
+        val n = v.addrLen
+        System.arraycopy(v.buf, v.srcOff, src, 0, n)
+        dst.fill(0)
+        if (mapped) {
+            dst[10] = 0xFF.toByte()
+            dst[11] = 0xFF.toByte()
+        }
+        srcPort = v.srcPort
+        dstPort = 0
+        var h = if (v6) 3 else 2
+        h = h * 31 + srcPort
         for (i in 0 until n) h = h * 31 + src[i] * 17 + dst[i]
         hash = h
         return this
@@ -207,6 +253,8 @@ class Engine(
         const val BYTES_EVERY_MS = 1_000L
         const val RING_SIZE = 65_536
         const val RING_POOL = 32
+        /** Blocked attempts remembered for [EngineConfig.blockedLogGapMs]. */
+        const val BLOCKED_SEEN_MAX = 4096
         /** Pass as knownUid to look the owner up. */
         const val RESOLVE = Int.MIN_VALUE
 
@@ -227,6 +275,10 @@ class Engine(
     @Volatile private var readerError: Throwable? = null
     private var loopThread: Thread? = null
     private var readerThread: Thread? = null
+    /** When each recent blocked attempt was logged (any thread; DNS answers come from the pool). */
+    private val blockedSeen = object : LinkedHashMap<String, Long>(64, 0.75f, false) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>?) = size > BLOCKED_SEEN_MAX
+    }
 
     // Everything below belongs to the loop thread.
     internal var now = clock()
@@ -239,6 +291,7 @@ class Engine(
     private val tcp = HashMap<FlowKey, TcpFlow>()
     private val udp = HashMap<FlowKey, UdpFlow>()
     private val probe = FlowKey()
+    private val udpProbe = FlowKey()
     private val view = PacketView()
     private val backlog = ArrayDeque<ByteArray>()
     private val ackQueue = ArrayList<TcpFlow>()
@@ -491,8 +544,13 @@ class Engine(
         var f = tcp[key]
         val isSyn = v.flags and (TCP_SYN or TCP_ACK or TCP_RST) == TCP_SYN
         if (f != null && isSyn && f.replacedBy(v.seq)) {
-            // The app reuses the port for a new connection; the old one is over.
-            kill(f)
+            // A new socket (maybe another app's) reuses the port: the old connection is over, and
+            // the new one gets its own owner lookup and firewall check instead of inheriting them.
+            try {
+                f.replace()
+            } catch (e: Exception) {
+                kill(f)
+            }
             f = null
         }
         if (f == null) {
@@ -541,19 +599,20 @@ class Engine(
             return
         }
         if (isZero(v.buf, v.dstOff, v.addrLen) || v.dstPort == 0) return
-        val key = probe.set(v)
+        // One flow per app socket (address and port), whatever the destination: see UdpFlow.
+        val key = udpProbe.setEndpoint(v, v.v6 && Addr.isMapped(v.buf, v.dstOff))
         val existing = udp[key]
         val f: UdpFlow
         if (existing == null) {
             if (udp.size >= config.maxUdpFlows) evictOldest(udp.values)
-            f = UdpFlow(this, key.copy(), now, isUnicast(v.buf, v.dstOff, v.v6))
+            f = UdpFlow(this, key.copy(), now)
             udp[f.key] = f
             udpFlows = udp.size
             try {
-                f.onDatagram(v, p) // queued until the owner is known
+                f.onDatagram(v, p) // held until the owner is known; starts the lookup
             } catch (_: Exception) {
+                kill(f)
             }
-            lookup(f, RESOLVE)
         } else {
             f = existing
             try {
@@ -603,19 +662,26 @@ class Engine(
 
     // ------------------------------------------------------------------ owner lookups and policy
 
-    internal fun lookup(f: Flow, knownUid: Int) {
+    /**
+     * Finds the flow's owner (or takes [knownUid]) and asks the policy, then calls
+     * [Flow.onResolved] on the loop. [remote] is the destination to look up with; by default the
+     * flow key's own (a UDP flow passes the destination of the datagram that started it).
+     */
+    internal fun lookup(f: Flow, knownUid: Int, remote: InetSocketAddress? = null) {
         val gen = policyGen
         val proto = if (f is TcpFlow) PROTO_TCP else PROTO_UDP
+        val local = InetSocketAddress(f.key.srcInet, f.key.srcPort)
+        val to = remote ?: InetSocketAddress(f.key.dstInet, f.key.dstPort)
         try {
             lookups.execute {
                 if (stopping) return@execute
-                val uid = if (knownUid != RESOLVE) knownUid else resolveUid(proto, f.key)
+                val uid = if (knownUid != RESOLVE) knownUid else resolveUid(proto, local, to)
                 val allowed = isAllowed(uid)
                 post {
                     if (f.closed) return@post
                     try {
                         // Rules changed while we were asking: ask again with the new rules.
-                        if (gen != policyGen) lookup(f, uid) else f.onResolved(uid, allowed)
+                        if (gen != policyGen) lookup(f, uid, to) else f.onResolved(uid, allowed)
                     } catch (e: Exception) {
                         kill(f)
                     }
@@ -627,8 +693,39 @@ class Engine(
         }
     }
 
-    private fun resolveUid(proto: Int, k: FlowKey): Int = try {
-        uids.uidOf(proto, InetSocketAddress(k.srcInet, k.srcPort), InetSocketAddress(k.dstInet, k.dstPort))
+    /** Looks up who owns a new UDP flow, which sent its first datagram to [remote]. */
+    internal fun resolve(f: UdpFlow, remote: InetSocketAddress) = lookup(f, RESOLVE, remote)
+
+    /**
+     * Asks again who owns a UDP flow's app port; [UdpFlow.onOwnerChecked] gets the answer on the
+     * loop (null if it couldn't be asked). Nothing waits for it: the flow keeps working meanwhile.
+     */
+    internal fun checkOwner(f: UdpFlow, remote: InetSocketAddress) {
+        val local = InetSocketAddress(f.key.srcInet, f.key.srcPort)
+        try {
+            lookups.execute {
+                if (stopping) return@execute
+                val uid = resolveUid(PROTO_UDP, local, remote)
+                post {
+                    if (f.closed) return@post
+                    try {
+                        f.onOwnerChecked(uid)
+                    } catch (e: Exception) {
+                        kill(f)
+                    }
+                    if (!f.closed) armTimer(f.nextDeadline())
+                }
+            }
+        } catch (_: RejectedExecutionException) {
+            f.onOwnerChecked(null)
+        }
+    }
+
+    private fun resolveUid(proto: Int, k: FlowKey): Int =
+        resolveUid(proto, InetSocketAddress(k.srcInet, k.srcPort), InetSocketAddress(k.dstInet, k.dstPort))
+
+    private fun resolveUid(proto: Int, local: InetSocketAddress, remote: InetSocketAddress): Int = try {
+        uids.uidOf(proto, local, remote).coerceAtLeast(-1)
     } catch (_: Throwable) {
         -1
     }
@@ -647,11 +744,14 @@ class Engine(
         scratch.addAll(udp.values)
         for (f in scratch) {
             // Blocked UDP flows only drop packets: forget them so the next packet asks again.
-            if ((f as UdpFlow).blocked) f.close()
-            else if (f.resolved && f.uid >= 0) check += f.uid
+            f as UdpFlow
+            if (f.blocked || f.unknownOwner) f.close()
+            else if (f.resolved) check += f.uid
         }
         scratch.clear()
-        for (f in tcp.values) if (f.resolved && f.uid >= 0) check += f.uid
+        // Flows of unknown owners (-1) are checked too: they were let through only because no
+        // app was blocked, and that may have just changed.
+        for (f in tcp.values) if (f.resolved) check += f.uid
         if (check.isEmpty()) return
         try {
             lookups.execute {
@@ -670,6 +770,7 @@ class Engine(
         scratch.clear()
     }
 
+    /** Logs a TCP connection (UDP flows log each destination themselves). */
     internal fun report(f: Flow, blocked: Boolean, domain: String?) {
         val k = f.key
         val kind = when {
@@ -680,15 +781,36 @@ class Engine(
         report(f.uid, kind, k.dstInet, k.dstPort, domain, blocked)
     }
 
-    private fun report(uid: Int, kind: Kind, dst: InetAddress, port: Int, domain: String?, blocked: Boolean) {
+    /** Logs a connection let through or blocked. Any thread. */
+    internal fun report(uid: Int, kind: Kind, dst: InetAddress, port: Int, domain: String?, blocked: Boolean) {
         try {
             val host = dst.hostAddress ?: "?"
+            if (blocked && loggedRecently(uid, kind, host, port, domain)) return
             val reason = if (blocked) blockReason() else null
             listener.onConnection(
                 ConnEvent(System.currentTimeMillis(), uid, kind, host, port, domain ?: DomainMap.get(host), blocked, reason)
             )
         } catch (_: Exception) {
         }
+    }
+
+    /**
+     * True if this blocked attempt (app, destination, port, and for DNS the name) was logged
+     * less than [EngineConfig.blockedLogGapMs] ago. A blocked app usually retries at once, over
+     * and over; one line per attempt would bury everything else in the activity log.
+     */
+    private fun loggedRecently(uid: Int, kind: Kind, host: String, port: Int, domain: String?): Boolean {
+        val gap = config.blockedLogGapMs
+        if (gap <= 0) return false
+        val key = "$uid|$kind|$host|$port|${domain.orEmpty()}"
+        val t = clock()
+        synchronized(blockedSeen) {
+            val last = blockedSeen[key]
+            if (last != null && t - last < gap) return true
+            blockedSeen.remove(key) // put it back at the young end
+            blockedSeen[key] = t
+        }
+        return false
     }
 
     // ------------------------------------------------------------------ timers and bookkeeping
@@ -825,17 +947,12 @@ class Engine(
         tunWrite(out, n)
     }
 
-    /** Sends a UDP reply to the app; [from] is null for the flow's own destination. Payload already in place. */
-    internal fun sendUdpReply(f: UdpFlow, from: InetSocketAddress?, payloadLen: Int) {
+    /**
+     * Sends a UDP datagram to the app's socket from [src]:[srcPort] (the remote that sent it;
+     * [src] has the flow's address length). Payload already in place.
+     */
+    internal fun sendUdpReply(f: UdpFlow, src: ByteArray, srcPort: Int, payloadLen: Int) {
         val k = f.key
-        var src = k.dst
-        var srcPort = k.dstPort
-        if (from != null) {
-            val a = from.address?.address ?: return
-            if (a.size != k.addrLen) return
-            src = a
-            srcPort = from.port
-        }
         tunWrite(out, writer.udp(out, k.v6, src, k.src, srcPort, k.srcPort, payloadLen))
     }
 
@@ -881,11 +998,7 @@ class Engine(
     }
 
     /** False for multicast, broadcast and unspecified destinations. */
-    private fun isUnicast(b: ByteArray, off: Int, v6: Boolean): Boolean {
-        if (v6) return u8(b, off) != 0xFF && !isZero(b, off, 16)
-        val first = u8(b, off)
-        return first in 1..223
-    }
+    private fun isUnicast(b: ByteArray, off: Int, v6: Boolean): Boolean = Addr.isUnicast(b, off, v6)
 
     private fun shutdown() {
         scratch.clear()

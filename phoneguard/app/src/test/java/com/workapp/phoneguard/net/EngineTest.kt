@@ -30,6 +30,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlin.random.Random
 
@@ -290,8 +291,13 @@ class EngineTest {
     }
 
     private val policy = object : FirewallPolicy {
-        override fun isAllowed(uid: Int) = uid !in blocked
+        // Like the service: an unknown owner (-1) may connect only while no app is blocked.
+        override fun isAllowed(uid: Int) = if (uid < 0) blocked.isEmpty() else uid !in blocked
     }
+
+    /** Answers for the next owner lookups, in order; once used up, [uid]. */
+    private val answers = ConcurrentLinkedQueue<Int>()
+    private val lookupCount = AtomicInteger()
 
     private val dnsHandler = object : DnsHandler {
         override fun handle(uid: Int, query: ByteArray): ByteArray {
@@ -327,7 +333,8 @@ class EngineTest {
     ): Engine {
         val resolver = UidResolver { _, _, _ ->
             slowLookup?.await(10, TimeUnit.SECONDS)
-            uid
+            lookupCount.incrementAndGet()
+            answers.poll() ?: uid
         }
         val e = Engine(io, protector, resolver, policy, dnsHandler, listener, config)
         e.start()
@@ -1027,5 +1034,358 @@ class EngineTest {
         assertArrayEquals(dst, r.src)
         assertArrayEquals(app6, r.dst)
         assertEquals("udp6", String(r.payload))
+    }
+
+    // ------------------------------------------------------------------ owners that can't be found
+
+    /** A UDP socket that records what it gets (text and sender) and can echo it back. */
+    private class UdpPeer(addr: InetAddress, echo: Boolean) : AutoCloseable {
+        val socket = DatagramSocket(0, addr)
+        val got = LinkedBlockingQueue<Pair<String, InetSocketAddress>>()
+        val port: Int get() = socket.localPort
+
+        init {
+            thread(isDaemon = true) {
+                val buf = ByteArray(65535)
+                try {
+                    while (true) {
+                        val p = DatagramPacket(buf, buf.size)
+                        socket.receive(p)
+                        got.add(String(p.data, p.offset, p.length) to (p.socketAddress as InetSocketAddress))
+                        if (echo) socket.send(DatagramPacket(p.data, p.offset, p.length, p.socketAddress))
+                    }
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        fun sendTo(to: InetSocketAddress, text: String) {
+            val b = text.toByteArray()
+            socket.send(DatagramPacket(b, b.size, to))
+        }
+
+        override fun close() = socket.close()
+    }
+
+    private fun udpPeer(echo: Boolean, addr: InetAddress = InetAddress.getByName("127.0.0.1")) =
+        UdpPeer(addr, echo).also { toClose += it }
+
+    @Test(timeout = 20_000)
+    fun udpUnknownOwnerIsNeverRelayedWhileAnAppIsBlocked() {
+        // The way around the firewall: send, close the socket before the owner lookup (so the
+        // owner comes back unknown), then keep using the same port from a new socket.
+        val peer = udpPeer(echo = true)
+        blocked += uid
+        answers += -1
+        start(EngineConfig(unknownRetryMs = 50))
+        sendUdp(app4, 40100, loop4, peer.port, "first".toByteArray())
+        assertNull("an unknown owner must not be relayed", nextUdp(400))
+        sendUdp(app4, 40100, loop4, peer.port, "second".toByteArray())
+        assertNull("the port's real owner is blocked", nextUdp(400))
+        assertTrue("the next datagram must be looked up again", lookupCount.get() >= 2)
+        // A rule change must not open it up either.
+        engine!!.onPolicyChanged()
+        Thread.sleep(100)
+        sendUdp(app4, 40100, loop4, peer.port, "third".toByteArray())
+        assertNull(nextUdp(400))
+        assertTrue("nothing may reach the server: ${peer.got}", peer.got.isEmpty())
+        waitUntil("events") { events.any { it.uid == uid } }
+        assertTrue("every event is a block: $events", events.all { it.blocked })
+        assertTrue("the unknown owner is logged as blocked: $events", events.any { it.uid == -1 })
+    }
+
+    @Test(timeout = 20_000)
+    fun udpUnknownOwnerIsAskedAgainOnTheNextDatagram() {
+        // A lookup that failed once while the app's socket is still open: only that datagram is lost.
+        val ds = udpEchoServer()
+        blocked += 999 // some other app is blocked, so unknown owners are blocked too
+        answers += -1
+        start(EngineConfig(unknownRetryMs = 50))
+        sendUdp(app4, 40101, loop4, ds.localPort, "lost".toByteArray())
+        assertNull(nextUdp(300))
+        sendUdp(app4, 40101, loop4, ds.localPort, "ok".toByteArray())
+        assertEquals("ok", String((nextUdp() ?: die("no reply once the owner was found")).payload))
+        assertNull("the unknown owner's datagram was dropped, not sent late", nextUdp(300))
+        assertEquals(2, lookupCount.get())
+    }
+
+    @Test(timeout = 20_000)
+    fun unknownOwnerIsLetThroughOnlyWhileNothingIsBlocked() {
+        val ds = udpEchoServer()
+        answers += -1
+        start()
+        sendUdp(app4, 40102, loop4, ds.localPort, "a".toByteArray())
+        assertEquals("a", String((nextUdp() ?: die("with nothing blocked, an unknown owner passes")).payload))
+        waitUntil("event") { events.isNotEmpty() }
+        assertEquals(-1, events.first().uid)
+        assertFalse(events.first().blocked)
+        // Now an app gets blocked: the unknown owner's flow is closed, the next datagram looked up.
+        blocked += 999
+        engine!!.onPolicyChanged()
+        waitUntil("unknown owner's flow closed") { engine!!.udpFlows == 0 }
+        sendUdp(app4, 40102, loop4, ds.localPort, "b".toByteArray())
+        assertEquals("b", String((nextUdp() ?: die("no reply for the real, allowed owner")).payload))
+        assertEquals(2, lookupCount.get())
+    }
+
+    @Test(timeout = 20_000)
+    fun tcpUnknownOwnerGetsNoAnswerAndItsNextSynIsLookedUpAgain() {
+        val accepted = CountDownLatch(1)
+        val ss = server {
+            accepted.countDown()
+            echo(it)
+        }
+        blocked += 999
+        answers += -1
+        start()
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        assertNull("no SYN-ACK and no reset for an unknown owner", a.next(500))
+        assertFalse("an unknown owner must not reach the server", accepted.await(100, TimeUnit.MILLISECONDS))
+        waitUntil("flow forgotten") { engine!!.tcpFlows == 0 }
+        // The app is still waiting and sends its SYN again (same sequence number): now it's found.
+        a.connect()
+        a.sendData("hi")
+        assertEquals("hi", String(a.receive(2)))
+        assertEquals(2, lookupCount.get())
+        assertEquals(listOf(-1 to true, uid to false), events.map { it.uid to it.blocked })
+    }
+
+    @Test(timeout = 20_000)
+    fun newSocketOnTheSamePortGetsItsOwnLookup() {
+        val ss = server(::echo)
+        start()
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        a.expect("SYN-ACK") { it.has(TCP_SYN) && it.has(TCP_ACK) }
+        // Before the handshake ends, another socket (here: of a blocked app) sends a SYN from the
+        // same port. It must not take over the connection that was let through for the first one.
+        uid = 20000
+        blocked += 20000
+        val otherIsn = a.sndNxt + 100_000
+        a.send(TCP_SYN, seq = otherIsn, ack = 0, mss = 1460)
+        val rst = a.expect("an answer to the new SYN") { it.has(TCP_RST) || it.ack == otherIsn + 1 }
+        assertEquals("expected a reset, got $rst", TCP_RST or TCP_ACK, rst.flags)
+        assertEquals(otherIsn + 1, rst.ack)
+        assertEquals(2, lookupCount.get())
+        waitUntil("blocked event") { events.any { it.uid == 20000 && it.blocked } }
+    }
+
+    @Test(timeout = 20_000)
+    fun dnsFromUnknownOwnerIsRefusedWhileAnAppIsBlocked() {
+        blocked += 999
+        answers += -1
+        start()
+        sendUdp(app4, 33335, dns4, 53, query)
+        val r = nextUdp() ?: die("no DNS answer")
+        assertEquals("REFUSED", 5, r.payload[3].toInt() and 0x0F)
+        assertTrue("the handler must not see it", dnsCalls.isEmpty())
+        // With nothing blocked, an unknown owner's lookup is answered as before.
+        blocked.clear()
+        answers += -1
+        sendUdp(app4, 33336, dns4, 53, query)
+        val ok = nextUdp() ?: die("no DNS answer")
+        assertEquals(0x81, ok.payload[2].toInt() and 0xFF)
+        assertEquals(-1, dnsCalls.single().first)
+    }
+
+    @Test(timeout = 20_000)
+    fun udpPortTakenOverByAnotherAppStartsOver() {
+        val s1 = udpEchoServer()
+        val s2 = udpEchoServer()
+        start(EngineConfig(ownerCheckMs = 50))
+        sendUdp(app4, 40103, loop4, s1.localPort, "mine".toByteArray())
+        assertEquals("mine", String((nextUdp() ?: die("no reply")).payload))
+        // The app closes its socket and a blocked app binds the same port, talking somewhere new.
+        uid = 20000
+        blocked += 20000
+        Thread.sleep(80) // past the shortest gap between owner checks
+        sendUdp(app4, 40103, loop4, s2.localPort, "theirs".toByteArray())
+        waitUntil("the old owner's flow to close") { engine!!.udpFlows == 0 }
+        nextUdp(200) // the datagram that set off the check may have gone out meanwhile
+        sendUdp(app4, 40103, loop4, s2.localPort, "again".toByteArray())
+        assertNull("the new owner is blocked", nextUdp(500))
+        waitUntil("blocked event") { events.any { it.uid == 20000 && it.blocked } }
+    }
+
+    @Test(timeout = 20_000)
+    fun udpPortTakenOverAfterAPauseToTheSameDestinationStartsOver() {
+        val ds = udpEchoServer()
+        start(EngineConfig(ownerCheckMs = 300))
+        sendUdp(app4, 40109, loop4, ds.localPort, "mine".toByteArray())
+        assertEquals("mine", String((nextUdp() ?: die("no reply")).payload))
+        // A while later another socket, of a blocked app, sends from the same port to the same place.
+        uid = 20000
+        blocked += 20000
+        Thread.sleep(400)
+        sendUdp(app4, 40109, loop4, ds.localPort, "theirs".toByteArray())
+        waitUntil("the old owner's flow to close") { engine!!.udpFlows == 0 }
+        nextUdp(200) // the datagram that set off the check may have gone out meanwhile
+        sendUdp(app4, 40109, loop4, ds.localPort, "again".toByteArray())
+        assertNull("the new owner is blocked", nextUdp(500))
+    }
+
+    @Test(timeout = 20_000)
+    fun udpFlowLetsGoOnceTheAppSocketIsGone() {
+        val peer = udpPeer(echo = true)
+        start(EngineConfig(ownerCheckMs = 50))
+        sendUdp(app4, 40104, loop4, peer.port, "hello".toByteArray())
+        assertEquals("hello", String((nextUdp() ?: die("no reply")).payload))
+        val relay = peer.got.take().second
+        // The app closed its socket (nobody owns the port now) but the server keeps sending.
+        uid = -1
+        thread(isDaemon = true) {
+            try {
+                repeat(100) {
+                    peer.sendTo(relay, "still here")
+                    Thread.sleep(30)
+                }
+            } catch (_: Exception) {
+            }
+        }
+        waitUntil("flow closed", 5000) { engine!!.udpFlows == 0 }
+    }
+
+    // ------------------------------------------------------------------ UDP mapping and filtering
+
+    @Test(timeout = 20_000)
+    fun udpUsesOnePublicPortForEveryDestination() {
+        val s1 = udpPeer(echo = true)
+        val s2 = udpPeer(echo = true)
+        start()
+        sendUdp(app4, 40107, loop4, s1.port, "one".toByteArray())
+        sendUdp(app4, 40107, loop4, s2.port, "two".toByteArray())
+        val seen1 = s1.got.poll(5, TimeUnit.SECONDS) ?: die("first server got nothing")
+        val seen2 = s2.got.poll(5, TimeUnit.SECONDS) ?: die("second server got nothing")
+        // What a STUN server sees is what a call partner can reach: one port for every destination.
+        assertEquals(seen1.second, seen2.second)
+        val replies = listOf(nextUdp() ?: die("no reply"), nextUdp() ?: die("no second reply"))
+        assertEquals(setOf(s1.port to "one", s2.port to "two"), replies.map { it.srcPort to String(it.payload) }.toSet())
+        assertTrue(replies.all { it.dstPort == 40107 && it.src.contentEquals(loop4) })
+        assertEquals(1, engine!!.udpFlows)
+        waitUntil("events") { events.size >= 2 }
+        Thread.sleep(100)
+        assertEquals("one line per destination", listOf(s1.port, s2.port).sorted(), events.map { it.port }.sorted())
+    }
+
+    @Test(timeout = 20_000)
+    fun udpReplyFromAnotherPortOfTheSameAddressReachesTheApp() {
+        val first = udpPeer(echo = false)
+        val other = udpPeer(echo = false)
+        start()
+        sendUdp(app4, 40105, loop4, first.port, "where am I?".toByteArray())
+        val relay = (first.got.poll(5, TimeUnit.SECONDS) ?: die("server got nothing")).second
+        other.sendTo(relay, "from another port")
+        val r = nextUdp() ?: die("a reply from another port of the same address was dropped")
+        assertArrayEquals(loop4, r.src)
+        assertEquals(other.port, r.srcPort)
+        assertArrayEquals(app4, r.dst)
+        assertEquals(40105, r.dstPort)
+        assertEquals("from another port", String(r.payload))
+    }
+
+    @Test(timeout = 20_000)
+    fun udpFromAnAddressTheAppNeverSentToIsDroppedUntilItDoes() {
+        val lo2 = InetAddress.getByName("127.0.0.2")
+        val stranger = try {
+            udpPeer(echo = false, addr = lo2)
+        } catch (e: Exception) {
+            null
+        }
+        assumeTrue("needs 127.0.0.2 on this machine", stranger != null)
+        stranger!!
+        val first = udpPeer(echo = false)
+        start()
+        sendUdp(app4, 40106, loop4, first.port, "hi".toByteArray())
+        val relay = (first.got.poll(5, TimeUnit.SECONDS) ?: die("server got nothing")).second
+        stranger.sendTo(relay, "unasked")
+        assertNull("from an address the app never sent to: dropped", nextUdp(400))
+        // Once the app sends there (from the same public port), that address may answer.
+        sendUdp(app4, 40106, lo2.address, stranger.port, "now asked".toByteArray())
+        val seen = stranger.got.poll(5, TimeUnit.SECONDS) ?: die("stranger got nothing")
+        assertEquals("now asked", seen.first)
+        assertEquals(relay, seen.second)
+        stranger.sendTo(relay, "answer")
+        val r = nextUdp() ?: die("the answer was dropped")
+        assertArrayEquals(lo2.address, r.src)
+        assertEquals(stranger.port, r.srcPort)
+        assertEquals("answer", String(r.payload))
+    }
+
+    @Test(timeout = 20_000)
+    fun udpAnswersToABroadcastMayComeFromAnyDevice() {
+        val lo2 = InetAddress.getByName("127.0.0.2")
+        val device = try {
+            udpPeer(echo = false, addr = lo2)
+        } catch (e: Exception) {
+            null
+        }
+        assumeTrue("needs 127.0.0.2 on this machine", device != null)
+        device!!
+        val first = udpPeer(echo = false)
+        start()
+        sendUdp(app4, 40108, loop4, first.port, "hello".toByteArray())
+        val relay = (first.got.poll(5, TimeUnit.SECONDS) ?: die("server got nothing")).second
+        // Like a printer or TV finder: ask everyone on the network (to the discard port) ...
+        sendUdp(app4, 40108, InetAddress.getByName("255.255.255.255").address, 9, "anyone there?".toByteArray())
+        Thread.sleep(100)
+        // ... and devices answer from their own addresses, which the app never sent to.
+        device.sendTo(relay, "me")
+        val r = nextUdp() ?: die("an answer to a broadcast was dropped")
+        assertArrayEquals(lo2.address, r.src)
+        assertEquals(device.port, r.srcPort)
+        assertEquals("me", String(r.payload))
+    }
+
+    // ------------------------------------------------------------------ logging and timeouts
+
+    @Test(timeout = 20_000)
+    fun blockedRetriesAreLoggedOnceInAWhile() {
+        val ss = server { }
+        blocked += uid
+        start(EngineConfig(rtoMs = 200, rtoMaxMs = 800, lingerMs = 200, blockedLogGapMs = 1_000))
+        repeat(5) {
+            val a = app(ss.localPort) // a new port each time, like an app retrying with new sockets
+            a.send(TCP_SYN, ack = 0, mss = 1460)
+            a.expect("reset") { it.has(TCP_RST) }
+        }
+        assertEquals("one line for the same blocked attempt: $events", 1, events.size)
+        Thread.sleep(1_100)
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        a.expect("reset") { it.has(TCP_RST) }
+        assertEquals("logged again after a while", 2, events.size)
+        assertTrue(events.all { it.blocked && it.uid == uid })
+    }
+
+    @Test(timeout = 30_000)
+    fun halfClosedConnectionWaitsForASlowServer() {
+        // The app ends its request with shutdownOutput; the server takes its time to answer.
+        val ss = server { s ->
+            val req = s.getInputStream().readBytes() // until the app's FIN
+            Thread.sleep(800)
+            s.getOutputStream().write("done: ${req.size}".toByteArray())
+        }
+        start(EngineConfig(rtoMs = 200, rtoMaxMs = 800, lingerMs = 200, closingTimeoutMs = 200, halfClosedTimeoutMs = 5_000))
+        val a = app(ss.localPort)
+        a.connect()
+        a.sendData("job")
+        assertEquals("done: 3", String(a.closeFromApp(10_000)))
+    }
+
+    @Test(timeout = 20_000)
+    fun deadHalfClosedConnectionIsStillCleanedUp() {
+        val ss = server { s ->
+            s.getInputStream().readBytes()
+            Thread.sleep(10_000) // never answers
+        }
+        start(EngineConfig(rtoMs = 200, rtoMaxMs = 800, lingerMs = 200, halfClosedTimeoutMs = 400))
+        val a = app(ss.localPort)
+        a.connect()
+        a.send(TCP_FIN or TCP_ACK)
+        a.sndNxt += 1
+        a.expect("reset after the half-closed time", 5_000) { it.has(TCP_RST) }
+        waitUntil("connection removed") { engine!!.tcpFlows == 0 }
+        assertEquals("a server may think for minutes", 10 * 60_000L, EngineConfig().halfClosedTimeoutMs)
     }
 }
