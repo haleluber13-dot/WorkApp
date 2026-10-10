@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PhoneGuard</title>
-  <meta name="description" content="Firewall and spyware scanner for Android. Block apps on Wi-Fi or 4G/5G and find hidden spy apps.">
+  <meta name="description" content="Web shield, firewall and spyware scanner for Android. Blocks dangerous sites, lets you choose which apps go online, and finds hidden spy apps.">
   <meta name="theme-color" content="#0E1621">
   <style>
-    :root { --bg:#0E1621; --card:#172333; --text:#E8EEF5; --sub:#8FA3B8; --green:#2ECC71; --line:#2A3B52; }
+    :root { --bg:#0E1621; --card:#172333; --text:#E8EEF5; --sub:#8FA3B8; --green:#2ECC71; --amber:#FFB300; --line:#2A3B52; }
     * { box-sizing: border-box; }
     body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
     main { max-width:640px; margin:0 auto; padding:24px 16px 48px; }
@@ -21,40 +21,79 @@
     li { margin:6px 0; }
     b { color:var(--text); }
     small { color:var(--sub); }
+    a { color:var(--green); }
+    .warn { color:var(--amber); }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    td { color:var(--sub); padding:6px 4px; border-top:1px solid var(--line); vertical-align:top; overflow-wrap:anywhere; }
   </style>
 </head>
 <body>
 <main>
   <h1><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path fill="#2ECC71" d="M12,1L3,5v6c0,5.55 3.84,10.74 9,12 5.16,-1.26 9,-6.45 9,-12V5L12,1zM10,17l-4,-4 1.41,-1.41L10,14.17l6.59,-6.59L18,9l-8,8z"/></svg>PhoneGuard</h1>
-  <p>Firewall and spyware scanner for Android. Block any app on Wi-Fi or mobile data (4G/5G) and find hidden apps someone may have put on your phone.</p>
+  <p>Stay online normally while being protected. PhoneGuard blocks dangerous and spying websites, lets you choose which apps may use Wi-Fi or mobile data, shows which apps send data while your screen is off, and finds hidden spy apps.</p>
   <a class="btn" href="PhoneGuard.apk" download>Download for Android</a>
-  <small>Android 8.0 or newer · about 90 KB · no internet permission, so it can't send your data anywhere</small>
+  <small>Android 10 or newer · made for the Samsung Galaxy Note 20 Ultra · a few MB · free, no ads, no account</small>
 
   <div class="card">
-    <h2>Install</h2>
+    <h2>What Full protection does</h2>
+    <ul>
+      <li><b>Web Shield:</b> blocks malware, phishing and scam sites, stalkerware servers, and (if you want) ads and trackers, for every app. Your site lookups are sent encrypted to the provider you pick (Quad9, Cloudflare or Google).</li>
+      <li><b>Firewall:</b> per-app switches for Wi-Fi and mobile data, with a log of what blocked apps tried to reach.</li>
+      <li><b>Traffic monitor:</b> how much each app sends and receives, and which apps upload a lot while the screen is off.</li>
+      <li><b>Spyware scan:</b> 600+ known stalkerware apps (renamed copies too), apps without an icon, apps that can read your screen, notifications or texts, apps not from an app store, and risky settings such as extra certificates, proxies, debugging or no screen lock.</li>
+      <li><b>Lock new apps:</b> new apps get no internet until you allow them, with an alert showing what they can access.</li>
+      <li><b>Open Wi-Fi alerts:</b> a warning when you join Wi-Fi without a password.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Your privacy</h2>
+    <p>PhoneGuard uses the internet only to pass your apps' own traffic through, to send encrypted site lookups to the DNS provider you choose, and to download blocklist updates from the public sources listed below. If your provider can't be reached, lookups go to your network's own DNS without encryption so the internet keeps working, and the app tells you.</p>
+    <p>It <b>never uploads information about you</b>. Everything it records (rules, scan results, activity) stays on your phone.</p>
+  </div>
+
+  <div class="card">
+    <h2>Install on a Galaxy Note 20 Ultra</h2>
     <ol>
       <li>Tap <b>Download for Android</b>, then open the file.</li>
       <li>If asked, allow your browser to <b>Install unknown apps</b>, then tap <b>Install</b>. If Play Protect says it doesn't recognise the app, choose <b>Install anyway</b> (it isn't from the Play Store).</li>
-      <li>Open PhoneGuard, tap <b>Turn on</b> and accept the VPN request.</li>
+      <li>If you had the first version and Android says <b>App not installed</b>, uninstall the old one first, then install again.</li>
+      <li>Open PhoneGuard, tap <b>Turn on protection</b> and accept the VPN request. Allow alerts when asked.</li>
       <li>Go to <b>Scan</b> and tap <b>Scan my phone</b>.</li>
-      <li>Keep it on after restarts: Settings → Network → VPN → ⚙ next to PhoneGuard → <b>Always-on VPN</b>. Leave <b>Block connections without VPN</b> off.</li>
     </ol>
   </div>
 
   <div class="card">
-    <h2>What it does</h2>
+    <h2>Keep protection on</h2>
     <ul>
-      <li><b>Firewall:</b> per-app switches for Wi-Fi and mobile data, plus a log of every connection a blocked app tried to make.</li>
-      <li><b>Spy app scan:</b> checks against 600+ known stalkerware apps, finds apps without an icon, and apps that can read your screen, notifications or texts, or track your location.</li>
-      <li><b>Traffic snooping checks:</b> extra security certificates, hidden proxies, unknown VPNs, USB or wireless debugging, missing screen lock, rooting, old updates.</li>
-      <li><b>Lock new apps:</b> new apps get no internet until you allow them, with an alert showing what they can access.</li>
+      <li><b>Always-on VPN: ON.</b> Settings → Connections → More connection settings → VPN → ⚙ next to PhoneGuard → Always-on VPN.</li>
+      <li class="warn"><b>Block connections without VPN: OFF.</b> If this is on and PhoneGuard ever stops, every app loses internet.</li>
+      <li><b>Never sleeping apps:</b> Settings → Battery and device care → Battery → Background usage limits → Never sleeping apps → add PhoneGuard.</li>
+      <li><b>Private DNS: Automatic or Off</b> (Settings → Connections → More connection settings → Private DNS), so the Web Shield can check your lookups.</li>
     </ul>
   </div>
 
   <div class="card">
     <h2>Good to know</h2>
-    <p>No app can catch every kind of spyware. Spyware sold to governments, or anything on a rooted phone, can hide from all apps. If you think someone close to you is spying on you and you feel unsafe, contact a local domestic-violence helpline before removing anything.</p>
-    <p><small>Spy app database: <a style="color:var(--green)" href="https://github.com/AssoEchap/stalkerware-indicators">Echap stalkerware-indicators</a> (CC-BY 4.0).</small></p>
+    <ul>
+      <li>Only one VPN app can run at a time, so you can't use another VPN while PhoneGuard is on.</li>
+      <li>Private DNS set to a provider name, or apps with their own encrypted DNS, skip the Web Shield. The firewall still applies to them.</li>
+      <li>"Ping" tests don't work in Full mode. Apps and websites work normally.</li>
+      <li>No app can catch every kind of spyware. Spyware sold to governments, or anything on a rooted phone, can hide from all apps.</li>
+      <li>Samsung has ended regular security updates for the Note 20 series, so this phone may no longer get Samsung security fixes. Install apps only from Google Play or Galaxy Store.</li>
+      <li>If you think someone close to you is spying on you and you feel unsafe, contact a local domestic-violence helpline before removing anything.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Lists used</h2>
+    <table>
+      <tr><td>Spy apps and stalkerware servers</td><td><a href="https://github.com/AssoEchap/stalkerware-indicators">Echap stalkerware-indicators</a> · CC BY 4.0</td></tr>
+      <tr><td>Ads &amp; trackers</td><td><a href="https://github.com/StevenBlack/hosts">StevenBlack hosts</a> · MIT</td></tr>
+      <tr><td>Malware sites</td><td><a href="https://urlhaus.abuse.ch/">URLhaus by abuse.ch</a> · CC0 1.0</td></tr>
+      <tr><td>Phishing &amp; scam sites</td><td><a href="https://gitlab.com/malware-filter/phishing-filter">malware-filter phishing-filter</a> by curbengh · CC BY-SA 4.0</td></tr>
+    </table>
+    <p><small>Source code and build instructions: <a href="https://github.com/haleluber13-dot/WorkApp/tree/main/phoneguard">github.com/haleluber13-dot/WorkApp</a>.</small></p>
   </div>
 </main>
 </body>

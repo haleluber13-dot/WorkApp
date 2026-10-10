@@ -33,10 +33,28 @@ fun firewallSummary(rules: Rules): String {
         else "Off. ${Format.count(n, "app")} will be blocked when you turn protection on."
     }
     val n = FirewallService.blockedCount
-    val attempts = TrafficStore.totalBlocked()
+    // Web Shield site blocks are counted apart: they aren't the firewall cutting an app off.
+    val attempts = TrafficStore.totalFirewallBlocked()
     return "On · using ${netName(FirewallService.currentNet)} · ${Format.count(n, "app")} blocked here" +
-        if (attempts > 0) " · ${Format.count(attempts, "connection")} stopped" else ""
+        if (attempts > 0) " · ${Format.firewallBlocks(attempts)}" else ""
 }
+
+/** True when Full protection is chosen but had a problem, so Basic mode is running instead. */
+fun fellBackToBasic(rules: Rules): Boolean =
+    FirewallService.running && FirewallService.activeMode == ProtectionMode.BASIC &&
+        rules.mode == ProtectionMode.FULL && FirewallService.problem != null
+
+/** The problem to show after a fall back to Basic mode, or null when there was none. */
+fun fallbackProblem(rules: Rules): String? = if (fellBackToBasic(rules)) FirewallService.problem else null
+
+/** "Try Full protection again": a fresh start of the service clears the fall back and retries Full mode. */
+fun retryFullProtection(host: Host) {
+    host.toast("Trying Full protection again…")
+    host.setProtection(true)
+}
+
+/** Apps sharing an Android system identity (uid below 10000) can't be blocked by the firewall. */
+fun isSystemUid(uid: Int): Boolean = uid >= 0 && uid % 100_000 < android.os.Process.FIRST_APPLICATION_UID
 
 /** Ask before turning protection off, so a stray tap can't leave the phone unprotected. */
 fun confirmTurnOff(host: Host) {

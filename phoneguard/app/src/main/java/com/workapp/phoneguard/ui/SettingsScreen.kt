@@ -63,7 +63,8 @@ class SettingsScreen(host: Host) : Screen(host) {
 
     private var builtFor: List<Any?>? = null
 
-    private fun signature(): List<Any?> = listOf(ShieldTask.lists, ShieldTask.updating, runningMode(host.rules))
+    private fun signature(): List<Any?> =
+        listOf(ShieldTask.lists, ShieldTask.updating, runningMode(host.rules), fallbackProblem(host.rules))
 
     private fun refresh() {
         val y = scroll.scrollY
@@ -101,13 +102,16 @@ class SettingsScreen(host: Host) : Screen(host) {
             chosen == ProtectionMode.BASIC,
         ) { setMode(ProtectionMode.BASIC) }, 0)
         val active = runningMode(host.rules)
-        if (active != null && active != chosen) {
+        val problem = fallbackProblem(host.rules)
+        if (problem != null) {
+            // Full is already picked, so tapping it does nothing: offer a real retry instead.
             c.put(View(ctx), 8)
-            c.put(ctx.label(
-                if (active == ProtectionMode.BASIC && FirewallService.activeMode == ProtectionMode.BASIC)
-                    "Right now PhoneGuard is running in Basic mode, because Full mode had a problem. Turn protection off and on again to retry."
-                else "Switching modes…",
-                13f, C.AMBER), 0)
+            c.put(ctx.label("Right now PhoneGuard is running in Basic mode. $FALLBACK_TEXT", 13f, C.AMBER), 4)
+            c.put(ctx.label("What happened: $problem.", 12f, C.SUB), 8)
+            c.put(ctx.pill("Try Full protection again", C.GREEN) { retryFullProtection(host) }, 0, wrap = true)
+        } else if (active != null && active != chosen) {
+            c.put(View(ctx), 8)
+            c.put(ctx.label("Switching modes…", 13f, C.AMBER), 0)
         }
         body.put(c)
     }
@@ -330,6 +334,8 @@ class SettingsScreen(host: Host) : Screen(host) {
             "Apps that use their own encrypted lookups or fixed addresses can skip the Web Shield. The firewall still decides whether they may go online.",
             "PhoneGuard can't see inside encrypted traffic, only which app talks to which site and how much.",
             "Only one VPN app can run at a time, so you can't use another VPN while PhoneGuard is on.",
+            "If Private DNS in your phone's settings is set to a provider name, the Web Shield can't check your lookups.",
+            "\"Ping\" tests don't work in Full mode. Normal apps and websites are not affected.",
         ).forEach { c.put(ctx.bullet(it), 6) }
         c.put(View(ctx), 6)
         c.put(ctx.divider(), 12)
@@ -339,7 +345,7 @@ class SettingsScreen(host: Host) : Screen(host) {
             "Spy app database and stalkerware servers: Echap stalkerware-indicators (CC BY 4.0).",
             "Ads & trackers: StevenBlack hosts (MIT licence).",
             "Malware sites: URLhaus by abuse.ch (CC0).",
-            "Phishing sites: malware-filter phishing-filter by curbengh.",
+            "Phishing sites: malware-filter phishing-filter by curbengh (CC BY-SA 4.0).",
         ).forEach { c.put(ctx.bullet(it), 6) }
         c.put(ctx.label("Thank you to the people who maintain these lists.", 12f, C.SUB), 0)
         body.put(c)

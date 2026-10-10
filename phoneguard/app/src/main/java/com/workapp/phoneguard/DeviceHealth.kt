@@ -18,6 +18,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import com.workapp.phoneguard.shield.DnsSettings
+import com.workapp.phoneguard.shield.DnsStatus
 
 enum class WifiSafety { SAFE, OPEN, WEAK, UNKNOWN }
 
@@ -97,6 +98,18 @@ object WifiLogic {
         bssid != null -> "b:$bssid" to true
         networkHandle != null -> "n:$networkHandle" to false
         else -> "unknown" to false
+    }
+
+    /**
+     * One plain sentence on whether lookups are private on an unsafe Wi-Fi. Only claims privacy when
+     * Full protection is actually running and lookups are going out encrypted right now.
+     */
+    fun protectionLine(fullRunning: Boolean, encryptedNow: Boolean, providerEncrypts: Boolean): String = when {
+        fullRunning && encryptedNow -> "PhoneGuard's Web Shield keeps your lookups private, but avoid banking here."
+        fullRunning && !providerEncrypts ->
+            "Pick an encrypted DNS in PhoneGuard's settings so your lookups stay private, and avoid banking here."
+        fullRunning -> "Your lookups aren't encrypted on this network right now, so avoid banking and private sites here."
+        else -> "Turn on PhoneGuard's Full protection so your lookups stay private, and avoid banking here."
     }
 
     /** Whether to alert now, given when we last alerted for this key and for any unidentified network. */
@@ -180,15 +193,11 @@ object WifiGuard {
 
     /** One plain sentence on whether PhoneGuard is keeping lookups private right now. */
     fun protectionLine(context: Context): String {
-        val full = try {
-            FirewallService.running && Rules(context).mode == ProtectionMode.FULL
-        } catch (_: Throwable) { false }
-        val encrypted = try { DnsSettings.provider(context).dohUrl != null } catch (_: Throwable) { false }
-        return when {
-            full && encrypted -> "PhoneGuard's Web Shield keeps your lookups private, but avoid banking here."
-            full -> "Pick an encrypted DNS in PhoneGuard's settings so your lookups stay private, and avoid banking here."
-            else -> "Turn on PhoneGuard's Full protection so your lookups stay private, and avoid banking here."
-        }
+        // What is running, not what is configured: after a fall back to Basic mode the Web Shield is off,
+        // and a network that blocks encrypted DNS makes lookups go out in the clear.
+        val full = FirewallService.running && FirewallService.activeMode == ProtectionMode.FULL
+        val providerEncrypts = try { DnsSettings.provider(context).dohUrl != null } catch (_: Throwable) { false }
+        return WifiLogic.protectionLine(full, DnsStatus.encrypted, providerEncrypts)
     }
 
     /** The real (non-VPN) Wi-Fi network and its capabilities, if connected. */
@@ -261,6 +270,49 @@ object WifiGuard {
     }
 }
 
+/**
+ * Pure setup advice (no android.* calls), kept apart so it can be unit tested.
+ */
+object SetupLogic {
+    /** Must go with every mention of Always-on VPN: lockdown cuts every app off if PhoneGuard ever stops. */
+    const val LOCKDOWN_WARNING =
+        "Leave \"Block connections without VPN\" OFF, or every app loses internet if PhoneGuard ever stops."
+
+    /** How to turn on Always-on VPN, always with [LOCKDOWN_WARNING]. */
+    fun alwaysOnVpnTip(samsung: Boolean): String {
+        val path = if (samsung) "Settings → Connections → More connection settings → VPN"
+        else "Settings → Network & internet → VPN"
+        return "Open VPN settings ($path) → tap ⚙ next to PhoneGuard → turn ON \"Always-on VPN\". $LOCKDOWN_WARNING"
+    }
+
+    /**
+     * Phone-specific lines for the Home Setup card. Leaves out what Home already shows elsewhere:
+     * the background (battery) and Always-on VPN steps, Play Protect and system updates.
+     */
+    fun setupTips(samsung: Boolean, oldOneUi: Boolean, samsungDeviceProtection: Boolean): List<String> {
+        val tips = ArrayList<String>()
+        if (samsung) {
+            // One UI 2.5 (Android 10) used older menu names; One UI 3+ (Android 11+) renamed them.
+            tips += if (oldOneUi) {
+                "Stop Samsung putting PhoneGuard to sleep: Settings → Device care → Battery → App power management → Apps that won't be put to sleep → add PhoneGuard."
+            } else {
+                "Stop Samsung putting PhoneGuard to sleep: Settings → Battery and device care → Battery → Background usage limits → Never sleeping apps → add PhoneGuard."
+            }
+            if (samsungDeviceProtection) {
+                tips += if (oldOneUi) {
+                    "Turn on Samsung's virus scan too: Settings → Device care → Security."
+                } else {
+                    "Turn on Samsung's virus scan too: Settings → Battery and device care → Device protection."
+                }
+            }
+            tips += "Only install apps from Google Play or Galaxy Store, never from links or files people send you."
+        } else {
+            tips += "Only install apps from Google Play, never from links or files people send you."
+        }
+        return tips
+    }
+}
+
 object DeviceHealth {
     private const val SAMSUNG_DEVICE_PROTECTION = "com.samsung.android.sm.devicesecurity"
 
@@ -288,35 +340,9 @@ object DeviceHealth {
     } catch (_: Throwable) { false }
 
     /** Plain-language, device-specific advice lines for the Home screen (e.g. Samsung "Never sleeping apps"). */
-    fun setupTips(context: Context): List<String> {
-        val tips = ArrayList<String>()
-        val samsung = isSamsung()
-        // One UI 2.5 (Android 10) used older menu names; One UI 3+ (Android 11+) renamed them.
-        val oldOneUi = Build.VERSION.SDK_INT < 30
+    fun setupTips(context: Context): List<String> =
+        SetupLogic.setupTips(isSamsung(), Build.VERSION.SDK_INT < 30, isSamsung() && hasSamsungDeviceProtection(context))
 
-        if (!isBatteryExempt(context)) {
-            tips += "Let PhoneGuard run in the background, so battery saving doesn't switch your protection off."
-        }
-        if (samsung) {
-            tips += if (oldOneUi) {
-                "Stop Samsung putting PhoneGuard to sleep: Settings → Device care → Battery → App power management → Apps that won't be put to sleep → add PhoneGuard."
-            } else {
-                "Stop Samsung putting PhoneGuard to sleep: Settings → Battery and device care → Battery → Background usage limits → Never sleeping apps → add PhoneGuard."
-            }
-            tips += "Turn on Always-on VPN so protection starts by itself: Settings → Connections → More connection settings → VPN → ⚙ next to PhoneGuard → Always-on VPN."
-        } else {
-            tips += "Turn on Always-on VPN so protection starts by itself: Settings → Network & internet → VPN → ⚙ next to PhoneGuard → Always-on VPN."
-        }
-        tips += "Keep Google Play Protect on: Play Store → your profile picture → Play Protect."
-        if (samsung && hasSamsungDeviceProtection(context)) {
-            tips += if (oldOneUi) {
-                "Turn on Samsung's virus scan too: Settings → Device care → Security."
-            } else {
-                "Turn on Samsung's virus scan too: Settings → Battery and device care → Device protection."
-            }
-        }
-        tips += "Only install apps from Google Play or Galaxy Store, never from links or files people send you."
-        tips += "Install system updates as soon as they arrive."
-        return tips
-    }
+    /** How to turn on Always-on VPN on this phone, with the warning to leave lockdown off. */
+    fun alwaysOnVpnTip(): String = SetupLogic.alwaysOnVpnTip(isSamsung())
 }

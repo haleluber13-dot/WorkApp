@@ -53,7 +53,11 @@ fun showAppDetail(host: Host, uid: Int, packages: List<String>, onChanged: () ->
     }, 0, weight = 1f)
     body.put(head, 14)
 
-    if (packages.isNotEmpty()) {
+    if (packages.isNotEmpty() && isSystemUid(uid)) {
+        body.put(ctx.label("System — always allowed. This is part of Android, so the firewall never blocks it: " +
+            "blocking it could break your phone's internet.", 13f, C.SUB), 8)
+        body.put(ctx.divider(), 12)
+    } else if (packages.isNotEmpty()) {
         val rules = host.rules
         for ((net, name) in listOf(NetType.WIFI to "Allowed on Wi-Fi", NetType.MOBILE to "Allowed on mobile data")) {
             val allowed = packages.none { rules.isBlocked(it, net) }
@@ -80,8 +84,14 @@ fun showAppDetail(host: Host, uid: Int, packages: List<String>, onChanged: () ->
         body.put(ctx.label("Since ${time(TrafficStore.since())}", 13f, C.SUB), 8)
         body.put(amountRow(host, "Sent (uploaded)", t.sent, t.sentScreenOff), 6)
         body.put(amountRow(host, "Received (downloaded)", t.received, t.receivedScreenOff), 6)
-        val counts = "${Format.count(t.connections, "connection")} · ${Format.count(t.blocked, "attempt")} stopped"
-        body.put(ctx.label(counts, 13f, if (t.blocked > 0) C.AMBER else C.SUB), 12)
+        val counts = (listOf(Format.count(t.connections, "connection")) +
+            Format.blockParts(t.firewallBlocked, t.siteBlocked)).joinToString(" · ")
+        body.put(ctx.label(counts, 13f, if (t.firewallBlocked > 0) C.AMBER else C.SUB), 4)
+        if (t.siteBlocked > 0) {
+            body.put(ctx.label("Sites are blocked by the Web Shield for every app. The app itself isn't blocked.", 12f, C.SUB), 12)
+        } else {
+            body.put(View(ctx), 8)
+        }
         if (t.sentScreenOff >= Format.SCREEN_OFF_NOTABLE) {
             body.put(ctx.label("This app uploaded ${Format.bytes(t.sentScreenOff)} while your screen was off. " +
                 "If you don't know why it would, take a closer look or block it.", 13f, C.AMBER), 12)
@@ -138,12 +148,23 @@ private fun domainList(host: Host, body: LinearLayout, title: String, map: Map<S
  * What to do about a site (and the app that contacted it): always allow, block, or block the app.
  * [domain] may be null for connections without a known name; then only "Block this app" is offered.
  */
-fun showSiteActions(host: Host, domain: String?, uid: Int, blocked: Boolean, onChanged: () -> Unit = {}) {
+fun showSiteActions(
+    host: Host, domain: String?, uid: Int, blocked: Boolean, reason: String? = null, onChanged: () -> Unit = {},
+) {
     val ctx = host.activity
     val who = AppNames.of(ctx, uid)
     val body = ctx.column().apply { setPadding(ctx.dp(20), ctx.dp(16), ctx.dp(20), ctx.dp(8)) }
     body.put(ctx.label(domain ?: "Connection by ${who.label}", 18f, bold = true), 4)
-    if (domain != null) body.put(ctx.label("Used by ${who.label}", 13f, C.SUB), 14)
+    if (domain != null) body.put(ctx.label("Used by ${who.label}", 13f, C.SUB), 8)
+    // What the Web Shield thinks of the site right now (null if allowed, or the lists aren't loaded yet).
+    val verdict = if (domain == null) null else try {
+        if (Shield.isLoaded()) Shield.checkDetailed(domain) else null
+    } catch (_: Throwable) { null }
+    val why = if (blocked) reason ?: verdict?.reason else null
+    if (!why.isNullOrBlank()) body.put(ctx.label("Blocked because: $why", 13f, C.RED), 8)
+    // A block that came through an alias ("(via tracker.example.net)") needs the alias allowed too.
+    val via = (Format.viaTarget(reason) ?: Format.viaTarget(verdict?.reason))?.takeIf { it != domain }
+    body.put(View(ctx), 6)
 
     var dialog: android.app.AlertDialog? = null
     fun action(text: String, color: Int, filled: Boolean, run: () -> Unit) {
@@ -174,6 +195,19 @@ fun showSiteActions(host: Host, domain: String?, uid: Int, blocked: Boolean, onC
                 host.toast("$domain will always be allowed. Apps may take a minute to notice.")
             }
         }
+        if (via != null && via !in allowed) {
+            body.put(ctx.label("$domain is another name for $via, which is on a block list. " +
+                "To use $domain, allow $via too.", 12f, C.SUB), 6)
+            action("Always allow $via too", C.GREEN, false) {
+                if (via in denied) Shield.undeny(ctx, via)
+                if (domain !in allowed) {
+                    if (domain in denied) Shield.undeny(ctx, domain)
+                    Shield.allow(ctx, domain)
+                }
+                Shield.allow(ctx, via)
+                host.toast("$domain and $via will always be allowed. Apps may take a minute to notice.")
+            }
+        }
         if (domain in denied) {
             action("Unblock this site", C.SUB, false) {
                 Shield.undeny(ctx, domain)
@@ -191,7 +225,7 @@ fun showSiteActions(host: Host, domain: String?, uid: Int, blocked: Boolean, onC
 
     if (who.isApp && ctx.packageName !in who.packages) {
         action("Block this app", C.RED, false) { blockApp(host, who) }
-    } else if (uid in 0 until android.os.Process.FIRST_APPLICATION_UID) {
+    } else if (isSystemUid(uid)) {
         body.put(ctx.label("${who.label} is part of Android and can't be blocked here: blocking it could break your phone's internet.", 12f, C.SUB), 8)
     }
 

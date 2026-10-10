@@ -51,6 +51,8 @@ data class Finding(
     val details: List<String>,
     val pkg: String? = null,
     val actions: List<Action> = emptyList(),
+    /** False for findings "I trust this" must never hide (known stalkerware). */
+    val trustable: Boolean = true,
 )
 
 /** What one installed app can do, gathered from Android's own records. */
@@ -64,8 +66,19 @@ class AppProfile(
     val sensitive: List<String>,
     val sensitiveScore: Int,
     val knownSpyware: String?,
+    /** Android 11+: the app that really started the install (adb shows as com.android.shell). */
+    val initiatingInstaller: String? = null,
+    /** Android 11+: the app the install came from, when Android tells us (usually hidden). */
+    val originatingInstaller: String? = null,
+    /** Names of the sensitive permissions granted (keys of [SENSITIVE]). */
+    val sensitivePermissions: List<String> = emptyList(),
+    /** SHA-256 of the current signing certificate(s), hex; null if unknown. */
+    val certHash: String? = null,
 ) {
-    val sideloaded: Boolean get() = installer == null || installer !in TRUSTED_STORES
+    val sideloaded: Boolean get() = ScanLogic.isSideloaded(installer, initiatingInstaller, originatingInstaller)
+
+    /** Claims to come from an app store, but something else really installed it (e.g. adb install -i). */
+    val spoofedStore: Boolean get() = sideloaded && installer != null && installer in TRUSTED_STORES
 
     companion object {
         val TRUSTED_STORES = setOf(
@@ -78,6 +91,16 @@ class AppProfile(
             "com.bbk.appstore",                    // vivo
             "com.google.android.feedback",         // older Play installs
             "org.fdroid.fdroid",
+        )
+
+        /**
+         * Apps that may start an install without it being a sideload: the stores above, plus the
+         * tools that restore apps onto a new phone (they record the store as the installer).
+         */
+        val TRUSTED_INITIATORS = TRUSTED_STORES + setOf(
+            "com.sec.android.easyMover",           // Samsung Smart Switch
+            "com.google.android.apps.restore",     // Google's restore during setup
+            "com.google.android.gms",              // Google Play services (restores, instant apps)
         )
 
         /** Permission -> (plain description, weight). */
@@ -104,6 +127,7 @@ class AppProfile(
             val pm = context.packageManager
             val ai = pi.applicationInfo!!
             val granted = ArrayList<String>()
+            val grantedNames = ArrayList<String>()
             var score = 0
             val perms = pi.requestedPermissions ?: emptyArray()
             val pflags = pi.requestedPermissionsFlags ?: IntArray(0)
@@ -111,13 +135,24 @@ class AppProfile(
                 val info = SENSITIVE[perms[i]] ?: continue
                 if (i < pflags.size && pflags[i] and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0) {
                     granted += info.first
+                    grantedNames += perms[i]
                     score += info.second
                 }
             }
-            val installer = try {
-                if (Build.VERSION.SDK_INT >= 30) pm.getInstallSourceInfo(pi.packageName).installingPackageName
-                else pm.getInstallerPackageName(pi.packageName)
-            } catch (_: Exception) { null }
+            var installer: String? = null
+            var initiating: String? = null
+            var originating: String? = null
+            try {
+                if (Build.VERSION.SDK_INT >= 30) {
+                    val src = pm.getInstallSourceInfo(pi.packageName)
+                    installer = src.installingPackageName
+                    // "adb install -i com.android.vending" fakes the installer, but not the initiator.
+                    initiating = src.initiatingPackageName
+                    originating = src.originatingPackageName
+                } else {
+                    installer = pm.getInstallerPackageName(pi.packageName)
+                }
+            } catch (_: Exception) {}
 
             val certs = if (Build.VERSION.SDK_INT >= 28) {
                 val si = pi.signingInfo
@@ -132,6 +167,12 @@ class AppProfile(
                 val hex = sha1.digest(sig.toByteArray()).joinToString("") { "%02X".format(it) }
                 ioc.certs[hex]
             }
+            val current = if (Build.VERSION.SDK_INT >= 28) pi.signingInfo?.apkContentsSigners ?: certs else certs
+            val certHash = try {
+                val sha256 = MessageDigest.getInstance("SHA-256")
+                current.map { sig -> sha256.digest(sig.toByteArray()).joinToString("") { "%02x".format(it) } }
+                    .sorted().joinToString(",").ifEmpty { null }
+            } catch (_: Exception) { null }
 
             return AppProfile(
                 pkg = pi.packageName,
@@ -143,11 +184,16 @@ class AppProfile(
                 sensitive = granted,
                 sensitiveScore = score,
                 knownSpyware = ioc.packages[pi.packageName] ?: certMatch,
+                initiatingInstaller = initiating,
+                originatingInstaller = originating,
+                sensitivePermissions = grantedNames,
+                certHash = certHash,
             )
         }
 
         fun installerName(pkg: String?): String = when (pkg) {
             null -> "unknown (often a computer or a direct download)"
+            "com.android.shell" -> "a computer connected by USB cable"
             "com.google.android.packageinstaller", "com.android.packageinstaller" ->
                 "a downloaded file (package installer)"
             else -> pkg
@@ -219,6 +265,45 @@ object ScanLogic {
         else -> Severity.LOW
     }
 
+    /**
+     * True if an app didn't come from an app store. [installer] is the installer of record, which
+     * "adb install -i com.android.vending" can fake. On Android 11+ [initiating] (and, when Android
+     * shows it, [originating]) say who really started the install; null means Android doesn't know
+     * (e.g. apps installed before an upgrade to Android 11), which is not held against the app.
+     */
+    fun isSideloaded(installer: String?, initiating: String?, originating: String?): Boolean {
+        if (installer == null || installer !in AppProfile.TRUSTED_STORES) return true
+        if (initiating != null && initiating !in AppProfile.TRUSTED_INITIATORS) return true
+        if (originating != null && originating !in AppProfile.TRUSTED_INITIATORS) return true
+        return false
+    }
+
+    /** The id "I trust this" used to store for an app (any state). Trusts saved like this no longer hide anything. */
+    fun legacyAppFindingId(pkg: String): String = "app:$pkg"
+
+    /**
+     * Id of an app finding. It encodes what makes the app risky (its special powers and sensitive
+     * permissions, whether it is known stalkerware, and who signed it), so trusting it stops
+     * hiding it as soon as the app gains a new power, changes signer or turns out to be stalkerware.
+     */
+    fun appFindingId(pkg: String, powers: Collection<String>, knownSpyware: Boolean, certHash: String?): String {
+        val p = powers.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSortedSet().joinToString(",")
+        val cert = certHash?.trim()?.lowercase()?.take(16)?.ifEmpty { null } ?: "-"
+        return "app:$pkg|$p|${if (knownSpyware) "spy" else "-"}|$cert"
+    }
+
+    /** Which findings the user's trusted ids hide. Findings that aren't trustable are never hidden. */
+    fun hiddenByTrust(findings: List<Finding>, trusted: Set<String>): List<Finding> =
+        findings.filter { it.trustable && it.id in trusted }
+
+    /**
+     * One-time move from the old "app:<pkg>" trusts: they count as trusting the app as it is now.
+     * Returns the new ids to save.
+     */
+    fun migrateLegacyTrust(findings: List<Finding>, trusted: Set<String>): List<String> =
+        findings.filter { f -> f.trustable && f.pkg != null && legacyAppFindingId(f.pkg) in trusted && f.id !in trusted }
+            .map { it.id }
+
     /** Changes when the set of apps changes, so "I trust this" doesn't hide a newly allowed app. */
     fun installersFindingId(pkgs: Collection<String>): String = "dev:installers:" + pkgs.sorted().joinToString(",")
 }
@@ -272,6 +357,8 @@ class Scanner(private val context: Context) {
     class Result(val findings: List<Finding>, val hiddenByTrust: Int, val appsChecked: Int)
 
     companion object {
+        private const val KEY_TRUST_MIGRATED = "trust_ids_v2"
+
         /**
          * Device admins that are part of the phone's own anti-theft or account protection
          * (Samsung Find My Mobile, Google Find My Device, Samsung Knox Guard). Not flagged when they
@@ -335,9 +422,17 @@ class Scanner(private val context: Context) {
         }
         if (installers.isNotEmpty()) out += installersFinding(installers)
 
-        val trusted = Rules(context).trusted
-        val shown = out.filter { it.id !in trusted }.sortedBy { it.severity.ordinal }
-        return Result(shown, out.size - shown.size, packages.size)
+        val rules = Rules(context)
+        var trusted = rules.trusted
+        val prefs = context.getSharedPreferences("scanner", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_TRUST_MIGRATED, false)) {
+            for (id in ScanLogic.migrateLegacyTrust(out, trusted)) rules.trust(id)
+            prefs.edit().putBoolean(KEY_TRUST_MIGRATED, true).apply()
+            trusted = rules.trusted
+        }
+        val hidden = ScanLogic.hiddenByTrust(out, trusted).toSet()
+        val shown = out.filter { it !in hidden }.sortedBy { it.severity.ordinal }
+        return Result(shown, hidden.size, packages.size)
     }
 
     private fun checkApp(
@@ -355,9 +450,12 @@ class Scanner(private val context: Context) {
             )
             if (pkg in admins) details += "It is a device administrator: turn that off first (Security settings), then uninstall."
             details += "If you are in danger, think about your safety before removing it: the person who installed it may notice."
+            details += "Known spy apps always stay on this list until they are removed."
             return Finding(
-                "app:$pkg", Severity.HIGH, "Known spy app: ${app.label}", details, pkg,
+                ScanLogic.appFindingId(pkg, emptyList(), true, app.certHash), Severity.HIGH,
+                "Known spy app: ${app.label}", details, pkg,
                 (if (pkg in admins) listOf(Action("Device admin apps", Fix.DEVICE_ADMIN)) else emptyList()) + uninstall,
+                trustable = false,
             )
         }
         // Preinstalled (Samsung/Google) apps legitimately hold these powers, e.g. Find My Mobile as device admin.
@@ -365,33 +463,41 @@ class Scanner(private val context: Context) {
 
         val reasons = ArrayList<String>()
         val actions = ArrayList<Action>()
+        // What the app can do, for the finding id: a new power must undo "I trust this".
+        val powers = ArrayList<String>()
         var power = 0
         if (pkg in a11y) {
+            powers += "a11y"
             power += 4
             reasons += "Accessibility is ON: it can see and tap anything on your screen, including messages and passwords."
             actions += Action("Accessibility", Fix.ACCESSIBILITY)
         }
         val trustedAdmin = pkg in TRUSTED_ADMINS && !app.sideloaded
+        if (pkg in admins) powers += "admin"
         if (pkg in admins && !trustedAdmin) {
             power += 4
             reasons += "Device administrator: it can lock or wipe your phone and is hard to uninstall."
             actions += Action("Device admin apps", Fix.DEVICE_ADMIN)
         }
         if (pkg in listeners) {
+            powers += "listener"
             power += 3
             reasons += "Notification access: it reads every notification, including your chats and codes."
             actions += Action("Notification access", Fix.NOTIFICATION_ACCESS)
         }
         val perms = pi.requestedPermissions?.toSet() ?: emptySet()
         if ("android.permission.PACKAGE_USAGE_STATS" in perms && opAllowed("android:get_usage_stats", pi)) {
+            powers += "usage"
             power += 1
             reasons += "Usage access: it sees which apps you use and when."
         }
         if ("android.permission.SYSTEM_ALERT_WINDOW" in perms && opAllowed("android:system_alert_window", pi)) {
+            powers += "overlay"
             power += 1
             reasons += "Can draw over other apps (can fake login screens)."
         }
         if ("android.permission.REQUEST_INSTALL_PACKAGES" in perms && opAllowed("android:request_install_packages", pi)) {
+            powers += "install"
             power += 1
             reasons += "Allowed to install other apps."
         }
@@ -407,7 +513,12 @@ class Scanner(private val context: Context) {
         }
         if (app.sideloaded) {
             score += 2
-            reasons += "Not from an app store: installed by ${AppProfile.installerName(app.installer)}."
+            reasons += if (app.spoofedStore) {
+                "Says it came from an app store, but it was really installed by " +
+                    AppProfile.installerName(app.initiatingInstaller ?: app.originatingInstaller) + "."
+            } else {
+                "Not from an app store: installed by ${AppProfile.installerName(app.installer)}."
+            }
         }
         if (app.sensitive.isNotEmpty()) {
             score += app.sensitiveScore
@@ -419,7 +530,11 @@ class Scanner(private val context: Context) {
         }
 
         reasons += "If you don't know this app or didn't install it yourself, remove it."
-        return Finding("app:$pkg", ScanLogic.appSeverity(score), app.label, reasons, pkg, actions + uninstall)
+        if (hidden) powers += "hidden"
+        if (app.sideloaded) powers += "sideloaded"
+        for (p in app.sensitivePermissions) powers += "perm:" + p.substringAfterLast('.')
+        val id = ScanLogic.appFindingId(pkg, powers, false, app.certHash)
+        return Finding(id, ScanLogic.appSeverity(score), app.label, reasons, pkg, actions + uninstall)
     }
 
     /** True if [pi] may install apps (the "Install unknown apps" switch is on for it). */

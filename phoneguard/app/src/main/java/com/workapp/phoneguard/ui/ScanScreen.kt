@@ -82,7 +82,7 @@ class ScanScreen(host: Host) : Screen(host) {
                     "${Format.count(result.findings.size, "thing")} to review",
                     18f, if (high > 0) C.RED else C.AMBER, true), 4)
                 summary.put(ctx.label(
-                    "Checked ${result.appsChecked} apps. Go through each one below. If you recognise an app and trust it, tap \"I trust this\" so it isn't shown again.",
+                    "Checked ${result.appsChecked} apps. Go through each one below. If you recognise an app and trust it, tap \"I trust this\" so it isn't shown again, unless it gets new powers later.",
                     14f, C.SUB), 0)
             }
             body.put(summary)
@@ -144,10 +144,13 @@ class ScanScreen(host: Host) : Screen(host) {
             val color = if (a.fix == Fix.UNINSTALL) C.RED else C.GREEN
             actions.put(ctx.pill(a.label, color, filled = a.fix == Fix.UNINSTALL) { host.runFix(a.fix, f.pkg) }, 8, wrap = true)
         }
-        actions.put(ctx.pill("I trust this", C.SUB, filled = false) {
-            ScanTask.trust(ctx, f.id)
-            refresh()
-        }, 0, wrap = true)
+        // Known stalkerware can't be hidden: someone holding the phone could otherwise make it disappear.
+        if (f.trustable) {
+            actions.put(ctx.pill("I trust this", C.SUB, filled = false) {
+                ScanTask.trust(ctx, f.id)
+                refresh()
+            }, 0, wrap = true)
+        }
         c.put(HorizontalScrollView(ctx).apply {
             isHorizontalScrollBarEnabled = false
             addView(actions)

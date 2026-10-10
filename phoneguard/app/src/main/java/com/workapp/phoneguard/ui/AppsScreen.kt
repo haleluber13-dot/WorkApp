@@ -37,6 +37,8 @@ import com.workapp.phoneguard.textBox
 class AppsScreen(host: Host) : Screen(host) {
 
     private class AppEntry(val pkg: String, val label: String, val uid: Int, val system: Boolean, val info: ApplicationInfo) {
+        /** Shares an Android system identity: the firewall always lets it through, so no switches. */
+        val systemUid = isSystemUid(uid)
         var icon: Drawable? = null
         var iconLoaded = false
     }
@@ -195,6 +197,7 @@ class AppsScreen(host: Host) : Screen(host) {
             ctx.runOnUiThread {
                 if (!host.alive || gen != loadGeneration) return@runOnUiThread
                 if (apps != null) {
+                    forgetSystemUidRules(apps)
                     // Keep icons already loaded, so the list doesn't flicker.
                     val old = all.associateBy { it.pkg }
                     for (a in apps) old[a.pkg]?.takeIf { it.iconLoaded }?.let { a.icon = it.icon; a.iconLoaded = true }
@@ -204,6 +207,22 @@ class AppsScreen(host: Host) : Screen(host) {
                 applyFilter()
             }
         }, "pg-apps").start()
+    }
+
+    /**
+     * Rules saved for apps on a system identity do nothing in Full mode, but in Basic mode they would
+     * send all of that identity's traffic (core Android parts included) into the block. Drop them.
+     */
+    private fun forgetSystemUidRules(apps: List<AppEntry>) {
+        val rules = host.rules
+        var changed = false
+        for (a in apps) {
+            if (a.systemUid && rules.isBlocked(a.pkg, NetType.NONE)) {
+                rules.setBlocked(a.pkg, NetType.NONE, false)
+                changed = true
+            }
+        }
+        if (changed) host.scheduleReload()
     }
 
     private fun applyFilter() {
@@ -272,23 +291,31 @@ class AppsScreen(host: Host) : Screen(host) {
             h.icon.setImageDrawable(e.icon)
             h.name.text = e.label
             bindSub(h.sub, e)
-            bindToggle(h.wifi, "Wi-Fi", e.pkg, NetType.WIFI)
-            bindToggle(h.data, "Data", e.pkg, NetType.MOBILE)
+            val toggles = if (e.systemUid) View.GONE else View.VISIBLE
+            h.wifi.visibility = toggles
+            h.data.visibility = toggles
+            if (!e.systemUid) {
+                bindToggle(h.wifi, "Wi-Fi", e.pkg, NetType.WIFI)
+                bindToggle(h.data, "Data", e.pkg, NetType.MOBILE)
+            }
             return h.root
         }
 
         private fun bindSub(v: TextView, e: AppEntry) {
             val t = traffic[e.uid]
+            val parts = ArrayList<String>()
+            if (e.systemUid) parts += "System — always allowed"
             if (t == null || (t.sent == 0L && t.received == 0L && t.blocked == 0)) {
-                v.text = e.pkg
+                v.text = parts.firstOrNull() ?: e.pkg
                 v.setTextColor(C.SUB)
                 return
             }
-            val parts = ArrayList<String>()
             if (t.sent > 0 || t.received > 0) parts += "↑ ${Format.bytes(t.sent)}  ↓ ${Format.bytes(t.received)}"
-            if (t.blocked > 0) parts += "${t.blocked} stopped"
+            // Firewall stops and Web Shield site blocks are different things; only the first means the app is cut off.
+            if (t.firewallBlocked > 0) parts += "${t.firewallBlocked} stopped by firewall"
+            if (t.siteBlocked > 0) parts += Format.count(t.siteBlocked, "site") + " blocked"
             v.text = parts.joinToString(" · ")
-            v.setTextColor(if (t.blocked > 0 || t.sentScreenOff >= Format.SCREEN_OFF_NOTABLE) C.AMBER else C.SUB)
+            v.setTextColor(if (t.firewallBlocked > 0 || t.sentScreenOff >= Format.SCREEN_OFF_NOTABLE) C.AMBER else C.SUB)
         }
 
         private fun bindToggle(v: TextView, name: String, pkg: String, net: NetType) {

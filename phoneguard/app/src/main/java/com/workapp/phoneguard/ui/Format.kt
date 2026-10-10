@@ -83,6 +83,37 @@ object Format {
         return s
     }
 
+    /** "3 connections stopped by the firewall". */
+    fun firewallBlocks(n: Int): String = count(n, "connection") + " stopped by the firewall"
+
+    /** "12 dangerous or tracking sites blocked" (Web Shield blocks, not the firewall). */
+    fun siteBlocks(n: Number): String = count(n, "dangerous or tracking site") + " blocked"
+
+    /** Firewall and Web Shield counts for one app, leaving out the ones that are zero. */
+    fun blockParts(firewall: Int, sites: Int): List<String> = buildList {
+        if (firewall > 0) add(firewallBlocks(firewall))
+        if (sites > 0) add(siteBlocks(sites))
+    }
+
+    private val VIA = Regex("\\(via\\s+([^()\\s]+)\\s*\\)", RegexOption.IGNORE_CASE)
+
+    /**
+     * The alias target named in a Web Shield block reason such as
+     * "Ads & trackers (via tracker.example.net)", or null if there is none or it isn't a usable site name.
+     */
+    fun viaTarget(reason: String?): String? {
+        if (reason.isNullOrBlank()) return null
+        val raw = VIA.find(reason)?.groupValues?.getOrNull(1) ?: return null
+        return normalizeDomain(raw)
+    }
+
+    /** Text for an empty "Blocked" list. [totalBlocked] counts everything blocked since counting started. */
+    fun emptyBlockedText(running: Boolean, totalBlocked: Int): String = when {
+        totalBlocked > 0 -> "Older blocked attempts are no longer in this list. Only the latest ones are kept."
+        !running -> "Nothing to show. Turn on protection to see what gets blocked."
+        else -> "Nothing blocked yet. When a site or app is blocked, it shows up here."
+    }
+
     /** Top [limit] entries of a domain -> count map, most first, ties by name. */
     fun top(map: Map<String, Int>, limit: Int): List<Pair<String, Int>> =
         map.entries.sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
