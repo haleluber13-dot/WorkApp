@@ -162,7 +162,8 @@ fun showSiteActions(
     } catch (_: Throwable) { null }
     val why = if (blocked) reason ?: verdict?.reason else null
     if (!why.isNullOrBlank()) body.put(ctx.label("Blocked because: $why", 13f, C.RED), 8)
-    // A block that came through an alias ("(via tracker.example.net)") needs the alias allowed too.
+    // A block that came through an alias ("(via tracker.example.net)"): allowing the site is enough,
+    // because the Web Shield doesn't check the aliases of a name the user allowed.
     val via = (Format.viaTarget(reason) ?: Format.viaTarget(verdict?.reason))?.takeIf { it != domain }
     body.put(View(ctx), 6)
 
@@ -195,18 +196,11 @@ fun showSiteActions(
                 host.toast("$domain will always be allowed. Apps may take a minute to notice.")
             }
         }
-        if (via != null && via !in allowed) {
+        if (via != null && domain !in allowed) {
+            // Don't offer to allow the alias itself: that would let the tracker through for every
+            // other site that uses it, and it isn't needed to use this one.
             body.put(ctx.label("$domain is another name for $via, which is on a block list. " +
-                "To use $domain, allow $via too.", 12f, C.SUB), 6)
-            action("Always allow $via too", C.GREEN, false) {
-                if (via in denied) Shield.undeny(ctx, via)
-                if (domain !in allowed) {
-                    if (domain in denied) Shield.undeny(ctx, domain)
-                    Shield.allow(ctx, domain)
-                }
-                Shield.allow(ctx, via)
-                host.toast("$domain and $via will always be allowed. Apps may take a minute to notice.")
-            }
+                "\"Always allow this site\" is enough to use $domain; $via stays blocked everywhere else.", 12f, C.SUB), 6)
         }
         if (domain in denied) {
             action("Unblock this site", C.SUB, false) {
