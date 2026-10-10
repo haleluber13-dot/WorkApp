@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>כתף — מחברים חיילים ואנשים שצריכים עזרה לעמותות</title>
+  <meta name="description" content="פלטפורמה שמחברת חיילים, מילואימניקים, משפחות ומי שצריך עזרה לעמותות שיכולות לעזור — לפי סוג העזרה והאזור. מאגר עמותות, לוח בקשות ומפה.">
+  <meta name="theme-color" content="#0f4c5c">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap">
+  <link rel="stylesheet" href="./vendor/leaflet.css">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./vendor/leaflet.js" defer></script>
+  <script>
+    /* apply saved look before first paint */
+    try {
+      const p = JSON.parse(localStorage.getItem("katef:prefs") || "{}");
+      if (p.theme) document.documentElement.dataset.theme = p.theme;
+      if (p.big) document.documentElement.classList.add("big");
+    } catch {}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#main">דלג לתוכן</a>
+  <header class="top">
+    <a class="brand" href="#/" aria-label="כתף — דף הבית">
+      <img src="./icons/icon.svg" alt="" width="34" height="34">
+      <span><b>כתף</b><small>עוזרים לחיילים ולכל מי שצריך</small></span>
+    </a>
+    <nav class="topnav" aria-label="ניווט ראשי">
+      <a href="#/find" data-nav="find">מצאו עזרה</a>
+      <a href="#/requests" data-nav="requests">לוח בקשות</a>
+      <a href="#/orgs" data-nav="orgs">מאגר עמותות</a>
+      <a href="#/offers" data-nav="offers">הצעות עזרה</a>
+      <a href="#/about" data-nav="about">איך זה עובד</a>
+    </nav>
+    <div class="top-actions">
+      <button id="btnA11y" class="iconbtn" title="נגישות ותצוגה" aria-label="נגישות ותצוגה">Aא</button>
+      <a id="meLink" class="btn small" href="#/login">כניסה</a>
+    </div>
+  </header>
+
+  <div id="modeBar" class="modebar" hidden></div>
+
+  <main id="main" tabindex="-1"></main>
+
+  <nav class="bottomnav" aria-label="ניווט">
+    <a href="#/" data-nav="home"><span>🏠</span>בית</a>
+    <a href="#/find" data-nav="find"><span>🧭</span>מצאו עזרה</a>
+    <a href="#/new" data-nav="new" class="plus"><span>＋</span>בקשה</a>
+    <a href="#/requests" data-nav="requests"><span>🗺️</span>בקשות</a>
+    <a href="#/orgs" data-nav="orgs"><span>🏛️</span>עמותות</a>
+  </nav>
+
+  <footer class="foot">
+    <div class="sos">
+      <b>במצוקה עכשיו?</b>
+      <a href="tel:101">מד״א 101</a>
+      <a href="tel:100">משטרה 100</a>
+      <a href="tel:1201">ער״ן 1201</a>
+      <a href="#/crisis">עוד קווי סיוע ←</a>
+    </div>
+    <p>כתף היא פלטפורמה ללא מטרות רווח לחיבור בין מי שצריך עזרה לבין עמותות. אנחנו לא גוף ממשלתי ולא מחליפים גורמי חירום.
+      <a href="#/about">פרטיות ותנאים</a></p>
+  </footer>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
