@@ -7,7 +7,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import org.json.JSONObject
+import java.io.BufferedInputStream
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -138,12 +140,41 @@ object Shield {
 
     private fun parseAsset(ctx: Context, c: ShieldCategory): HashList {
         val b = LongArrayBuilder(1 shl 15)
-        ctx.assets.open("$ASSET_DIR/${fileName(c)}.txt.gz").use { raw ->
-            InputStreamReader(GZIPInputStream(raw, 64 * 1024), Charsets.UTF_8).use { reader ->
+        openAsset(ctx, c).use { input ->
+            InputStreamReader(input, Charsets.UTF_8).use { reader ->
                 HostsParser.parse(reader) { b.add(DomainHash.of(it)) }
             }
         }
         return b.build()
+    }
+
+    /**
+     * The bundled list as text. The Android build un-gzips `.gz` assets and drops the extension,
+     * so the APK holds `<name>.txt` (plain); `<name>.txt.gz` is still tried first in case the
+     * packaging keeps it. Gzip is detected by its magic bytes, not by the name.
+     */
+    private fun openAsset(ctx: Context, c: ShieldCategory): InputStream {
+        val base = "$ASSET_DIR/${fileName(c)}.txt"
+        val raw = try {
+            ctx.assets.open("$base.gz")
+        } catch (e: FileNotFoundException) {
+            ctx.assets.open(base)
+        }
+        return try {
+            gunzipIfNeeded(raw)
+        } catch (e: IOException) {
+            raw.close()
+            throw e
+        }
+    }
+
+    /** [raw] as plain text: un-gzipped if it starts with the gzip magic bytes, else as is. */
+    internal fun gunzipIfNeeded(raw: InputStream): InputStream {
+        val buffered = BufferedInputStream(raw, 64 * 1024)
+        buffered.mark(2)
+        val gzip = buffered.read() == 0x1f && buffered.read() == 0x8b
+        buffered.reset()
+        return if (gzip) GZIPInputStream(buffered, 64 * 1024) else buffered
     }
 
     /** When the bundled lists were generated (from assets/blocklists/meta.json), or 0. */

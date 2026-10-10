@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStreamReader
 import java.util.zip.GZIPInputStream
@@ -31,5 +32,26 @@ class BundledListsTest {
         }
         val ms = (System.nanoTime() - start) / 1_000_000
         println("Parsed $total bundled domains in $ms ms")
+    }
+
+    /**
+     * The Android build un-gzips `.gz` assets (and drops the extension), so the app must read the
+     * bundled lists both gzipped and plain; it used to look only for `.txt.gz` and load nothing.
+     */
+    @Test
+    fun bundledListReadsTheSameGzippedOrPlain() {
+        assumeTrue("assets folder not found from ${File(".").absolutePath}", dir != null)
+        val gz = File(dir, "malware.txt.gz").readBytes()
+        val plain = GZIPInputStream(ByteArrayInputStream(gz)).use { it.readBytes() }
+        fun count(bytes: ByteArray): Int {
+            val b = LongArrayBuilder()
+            InputStreamReader(Shield.gunzipIfNeeded(ByteArrayInputStream(bytes)), Charsets.UTF_8).use { r ->
+                HostsParser.parse(r) { b.add(DomainHash.of(it)) }
+            }
+            return b.build().size
+        }
+        val fromGz = count(gz)
+        assertTrue(fromGz > 0)
+        assertEquals(fromGz, count(plain))
     }
 }
