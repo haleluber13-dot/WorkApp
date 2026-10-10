@@ -30,6 +30,11 @@ class AndroidTun(private val fd: FileDescriptor) : TunIo {
         try {
             Os.fcntlInt(pipe[0], OsConstants.F_SETFL, OsConstants.O_NONBLOCK)
             Os.fcntlInt(pipe[1], OsConstants.F_SETFL, OsConstants.O_NONBLOCK)
+            // The VPN builder is asked for a non-blocking fd; make sure, or a read could hang stop().
+            val flags = Os.fcntlInt(fd, OsConstants.F_GETFL, 0)
+            if (flags and OsConstants.O_NONBLOCK == 0) {
+                Os.fcntlInt(fd, OsConstants.F_SETFL, flags or OsConstants.O_NONBLOCK)
+            }
         } catch (e: ErrnoException) {
             closePipe()
             throw IOException(e)

@@ -301,8 +301,19 @@ class Engine(
         stopping = true
         tun.wakeup()
         wakeSelector()
+        val loop = loopThread
+        if (loop == null) {
+            // Never started: nothing else would release these.
+            lookups.shutdownNow()
+            dnsPool.shutdownNow()
+            try {
+                selector.close()
+            } catch (_: Throwable) {
+            }
+            return
+        }
         val me = Thread.currentThread()
-        loopThread?.let { if (it !== me) it.join(3000) }
+        if (loop !== me) loop.join(3000)
         readerThread?.let { if (it !== me) it.join(3000) }
     }
 
@@ -778,7 +789,8 @@ class Engine(
     }
 
     internal fun giveRing(r: ByteRing) {
-        if (rings.size < RING_POOL) rings.addLast(r)
+        // Never pool a buffer twice: two connections sharing one could mix up their data.
+        if (rings.size < RING_POOL && rings.none { it === r }) rings.addLast(r)
     }
 
     internal fun queueAck(f: TcpFlow) {

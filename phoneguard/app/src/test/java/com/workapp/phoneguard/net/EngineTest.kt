@@ -58,7 +58,10 @@ class FakeTun : TunIo {
     }
 }
 
-/** A tiny TCP stack for the app's side of one connection, strict about what the engine sends. */
+/**
+ * A tiny TCP stack for the app's side of one connection, strict about what the engine sends.
+ * Reads the engine's packets from [inbox] (all of the tun's output unless a test demultiplexes).
+ */
 class AppTcp(
     private val tun: FakeTun,
     private val v6: Boolean,
@@ -66,6 +69,7 @@ class AppTcp(
     val srcPort: Int,
     private val dst: ByteArray,
     private val dstPort: Int,
+    private val inbox: LinkedBlockingQueue<ByteArray> = tun.fromEngine,
 ) {
     private val w = PacketWriter()
     private val out = ByteArray(70_000)
@@ -98,7 +102,7 @@ class AppTcp(
         while (true) {
             val left = end - System.currentTimeMillis()
             if (left <= 0) return null
-            val raw = tun.fromEngine.poll(left, TimeUnit.MILLISECONDS) ?: return null
+            val raw = inbox.poll(left, TimeUnit.MILLISECONDS) ?: return null
             assertChecksumsValid(raw)
             val s = Seg(raw)
             if (s.proto == PROTO_TCP && s.srcPort == dstPort && s.dstPort == srcPort) return s
@@ -314,11 +318,18 @@ class EngineTest {
     // A DNS query for example.com, type A.
     private val query = hex("12340100000100000000000007" + "6578616d706c65" + "03" + "636f6d" + "00" + "00010001")
 
+    /** When set, owner lookups wait on it: a slow system. */
+    @Volatile private var slowLookup: CountDownLatch? = null
+
     private fun start(
         config: EngineConfig = EngineConfig(rtoMs = 200, rtoMaxMs = 800, lingerMs = 200),
         io: TunIo = tun,
     ): Engine {
-        val e = Engine(io, protector, { _, _, _ -> uid }, policy, dnsHandler, listener, config)
+        val resolver = UidResolver { _, _, _ ->
+            slowLookup?.await(10, TimeUnit.SECONDS)
+            uid
+        }
+        val e = Engine(io, protector, resolver, policy, dnsHandler, listener, config)
         e.start()
         engine = e
         return e
@@ -464,6 +475,58 @@ class EngineTest {
             assertEquals("bytes received", total.toLong(), b[1])
         }
         assertEquals(1, events.size)
+    }
+
+    @Test(timeout = 120_000)
+    fun manyConnectionsAtOnceStaySeparate() {
+        val ss = server(::echo)
+        val ds = udpEchoServer()
+        start()
+        // 20 apps each open 4 connections one after another, so buffers get reused while other
+        // transfers are running: data must never cross from one connection into another.
+        val ports = List(20) { List(4) { nextPort++ } }
+        val inboxes = ports.flatten().associateWith { LinkedBlockingQueue<ByteArray>() }
+        val udpInbox = LinkedBlockingQueue<ByteArray>()
+        // One reader hands each connection its own packets.
+        val demux = thread(isDaemon = true) {
+            try {
+                while (true) {
+                    val raw = tun.fromEngine.take()
+                    val s = Seg(raw)
+                    if (s.proto == PROTO_UDP) udpInbox.put(raw) else inboxes[s.dstPort]?.put(raw)
+                }
+            } catch (_: InterruptedException) {
+            }
+        }
+        val failures = ConcurrentLinkedQueue<Throwable>()
+        val workers = ports.mapIndexed { i, mine ->
+            thread {
+                try {
+                    for (port in mine) {
+                        val a = AppTcp(tun, false, app4, port, loop4, ss.localPort, inboxes.getValue(port))
+                        a.connect(win = if ((i + port) % 3 == 0) 4000 else 65535)
+                        val data = Random.nextBytes(5_000 + Random.nextInt(120_000))
+                        assertArrayEquals("connection on port $port", data, a.exchange(data, data.size, timeoutMs = 60_000))
+                        a.closeFromApp()
+                    }
+                } catch (t: Throwable) {
+                    failures.add(t)
+                }
+            }
+        }
+        repeat(20) { k -> sendUdp(app4, 41000 + k, loop4, ds.localPort, "u$k".toByteArray()) }
+        val udpSeen = HashSet<String>()
+        val udpEnd = System.currentTimeMillis() + 10_000
+        while (udpSeen.size < 20 && System.currentTimeMillis() < udpEnd) {
+            val s = Seg(udpInbox.poll(100, TimeUnit.MILLISECONDS) ?: continue)
+            assertEquals("u${s.dstPort - 41000}", String(s.payload))
+            udpSeen += String(s.payload)
+        }
+        workers.forEach { it.join(90_000) }
+        demux.interrupt()
+        failures.firstOrNull()?.let { throw it }
+        assertEquals(20, udpSeen.size)
+        waitUntil("all connections closed", 10_000) { engine!!.tcpFlows == 0 }
     }
 
     @Test(timeout = 60_000)
@@ -716,6 +779,40 @@ class EngineTest {
         assertEquals(d.seq + 5, rst.seq)
         assertEquals("reset", serverSaw.poll(5, TimeUnit.SECONDS))
         waitUntil("connection removed") { engine!!.tcpFlows == 0 }
+    }
+
+    @Test(timeout = 20_000)
+    fun serverResetIsPassedOn() {
+        val ss = server { s ->
+            s.getOutputStream().write("partial".toByteArray())
+            s.getOutputStream().flush()
+            Thread.sleep(200)
+            s.setSoLinger(true, 0) // close with a reset
+        }
+        start()
+        val a = app(ss.localPort)
+        a.connect()
+        assertEquals("partial", String(a.receive(7)))
+        val rst = a.expect("reset passed on") { it.has(TCP_RST) }
+        assertEquals(a.rcvNxt, rst.seq)
+        waitUntil("connection removed") { engine!!.tcpFlows == 0 }
+    }
+
+    @Test(timeout = 20_000)
+    fun slowOwnerLookupGivesUpInsteadOfHanging() {
+        val ss = server(::echo)
+        val latch = CountDownLatch(1)
+        slowLookup = latch
+        start(EngineConfig(resolveTimeoutMs = 300))
+        val a = app(ss.localPort)
+        a.send(TCP_SYN, ack = 0, mss = 1460)
+        val rst = a.expect("reset after the lookup took too long") { true }
+        assertEquals(TCP_RST or TCP_ACK, rst.flags)
+        assertEquals(a.sndNxt + 1, rst.ack)
+        latch.countDown() // the late answer must be ignored
+        Thread.sleep(200)
+        assertEquals(0, engine!!.tcpFlows)
+        assertTrue("no connection was let through", events.isEmpty())
     }
 
     @Test(timeout = 20_000)
