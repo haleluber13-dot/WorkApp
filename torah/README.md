@@ -120,6 +120,10 @@ elder, or something deeper than any real throat. These are vocal tract length
 and fold rate, which is most of what we hear as one person rather than another.
 Nobody in particular — see the note at the end of this section.
 
+Pressing **Read aloud** starts the audio itself — the music does not have to
+be playing first. In *Follow the music* it starts the music too, since
+following a stopped playhead would read nothing.
+
 **Change it while it is reading and it changes on the spot.** The narrator has
 its own output, so swapping the reader cuts the voice and restarts the line
 without touching the music.

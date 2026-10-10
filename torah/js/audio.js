@@ -99,9 +99,18 @@ export class Voices {
     this.opt.vocal = opt.vocal || { type: 'tenor', vibrato: 0.5, breath: 0.35 };
 
     // The built-in narrator has its own bus so it can be cut mid-sentence —
-    // swapping the reader's voice should not also silence the band.
+    // swapping the reader's voice should not also silence the band. It goes
+    // straight out rather than through the rack: the master volume is what
+    // ducking pulls down, and ducking the voice along with the music would
+    // defeat the point. The plug-ins are for the band, not the reader.
     this.narrationBus = ctx.createGain();
-    this.narrationBus.connect(this.rack.input);
+    const vComp = ctx.createDynamicsCompressor();
+    vComp.threshold.value = -20;
+    vComp.knee.value = 12;
+    vComp.ratio.value = 6;
+    vComp.attack.value = 0.004;
+    vComp.release.value = 0.12;
+    this.narrationBus.connect(vComp).connect(ctx.destination);
     this.buffers = opt.buffers || new Map();   // sampleId -> AudioBuffer
     this.lastBass = null;                      // for 808 glides
 

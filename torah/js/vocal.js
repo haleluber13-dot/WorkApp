@@ -56,6 +56,12 @@ export const VOICE_TYPES = {
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
+/* Makeup gain for the formant bank. Each bandpass keeps only a narrow slice
+ * of the source, so three of them in parallel sum to far less than went in;
+ * without this the voice sits about twenty decibels under the music and is
+ * simply not audible over it. Measured against the band, not guessed. */
+const MAKEUP = 7;
+
 /**
  * Sing one syllable.
  *
@@ -84,7 +90,7 @@ export function sing(V, note, when, o = {}) {
 
   const nodes = [];
   const out = ctx.createGain();           // everything for this syllable
-  out.gain.value = 1;
+  out.gain.value = MAKEUP;
   out.connect(dest);
   nodes.push(out);
 
@@ -111,7 +117,7 @@ export function sing(V, note, when, o = {}) {
   }
 
   const source = ctx.createGain();
-  source.gain.value = 0.5;
+  source.gain.value = 0.9;
   glottis.connect(source);
 
   // Breath: a little noise through the same resonances keeps it from

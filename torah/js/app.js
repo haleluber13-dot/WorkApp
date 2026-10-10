@@ -1114,9 +1114,14 @@ function sayVerse(vi, onDone) {
     // The voice the app builds itself. It speaks Hebrew, so it reads the
     // Hebrew whatever text the screen is showing.
     const syls = syllablesOf(vi);
-    if (!syls.length) { onDone?.(); return false; }
     const ctx = transport.ctx;
-    if (!ctx || !transport.voices) { onDone?.(); return false; }
+    if (!ctx || !transport.voices) {
+      // No audio yet. Defer, so a caller that chains on onDone cannot recurse
+      // through the whole book in a single tick.
+      builtinTimer = setTimeout(() => onDone?.(), 60);
+      return false;
+    }
+    if (!syls.length) { builtinTimer = setTimeout(() => onDone?.(), 20); return false; }
     duck(true);
     const reg = REGISTERS[n.register] || REGISTERS.neutral;
     const at = ctx.currentTime + 0.05;
@@ -1367,17 +1372,38 @@ const appApi = {
     panes.renderVoice();
   },
 
-  toggleNarration() {
+  async toggleNarration() {
     const n = state.narration;
     n.on = !n.on;
     spokenVerse = -1;
+
     if (!n.on) {
       hushVoice();
       duck(false);
-    } else if (n.mode === 'book') {
+      panes.renderVoice();
+      saveProject();
+      return;
+    }
+
+    // Reading needs a running audio context, and pressing this button may be
+    // the first thing anyone has done — the music need not have started.
+    try {
+      await transport.ensure();
+    } catch (err) {
+      n.on = false;
+      warn('The browser would not start audio. Tap the page once and try again.');
+      panes.renderVoice();
+      return;
+    }
+
+    if (n.mode === 'book') {
       // Start from wherever the music is, not from the top.
       n.verseIndex = transport.position > 0 ? narrationVerse() : 0;
       readOn();
+    } else if (!transport.playing) {
+      // Following the music with the music stopped would read nothing.
+      await transport.play();
+      setPlayIcon(true);
     }
     panes.renderVoice();
     saveProject();
