@@ -6,11 +6,13 @@ import android.app.KeyguardManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
@@ -18,8 +20,8 @@ import java.io.File
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.cert.X509Certificate
-import java.text.SimpleDateFormat
-import java.util.Locale
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 enum class Severity(val label: String, val color: Int) {
@@ -28,9 +30,16 @@ enum class Severity(val label: String, val color: Int) {
     LOW("Worth a look", 0xFF64B5F6.toInt()),
 }
 
+/** Which Settings screen a finding's button opens. See [FixIntents] for the exact intents. */
 enum class Fix {
     APP_INFO, UNINSTALL, ACCESSIBILITY, DEVICE_ADMIN, NOTIFICATION_ACCESS, DEV_OPTIONS,
     SECURITY, VPN, NETWORK, SCREEN_LOCK, UPDATE,
+    /** Let PhoneGuard run in the background (battery optimization exemption). */
+    BATTERY,
+    /** Wi-Fi settings. */
+    WIFI,
+    /** "Install unknown apps" list. */
+    INSTALL_SOURCES,
 }
 
 data class Action(val label: String, val fix: Fix)
@@ -170,10 +179,128 @@ class Ioc(val packages: Map<String, String>, val certs: Map<String, String>) {
     }
 }
 
+/**
+ * Pure scan decisions (no android.* calls), kept apart so they can be unit tested.
+ */
+object ScanLogic {
+    /** Galaxy Note20 / Note20 Ultra model numbers (SM-N980/N981 = Note20, SM-N985/N986 = Ultra; SC-53A/SCG06 = Japan). */
+    fun isNote20(model: String?): Boolean {
+        val m = model?.trim()?.uppercase() ?: return false
+        return m.startsWith("SM-N98") || m == "SC-53A" || m == "SCG06"
+    }
+
+    /** Days since the security patch date ("2024-10-01"), or null if it can't be read. Never negative. */
+    fun patchAgeDays(patch: String?, today: LocalDate): Long? = try {
+        val date = LocalDate.parse(patch?.trim() ?: return null)
+        ChronoUnit.DAYS.between(date, today).coerceAtLeast(0)
+    } catch (_: Exception) { null }
+
+    /** Null = recent enough. Capped at MEDIUM: the user can't fix it, and it isn't an active threat. */
+    fun patchSeverity(days: Long): Severity? = when {
+        days > 180 -> Severity.MEDIUM
+        days > 90 -> Severity.LOW
+        else -> null
+    }
+
+    /** "5 months", "over a year", "over 2 years". */
+    fun ageText(days: Long): String {
+        val months = days / 30
+        return when {
+            months < 12 -> "$months month${if (months == 1L) "" else "s"}"
+            months < 24 -> "over a year"
+            else -> "over ${months / 12} years"
+        }
+    }
+
+    /** How worrying one app is, from the points gathered in Scanner.checkApp. */
+    fun appSeverity(score: Int): Severity = when {
+        score >= 9 -> Severity.HIGH
+        score >= 5 -> Severity.MEDIUM
+        else -> Severity.LOW
+    }
+
+    /** Changes when the set of apps changes, so "I trust this" doesn't hide a newly allowed app. */
+    fun installersFindingId(pkgs: Collection<String>): String = "dev:installers:" + pkgs.sorted().joinToString(",")
+}
+
+/** The Settings screens that each [Fix] opens, best first. Used by the UI's fix buttons. */
+object FixIntents {
+    /**
+     * Intents to try in order (start the first one that works). Always ends with the main
+     * Settings screen. Start them from an Activity, or add FLAG_ACTIVITY_NEW_TASK.
+     */
+    fun candidates(context: Context, fix: Fix, pkg: String?): List<Intent> {
+        val pkgUri = pkg?.let { Uri.fromParts("package", it, null) }
+        val list: List<Intent> = when (fix) {
+            Fix.APP_INFO -> listOfNotNull(pkgUri?.let { Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, it) })
+            Fix.UNINSTALL -> listOfNotNull(
+                pkgUri?.let { Intent(Intent.ACTION_DELETE, it) },
+                pkgUri?.let { Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, it) },
+            )
+            Fix.ACCESSIBILITY -> listOf(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            Fix.DEVICE_ADMIN -> listOf(
+                Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.DeviceAdminSettings")),
+                Intent(Settings.ACTION_SECURITY_SETTINGS),
+            )
+            Fix.NOTIFICATION_ACCESS -> listOf(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            Fix.DEV_OPTIONS -> listOf(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+            Fix.SECURITY -> listOf(Intent(Settings.ACTION_SECURITY_SETTINGS))
+            Fix.VPN -> listOf(Intent(Settings.ACTION_VPN_SETTINGS))
+            Fix.NETWORK -> listOf(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+            Fix.SCREEN_LOCK -> listOf(Intent(DevicePolicyManager.ACTION_SET_NEW_PASSWORD), Intent(Settings.ACTION_SECURITY_SETTINGS))
+            Fix.UPDATE -> listOf(Intent("android.settings.SYSTEM_UPDATE_SETTINGS"), Intent(Settings.ACTION_DEVICE_INFO_SETTINGS))
+            Fix.BATTERY -> listOfNotNull(
+                // The "Allow" dialog (null once PhoneGuard is already exempt).
+                DeviceHealth.batteryExemptionIntent(context),
+                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+            )
+            Fix.WIFI -> listOf(Intent(Settings.ACTION_WIFI_SETTINGS), Intent(Settings.ACTION_WIRELESS_SETTINGS))
+            Fix.INSTALL_SOURCES -> listOfNotNull(
+                pkgUri?.let { Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, it) },
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),
+                Intent(Settings.ACTION_SECURITY_SETTINGS),
+            )
+        }
+        return list + Intent(Settings.ACTION_SETTINGS)
+    }
+}
+
 class Scanner(private val context: Context) {
     private val pm = context.packageManager
 
     class Result(val findings: List<Finding>, val hiddenByTrust: Int, val appsChecked: Int)
+
+    companion object {
+        /**
+         * Device admins that are part of the phone's own anti-theft or account protection
+         * (Samsung Find My Mobile, Google Find My Device, Samsung Knox Guard). Not flagged when they
+         * come preinstalled or from an app store; a known-spyware match is still always flagged.
+         */
+        val TRUSTED_ADMINS = setOf(
+            "com.samsung.android.fmm",
+            "com.google.android.gms",
+            "com.google.android.apps.adm",
+            "com.samsung.android.kgclient",
+        )
+
+        /**
+         * Preinstalled apps that commonly get "Install unknown apps" switched on by the user
+         * (files, browsers, chat and mail). Browsers are also found automatically.
+         */
+        val INSTALL_WATCH = setOf(
+            "com.sec.android.app.myfiles",            // Samsung My Files
+            "com.sec.android.app.sbrowser",           // Samsung Internet
+            "com.sec.android.app.sbrowser.beta",
+            "com.android.chrome",
+            "com.google.android.apps.nbu.files",      // Files by Google
+            "com.google.android.apps.docs",           // Google Drive
+            "com.google.android.gm",                  // Gmail
+            "com.samsung.android.messaging",          // Samsung Messages
+            "com.google.android.apps.messaging",      // Google Messages
+            "com.samsung.android.email.provider",     // Samsung Email
+        )
+    }
 
     fun run(progress: (String) -> Unit): Result {
         val out = ArrayList<Finding>()
@@ -187,6 +314,8 @@ class Scanner(private val context: Context) {
         val a11y = accessibilityPackages()
         val admins = adminPackages()
         val listeners = notificationListenerPackages()
+        val installWatch = INSTALL_WATCH + browserPackages()
+        val installers = ArrayList<Pair<String, String>>()
 
         @Suppress("DEPRECATION")
         val packages = pm.getInstalledPackages(AppProfile.flags())
@@ -199,7 +328,12 @@ class Scanner(private val context: Context) {
                 checkApp(pi, ioc, a11y, admins, listeners)?.let { out += it }
             } catch (_: Exception) {
             }
+            try {
+                if (canInstallApps(pi, installWatch)) installers += pi.packageName to appLabel(pi)
+            } catch (_: Exception) {
+            }
         }
+        if (installers.isNotEmpty()) out += installersFinding(installers)
 
         val trusted = Rules(context).trusted
         val shown = out.filter { it.id !in trusted }.sortedBy { it.severity.ordinal }
@@ -226,6 +360,7 @@ class Scanner(private val context: Context) {
                 (if (pkg in admins) listOf(Action("Device admin apps", Fix.DEVICE_ADMIN)) else emptyList()) + uninstall,
             )
         }
+        // Preinstalled (Samsung/Google) apps legitimately hold these powers, e.g. Find My Mobile as device admin.
         if (app.system) return null
 
         val reasons = ArrayList<String>()
@@ -236,7 +371,8 @@ class Scanner(private val context: Context) {
             reasons += "Accessibility is ON: it can see and tap anything on your screen, including messages and passwords."
             actions += Action("Accessibility", Fix.ACCESSIBILITY)
         }
-        if (pkg in admins) {
+        val trustedAdmin = pkg in TRUSTED_ADMINS && !app.sideloaded
+        if (pkg in admins && !trustedAdmin) {
             power += 4
             reasons += "Device administrator: it can lock or wipe your phone and is hard to uninstall."
             actions += Action("Device admin apps", Fix.DEVICE_ADMIN)
@@ -261,7 +397,7 @@ class Scanner(private val context: Context) {
         }
 
         val hidden = app.hiddenIcon && (power > 0 || app.sensitiveScore > 0)
-        val stealthy = app.sideloaded || hidden || pkg in a11y || pkg in admins || pkg in listeners
+        val stealthy = app.sideloaded || hidden || pkg in a11y || (pkg in admins && !trustedAdmin) || pkg in listeners
         if (!stealthy) return null
 
         var score = power
@@ -282,22 +418,49 @@ class Scanner(private val context: Context) {
             reasons += if (app.installedDaysAgo == 0L) "Installed today." else "Installed ${app.installedDaysAgo} days ago."
         }
 
-        val severity = when {
-            score >= 9 -> Severity.HIGH
-            score >= 5 -> Severity.MEDIUM
-            else -> Severity.LOW
-        }
         reasons += "If you don't know this app or didn't install it yourself, remove it."
-        return Finding("app:$pkg", severity, app.label, reasons, pkg, actions + uninstall)
+        return Finding("app:$pkg", ScanLogic.appSeverity(score), app.label, reasons, pkg, actions + uninstall)
     }
+
+    /** True if [pi] may install apps (the "Install unknown apps" switch is on for it). */
+    private fun canInstallApps(pi: PackageInfo, watch: Set<String>): Boolean {
+        val pkg = pi.packageName
+        if (pkg in AppProfile.TRUSTED_STORES) return false
+        val system = (pi.applicationInfo?.flags ?: 0) and ApplicationInfo.FLAG_SYSTEM != 0
+        if (system && pkg !in watch) return false
+        if (pi.requestedPermissions?.contains("android.permission.REQUEST_INSTALL_PACKAGES") != true) return false
+        return opAllowed("android:request_install_packages", pi)
+    }
+
+    private fun installersFinding(apps: List<Pair<String, String>>): Finding {
+        val names = apps.map { it.second }.distinct().sortedBy { it.lowercase() }
+        return Finding(
+            ScanLogic.installersFindingId(apps.map { it.first }), Severity.LOW,
+            if (names.size == 1) "1 app can install other apps" else "${names.size} apps can install other apps",
+            listOf(
+                "\"Install unknown apps\" is on for: " + names.joinToString(", ") + ".",
+                "This is how most spy apps get onto a phone: someone sends a link or file that installs an app.",
+                "Turn it off for any app you don't use to install apps. You can switch it back on when you need it.",
+            ),
+            actions = listOf(Action("Install unknown apps", Fix.INSTALL_SOURCES)),
+        )
+    }
+
+    private fun appLabel(pi: PackageInfo): String = try {
+        pi.applicationInfo?.loadLabel(pm)?.toString() ?: pi.packageName
+    } catch (_: Exception) { pi.packageName }
+
+    /** Apps that can open web pages; on Samsung these include preinstalled browsers. */
+    private fun browserPackages(): Set<String> = try {
+        val probe = Intent(Intent.ACTION_VIEW, Uri.parse("http://example.com")).addCategory(Intent.CATEGORY_BROWSABLE)
+        pm.queryIntentActivities(probe, PackageManager.MATCH_ALL).mapNotNull { it.activityInfo?.packageName }.toSet()
+    } catch (_: Exception) { emptySet() }
 
     private fun opAllowed(op: String, pi: PackageInfo): Boolean {
         val aom = context.getSystemService(AppOpsManager::class.java) ?: return false
         val uid = pi.applicationInfo?.uid ?: return false
         return try {
-            val mode = if (Build.VERSION.SDK_INT >= 29) aom.unsafeCheckOpNoThrow(op, uid, pi.packageName)
-            else @Suppress("DEPRECATION") aom.checkOpNoThrow(op, uid, pi.packageName)
-            mode == AppOpsManager.MODE_ALLOWED
+            aom.unsafeCheckOpNoThrow(op, uid, pi.packageName) == AppOpsManager.MODE_ALLOWED
         } catch (_: Exception) { false }
     }
 
@@ -329,105 +492,197 @@ class Scanner(private val context: Context) {
         Settings.Global.getInt(context.contentResolver, key, 0)
     } catch (_: Exception) { 0 }
 
+    /** Runs one check; a failure in one check must never stop the others. */
+    private inline fun safely(block: () -> Unit) {
+        try {
+            block()
+        } catch (_: Throwable) {
+        }
+    }
+
     private fun checkDevice(out: MutableList<Finding>) {
-        val km = context.getSystemService(KeyguardManager::class.java)
-        if (km != null && !km.isDeviceSecure) {
-            out += Finding(
-                "dev:lock", Severity.HIGH, "No screen lock",
-                listOf(
-                    "Anyone who picks up your phone can open it and install spy apps in a minute.",
-                    "Set a PIN or password (6+ digits) that nobody else knows.",
-                ),
-                actions = listOf(Action("Set screen lock", Fix.SCREEN_LOCK)),
-            )
-        }
-
-        if (isRooted()) {
-            out += Finding(
-                "dev:root", Severity.HIGH, "Phone appears to be rooted",
-                listOf(
-                    "Rooting removes Android's built-in protections. Spy tools can then hide from every app, including this one.",
-                    "If you didn't do this yourself, back up your photos and do a factory reset.",
-                ),
-                actions = listOf(Action("Security settings", Fix.SECURITY)),
-            )
-        }
-
-        userCaCertificates().takeIf { it.isNotEmpty() }?.let { names ->
-            out += Finding(
-                "dev:ca:" + names.sorted().joinToString(","), Severity.HIGH,
-                "Extra security certificate installed",
-                listOf(
-                    "Certificates installed by a person (not Android) can let someone read your encrypted internet traffic on Wi-Fi or mobile data.",
-                    "Installed: " + names.joinToString(", "),
-                    "Unless your school or job installed it, remove it: Settings → Security → Encryption & credentials → User credentials / Trusted credentials → User.",
-                ),
-                actions = listOf(Action("Security settings", Fix.SECURITY)),
-            )
-        }
-
-        if (globalInt("adb_wifi_enabled") == 1) {
-            out += Finding(
-                "dev:adbwifi", Severity.HIGH, "Wireless debugging is ON",
-                listOf("Someone on the same Wi-Fi who has paired before can control your phone. Turn it off."),
-                actions = listOf(Action("Developer options", Fix.DEV_OPTIONS)),
-            )
-        }
-        if (globalInt(Settings.Global.ADB_ENABLED) == 1) {
-            out += Finding(
-                "dev:adb", Severity.MEDIUM, "USB debugging is ON",
-                listOf("A computer plugged into your phone can install hidden apps. Turn it off unless you use it."),
-                actions = listOf(Action("Developer options", Fix.DEV_OPTIONS)),
-            )
-        } else if (globalInt(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) == 1) {
-            out += Finding(
-                "dev:devopts", Severity.LOW, "Developer options are on",
-                listOf("Not dangerous by itself, but if you didn't turn this on, someone else may have used your phone."),
-                actions = listOf(Action("Developer options", Fix.DEV_OPTIONS)),
-            )
-        }
-
         val cm = context.getSystemService(ConnectivityManager::class.java)
-        val proxy = try { cm?.defaultProxy } catch (_: Exception) { null }
-        if (proxy != null && !proxy.host.isNullOrEmpty()) {
-            out += Finding(
-                "dev:proxy:${proxy.host}", Severity.MEDIUM, "Internet traffic goes through a proxy",
-                listOf(
-                    "Your traffic is being sent to ${proxy.host}:${proxy.port} first.",
-                    "If you didn't set this up, open your Wi-Fi network's settings and set Proxy to None.",
-                ),
-                actions = listOf(Action("Network settings", Fix.NETWORK)),
-            )
-        }
 
-        @Suppress("DEPRECATION")
-        val otherVpn = !FirewallService.running && try {
-            cm?.allNetworks?.any {
-                cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
-            } == true
-        } catch (_: Exception) { false }
-        if (otherVpn) {
-            out += Finding(
-                "dev:vpn", Severity.MEDIUM, "Another VPN is active",
-                listOf("A VPN can see all your internet traffic. Make sure it's one you chose and trust."),
-                actions = listOf(Action("VPN settings", Fix.VPN)),
-            )
-        }
-
-        patchAgeDays()?.let { days ->
-            if (days > 90) {
+        safely {
+            val km = context.getSystemService(KeyguardManager::class.java)
+            if (km != null && !km.isDeviceSecure) {
                 out += Finding(
-                    "dev:patch:${Build.VERSION.SECURITY_PATCH}",
-                    if (days > 180) Severity.MEDIUM else Severity.LOW,
-                    "Security updates are ${days / 30} months old",
+                    "dev:lock", Severity.HIGH, "No screen lock",
                     listOf(
-                        "Security patch level: ${Build.VERSION.SECURITY_PATCH}.",
-                        "Updates fix holes that spyware uses to get in. Install any available system update.",
+                        "Anyone who picks up your phone can open it and install spy apps in a minute.",
+                        "Set a PIN or password (6+ digits) that nobody else knows.",
                     ),
-                    actions = listOf(Action("Check for update", Fix.UPDATE)),
+                    actions = listOf(Action("Set screen lock", Fix.SCREEN_LOCK)),
                 )
             }
         }
+
+        safely {
+            if (isRooted()) {
+                out += Finding(
+                    "dev:root", Severity.HIGH, "Phone appears to be rooted",
+                    listOf(
+                        "Rooting removes Android's built-in protections. Spy tools can then hide from every app, including this one.",
+                        "If you didn't do this yourself, back up your photos and do a factory reset.",
+                    ),
+                    actions = listOf(Action("Security settings", Fix.SECURITY)),
+                )
+            }
+        }
+
+        safely {
+            userCaCertificates().takeIf { it.isNotEmpty() }?.let { names ->
+                out += Finding(
+                    "dev:ca:" + names.sorted().joinToString(","), Severity.HIGH,
+                    "Extra security certificate installed",
+                    listOf(
+                        "Certificates installed by a person (not Android) can let someone read your encrypted internet traffic on Wi-Fi or mobile data.",
+                        "Installed: " + names.joinToString(", "),
+                        "Unless your school or job installed it, remove it: Settings → Security → Encryption & credentials → User credentials / Trusted credentials → User.",
+                    ),
+                    actions = listOf(Action("Security settings", Fix.SECURITY)),
+                )
+            }
+        }
+
+        safely {
+            if (globalInt("adb_wifi_enabled") == 1) {
+                out += Finding(
+                    "dev:adbwifi", Severity.HIGH, "Wireless debugging is ON",
+                    listOf("Someone on the same Wi-Fi who has paired before can control your phone. Turn it off."),
+                    actions = listOf(Action("Developer options", Fix.DEV_OPTIONS)),
+                )
+            }
+            if (globalInt(Settings.Global.ADB_ENABLED) == 1) {
+                out += Finding(
+                    "dev:adb", Severity.MEDIUM, "USB debugging is ON",
+                    listOf("A computer plugged into your phone can install hidden apps. Turn it off unless you use it."),
+                    actions = listOf(Action("Developer options", Fix.DEV_OPTIONS)),
+                )
+            } else if (globalInt(Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) == 1) {
+                out += Finding(
+                    "dev:devopts", Severity.LOW, "Developer options are on",
+                    listOf("Not dangerous by itself, but if you didn't turn this on, someone else may have used your phone."),
+                    actions = listOf(Action("Developer options", Fix.DEV_OPTIONS)),
+                )
+            }
+        }
+
+        safely {
+            val proxy = cm?.defaultProxy
+            if (proxy != null && !proxy.host.isNullOrEmpty()) {
+                out += Finding(
+                    "dev:proxy:${proxy.host}", Severity.MEDIUM, "Internet traffic goes through a proxy",
+                    listOf(
+                        "Your traffic is being sent to ${proxy.host}:${proxy.port} first.",
+                        "If you didn't set this up, open your Wi-Fi network's settings and set Proxy to None.",
+                    ),
+                    actions = listOf(Action("Network settings", Fix.NETWORK)),
+                )
+            }
+        }
+
+        safely {
+            @Suppress("DEPRECATION")
+            val otherVpn = !FirewallService.running && cm?.allNetworks?.any {
+                cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+            } == true
+            if (otherVpn) {
+                out += Finding(
+                    "dev:vpn", Severity.MEDIUM, "Another VPN is active",
+                    listOf("A VPN can see all your internet traffic. Make sure it's one you chose and trust."),
+                    actions = listOf(Action("VPN settings", Fix.VPN)),
+                )
+            }
+        }
+
+        safely { checkPrivateDns(cm, out) }
+        safely { checkWifi(out) }
+        safely { checkBattery(out) }
+        safely { checkPatch(out) }
+    }
+
+    private fun checkPrivateDns(cm: ConnectivityManager?, out: MutableList<Finding>) {
+        cm ?: return
+        // Read the real network: the VPN's own settings don't tell us what the phone is set to.
+        @Suppress("DEPRECATION")
+        val server = cm.allNetworks.firstNotNullOfOrNull { n ->
+            val caps = cm.getNetworkCapabilities(n)
+            if (caps == null || caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ||
+                !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            ) return@firstNotNullOfOrNull null
+            val lp = cm.getLinkProperties(n) ?: return@firstNotNullOfOrNull null
+            lp.privateDnsServerName?.trim()?.takeIf { lp.isPrivateDnsActive && it.isNotEmpty() }
+        } ?: return
+        val path = if (DeviceHealth.isSamsung()) "Settings → Connections → More connection settings → Private DNS"
+        else "Settings → Network & internet → Private DNS"
+        out += Finding(
+            "dev:privdns:$server", Severity.LOW, "Private DNS skips the Web Shield",
+            listOf(
+                "Your phone sends its website lookups straight to $server, so PhoneGuard's Web Shield can't check them for dangerous sites.",
+                "To let the Web Shield protect you, set Private DNS to Automatic or Off: $path.",
+                "If you chose this provider yourself and trust it, you can keep it.",
+            ),
+            actions = listOf(Action("Network settings", Fix.NETWORK)),
+        )
+    }
+
+    private fun checkWifi(out: MutableList<Finding>) {
+        val safety = WifiGuard.check(context)
+        if (safety != WifiSafety.OPEN && safety != WifiSafety.WEAK) return
+        val ssid = WifiGuard.currentWifiName(context)
+        val name = ssid?.let { "\"$it\"" } ?: "This Wi-Fi"
+        val weak = safety == WifiSafety.WEAK
+        out += Finding(
+            "dev:wifi:" + (if (weak) "weak" else "open") + (ssid?.let { ":$it" } ?: ""),
+            Severity.MEDIUM,
+            if (weak) "Your Wi-Fi has weak security" else "Your Wi-Fi has no password",
+            listOf(
+                if (weak) "$name uses old security (WEP) that is easy to break. People nearby could see what you do."
+                else "$name isn't password protected. People nearby could see what you do.",
+                WifiGuard.protectionLine(context),
+                "If this is your own Wi-Fi, set a password with WPA2 or WPA3 in your router's settings.",
+            ),
+            actions = listOf(Action("Wi-Fi settings", Fix.WIFI)),
+        )
+    }
+
+    private fun checkBattery(out: MutableList<Finding>) {
+        if (DeviceHealth.isBatteryExempt(context)) return
+        val details = mutableListOf(
+            "Android may stop PhoneGuard in the background to save battery, which turns your protection off without telling you.",
+            "Tap \"Allow in background\" and choose Allow. PhoneGuard uses very little battery.",
+        )
+        if (DeviceHealth.isSamsung()) {
+            details += if (Build.VERSION.SDK_INT < 30) {
+                "Also add PhoneGuard to Settings → Device care → Battery → App power management → Apps that won't be put to sleep."
+            } else {
+                "Also add PhoneGuard to Settings → Battery and device care → Battery → Background usage limits → Never sleeping apps."
+            }
+        }
+        out += Finding(
+            "dev:battery", Severity.MEDIUM, "Battery saving can switch protection off", details,
+            actions = listOf(Action("Allow in background", Fix.BATTERY)),
+        )
+    }
+
+    private fun checkPatch(out: MutableList<Finding>) {
+        val patch = Build.VERSION.SECURITY_PATCH
+        val days = ScanLogic.patchAgeDays(patch, LocalDate.now()) ?: return
+        val severity = ScanLogic.patchSeverity(days) ?: return
+        val details = mutableListOf("Security patch level: $patch.")
+        if (DeviceHealth.isSamsung() && ScanLogic.isNote20(Build.MODEL)) {
+            details += "Samsung has ended regular security updates for the Galaxy Note20 series, so this phone may not get many more fixes."
+            details += "Updates fix holes that spyware uses to get in. Without them, PhoneGuard's Web Shield, the firewall and careful app installs matter more."
+            details += "Only install apps from Google Play or Galaxy Store, and don't open links or files from people you don't know."
+            details += "Still check for updates now and then, in case one arrives."
+        } else {
+            details += "Updates fix holes that spyware uses to get in. Install any available system update."
+        }
+        out += Finding(
+            "dev:patch:$patch", severity, "Security updates are ${ScanLogic.ageText(days)} old", details,
+            actions = listOf(Action("Check for update", Fix.UPDATE)),
+        )
     }
 
     private fun isRooted(): Boolean {
@@ -453,9 +708,4 @@ class Scanner(private val context: Context) {
                 ?: alias
         }
     } catch (_: Exception) { emptyList() }
-
-    private fun patchAgeDays(): Long? = try {
-        val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(Build.VERSION.SECURITY_PATCH)
-        date?.let { TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis() - it.time) }
-    } catch (_: Exception) { null }
 }
