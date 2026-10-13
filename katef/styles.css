@@ -216,6 +216,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--brand); outline:
 .field input, .field select { width: 100%; }
 .check { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
 .check input { min-height: auto; width: 20px; height: 20px; margin-top: 2px; flex: none; accent-color: var(--brand); }
+.form.direct .pub, .form.direct .priv { display: none; }
+.sent { color: var(--ok); font-weight: 700; white-space: nowrap; }
 .consent { background: var(--surface-2); padding: 12px; border-radius: 12px; font-size: .92rem; }
 fieldset.card { border: 1px solid var(--line); }
 legend { font-weight: 800; font-size: 1.05rem; padding: 0 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

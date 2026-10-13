@@ -104,8 +104,8 @@ export async function render(main, { query, store }) {
         <a href="#/crisis">כל קווי הסיוע ←</a></div>` : ""}
 
       <div class="post-cta card">
-        <div><b>רוצים שעמותה תפנה אליכם?</b><span class="muted"> פרסמו בקשה — העמותות המתאימות יראו אותה ואחת מהן תיקח אותה.</span></div>
-        <a class="btn primary" href="${newHref}">פרסום בקשה עם הפרטים האלה</a>
+        <div><b>רוצים לפנות לכמה עמותות בבת אחת?</b><span class="muted"> ${store.mode === "demo" ? "כתבו את הבקשה פעם אחת ושלחו אותה בלחיצה לעמותות המתאימות — בוואטסאפ או במייל." : "פרסמו בקשה — העמותות המתאימות יראו אותה ואחת מהן תיקח אותה."}</span></div>
+        <a class="btn primary" href="${newHref}">${store.mode === "demo" ? "כתיבת בקשה ושליחה" : "פרסום בקשה עם הפרטים האלה"}</a>
       </div>
 
       ${offerHits.length ? `<h2 class="sec">הצעות עזרה פעילות שמתאימות לכם</h2><div class="cards">${offerHits.map(offerCard).join("")}</div>` : ""}
