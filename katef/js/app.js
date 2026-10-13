@@ -75,7 +75,7 @@ function updateTop(me, name) {
   const bar = $("#modeBar");
   if (store.mode === "demo") {
     bar.hidden = false;
-    bar.innerHTML = `🧪 <b>מצב הדגמה</b> — הנתונים נשמרים רק בדפדפן הזה, והבקשות המסומנות ״דוגמה״ אינן אמיתיות. <a href="#/about?s=live">איך מחברים למצב חי</a>`;
+    bar.innerHTML = `🧪 <b>גרסת הרצה</b> — בקשות עזרה נשלחות ישירות לעמותות (וואטסאפ / מייל). לוח הבקשות והמפה מציגים <b>דוגמאות בלבד</b>. <a href="#/about?s=live">פרטים</a>`;
   } else bar.hidden = true;
 }
 

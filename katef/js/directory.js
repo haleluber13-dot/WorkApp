@@ -27,6 +27,13 @@ export async function allOrgs() {
   return [...reg, ...list];
 }
 
+/* Groups whose organizations usually also serve each other. */
+const RELATED = {
+  reservist: ["reservist_family", "soldier"], reservist_family: ["reservist"], soldier: ["lone_soldier", "reservist"],
+  lone_soldier: ["soldier"], wounded: ["veteran"], veteran: ["wounded"], released: ["soldier", "lone_soldier"],
+  bereaved: [], evacuee: [], general: [],
+};
+
 /* Score how well an organization fits someone: categories matter most, then
    audience, then region. Returns 0 when the region rules it out. */
 export function scoreOrg(org, { categories = [], audience = "", region = "" }) {
@@ -37,7 +44,11 @@ export function scoreOrg(org, { categories = [], audience = "", region = "" }) {
   let s = catHits * 10;
   const aud = org.audiences || [];
   if (audience && aud.includes(audience)) s += 6;
-  else if (audience && aud.length && !aud.includes("general")) s -= 4; /* serves a specific other group */
+  else if (audience && aud.length && !aud.includes("general")) {
+    /* serves a specific other group: keep only closely related ones, ranked lower */
+    if (!(RELATED[audience] || []).some((a) => aud.includes(a))) return 0;
+    s -= 2;
+  }
   if (region && regions.includes(region)) s += 3;
   if (org.onPlatform && org.verified) s += 2; /* can take a request on the platform */
   if (org.type === "government") s += 1;
