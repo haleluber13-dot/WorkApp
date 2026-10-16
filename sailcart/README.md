@@ -5,6 +5,12 @@ zero. It uses metric sizes that Israeli metal and hardware shops (like M&M)
 stock. Hebrew shop names are in brackets so you can show this list at the
 counter.
 
+> **Updated design:** this was the first concept list. The final, reviewed
+> design (reinforced head tube, mast-step base plate, wheel-plate base plates,
+> 6 mm fork bridge, grade 8.8 axles, cable steering with turnbuckles) is in the
+> 3D build-guide app at [`app/index.html`](app/index.html). Where they differ,
+> follow the app.
+
 ![Sail cart on the El Mirage dry lake](images/el-mirage.jpg)
 
 *This is the build you're aiming for: a low steel frame, three pneumatic wheels,
@@ -91,8 +97,9 @@ ask the shop to cut them.
 | Steering pivot bushings | Bronze or nylon bushing, Ø20 ID × Ø26 OD to fit inside the Ø32 head tube [תותב ברונזה/ניילון] | 2 |
 | Grease | Bearing grease [גריז] | 1 tube |
 
-> Bigger and wider tires = better on sand. For the beach (e.g. Ashdod or
-> Nitzanim), go for the widest 4.00-8 "balloon" tire you can find.
+> Bigger and wider tires = better on sand: go for the widest 4.00-8 "balloon"
+> tire you can find. Only ride where it is allowed: not on swimming beaches,
+> not near people, and not in nature reserves.
 
 ---
 
