@@ -1,0 +1,1145 @@
+<title>בונים עגלת מפרש</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="מדריך בנייה תלת-ממדי לעגלת מפרש: חיתוך, קידוח, ריתוך והרכבה, שלב אחרי שלב.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=IBM+Plex+Sans+Hebrew:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: workshop manual. 3D viewport + step sheet; stacked on phones, side by side on desktop. */
+:root {
+  --bg: #eceff2;
+  --surface: #ffffff;
+  --surface-2: #f5f7f9;
+  --ink: #17212b;
+  --muted: #5a6776;
+  --line: #d2d9e0;
+  --accent: #e4572e;      /* safety orange: new parts, primary actions */
+  --accent-ink: #ffffff;
+  --weld: #e0a100;        /* weld points */
+  --ok: #2f7d4f;
+  --danger: #b3261e;
+  --danger-bg: #fbeceb;
+  --viewport: #dde3e9;
+  --grid: #b9c3cd;
+  --font-display: "Secular One", "IBM Plex Sans Hebrew", "Arial Hebrew", sans-serif;
+  --font-body: "IBM Plex Sans Hebrew", "Arial Hebrew", "Noto Sans Hebrew", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10161c; --surface: #18212a; --surface-2: #1e2933; --ink: #e6ecf1; --muted: #93a1b0;
+    --line: #2b3743; --accent: #ff6b3d; --accent-ink: #1a0d07; --weld: #ffc53d; --ok: #5cc28a;
+    --danger: #ff8a80; --danger-bg: #3a1d1c; --viewport: #0c1217; --grid: #2a3540; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10161c; --surface: #18212a; --surface-2: #1e2933; --ink: #e6ecf1; --muted: #93a1b0;
+  --line: #2b3743; --accent: #ff6b3d; --accent-ink: #1a0d07; --weld: #ffc53d; --ok: #5cc28a;
+  --danger: #ff8a80; --danger-bg: #3a1d1c; --viewport: #0c1217; --grid: #2a3540; color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  direction: rtl; margin: 0;
+}
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; }
+bdi, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.app { display: flex; flex-direction: column; min-height: 100%; }
+
+/* top bar */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px 0;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--surface); }
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.35rem; margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.brand .sub { color: var(--muted); font-size: .8rem; }
+.tabs { display: flex; gap: 4px; margin-top: 8px; }
+.tab {
+  flex: 1; border: 0; background: none; padding: 9px 6px 10px; font-weight: 600; color: var(--muted);
+  border-bottom: 3px solid transparent; cursor: pointer;
+}
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tab:focus-visible, .btn:focus-visible, .chip:focus-visible, .pcard:focus-visible, .act input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* build view */
+.build { display: grid; grid-template-columns: 1fr; flex: 1; }
+.viewer { position: relative; height: 46vh; min-height: 280px; background: var(--viewport); border-bottom: 1px solid var(--line); overflow: hidden; touch-action: none; }
+.viewer canvas { display: block; width: 100%; height: 100%; }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.lbl {
+  position: absolute; transform: translate(-50%, -50%); background: var(--ink); color: var(--surface);
+  font: 700 12px/1 var(--font-mono); padding: 4px 6px; border-radius: 999px; white-space: nowrap; direction: rtl;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.lbl.new { background: var(--accent); color: var(--accent-ink); }
+.lbl.bench { background: var(--surface); color: var(--ink); border: 1px solid var(--line); font-weight: 600; font-family: var(--font-body); font-size: 12px; }
+.lbl.hole { background: #232b33; color: #fff; font-size: 11px; }
+.vtools {
+  position: absolute; bottom: 10px; left: max(10px, env(safe-area-inset-left, 0px)); display: flex; gap: 6px; flex-wrap: wrap;
+}
+.vbtn {
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px;
+  font-size: .82rem; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+.vbtn[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.hint { position: absolute; top: 10px; right: max(10px, env(safe-area-inset-right, 0px)); font-size: .75rem; color: var(--muted); background: color-mix(in srgb, var(--surface) 80%, transparent); padding: 3px 8px; border-radius: 6px; }
+.legend { position: absolute; top: 10px; left: max(10px, env(safe-area-inset-left, 0px)); display: flex; gap: 8px; font-size: .72rem; color: var(--muted); background: color-mix(in srgb, var(--surface) 80%, transparent); padding: 3px 8px; border-radius: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-inline-end: 3px; }
+.noweb { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--muted); }
+
+.sheet {
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 14px 110px; min-width: 0;
+}
+.progress { display: flex; align-items: center; gap: 10px; font-size: .82rem; color: var(--muted); }
+.bar { flex: 1; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.phase { display: inline-block; font-size: .72rem; letter-spacing: .06em; font-weight: 700; color: var(--accent); margin-top: 12px; }
+.sheet h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.55rem; line-height: 1.25; margin: 2px 0 6px; text-wrap: balance; }
+.why { color: var(--muted); margin: 0 0 12px; max-width: 65ch; }
+.sec { margin-top: 16px; }
+.sec h3 { font-size: .78rem; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+.acts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: a; }
+.act { display: flex; gap: 10px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; counter-increment: a; }
+.act label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; width: 100%; min-width: 0; }
+.act input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.act .box { flex: none; width: 24px; height: 24px; border-radius: 6px; border: 2px solid var(--line); display: grid; place-items: center; font: 700 12px var(--font-mono); color: var(--muted); margin-top: 1px; }
+.act .box::before { content: counter(a); }
+.act input:checked + .box { background: var(--ok); border-color: var(--ok); color: #fff; }
+.act input:checked + .box::before { content: "✓"; }
+.act input:checked ~ .txt { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.act .txt { min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 10px; font-size: .85rem; }
+button.chip { cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip .let { font: 700 12px/1 var(--font-mono); background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 3px 6px; }
+.warn { background: var(--danger-bg); color: var(--ink); border-inline-start: 4px solid var(--danger); padding: 9px 12px; border-radius: 6px; margin-top: 14px; }
+.check { background: var(--surface-2); border: 1px dashed var(--line); padding: 9px 12px; border-radius: 6px; margin-top: 12px; }
+.check b, .warn b { display: block; font-size: .8rem; margin-bottom: 2px; }
+
+.nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 25; display: flex; gap: 8px; align-items: center;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-block: 10px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 11px 14px; font-weight: 700; cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); flex: 1; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.stepsel { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface-2); border-radius: var(--r); padding: 10px; font: inherit; color: var(--ink); }
+
+/* parts + shop */
+.page { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 40px; max-width: 980px; margin: 0 auto; width: 100%; }
+.page h2 { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; margin: 0 0 4px; }
+.page .lead { color: var(--muted); margin: 0 0 14px; max-width: 65ch; }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.pcard { text-align: start; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; cursor: pointer; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; }
+.pcard .big { grid-row: span 2; font: 700 22px/1 var(--font-mono); width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: var(--ink); color: var(--surface); }
+.pcard .nm { font-weight: 700; }
+.pcard .mt { color: var(--muted); font-size: .85rem; }
+.stop { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; margin-bottom: 10px; }
+.stop header { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.stop .n { font: 700 13px var(--font-mono); background: var(--ink); color: var(--surface); border-radius: 999px; width: 24px; height: 24px; display: inline-grid; place-items: center; }
+.stop h3 { margin: 0; font-size: 1.05rem; }
+.stop .shop { color: var(--muted); font-size: .9rem; }
+.phone { display: inline-flex; gap: 6px; align-items: center; }
+.phone .num { user-select: all; direction: ltr; unicode-bidi: isolate; }
+.copy { border: 1px solid var(--line); background: var(--surface-2); border-radius: 6px; padding: 2px 8px; font-size: .78rem; cursor: pointer; }
+.items { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
+.items label { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+.items input { margin-top: 5px; accent-color: var(--accent); }
+.items input:checked + span { color: var(--muted); text-decoration: line-through; }
+.price { margin-inline-start: auto; font: 600 .82rem var(--font-mono); color: var(--accent); }
+.note { color: var(--muted); font-size: .85rem; margin-top: 6px; }
+
+/* part sheet modal */
+.modal { position: fixed; inset: 0; z-index: 50; background: rgba(8,12,16,.55); display: grid; place-items: end center; }
+.modal[hidden] { display: none !important; }
+.mbox {
+  background: var(--surface); width: min(720px, 100%); max-height: 88vh; overflow: auto; border-radius: 16px 16px 0 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.mhead { display: flex; gap: 12px; align-items: center; }
+.mhead .big { font: 700 26px/1 var(--font-mono); width: 52px; height: 52px; display: grid; place-items: center; border-radius: 12px; background: var(--accent); color: var(--accent-ink); flex: none; }
+.mhead h3 { margin: 0; font-size: 1.25rem; }
+.mhead .x { margin-inline-start: auto; }
+.spec { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 12px 0; font-size: .95rem; }
+.spec dt { color: var(--muted); }
+.spec dd { margin: 0; font-weight: 600; }
+.cutwrap { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r); padding: 8px; }
+.cutwrap svg { display: block; width: 100%; min-width: 420px; height: auto; }
+.cut-ink { fill: var(--ink); }
+.cut-muted { fill: var(--muted); }
+.cut-line { stroke: var(--ink); }
+.cut-dim { stroke: var(--muted); }
+.cut-part { fill: color-mix(in srgb, var(--muted) 18%, var(--surface)); stroke: var(--ink); }
+.cut-hole { fill: var(--surface); stroke: var(--accent); }
+.cut-acc { fill: var(--accent); }
+.cut-accs { stroke: var(--accent); }
+.steps-used { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+@media (min-width: 960px) {
+  .build { grid-template-columns: minmax(380px, 440px) 1fr; }
+  .viewer { order: 2; height: calc(100vh - 104px); position: sticky; top: 104px; border-bottom: 0; border-inline-start: 1px solid var(--line); }
+  .sheet { order: 1; padding-block: 16px 120px; }
+  .nav { left: auto; width: 440px; right: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">
+      <div>
+        <h1>בונים עגלת מפרש</h1>
+        <div class="sub">מדריך תלת-ממדי, חלק אחרי חלק</div>
+      </div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-build" aria-selected="true" data-view="build">בנייה</button>
+      <button class="tab" role="tab" id="tab-parts" aria-selected="false" data-view="parts">חלקים</button>
+      <button class="tab" role="tab" id="tab-shop" aria-selected="false" data-view="shop">קניות</button>
+    </div>
+  </div>
+
+  <main id="view-build" class="build">
+    <section class="viewer" id="viewer" aria-label="מודל תלת-ממדי של העגלה">
+      <div class="labels" id="labels"></div>
+      <div class="legend" id="legend"><span><i style="background:var(--accent)"></i>חדש בשלב</span><span><i style="background:var(--weld)"></i>ריתוך</span></div>
+      <div class="hint" id="hint">גוררים לסיבוב · צביטה לזום</div>
+      <div class="vtools">
+        <button class="vbtn" id="btn-replay" type="button">▶ הרכבה</button>
+        <button class="vbtn" id="btn-view" type="button">מבט מלא</button>
+        <button class="vbtn" id="btn-labels" type="button" aria-pressed="true">תוויות</button>
+      </div>
+    </section>
+    <section class="sheet" id="sheet" aria-live="polite"></section>
+  </main>
+
+  <main id="view-parts" class="page" hidden>
+    <h2>החלקים</h2>
+    <p class="lead">כל חלק מסומן באות, כמו בהוראות של רהיט. לוחצים על חלק כדי לראות איך לחתוך אותו, איפה לקדוח, ובאיזה שלב הוא נכנס.</p>
+    <div class="pgrid" id="pgrid"></div>
+  </main>
+
+  <main id="view-shop" class="page" hidden>
+    <h2>רשימת קניות, אזור חולון</h2>
+    <p class="lead">כל החנויות באזור התעשייה של חולון. את החנויות מצאתי בדפי זהב. כדאי להתקשר לפני שנוסעים. המחירים הם הערכה.</p>
+    <div id="shop"></div>
+  </main>
+</div>
+
+<nav class="nav" id="nav">
+  <button class="btn" id="prev" type="button" aria-label="השלב הקודם">→</button>
+  <select class="stepsel" id="stepsel" aria-label="בחירת שלב"></select>
+  <button class="btn primary" id="next" type="button">השלב הבא ←</button>
+</nav>
+
+<div class="modal" id="modal" hidden>
+  <div class="mbox" role="dialog" aria-modal="true" aria-labelledby="m-title" id="mbox"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+"use strict";
+
+/* =========================================================================
+   DATA: parts, steps, shopping list. All cart dimensions in cm.
+   Cart axes: x along the cart (0 = front end of spine, + = backwards),
+   y sideways (+ = right), z height above ground.
+   ========================================================================= */
+
+const PARTS = {
+  A: { name: "שדרה", mat: "צינור מרובע 50×50 עובי 2.5", size: "230 ס״מ", qty: 1, from: "מוט 6 מטר 50×50",
+       shape: "bar", len: 230, th: 5,
+       cut: "חיתוך ישר 90° בשני הקצוות.",
+       holes: [[50, 10.5, "Ø10.5 אנכי"], [60, 10.5, "Ø10.5 אנכי"], [70, 10.5, "Ø10.5 אנכי"]],
+       marks: [[30, "F"], [115, "O"], [125, "E"], [155, "E"], [185, "B"], [227, "O"]],
+       note: "מסמנים את כל הנקודות מהקצה הקדמי. 3 חורים לציר של מוט הרגליים, כדי להתאים לאורך הרגליים." },
+  B: { name: "ציר אחורי", mat: "צינור מרובע 50×50 עובי 2.5", size: "170 ס״מ", qty: 1, from: "אותו מוט 6 מטר 50×50",
+       shape: "bar", len: 170, th: 5, cut: "חיתוך ישר 90°.",
+       holes: [], marks: [[1, "L"], [15, "L"], [25, "C"], [85, "A מרכז"], [145, "C"], [155, "L"], [169, "L"]],
+       note: "מסמנים את המרכז (85) ואת המקום של הפלטות L בשני הקצוות." },
+  C: { name: "חיזוק אלכסוני", mat: "צינור מרובע 30×30 עובי 2", size: "90 ס״מ (לפני התאמה)", qty: 2, from: "מוט 6 מטר 30×30",
+       shape: "bar", len: 90, th: 3, angled: true,
+       cut: "חותכים 90 ס״מ. את הזוויות בקצוות מסמנים במקום, על השלדה (בערך 45°), ומקצרים.",
+       holes: [], marks: [], note: "חותכים אותו סופית רק בשלב 6, כשמניחים אותו על השלדה." },
+  D: { name: "עמוד משענת", mat: "צינור מרובע 30×30 עובי 2", size: "60 ס״מ", qty: 2, from: "מוט 6 מטר 30×30",
+       shape: "bar", len: 60, th: 3, cut: "קצה תחתון בזווית של 77° (המשענת נוטה אחורה 13°). קצה עליון ישר.",
+       holes: [], marks: [], angledEnd: true, note: "" },
+  E: { name: "מוט רוחב למושב", mat: "צינור מרובע 30×30 עובי 2", size: "45 ס״מ", qty: 3, from: "מוט 6 מטר 30×30",
+       shape: "bar", len: 45, th: 3, cut: "חיתוך ישר 90°.", holes: [], marks: [[22.5, "מרכז"]], note: "2 למושב, 1 למעלה במשענת." },
+  F: { name: "בית התורן", mat: "צינור עגול Ø60 עובי 3", size: "25 ס״מ", qty: 1, from: "צינור עגול Ø60",
+       shape: "tube", len: 25, th: 6, cut: "חיתוך ישר 90°, מסירים גרדים מבפנים.", holes: [], marks: [],
+       note: "לפני שקונים: לבדוק שהפקק עם מאריך התורן נכנס בפנים." },
+  G: { name: "סנפיר חיזוק", mat: "פלטה 5 מ״מ", size: "משולש 6×12 ס״מ", qty: 4, from: "פלטה 5 מ״מ 30×30",
+       shape: "tri", len: 6, th: 12, cut: "משולש ישר-זווית: בסיס 6, גובה 12. מעגלים את הפינה החדה.", holes: [], marks: [], note: "" },
+  H: { name: "צינור ציר ההגה", mat: "צינור עגול Ø32 עובי 3", size: "15 ס״מ", qty: 1, from: "צינור עגול Ø32",
+       shape: "tube", len: 15, th: 3.2, cut: "חיתוך ישר 90°. מנקים את הפנים כדי שהתותבים ייכנסו.", holes: [], marks: [], note: "" },
+  I: { name: "רגל מזלג", mat: "פלח 40×6", size: "31 ס״מ", qty: 2, from: "פלח 40×6, 1.2 מטר",
+       shape: "flat", len: 31, th: 4, cut: "חיתוך ישר 90°.", holes: [[5, 20.5, "Ø20.5 לציר"]], marks: [],
+       note: "החור 5 ס״מ מהקצה התחתון. קודחים את שתי הרגליים ביחד (מהודקות) כדי שהחורים יהיו בדיוק באותו מקום." },
+  J: { name: "גשר מזלג", mat: "פלח 40×6", size: "30 ס״מ", qty: 1, from: "פלח 40×6, 1.2 מטר",
+       shape: "flat", len: 30, th: 4, cut: "חיתוך ישר 90°.",
+       holes: [[1.5, 5, "Ø5 כבל"], [15, 20.5, "Ø20.5 ציר"], [28.5, 5, "Ø5 כבל"]], marks: [[8, "I"], [22, "I"]],
+       note: "החור האמצעי בדיוק במרכז. הרגליים I מרותכות 7 ס״מ מהמרכז לכל צד." },
+  K: { name: "מוט רגליים (הגה)", mat: "צינור מרובע 25×25 עובי 2", size: "60 ס״מ", qty: 1, from: "צינור 25×25",
+       shape: "bar", len: 60, th: 2.5, cut: "חיתוך ישר 90°.",
+       holes: [[2, 5, "Ø5 כבל"], [30, 10.5, "Ø10.5 ציר"], [58, 5, "Ø5 כבל"]], marks: [], note: "" },
+  L: { name: "פלטת ציר אחורי", mat: "פלטה 6 מ״מ", size: "8×27 ס״מ", qty: 4, from: "פלטה 6 מ״מ 35×30",
+       shape: "plate", len: 27, th: 8, cut: "מלבן 8×27. מעגלים פינות.", holes: [[4, 20.5, "Ø20.5 לציר"]], marks: [],
+       note: "החור 4 ס״מ מהקצה התחתון, באמצע הרוחב. קודחים את כל 4 הפלטות ביחד." },
+  M: { name: "ציר / קינגפין", mat: "מוט הברגה M20", size: "25 ס״מ", qty: 4, from: "מוט הברגה M20, 1 מטר",
+       shape: "rod", len: 25, th: 2, cut: "חותכים עם משחזת, ומסדרים את ההברגה בקצה עם פצירה (או מבריגים אום לפני החיתוך ומוציאים אחרי).",
+       holes: [], marks: [], note: "3 צירים לגלגלים + 1 קינגפין להגה." },
+  N: { name: "גלגל", mat: "4.00-8 עם מיסב 20 מ״מ", size: "Ø40 ס״מ", qty: 3, from: "חנות גלגלים", shape: "wheel", len: 40, th: 10,
+       cut: "לא חותכים. מנפחים לפי הכתוב על הצמיג.", holes: [], marks: [], note: "קונים 4: שלושה + ספייר." },
+  O: { name: "אוזן לגלגלת", mat: "פלח 30×5", size: "8 ס״מ", qty: 2, from: "פלח 30×5", shape: "flat", len: 8, th: 3,
+       cut: "חיתוך ישר, מעגלים את הקצה העליון.", holes: [[5.5, 6.5, "Ø6.5"]], marks: [], note: "" },
+  P: { name: "כבל הגה", mat: "כבל פלדה 3 מ״מ", size: "~75 ס״מ", qty: 2, from: "כבל פלדה 3 מ״מ, 2 מטר", shape: "cable", len: 75, th: 0.3,
+       cut: "חותכים רק אחרי מדידה על העגלה (שלב 15). בכל קצה: לולאה + טלורית לחוצה.", holes: [], marks: [], note: "" }
+};
+
+const HW = [
+  ["אום ניילוק M20 + דסקית", "8 + 10", "צירים וקינגפין"],
+  ["ספייסר 20 מ״מ", "6", "בצדי כל גלגל"],
+  ["תותב ברונזה/ניילון 20×26", "2", "בתוך H"],
+  ["בורג M10×100 + ניילוק + 2 דסקיות", "1", "ציר מוט הרגליים"],
+  ["טלורית + לולאה (Thimble)", "4", "קצוות כבלי ההגה"],
+  ["בורג M6 + ניילוק + דסקית רחבה", "8", "גלגלות ותפס"],
+  ["בורג עין M8 + ניילוק", "2", "חגורת בטיחות"],
+  ["שאקל 6 מ״מ", "4", "חיבור גלגלות"]
+];
+
+/* Each step: phase, title, why, actions, parts (letters), tools, warn, check,
+   mode: "bench" (loose parts on the floor) or "build" (assembled cart),
+   add: groups that appear in this step, welds: weld points (cart coords), cam: camera preset. */
+const STEPS = [
+  { phase: "הכנה", title: "לפני שמתחילים", mode: "build", preview: true, cam: "iso",
+    why: "ככה העגלה תיראה בסוף. עוברים על הכלים ועל הבטיחות לפני שנוגעים בברזל.",
+    actions: [
+      "מפנים שטח עבודה של לפחות 3×2 מטר, עם משטח ישר (שולחן עבודה או רצפת בטון ישרה).",
+      "בודקים שיש את כל הכלים: משחזת זווית, מקדחה, רתכת (או רתך שעוזר), מטר, זווית, פלס, טוש, מלחציים, מפתחות 13/17/30.",
+      "ציוד מגן: מסכת ריתוך, כפפות עור, משקפי מגן, אטמי אוזניים, בגדי כותנה ארוכים, מטף בהישג יד.",
+      "מודדים את הרגליים: יושבים על הרצפה עם גב ישר, ומודדים מהגב עד כף הרגל. כדאי לרשום את המספר, צריך אותו בשלב 14.",
+      "מסדרים את כל החלקים שקנית לפי הרשימה בלשונית ״קניות״ ומסמנים מה יש."
+    ],
+    tools: ["מטר", "טוש", "ציוד מגן"], parts: [],
+    warn: "ריתוך וחיתוך מתכת מייצרים ניצוצות. עובדים רחוק מחומרים דליקים, ולא בתוך חדר סגור.",
+    check: "יש מקום, כלים, ציוד מגן וכל החלקים מהרשימה." },
+
+  { phase: "חיתוך", title: "חיתוך מוט 50×50: השדרה והציר", mode: "bench", bench: "cut50", cam: "bench",
+    why: "שני החלקים הגדולים יוצאים ממוט אחד של 6 מטר. מודדים פעמיים וחותכים פעם אחת.",
+    actions: [
+      "מניחים את המוט על שתי תמיכות, כך שהחתיכה שנחתכת לא נופלת על הרגל.",
+      "מודדים 230 ס״מ מהקצה, מסמנים קו מסביב עם זווית (בכל 4 הצדדים).",
+      "חותכים עם משחזת ודיסק חיתוך, לאט, לאורך הקו. זה החלק A.",
+      "מהשארית מודדים 170 ס״מ, מסמנים וחותכים. זה החלק B.",
+      "מסירים גרדים בקצוות עם דיסק ליטוש, וכותבים על כל חתיכה את האות שלה."
+    ],
+    tools: ["משחזת זווית", "דיסק חיתוך", "דיסק ליטוש", "זווית", "טוש"], parts: ["A", "B"],
+    warn: "מחזיקים את המשחזת בשתי ידיים, עומדים בצד של הדיסק (לא מאחוריו), ומשקפי מגן תמיד.",
+    check: "A = 230 ס״מ, B = 170 ס״מ. הקצוות ישרים ונקיים." },
+
+  { phase: "חיתוך", title: "חיתוך מוט 30×30 ו-25×25", mode: "bench", bench: "cut30", cam: "bench",
+    why: "מהמוט הדק יוצאים החיזוקים וכל המושב. מהצינור הקטן יוצא מוט הרגליים.",
+    actions: [
+      "מהמוט 30×30 חותכים לפי הסדר: 2 × C (90 ס״מ), 2 × D (60 ס״מ), 3 × E (45 ס״מ).",
+      "את C לא חותכים בזווית עכשיו. הזווית נקבעת בשלב 6, על השלדה.",
+      "בעמודים D חותכים את הקצה התחתון בזווית של 77° (נוטה 13°). את הזווית מסמנים עם מד זווית.",
+      "מהצינור 25×25 חותכים K, 60 ס״מ.",
+      "מסירים גרדים וכותבים אותיות."
+    ],
+    tools: ["משחזת זווית", "דיסק חיתוך", "מד זווית", "טוש"], parts: ["C", "D", "E", "K"],
+    warn: null, check: "2×C, 2×D, 3×E, 1×K. כל חתיכה עם אות." },
+
+  { phase: "חיתוך", title: "חיתוך פלח, פלטות ומוט הברגה", mode: "bench", bench: "cutsmall", cam: "bench",
+    why: "החלקים הקטנים: המזלג, האוזניים, הסנפירים, הפלטות לגלגלים והצירים.",
+    actions: [
+      "מהפלח 40×6 חותכים: 2 × I (31 ס״מ) ו-1 × J (30 ס״מ).",
+      "מהפלח 30×5 חותכים: 2 × O (8 ס״מ).",
+      "מהפלטה 5 מ״מ חותכים 4 משולשים G (בסיס 6, גובה 12).",
+      "מהפלטה 6 מ״מ חותכים 4 מלבנים L (8×27 ס״מ).",
+      "ממוט ההברגה M20 חותכים 4 × M (25 ס״מ). לפני החיתוך מבריגים אום, ואחרי החיתוך מוציאים אותו, כדי לסדר את ההברגה.",
+      "מעגלים את כל הפינות החדות עם דיסק ליטוש."
+    ],
+    tools: ["משחזת זווית", "דיסק חיתוך", "דיסק ליטוש", "מלחציים"], parts: ["I", "J", "O", "G", "L", "M"],
+    warn: "חלקים קטנים מחזיקים במלחציים ולא ביד בזמן החיתוך.", check: "2×I, 1×J, 2×O, 4×G, 4×L, 4×M." },
+
+  { phase: "קידוח", title: "קידוח כל החורים", mode: "bench", bench: "drill", cam: "bench",
+    why: "קודחים הכול עכשיו, כשהחלקים עוד קטנים ונוחים להחזקה. ככה כל הרכבה אחר כך היא רק בורג ואום.",
+    actions: [
+      "מסמנים כל חור עם נקודה (נקר ופטיש) כדי שהמקדח לא יחליק.",
+      "A: 3 חורים אנכיים Ø10.5 ב-50, 60 ו-70 ס״מ מהקצה הקדמי, באמצע הרוחב, דרך שני הקירות.",
+      "L: מהדקים את 4 הפלטות יחד וקודחים Ø20.5, 4 ס״מ מהקצה התחתון. מתחילים במקדח קטן (6) ומגדילים בהדרגה, או עם מקדח מדורג.",
+      "I: מהדקים את 2 הרגליים יחד וקודחים Ø20.5, 5 ס״מ מהקצה.",
+      "J: חור Ø20.5 בדיוק במרכז, וחור Ø5 1.5 ס״מ מכל קצה.",
+      "K: חור Ø10.5 במרכז, וחור Ø5 2 ס״מ מכל קצה.",
+      "O: חור Ø6.5 בכל אוזן, 2.5 ס״מ מהקצה העליון.",
+      "מסירים גרדים מכל החורים."
+    ],
+    tools: ["מקדחה (עדיף עומדת)", "מקדחים 5–12", "מקדח מדורג", "נקר", "מלחציים", "שמן קידוח"], parts: ["A", "L", "I", "J", "K", "O"],
+    warn: "מהדקים את החלק לשולחן. מקדח גדול שנתקע מסובב את החלק בכוח.",
+    check: "מכניסים את מוט ההברגה M לכל חור Ø20.5: הוא צריך להיכנס בלי כוח." },
+
+  { phase: "שלדה", title: "שלדת T: שדרה + ציר אחורי", mode: "build", add: ["A", "B"], cam: "rearTop",
+    welds: [[182.5, -2.5, 48], [187.5, -2.5, 48], [182.5, 2.5, 48], [187.5, 2.5, 48]],
+    why: "כל המדידות של העגלה יוצאות מה-T הזה. אם הוא ישר, כל השאר יהיה ישר.",
+    actions: [
+      "מניחים את B על הרצפה, ואת A מעליו, בנקודה 185 ס״מ מהקצה הקדמי של A.",
+      "מיישרים: המרכז של B (הסימון 85) בדיוק מתחת לאמצע של A.",
+      "בודקים זווית ישרה: מודדים מהקצה הקדמי של A לכל אחד מהקצוות של B. שתי המידות חייבות להיות שוות (בערך 211 ס״מ).",
+      "מנקדים (ריתוך נקודה קטן) בשתי פינות, ובודקים שוב את המידות.",
+      "אם עדיין שווה: מנקדים את 2 הפינות האחרות, ואז מרתכים לאורך כל קווי המגע."
+    ],
+    tools: ["רתכת", "מטר", "זווית", "מלחציים"], parts: ["A", "B"],
+    warn: "מרתכים עם מסכת ריתוך, כפפות ושרוולים ארוכים. אם אין לך ניסיון בריתוך, זה המקום לבקש מרתך.",
+    check: "שני האלכסונים שווים (עד 2 מ״מ הפרש)." },
+
+  { phase: "שלדה", title: "חיזוקים אלכסוניים C", mode: "build", add: ["C"], cam: "rearTop",
+    welds: [[183, -59, 46.5], [183, 59, 46.5], [127, -2.5, 47.5], [127, 2.5, 47.5]],
+    why: "החיזוקים הופכים את ה-T למשולש, ומשולש לא מתעקם. בלי זה הציר האחורי יתכופף בפנייה.",
+    actions: [
+      "מסמנים על B נקודה 60 ס״מ מהמרכז לכל צד.",
+      "מניחים את C מהנקודה הזו עד מתחת לשדרה, ומסמנים עליו את קו החיתוך בשני הקצוות, כך שהוא יושב צמוד.",
+      "חותכים את הזוויות (בערך 45°) ובודקים שוב במקום.",
+      "מנקדים ומרתכים: קצה אחד לצד של B, קצה שני לתחתית של A.",
+      "חוזרים על זה בצד השני, סימטרי."
+    ],
+    tools: ["משחזת זווית", "רתכת", "טוש", "מד זווית"], parts: ["C"],
+    warn: null, check: "שני החיזוקים באותו אורך ובאותה זווית." },
+
+  { phase: "גלגלים אחוריים", title: "פלטות לגלגלים L", mode: "build", add: ["L"], cam: "rearLow",
+    welds: [[181, -84, 43], [189, -84, 43], [181, -70, 43], [189, -70, 43], [181, 84, 43], [189, 84, 43], [181, 70, 43], [189, 70, 43]],
+    why: "כל גלגל אחורי יושב בין שתי פלטות, כמו במזלג. ככה הציר נתמך משני הצדדים.",
+    actions: [
+      "הופכים את השלדה (B למעלה), כדי לרתך בנוחות.",
+      "בכל קצה של B מסמנים שתי נקודות: 70 ו-84 ס״מ מהמרכז.",
+      "מכניסים מוט M דרך החורים של שתי הפלטות של אותו צד. ככה הן בטוח מיושרות.",
+      "מעמידים את הפלטות על הסימונים, ניצבות ל-B, החורים כלפי מטה. מנקדים.",
+      "מוציאים את המוט ומרתכים כל פלטה משני הצדדים.",
+      "חוזרים על זה בצד השני."
+    ],
+    tools: ["רתכת", "זווית", "מטר"], parts: ["L", "M"],
+    warn: null, check: "המוט M עובר חלק דרך שתי הפלטות בכל צד." },
+
+  { phase: "גלגלים אחוריים", title: "הרכבת הגלגלים האחוריים", mode: "build", add: ["Mr", "SPr", "Nr"], cam: "rearWheel",
+    why: "סדר החלקים על הציר חשוב: פלטה, ספייסר, גלגל, ספייסר, פלטה. הספייסרים שומרים שהגלגל לא ישפשף בפלטות.",
+    actions: [
+      "הופכים את השלדה חזרה (B למטה).",
+      "מכניסים את M דרך הפלטה הפנימית.",
+      "משחילים על M: ספייסר, גלגל, ספייסר.",
+      "דוחפים את M דרך הפלטה החיצונית.",
+      "בכל צד: דסקית ואום ניילוק. מהדקים עד שהגלגל לא זז לצדדים, אבל עדיין מסתובב חופשי.",
+      "חוזרים על זה בגלגל השני."
+    ],
+    tools: ["מפתח 30 (×2)", "גריז"], parts: ["M", "N"],
+    warn: null, check: "שני הגלגלים מסתובבים חופשי, ישרים, ואין רעידות לצדדים." },
+
+  { phase: "חזית", title: "צינור ציר ההגה H", mode: "build", add: ["H"], cam: "front",
+    welds: [[0, -2.5, 50.5], [0, 2.5, 50.5], [0, 0, 48], [0, 0, 53]],
+    why: "H הוא הציר שהגלגל הקדמי מסתובב סביבו. אם הוא לא אנכי, ההגה ימשוך לצד.",
+    actions: [
+      "מרימים את החזית של A על תמיכה, כך ש-A מאוזן (בודקים בפלס).",
+      "מעמידים את H צמוד לקצה הקדמי של A. התחתית של H בגובה התחתית של A.",
+      "בודקים עם פלס ש-H אנכי בשני הכיוונים (קדימה-אחורה וצד-צד).",
+      "מנקדים, בודקים שוב, ומרתכים מסביב.",
+      "מכניסים תותב ברונזה/ניילון בכל קצה של H (בלחיצה או עם פטיש גומי)."
+    ],
+    tools: ["רתכת", "פלס", "פטיש גומי"], parts: ["H"],
+    warn: null, check: "H אנכי. התותבים בפנים, ומוט M עובר דרכם." },
+
+  { phase: "חזית", title: "המזלג: רגליים I + גשר J", mode: "build", add: ["IJ"], cam: "front",
+    welds: [[-3.6, -7, 45.4], [0.4, -7, 45.4], [-3.6, 7, 45.4], [0.4, 7, 45.4]],
+    why: "המזלג מחזיק את הגלגל הקדמי. שתי הרגליים חייבות להיות מקבילות, אחרת הגלגל יעמוד עקום.",
+    actions: [
+      "מכניסים מוט M דרך החורים של שתי הרגליים I, עם הגלגל ביניהן (וספייסרים). ככה המרחק ביניהן נכון.",
+      "מניחים את J הפוך על השולחן, ומעמידים עליו את שתי הרגליים, 7 ס״מ מהמרכז לכל צד.",
+      "בודקים עם זווית שהרגליים ניצבות ל-J.",
+      "מנקדים, מוציאים את הגלגל, ומרתכים מבפנים ומבחוץ."
+    ],
+    tools: ["רתכת", "זווית", "מלחציים"], parts: ["I", "J"],
+    warn: null, check: "הרגליים מקבילות, והגלגל נכנס ביניהן עם הספייסרים." },
+
+  { phase: "חזית", title: "הרכבת המזלג והגלגל הקדמי", mode: "build", add: ["kingpin", "Nf", "Mf", "SPf"], cam: "front",
+    why: "הקינגפין (מוט M) עובר דרך H ודרך J, והמזלג מסתובב סביבו.",
+    actions: [
+      "מורחים גריז על M ועל התותבים.",
+      "מבריגים אום ניילוק ודסקית על קצה אחד של M (הקינגפין).",
+      "מכניסים את הקינגפין מלמעלה דרך H.",
+      "מתחת ל-H: 2 דסקיות (מרווח), ואז החור האמצעי של J.",
+      "מתחת ל-J: דסקית ואום ניילוק. מהדקים עד שאין חופש למעלה-למטה, אבל המזלג מסתובב בקלות.",
+      "מרכיבים את הגלגל הקדמי בין הרגליים: M, ספייסר, גלגל, ספייסר, דסקיות ואומים (כמו מאחור)."
+    ],
+    tools: ["מפתח 30 (×2)", "גריז"], parts: ["M", "N"],
+    warn: null, check: "העגלה עומדת על 3 גלגלים. המזלג מסתובב לשני הצדדים, ויש לפחות 3 ס״מ בין הגלגל ל-J." },
+
+  { phase: "תורן", title: "בית התורן F + סנפירים G", mode: "build", add: ["F", "G"], cam: "mast",
+    welds: [[27, 0, 53], [33, 0, 53], [30, -3, 53], [30, 3, 53], [24, 0, 59], [36, 0, 59], [30, -6, 59], [30, 6, 59]],
+    why: "כל הכוח של המפרש עובר דרך החיבור הזה. זה הריתוך הכי חשוב בעגלה.",
+    actions: [
+      "מסמנים על A את נקודה 30.",
+      "מעמידים את F על A, באמצע הרוחב.",
+      "בודקים בפלס ש-F אנכי בשני הכיוונים.",
+      "מנקדים ב-4 נקודות, בודקים שוב, ומרתכים ריתוך מלא מסביב.",
+      "מרתכים 4 סנפירים G: קדימה, אחורה ולשני הצדדים. הצד הארוך צמוד ל-F, הבסיס על A.",
+      "מכינים פקק עץ קשה או ניילון שנכנס צמוד לתוך F, עם חור למאריך התורן."
+    ],
+    tools: ["רתכת", "פלס", "מלחציים"], parts: ["F", "G"],
+    warn: "ריתוך מלא בלבד, לא נקודות. אם יש ספק באיכות הריתוך, מבקשים מרתך מקצועי לבדוק.",
+    check: "F אנכי, הסנפירים מרותכים משני הצדדים, והמאריך מסתובב בתוך הפקק." },
+
+  { phase: "הגה", title: "מוט הרגליים K", mode: "build", add: ["K"], cam: "steer",
+    why: "את העגלה מנווטים ברגליים, כי הידיים עסוקות בחבל של המפרש.",
+    actions: [
+      "יושבים על השדרה במקום של המושב (בערך 140 ס״מ), עם גב ישר.",
+      "בודקים לאיזה חור (50, 60 או 70) הרגליים מגיעות בנוחות, עם ברך קצת כפופה.",
+      "מכניסים בורג M10×100 מלמעלה: דסקית, K, דסקית, A.",
+      "מלמטה: אום ניילוק. מהדקים עד ש-K מסתובב בלי חופש למעלה-למטה."
+    ],
+    tools: ["מפתח 17 (×2)"], parts: ["K"],
+    warn: null, check: "K מסתובב חלק ימינה ושמאלה." },
+
+  { phase: "הגה", title: "כבלי ההגה P", mode: "build", add: ["P"], cam: "steer",
+    why: "שני כבלים מעבירים את התנועה מהרגליים לגלגל הקדמי. כל אחד מושך לכיוון אחר.",
+    actions: [
+      "מיישרים את הגלגל הקדמי קדימה, ואת K בדיוק לרוחב (90° לשדרה).",
+      "משחילים כבל דרך החור בקצה של K, עושים לולאה עם Thimble, ולוחצים טלורית.",
+      "מותחים את הכבל לחור של J באותו צד, מסמנים, ועושים לולאה וטלורית גם שם.",
+      "חוזרים על זה בצד השני. שני הכבלים מתוחים, בלי רפיון.",
+      "בודקים: דוחפים רגל ימין קדימה, ורואים לאן הגלגל פונה. אם הפוך ממה שנוח לך, מצליבים את הכבלים."
+    ],
+    tools: ["לוחץ טלוריות", "קאטר כבלים"], parts: ["P"],
+    warn: "כבל רפוי או שחוק = אין הגה. בודקים את הכבלים לפני כל נסיעה.",
+    check: "הגלגל זז מיד כשמזיזים את K, בלי ״חופש״." },
+
+  { phase: "מושב", title: "בסיס המושב E", mode: "build", add: ["E"], cam: "seat",
+    welds: [[125, -2.5, 53], [125, 2.5, 53], [155, -2.5, 53], [155, 2.5, 53]],
+    why: "שני מוטות רוחב על השדרה הם הבסיס של המושב.",
+    actions: [
+      "מסמנים על A את הנקודות 125 ו-155.",
+      "מניחים E לרוחב על A בכל נקודה, כשהמרכז של E על השדרה.",
+      "בודקים עם זווית ש-E ניצב ל-A.",
+      "מרתכים משני הצדדים של השדרה."
+    ],
+    tools: ["רתכת", "זווית"], parts: ["E"], warn: null, check: "שני ה-E מקבילים ובאותו גובה." },
+
+  { phase: "מושב", title: "משענת: עמודים D + מוט עליון", mode: "build", add: ["D", "Etop"], cam: "seat",
+    welds: [[155, -20, 56], [155, 20, 56], [168, -20, 113], [168, 20, 113]],
+    why: "המשענת נוטה אחורה, כדי שתשב נוח ונמוך. ככה מרכז הכובד נמוך והעגלה יציבה יותר.",
+    actions: [
+      "מעמידים כל D על הקצה של ה-E האחורי (20 ס״מ מהמרכז), עם הזווית שחתכת בשלב 3. הוא נוטה אחורה.",
+      "בודקים ששני העמודים באותה זווית (מודדים מהקצה העליון לקצה האחורי של A).",
+      "מרתכים את התחתית של כל D ל-E.",
+      "מרתכים את ה-E השלישי לרוחב, על הקצוות העליונים של שני העמודים."
+    ],
+    tools: ["רתכת", "מד זווית", "מטר"], parts: ["D", "E"], warn: null, check: "המשענת ישרה ולא עקומה לצד." },
+
+  { phase: "מושב", title: "אוזניים O לגלגלות", mode: "build", add: ["O"], cam: "rearTop",
+    welds: [[224.5, 0, 53], [229.5, 0, 53], [112.5, 0, 53], [117.5, 0, 53]],
+    why: "האוזניים מחזיקות את הגלגלות של חבל השליטה במפרש.",
+    actions: [
+      "מרתכים אוזן O אחת עומדת על הקצה האחורי של A (נקודה 227).",
+      "מרתכים אוזן O שנייה על A בנקודה 115, ליד הידיים כשאתה יושב.",
+      "החורים פונים לצדדים, כדי שהשאקל ייכנס."
+    ],
+    tools: ["רתכת"], parts: ["O"], warn: null, check: "האוזניים חזקות, לא זזות כשמושכים ביד." },
+
+  { phase: "גימור", title: "צביעה", mode: "build", paint: true, cam: "iso",
+    why: "ברזל לא צבוע מחליד מהר מאוד ליד הים. צובעים לפני שמרכיבים את המושב והחבלים.",
+    actions: [
+      "מפרקים את 3 הגלגלים, את K ואת הכבלים. שומרים ברגים בקופסה.",
+      "משייפים את הריתוכים ואת החלודה (נייר 80, אחר כך 120).",
+      "מנקים שומן עם טרפנטין ומחכים שיתייבש.",
+      "מורחים ממיר חלודה במקומות שהיו חלודים.",
+      "שכבת צבע יסוד, מחכים לפי ההוראות על הקופסה.",
+      "2 שכבות צבע למתכת. כדאי צבע בולט, כדי שיראו אותך מרחוק.",
+      "אחרי 24 שעות מרכיבים בחזרה את הגלגלים, את K ואת הכבלים."
+    ],
+    tools: ["נייר לטש", "טרפנטין", "ממיר חלודה", "צבע יסוד", "צבע למתכת", "מברשת/ספריי"], parts: [],
+    warn: "צובעים בחוץ או במקום מאוורר, עם מסכה.", check: "אין ברזל חשוף. כל הגלגלים וההגה מורכבים בחזרה." },
+
+  { phase: "גימור", title: "מושב, חגורה וחבל השליטה", mode: "build", add: ["sling", "belt", "blocks", "sheetline"], cam: "seat",
+    why: "המושב מברזנט נוח וזול. החבל עובר דרך גלגלות, כדי שתוכל להחזיק את המפרש בלי להתעייף.",
+    actions: [
+      "מותחים ברזנט עם אילתות על ה-E של המושב ועל המשענת, ושורכים חזק בחבל 5 מ״מ (או מבריגים מושב קארטינג עם M6).",
+      "מבריגים 2 ברגי עין M8 בצדי המושב, ומחברים חגורת בטיחות.",
+      "באוזן האחורית: שאקל וגלגלת בודדת.",
+      "באוזן הקדמית: שאקל וגלגלת ראצ׳ט. לידה מבריגים תפס קאם.",
+      "את חבל השליטה מעבירים: קצה הבום ← הגלגלת האחורית ← גלגלת הראצ׳ט ← התפס ← היד. בקצה קושרים קשר עצירה."
+    ],
+    tools: ["מברג", "מפתח 10", "חבל 5 מ״מ"], parts: [], warn: null, check: "יושבים, חוגרים, ומושכים בחבל: הוא רץ חלק בגלגלות." },
+
+  { phase: "מפרש", title: "הרכבת התורן, המפרש והבום", mode: "build", add: ["mast", "sail", "boom"], cam: "rig",
+    why: "מרכיבים את המפרש בדיוק כמו בגלשן רוח, רק שהתורן נכנס לבית התורן F במקום ללוח.",
+    actions: [
+      "פורשים את המפרש על הקרקע ומשחילים את התורן לשרוול של המפרש.",
+      "מכניסים את המאריך לתחתית התורן, ומותחים את חבל המתיחה למטה (Downhaul) עד שהמפרש מתוח.",
+      "מכניסים את המאריך לפקק שבתוך F. התורן צריך להסתובב.",
+      "מחברים את הבום בגובה שלא פוגע בראש כשאתה יושב (בערך 1.6–1.8 מטר מהקרקע).",
+      "מותחים את חבל המתיחה לבום (Outhaul), ומחברים את חבל השליטה לקצה הבום."
+    ],
+    tools: ["ציוד גלשן רוח"], parts: [],
+    warn: "מרכיבים מפרש רק כשהעגלה קשורה או מוחזקת. רוח יכולה להזיז אותה גם כשאף אחד לא יושב בה.",
+    check: "המפרש מתוח, התורן מסתובב, והבום עובר מעל הראש." },
+
+  { phase: "נסיעה", title: "בדיקת בטיחות ונסיעה ראשונה", mode: "build", cam: "iso", spin: true,
+    why: "בודקים הכול לפני כל נסיעה, ובפעם הראשונה נוסעים לאט.",
+    actions: [
+      "כל אומי הניילוק סגורים ואין חופש בגלגלים.",
+      "אין סדקים בריתוכים, במיוחד מסביב ל-F ובמזלג.",
+      "ההגה זז לשני הצדדים, והכבלים מתוחים ולא שחוקים.",
+      "קסדה, כפפות, משקפי מגן, חגורה סגורה.",
+      "מקום ריק ושטוח (חוף רחב או מגרש ריק), רחוק מאנשים, מכוניות ומים.",
+      "רוח חלשה בפעם הראשונה (8–12 קשר).",
+      "לעצור: מסובבים את העגלה מול הרוח ומשחררים את החבל."
+    ],
+    tools: ["קסדה", "כפפות", "משקפי מגן"], parts: [],
+    warn: "זה תכנון ביתי, לא מוצר מאושר. נוסעים לאט בהתחלה, ובודקים את העגלה אחרי כל נסיעה.",
+    check: "כל הסעיפים מסומנים. אפשר לנסוע." }
+];
+
+const SHOP = [
+  { n: 1, title: "ברזל", shop: "שמאי מחסני ברזל, תמנע 17", phone: "03-6828325", alt: "חלופה: מרדכי הראל, המרכבה 16 · 077-7785671", price: "≈ 500–900 ₪",
+    items: ["צינור מרובע 50×50 עובי 2.5: מוט 6 מטר", "צינור מרובע 30×30 עובי 2: מוט 6 מטר", "צינור מרובע 25×25 עובי 2: 1 מטר",
+            "צינור עגול Ø60 עובי 3: 30 ס״מ (לבדוק עם רגל התורן)", "צינור עגול Ø32 עובי 3: 20 ס״מ", "פלח 40×6: 1.2 מטר", "פלח 30×5: 50 ס״מ",
+            "פלטה 5 מ״מ: 30×30 ס״מ", "פלטה 6 מ״מ: 35×30 ס״מ", "פקקי פלסטיק 50×50 ו-30×30: 4 מכל אחד"] },
+  { n: 2, title: "גלגלים", shop: "ניסנהויז, הכישור 12", phone: "072-2599348", alt: "חלופה: ״האופן״, הבנאי 29 · 03-5560871", price: "≈ 300–600 ₪",
+    items: ["גלגל אוויר 4.00-8 עם מיסב לציר 20 מ״מ: 4 (3 וספייר)", "פנימית לאותו גלגל: 2"] },
+  { n: 3, title: "מיסבים", shop: "בית המיסב, החופר 34", phone: "03-5566446", alt: "חלופה: ״אב״, הבנאי 29 · 03-6884703", price: "≈ 100–200 ₪",
+    items: ["ספייסר פלדה, קוטר פנימי 20 מ״מ: 6", "תותב ברונזה או ניילון 20×26 מ״מ: 2", "גריז: 1"] },
+  { n: 4, title: "ברגים", shop: "ציר ובורג, הבנאי 6", phone: "03-5593568", alt: "הכול מגולוון או נירוסטה, עם אום נעילה (ניילוק)", price: "≈ 250–450 ₪",
+    items: ["מוט הברגה M20: 1 מטר (3 צירים + קינגפין)", "אום ניילוק M20: 8 · דסקית M20: 10", "בורג M10×100 + ניילוק + 2 דסקיות: 1",
+            "ברגים M6×25: 20 · ניילוק: 20 · דסקית רחבה: 40", "ברגים M8×50–60: 15 · ניילוק: 15 · דסקית: 30", "בורג עין M8: 2",
+            "שאקל 6 מ״מ: 4", "לוקטייט כחול: 1"] },
+  { n: 5, title: "כלים, צבע ומתכלים", shop: "אהרוני הכל לבנין, הפלד 22", phone: "072-3228387", alt: "חלופה: טכנו כהן, הלהב 2 · 03-5504477", price: "≈ 550–700 ₪",
+    items: ["דיסקים לחיתוך ברזל 115 מ״מ: 10", "דיסק פלאפ 115 מ״מ: 3", "מקדחים לברזל 5–12 + מקדח מדורג", "אלקטרודות 2.5 מ״מ: 2 ק״ג",
+            "כבל פלדה 3 מ״מ: 2 מטר + 4 טלוריות + 4 Thimble (או במ.נ.מ, יחד עם הלוחץ)", "ממיר חלודה, צבע יסוד, צבע למתכת", "טרפנטין 1 ליטר, נייר לטש 80/120",
+            "כפפות, משקפי מגן, אזיקונים"] },
+  { n: 6, title: "מפרש, תורן ובום", shop: "יד 2, ציוד גלשן רוח משומש", phone: "", alt: "", price: "≈ 800–2,500 ₪",
+    items: ["מפרש 4.5–5.5 מ״ר", "תורן שמתאים למפרש (430 או 460 ס״מ)", "מאריך תורן", "בום"] },
+  { n: 7, title: "חבלים וגלגלות", shop: "חנות שייט בתל אביב או ביפו", phone: "", alt: "", price: "≈ 600–1,200 ₪",
+    items: ["חבל קלוע 8–10 מ״מ: 8 מטר", "חבל 6 מ״מ: 3 מטר · חבל 5 מ״מ: 7 מטר", "גלגלת ראצ׳ט: 1", "גלגלת בודדת 40 מ״מ: 1", "תפס קאם: 1"] },
+  { n: 8, title: "מושב ובטיחות", shop: "חנות קארטינג, חלקי רכב או אופניים", phone: "", alt: "", price: "≈ 400–950 ₪",
+    items: ["ברזנט עבה + אילתות (או מושב קארטינג)", "חגורת בטיחות", "קסדה"] }
+];
+
+/* ========================================================================= STATE */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sailcart:" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("sailcart:" + k, JSON.stringify(v)); } catch (e) {} }
+};
+let cur = Math.min(Math.max(0, store.get("step", 0) | 0), STEPS.length - 1);
+const done = store.get("done", {});
+const shopDone = store.get("shop", {});
+const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ========================================================================= UI */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// wrap numbers / dimensions so they stay LTR inside Hebrew text
+const fmt = s => esc(s).replace(/([A-Z]?\d[\d.,×x–\-/]*(?:\s?(?:ס״מ|מ״מ|מטר|ק״ג|°))?)/g, m => /\d/.test(m) ? `<bdi>${m}</bdi>` : m);
+
+function renderSheet() {
+  const s = STEPS[cur];
+  const total = STEPS.length;
+  const acts = s.actions.map((a, i) => {
+    const id = `a-${cur}-${i}`;
+    const on = done[id] ? "checked" : "";
+    return `<li class="act"><label for="${id}"><input type="checkbox" id="${id}" ${on}><span class="box" aria-hidden="true"></span><span class="txt">${fmt(a)}</span></label></li>`;
+  }).join("");
+  const parts = s.parts.length ? `<div class="sec"><h3>חלקים בשלב</h3><div class="chips">${s.parts.map(p =>
+    `<button class="chip" type="button" data-part="${p}"><span class="let">${p}</span>${esc(PARTS[p].name)}</button>`).join("")}</div></div>` : "";
+  const tools = s.tools && s.tools.length ? `<div class="sec"><h3>כלים</h3><div class="chips">${s.tools.map(t => `<span class="chip">${fmt(t)}</span>`).join("")}</div></div>` : "";
+  const warn = s.warn ? `<div class="warn" role="note"><b>⚠ בטיחות</b>${fmt(s.warn)}</div>` : "";
+  const check = s.check ? `<div class="check"><b>✓ בדיקה לפני שממשיכים</b>${fmt(s.check)}</div>` : "";
+  const nDone = s.actions.filter((_, i) => done[`a-${cur}-${i}`]).length;
+  $("#sheet").innerHTML = `
+    <div class="progress"><span>שלב <bdi>${cur + 1}/${total}</bdi></span><div class="bar"><i style="width:${((cur + 1) / total) * 100}%"></i></div><span><bdi>${nDone}/${s.actions.length}</bdi> בוצעו</span></div>
+    <div class="phase">${esc(s.phase)}</div>
+    <h2>${esc(s.title)}</h2>
+    <p class="why">${fmt(s.why)}</p>
+    <div class="sec"><h3>מה עושים, לפי הסדר</h3><ol class="acts">${acts}</ol></div>
+    ${warn}${parts}${tools}${check}`;
+  $("#prev").disabled = cur === 0;
+  $("#next").textContent = cur === total - 1 ? "סיימת ✓" : "השלב הבא ←";
+  $("#next").disabled = cur === total - 1;
+  $("#stepsel").value = String(cur);
+}
+
+function buildStepSelect() {
+  $("#stepsel").innerHTML = STEPS.map((s, i) => `<option value="${i}">${i + 1}. ${esc(s.title)}</option>`).join("");
+}
+
+function go(i) {
+  cur = Math.min(Math.max(0, i), STEPS.length - 1);
+  store.set("step", cur);
+  renderSheet();
+  if (scene3d) scene3d.showStep(cur, true);
+  const sh = $("#sheet"); if (sh && window.innerWidth < 960) { const v = $("#viewer"); window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); }
+}
+
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.matches && t.matches(".act input")) {
+    done[t.id] = t.checked; store.set("done", done);
+    const s = STEPS[cur]; const nDone = s.actions.filter((_, i) => done[`a-${cur}-${i}`]).length;
+    const sp = $("#sheet .progress span:last-child"); if (sp) sp.innerHTML = `<bdi>${nDone}/${s.actions.length}</bdi> בוצעו`;
+  }
+  if (t.matches && t.matches(".items input")) { shopDone[t.id] = t.checked; store.set("shop", shopDone); }
+  if (t.id === "stepsel") go(+t.value);
+});
+document.addEventListener("click", e => {
+  const pb = e.target.closest("[data-part]");
+  if (pb) { openPart(pb.dataset.part); return; }
+  const gs = e.target.closest("[data-go]");
+  if (gs) { closeModal(); switchView("build"); go(+gs.dataset.go); return; }
+  const cp = e.target.closest(".copy");
+  if (cp) {
+    const num = cp.dataset.num;
+    const done2 = () => { cp.textContent = "הועתק"; setTimeout(() => (cp.textContent = "העתקה"), 1500); };
+    try { navigator.clipboard.writeText(num).then(done2, () => selectText(cp.previousElementSibling)); } catch (err) { selectText(cp.previousElementSibling); }
+  }
+});
+function selectText(el) { try { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); } catch (e) {} }
+$("#prev").addEventListener("click", () => go(cur - 1));
+$("#next").addEventListener("click", () => go(cur + 1));
+document.addEventListener("keydown", e => {
+  if (!$("#modal").hidden && e.key === "Escape") { closeModal(); return; }
+  if ($("#view-build").hidden || e.target.matches("input,select,textarea")) return;
+  if (e.key === "ArrowLeft") go(cur + 1);
+  if (e.key === "ArrowRight") go(cur - 1);
+});
+
+function switchView(v) {
+  ["build", "parts", "shop"].forEach(n => {
+    $("#view-" + n).hidden = n !== v;
+    $("#tab-" + n).setAttribute("aria-selected", n === v ? "true" : "false");
+  });
+  $("#nav").hidden = v !== "build";
+  store.set("view", v);
+  if (v === "build" && scene3d) scene3d.resize();
+}
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
+
+/* parts list + cut sheets */
+function renderParts() {
+  $("#pgrid").innerHTML = Object.keys(PARTS).map(k => {
+    const p = PARTS[k];
+    return `<button class="pcard" type="button" data-part="${k}"><span class="big">${k}</span><span class="nm">${esc(p.name)} <span class="mt">×${p.qty}</span></span><span class="mt">${fmt(p.mat)} · ${fmt(p.size)}</span></button>`;
+  }).join("") + `<div class="pcard" style="cursor:default;grid-column:1/-1;display:block"><b>שקית ברגים</b><ul style="margin:6px 0 0;padding-inline-start:18px">${HW.map(h => `<li>${fmt(h[0])}: <b><bdi>×${esc(h[1])}</bdi></b> <span class="mt">(${esc(h[2])})</span></li>`).join("")}</ul></div>`;
+}
+
+function cutSVG(k) {
+  const p = PARTS[k];
+  const W = 640, pad = 40, y0 = 70;
+  if (p.shape === "wheel") {
+    return `<svg viewBox="0 0 ${W} 200" role="img" aria-label="גלגל"><circle cx="320" cy="100" r="80" class="cut-part" stroke-width="2"/><circle cx="320" cy="100" r="30" class="cut-hole" stroke-width="2"/><circle cx="320" cy="100" r="8" class="cut-acc"/>
+      <text x="320" y="196" text-anchor="middle" class="cut-muted" font-size="15">Ø40 · ציר 20 מ״מ</text></svg>`;
+  }
+  if (p.shape === "tri") {
+    return `<svg viewBox="0 0 ${W} 230" role="img" aria-label="משולש"><polygon points="250,190 370,190 250,30" class="cut-part" stroke-width="2"/>
+      <line x1="250" y1="210" x2="370" y2="210" class="cut-dim" stroke-width="1.2"/><text x="310" y="226" text-anchor="middle" class="cut-ink" font-size="15" direction="ltr">6 cm</text>
+      <line x1="230" y1="30" x2="230" y2="190" class="cut-dim" stroke-width="1.2"/><text x="222" y="115" text-anchor="end" class="cut-ink" font-size="15" direction="ltr">12 cm</text>
+      <text x="400" y="110" text-anchor="start" class="cut-muted" font-size="14">הצד הארוך צמוד ל-F</text></svg>`;
+  }
+  const L = p.len, sc = (W - pad * 2) / L;
+  const h = Math.max(26, Math.min(60, p.th * (p.shape === "plate" ? 6 : 8)));
+  const X = v => pad + v * sc;
+  let s = `<svg viewBox="0 0 ${W} 210" role="img" aria-label="גיליון חיתוך ${k}" direction="ltr">`;
+  // part body
+  if (p.shape === "rod") s += `<rect x="${X(0)}" y="${y0 + h / 2 - 9}" width="${L * sc}" height="18" class="cut-part" stroke-width="1.5"/>` +
+      Array.from({ length: 40 }, (_, i) => `<line x1="${X(0) + i * (L * sc / 40)}" y1="${y0 + h / 2 - 9}" x2="${X(0) + i * (L * sc / 40) + 6}" y2="${y0 + h / 2 + 9}" class="cut-dim" stroke-width=".8"/>`).join("");
+  else if (p.shape === "cable") s += `<path d="M${X(0)},${y0 + 30} C${X(L * .3)},${y0 + 10} ${X(L * .7)},${y0 + 50} ${X(L)},${y0 + 30}" class="cut-line" stroke-width="3" fill="none"/>
+      <circle cx="${X(0)}" cy="${y0 + 30}" r="10" fill="none" class="cut-accs" stroke-width="3"/><circle cx="${X(L)}" cy="${y0 + 30}" r="10" fill="none" class="cut-accs" stroke-width="3"/>`;
+  else if (p.angled) s += `<polygon points="${X(0) + 30},${y0} ${X(L)},${y0} ${X(L) - 30},${y0 + h} ${X(0)},${y0 + h}" class="cut-part" stroke-width="1.5"/>
+      <polygon points="${X(0)},${y0} ${X(0) + 30},${y0} ${X(0)},${y0 + h}" class="cut-acc" opacity=".25"/><polygon points="${X(L)},${y0 + h} ${X(L) - 30},${y0 + h} ${X(L)},${y0}" class="cut-acc" opacity=".25"/>`;
+  else if (p.angledEnd) s += `<polygon points="${X(0)},${y0} ${X(L)},${y0} ${X(L)},${y0 + h} ${X(0) + 14},${y0 + h}" class="cut-part" stroke-width="1.5"/>`;
+  else s += `<rect x="${X(0)}" y="${y0}" width="${L * sc}" height="${h}" rx="${p.shape === "tube" ? h / 2 * 0.15 : 2}" class="cut-part" stroke-width="1.5"/>`;
+  if (p.shape === "tube") s += `<line x1="${X(0)}" y1="${y0 + h / 2}" x2="${X(L)}" y2="${y0 + h / 2}" class="cut-dim" stroke-width=".8" stroke-dasharray="6 4"/>`;
+  // marks
+  p.marks.forEach(([v, t]) => {
+    s += `<line x1="${X(v)}" y1="${y0 - 8}" x2="${X(v)}" y2="${y0 + h + 8}" class="cut-dim" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="${X(v)}" y="${y0 - 12}" text-anchor="middle" class="cut-muted" font-size="12">${esc(t)}</text>
+          <text x="${X(v)}" y="${y0 + h + 22}" text-anchor="middle" class="cut-muted" font-size="11">${v}</text>`;
+  });
+  // holes
+  p.holes.forEach(([v, d, t], i) => {
+    const r = Math.max(4, Math.min(h * 0.32, d * 0.55));
+    s += `<circle cx="${X(v)}" cy="${y0 + h / 2}" r="${r}" class="cut-hole" stroke-width="2.2"/>
+          <line x1="${X(0)}" y1="${y0 + h + 34 + i * 18}" x2="${X(v)}" y2="${y0 + h + 34 + i * 18}" class="cut-accs" stroke-width="1"/>
+          <line x1="${X(v)}" y1="${y0 + h / 2 + r}" x2="${X(v)}" y2="${y0 + h + 38 + i * 18}" class="cut-accs" stroke-width=".8" stroke-dasharray="2 2"/>
+          <text x="${X(v) + 6}" y="${y0 + h + 31 + i * 18}" class="cut-acc" font-size="12" font-weight="700">${v} → ${esc(t)}</text>`;
+  });
+  // overall length
+  s += `<line x1="${X(0)}" y1="30" x2="${X(L)}" y2="30" class="cut-line" stroke-width="1.2"/>
+        <line x1="${X(0)}" y1="22" x2="${X(0)}" y2="38" class="cut-line" stroke-width="1.2"/><line x1="${X(L)}" y1="22" x2="${X(L)}" y2="38" class="cut-line" stroke-width="1.2"/>
+        <text x="${(X(0) + X(L)) / 2}" y="22" text-anchor="middle" class="cut-ink" font-size="16" font-weight="700">${L} cm</text>
+        <text x="${X(0)}" y="${y0 + h + 22}" text-anchor="middle" class="cut-ink" font-size="11" font-weight="700">0</text>`;
+  return s + `</svg>`;
+}
+
+function openPart(k) {
+  const p = PARTS[k];
+  const used = STEPS.map((s, i) => s.parts.includes(k) ? i : -1).filter(i => i >= 0);
+  $("#mbox").innerHTML = `
+    <div class="mhead"><span class="big">${k}</span><div><h3 id="m-title">${esc(p.name)}</h3><div class="mt" style="color:var(--muted)">כמות: <bdi>×${p.qty}</bdi></div></div>
+      <button class="btn x" type="button" id="mclose">סגירה</button></div>
+    <dl class="spec">
+      <dt>חומר</dt><dd>${fmt(p.mat)}</dd>
+      <dt>מידה</dt><dd>${fmt(p.size)}</dd>
+      <dt>חותכים מ</dt><dd>${fmt(p.from)}</dd>
+      <dt>חיתוך</dt><dd>${fmt(p.cut)}</dd>
+      ${p.holes.length ? `<dt>קידוח</dt><dd>${p.holes.map(h => `${fmt(h[2])} ב-<bdi>${h[0]}</bdi> ס״מ מהקצה`).join(" · ")}</dd>` : ""}
+    </dl>
+    <div class="cutwrap">${cutSVG(k)}</div>
+    ${p.note ? `<p class="note">${fmt(p.note)}</p>` : ""}
+    <div class="steps-used">${used.map(i => `<button class="chip" type="button" data-go="${i}">שלב ${i + 1}: ${esc(STEPS[i].title)}</button>`).join("")}</div>`;
+  $("#modal").hidden = false;
+  $("#mclose").focus();
+  $("#mclose").addEventListener("click", closeModal);
+}
+function closeModal() { $("#modal").hidden = true; }
+$("#modal").addEventListener("click", e => { if (e.target.id === "modal") closeModal(); });
+
+function renderShop() {
+  $("#shop").innerHTML = SHOP.map(st => `
+    <section class="stop"><header><span class="n">${st.n}</span><h3>${esc(st.title)}</h3><span class="shop">${esc(st.shop)}</span>
+      ${st.phone ? `<span class="phone"><span class="num">${st.phone}</span><button class="copy" type="button" data-num="${st.phone}">העתקה</button></span>` : ""}
+      <span class="price">${fmt(st.price)}</span></header>
+      ${st.alt ? `<div class="note">${fmt(st.alt)}</div>` : ""}
+      <ul class="items">${st.items.map((it, i) => { const id = `s-${st.n}-${i}`; return `<li><label for="${id}"><input type="checkbox" id="${id}" ${shopDone[id] ? "checked" : ""}><span>${fmt(it)}</span></label></li>`; }).join("")}</ul>
+    </section>`).join("") + `<p class="note">סה״כ משוער: <bdi>3,500–7,500 ₪</bdi>. לא כולל ריתוך אצל מסגר.</p>`;
+}
+
+/* ========================================================================= 3D */
+let scene3d = null;
+
+function initScene() {
+  const T = window.THREE;
+  const host = $("#viewer");
+  if (!T || !T.OrbitControls) {
+    host.insertAdjacentHTML("beforeend", `<div class="noweb">לא הצלחתי לטעון את המודל התלת-ממדי. ההוראות למטה עובדות גם בלעדיו.</div>`);
+    return null;
+  }
+  let renderer;
+  try { renderer = new T.WebGLRenderer({ antialias: true, alpha: false }); }
+  catch (e) { host.insertAdjacentHTML("beforeend", `<div class="noweb">הדפדפן לא תומך בתלת-ממד. ההוראות למטה עובדות גם בלעדיו.</div>`); return null; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  host.insertBefore(renderer.domElement, host.firstChild);
+
+  const scene = new T.Scene();
+  const camera = new T.PerspectiveCamera(40, 1, 1, 6000);
+  const controls = new T.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08; controls.maxPolarAngle = Math.PI * 0.495;
+  controls.minDistance = 30; controls.maxDistance = 1800;
+
+  scene.add(new T.HemisphereLight(0xffffff, 0x8a96a3, 0.85));
+  const sun = new T.DirectionalLight(0xffffff, 0.75); sun.position.set(-200, 400, 250); scene.add(sun);
+  const fill = new T.DirectionalLight(0xffffff, 0.3); fill.position.set(300, 150, -300); scene.add(fill);
+
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#888";
+  const ground = new T.Mesh(new T.CircleGeometry(900, 64), new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; scene.add(ground);
+  let grid = null;
+  function applyTheme() {
+    scene.background = new T.Color(css("--viewport"));
+    ground.material.color.set(css("--viewport"));
+    if (grid) scene.remove(grid);
+    grid = new T.GridHelper(1200, 60, css("--grid"), css("--grid")); grid.material.opacity = 0.6; grid.material.transparent = true; scene.add(grid);
+    MAT.newp.color.set(css("--accent")); MAT.newp.emissive.set(css("--accent"));
+    MAT.weld.color.set(css("--weld")); MAT.weld.emissive.set(css("--weld"));
+  }
+
+  const MAT = {
+    steel: new T.MeshStandardMaterial({ color: 0x9aa7b4, metalness: 0.55, roughness: 0.42 }),
+    newp: new T.MeshStandardMaterial({ color: 0xe4572e, metalness: 0.2, roughness: 0.5, emissive: 0xe4572e, emissiveIntensity: 0.18 }),
+    paint: new T.MeshStandardMaterial({ color: 0xf0b928, metalness: 0.25, roughness: 0.45 }),
+    tire: new T.MeshStandardMaterial({ color: 0x2a3138, roughness: 0.9 }),
+    hub: new T.MeshStandardMaterial({ color: 0xc6ced6, metalness: 0.5, roughness: 0.35 }),
+    bronze: new T.MeshStandardMaterial({ color: 0xc9a14a, metalness: 0.6, roughness: 0.35 }),
+    cable: new T.MeshStandardMaterial({ color: 0x5b636b, metalness: 0.7, roughness: 0.3 }),
+    fabric: new T.MeshStandardMaterial({ color: 0x34495e, roughness: 0.95, side: T.DoubleSide }),
+    rope: new T.MeshStandardMaterial({ color: 0x2f80ed, roughness: 0.8 }),
+    sail: new T.MeshStandardMaterial({ color: 0xf7f7f2, roughness: 0.9, side: T.DoubleSide, transparent: true, opacity: 0.92 }),
+    sailTrim: new T.MeshStandardMaterial({ color: 0xe4572e, roughness: 0.8, side: T.DoubleSide }),
+    mast: new T.MeshStandardMaterial({ color: 0x3c4a59, metalness: 0.3, roughness: 0.4 }),
+    weld: new T.MeshStandardMaterial({ color: 0xe0a100, emissive: 0xe0a100, emissiveIntensity: 0.9, roughness: 0.3 }),
+    ghost: new T.MeshStandardMaterial({ color: 0x9aa7b4, transparent: true, opacity: 0.12, depthWrite: false }),
+    hole: new T.MeshBasicMaterial({ color: 0x14191e }),
+    cutline: new T.MeshBasicMaterial({ color: 0xe4572e })
+  };
+  const OX = 100; // shift cart so its middle sits at the origin
+  const C = (x, y, z) => new T.Vector3(x - OX, z, y);
+
+  // ---------- geometry helpers (sizes along cart axes: lx along x, ly sideways, lz height)
+  function box(cx, cy, cz, lx, ly, lz, mat) { const m = new T.Mesh(new T.BoxGeometry(lx, lz, ly), mat); m.position.copy(C(cx, cy, cz)); return m; }
+  function beam(a, b, w, h, mat) { // square section between two cart points
+    const A = C(...a), B = C(...b), d = B.clone().sub(A), len = d.length();
+    const m = new T.Mesh(new T.BoxGeometry(len, h, w), mat);
+    m.position.copy(A).add(B).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new T.Vector3(1, 0, 0), d.normalize()); return m;
+  }
+  function cylZ(cx, cy, z0, z1, r, mat, seg = 28) { const m = new T.Mesh(new T.CylinderGeometry(r, r, z1 - z0, seg), mat); m.position.copy(C(cx, cy, (z0 + z1) / 2)); return m; }
+  function cylY(cx, cy0, cy1, cz, r, mat, seg = 24) { const m = new T.Mesh(new T.CylinderGeometry(r, r, Math.abs(cy1 - cy0), seg), mat); m.rotation.x = Math.PI / 2; m.position.copy(C(cx, (cy0 + cy1) / 2, cz)); return m; }
+  function tube(points, r, mat) { const curve = new T.CatmullRomCurve3(points.map(p => C(...p))); return new T.Mesh(new T.TubeGeometry(curve, 48, r, 8, false), mat); }
+  function poly(points, r, mat) { const g = new T.Group(); for (let i = 0; i < points.length - 1; i++) { const A = C(...points[i]), B = C(...points[i + 1]); const d = B.clone().sub(A); const m = new T.Mesh(new T.CylinderGeometry(r, r, d.length(), 8), mat); m.position.copy(A).add(B).multiplyScalar(.5); m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()); g.add(m); } return g; }
+  function wheel(cx, cy, cz) {
+    const g = new T.Group();
+    const tire = new T.Mesh(new T.TorusGeometry(15.5, 4.6, 16, 40), MAT.tire); g.add(tire);
+    const rim = new T.Mesh(new T.CylinderGeometry(11.5, 11.5, 7, 32), MAT.hub); rim.rotation.x = Math.PI / 2; g.add(rim);
+    const hubc = new T.Mesh(new T.CylinderGeometry(3, 3, 9.5, 20), MAT.hub); hubc.rotation.x = Math.PI / 2; g.add(hubc);
+    g.position.copy(C(cx, cy, cz)); g.userData.keepMat = true; return g;
+  }
+  function nut(cx, cy, cz) { const m = new T.Mesh(new T.CylinderGeometry(1.9, 1.9, 1.6, 6), MAT.hub); m.rotation.x = Math.PI / 2; m.position.copy(C(cx, cy, cz)); m.userData.keepMat = true; return m; }
+  function gusset(angle) { // right triangle 6 out × 12 up, 0.5 thick, against the mast step
+    const sh = new T.Shape(); sh.moveTo(0, 0); sh.lineTo(6, 0); sh.lineTo(0, 12); sh.lineTo(0, 0);
+    const geo = new T.ExtrudeGeometry(sh, { depth: 0.5, bevelEnabled: false }); geo.translate(3, 0, -0.25);
+    const m = new T.Mesh(geo, MAT.steel); const g = new T.Group(); g.add(m); m.position.set(0, 0, 0);
+    g.rotation.y = angle; g.position.copy(C(30, 0, 53)); return g;
+  }
+
+  // ---------- part groups
+  const G = {}; // key -> {obj, letter, anchor, fly}
+  function add(key, objs, letter, anchor, fly) {
+    const grp = new T.Group(); objs.forEach(o => grp.add(o));
+    grp.traverse(o => { if (o.isMesh && !o.userData.keepMat && !o.parent.userData.keepMat) o.userData.base = o.material; if (o.isMesh && (o.userData.keepMat || (o.parent && o.parent.userData.keepMat))) o.userData.fixed = true; });
+    grp.visible = false; scene.add(grp);
+    G[key] = { obj: grp, letter, anchor: anchor ? C(...anchor) : null, fly: fly || [0, 0, 40] };
+  }
+  add("A", [box(115, 0, 50.5, 230, 5, 5, MAT.steel)], "A", [95, 0, 53], [0, 0, 50]);
+  add("B", [box(185, 0, 45.5, 5, 170, 5, MAT.steel)], "B", [185, -55, 48], [0, 0, 50]);
+  add("C", [beam([183.5, -60, 46.5], [127, -2.5, 46.5], 3, 3, MAT.steel), beam([183.5, 60, 46.5], [127, 2.5, 46.5], 3, 3, MAT.steel)], "C", [155, 31, 48], [0, 0, 40]);
+  add("L", [-84, -70, 70, 84].map(y => box(185, y, 29.5, 8, 0.6, 27, MAT.steel)), "L", [185, 84, 30], [0, 0, -30]);
+  add("Mr", [cylY(185, -89.5, -64.5, 20, 1, MAT.steel), cylY(185, 64.5, 89.5, 20, 1, MAT.steel), nut(185, -68.6, 20), nut(185, -85.4, 20), nut(185, 68.6, 20), nut(185, 85.4, 20)], "M", [185, 92, 20], [0, 50, 0]);
+  add("SPr", [-82.85, -71.15, 71.15, 82.85].map(y => cylY(185, y - 0.85, y + 0.85, 20, 1.6, MAT.hub)), null, null, [0, 30, 0]);
+  add("Nr", [wheel(185, -77, 20), wheel(185, 77, 20)], "N", [185, 77, 42], [0, 60, 0]);
+  add("H", [cylZ(-1.6, 0, 48, 63, 1.6, MAT.steel)], "H", [-1.6, 0, 64], [-40, 0, 0]);
+  add("IJ", [box(-1.6, -7, 29.9, 4, 0.6, 31, MAT.steel), box(-1.6, 7, 29.9, 4, 0.6, 31, MAT.steel), box(-1.6, 0, 45.7, 4, 30, 0.6, MAT.steel)], "J", [-1.6, -15, 46], [-40, 0, -10]);
+  add("kingpin", [cylZ(-1.6, 0, 43, 66, 1, MAT.steel), cylZ(-1.6, 0, 46.2, 46.5, 2, MAT.hub), cylZ(-1.6, 0, 46.9, 47.2, 2, MAT.hub), cylZ(-1.6, 0, 47.9, 48.9, 1.45, MAT.bronze), cylZ(-1.6, 0, 62.1, 63.1, 1.45, MAT.bronze),
+    (() => { const n = nut(-1.6, 0, 0); n.rotation.set(0, 0, 0); n.position.copy(C(-1.6, 0, 64.1)); return n; })(),
+    (() => { const n = nut(-1.6, 0, 0); n.rotation.set(0, 0, 0); n.position.copy(C(-1.6, 0, 44.4)); return n; })()], "M", [-1.6, 3, 68], [0, 0, 40]);
+  add("Mf", [cylY(-1.6, -12.5, 12.5, 20, 1, MAT.steel), nut(-1.6, -8.3, 20), nut(-1.6, 8.3, 20)], null, null, [0, 40, 0]);
+  add("SPf", [-5.85, 5.85].map(y => cylY(-1.6, y - 0.85, y + 0.85, 20, 1.6, MAT.hub)), null, null, [0, 30, 0]);
+  add("Nf", [wheel(-1.6, 0, 20)], "N", [-1.6, 0, 42], [-60, 0, 0]);
+  add("F", [cylZ(30, 0, 53, 78, 3, MAT.steel, 32), cylZ(30, 0, 77.6, 78.05, 2.4, MAT.hole)], "F", [30, 0, 80], [0, 0, 60]);
+  add("G", [0, Math.PI / 2, Math.PI, -Math.PI / 2].map(a => gusset(a)), "G", [22, 0, 56], [0, 0, 40]);
+  add("K", [box(60, 0, 54.25, 2.5, 60, 2.5, MAT.steel), cylZ(60, 0, 47, 57, 0.5, MAT.hub)], "K", [60, 28, 57], [0, 0, 40]);
+  add("P", [tube([[60, -28, 54.3], [30, -21, 50], [-1.6, -13.5, 45.9]], 0.25, MAT.cable), tube([[60, 28, 54.3], [30, 21, 50], [-1.6, 13.5, 45.9]], 0.25, MAT.cable)], "P", [30, -21, 50], [0, 0, 30]);
+  add("E", [box(125, 0, 54.5, 3, 45, 3, MAT.steel), box(155, 0, 54.5, 3, 45, 3, MAT.steel)], "E", [125, -22, 56], [0, 0, 40]);
+  add("D", [beam([155, -20, 55], [168, -20, 113], 3, 3, MAT.steel), beam([155, 20, 55], [168, 20, 113], 3, 3, MAT.steel)], "D", [162, 20, 85], [0, 0, 50]);
+  add("Etop", [box(168, 0, 114.5, 3, 45, 3, MAT.steel)], "E", [168, 0, 117], [0, 0, 40]);
+  add("O", [box(227, 0, 55, 6, 0.5, 4, MAT.steel), box(115, 0, 55, 6, 0.5, 4, MAT.steel)], "O", [227, 0, 58], [0, 0, 30]);
+  add("sling", [
+    (() => { const m = box(140, 0, 57.4, 33, 40, 0.4, MAT.fabric); m.userData.keepMat = true; return m; })(),
+    (() => { const m = beam([157, 0, 58], [166.5, 0, 110], 36, 0.4, MAT.fabric); m.userData.keepMat = true; return m; })()], null, null, [0, 0, 30]);
+  add("belt", [(() => { const t = new T.Mesh(new T.TorusGeometry(1.2, 0.35, 8, 16), MAT.hub); t.position.copy(C(140, -20, 58)); t.userData.keepMat = true; return t; })(),
+    (() => { const t = new T.Mesh(new T.TorusGeometry(1.2, 0.35, 8, 16), MAT.hub); t.position.copy(C(140, 20, 58)); t.userData.keepMat = true; return t; })()], null, null, [0, 0, 20]);
+  add("blocks", [(() => { const m = new T.Mesh(new T.SphereGeometry(2.2, 16, 12), MAT.hub); m.position.copy(C(227, 0, 59.5)); m.userData.keepMat = true; return m; })(),
+    (() => { const m = cylY(115, -2, 2, 60, 2.8, MAT.hub); m.userData.keepMat = true; return m; })(),
+    (() => { const m = box(108, 0, 56, 5, 2, 2, MAT.hub); m.userData.keepMat = true; return m; })()], null, null, [0, 0, 20]);
+  add("sheetline", [(() => { const p = poly([[207, 0, 151], [227, 0, 61], [115, 0, 62.5], [100, 10, 72]], 0.45, MAT.rope); p.userData.keepMat = true; return p; })()], null, null, [0, 0, 0]);
+  add("mast", [(() => { const m = cylZ(30, 0, 70, 500, 2.4, MAT.mast, 20); m.rotation.z = -0.018; m.userData.keepMat = true; return m; })(),
+    (() => { const m = cylZ(30, 0, 60, 90, 2.05, MAT.hub, 16); m.userData.keepMat = true; return m; })()], null, null, [0, 0, 120]);
+  add("sail", [(() => {
+      const g = new T.BufferGeometry(); const a = C(31, 0, 96), b = C(37.5, 0, 488), c = C(205, 0, 151);
+      g.setAttribute("position", new T.Float32BufferAttribute([a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z], 3)); g.computeVertexNormals();
+      const m = new T.Mesh(g, MAT.sail); m.userData.keepMat = true; return m; })(),
+    ...[0.25, 0.45, 0.65, 0.82].map(t => { const z = 96 + t * 392; const xe = 205 - t * 170; const p = poly([[31 + t * 6, 0, z], [xe, 0, 151 + t * 330]], 0.35, MAT.sailTrim); p.userData.keepMat = true; return p; })
+  ], null, null, [0, 0, 120]);
+  add("boom", [(() => { const m = tube([[33, 0, 186], [110, -15, 172], [207, 0, 151]], 0.9, MAT.mast); m.userData.keepMat = true; return m; })(),
+    (() => { const m = tube([[33, 0, 186], [110, 15, 172], [207, 0, 151]], 0.9, MAT.mast); m.userData.keepMat = true; return m; })()], null, null, [0, 0, 80]);
+  Object.values(G).forEach(g => g.obj.traverse(o => { if (o.isMesh && (o.userData.keepMat || (o.parent && o.parent.userData.keepMat) || (o.parent && o.parent.parent && o.parent.parent.userData.keepMat))) o.userData.fixed = true; }));
+
+  const ORDER = ["A", "B", "C", "L", "Mr", "SPr", "Nr", "H", "IJ", "kingpin", "Nf", "Mf", "SPf", "F", "G", "K", "P", "E", "D", "Etop", "O", "sling", "belt", "blocks", "sheetline", "mast", "sail", "boom"];
+  const FULL_CART = ORDER.filter(k => !["mast", "sail", "boom", "sheetline"].includes(k));
+
+  // ---------- bench (loose parts) layouts, in world coords
+  const bench = new T.Group(); scene.add(bench);
+  const benchLabels = [];
+  function benchBar(z, sec, segs, title) {
+    // segs: [len, label, isPiece]
+    const total = segs.reduce((s, x) => s + x[0], 0); let x = -total / 2;
+    benchLabels.push({ p: new T.Vector3(-total / 2 - 10, 0, z), t: title, cls: "bench", anchor: "end" });
+    segs.forEach(([len, lab, piece], i) => {
+      const m = new T.Mesh(new T.BoxGeometry(len - (piece ? 1.5 : 0), sec, sec), piece ? MAT.newp : MAT.ghost);
+      m.position.set(x + len / 2, sec / 2, z); bench.add(m);
+      if (lab) benchLabels.push({ p: new T.Vector3(x + len / 2, sec + 6, z), t: lab, cls: piece ? "new" : "bench" });
+      if (i > 0) { const cl = new T.Mesh(new T.BoxGeometry(0.6, sec + 3, sec + 3), MAT.cutline); cl.position.set(x, sec / 2, z); bench.add(cl); }
+      x += len;
+    });
+  }
+  function benchPiece(x, z, lx, ly, lz, holes, lab, rotY) {
+    const g = new T.Group(); const m = new T.Mesh(new T.BoxGeometry(lx, ly, lz), MAT.newp); m.position.y = ly / 2; g.add(m);
+    (holes || []).forEach(([hx, d]) => { const h = new T.Mesh(new T.CylinderGeometry(d / 20, d / 20, ly + 0.4, 20), MAT.hole); h.position.set(hx - lx / 2, ly / 2, 0); g.add(h);
+      benchLabels.push({ p: null, g, local: new T.Vector3(hx - lx / 2, ly + 4, 0), t: "Ø" + d, cls: "hole" }); });
+    g.position.set(x, 0, z); if (rotY) g.rotation.y = rotY; bench.add(g);
+    if (lab) benchLabels.push({ p: new T.Vector3(x, ly + 12, z - lz / 2 - 6), t: lab, cls: "new" });
+    return g;
+  }
+  const BENCH = {
+    cut50() { benchBar(0, 5, [[230, "A · 230", true], [170, "B · 170", true], [200, "שארית 200", false]], "50×50 · 6 מטר"); },
+    cut30() {
+      benchBar(-40, 3, [[90, "C", true], [90, "C", true], [60, "D", true], [60, "D", true], [45, "E", true], [45, "E", true], [45, "E", true], [165, "שארית", false]], "30×30 · 6 מטר");
+      benchBar(40, 2.5, [[60, "K · 60", true], [40, "", false]], "25×25 · 1 מטר");
+    },
+    cutsmall() {
+      benchBar(-60, 0.6, [[31, "I", true], [31, "I", true], [30, "J", true], [28, "", false]], "פלח 40×6");
+      benchBar(-20, 0.5, [[8, "O", true], [8, "O", true], [34, "", false]], "פלח 30×5");
+      for (let i = 0; i < 4; i++) benchPiece(-90 + i * 14, 20, 8, 0.6, 27, [], i === 0 ? "L ×4" : null);
+      for (let i = 0; i < 4; i++) { const sh = new T.Shape(); sh.moveTo(0, 0); sh.lineTo(6, 0); sh.lineTo(0, 12); sh.lineTo(0, 0);
+        const geo = new T.ExtrudeGeometry(sh, { depth: 0.5, bevelEnabled: false }); const m = new T.Mesh(geo, MAT.newp); m.rotation.x = -Math.PI / 2; m.position.set(-10 + i * 12, 0.5, 30); bench.add(m); }
+      benchLabels.push({ p: new T.Vector3(8, 8, 18), t: "G ×4", cls: "new" });
+      benchBar(70, 2, [[25, "M", true], [25, "M", true], [25, "M", true], [25, "M", true]], "M20 · 1 מטר");
+    },
+    drill() {
+      const a = benchPiece(0, -60, 230, 5, 5, [[50, 10.5], [60, 10.5], [70, 10.5]], "A");
+      benchPiece(-70, 10, 30, 0.6, 4, [[1.5, 5], [15, 20.5], [28.5, 5]], "J");
+      benchPiece(-20, 10, 60, 2.5, 2.5, [[2, 5], [30, 10.5], [58, 5]], "K");
+      benchPiece(40, 10, 31, 0.6, 4, [[5, 20.5]], "I ×2");
+      benchPiece(-60, 55, 27, 0.6, 8, [[4, 20.5]], "L ×4");
+      benchPiece(0, 55, 8, 0.5, 3, [[5.5, 6.5]], "O ×2");
+    }
+  };
+
+  // ---------- weld markers
+  const weldGroup = new T.Group(); scene.add(weldGroup);
+  function setWelds(list) {
+    while (weldGroup.children.length) weldGroup.remove(weldGroup.children[0]);
+    (list || []).forEach(p => { const m = new T.Mesh(new T.SphereGeometry(1.5, 14, 10), MAT.weld); m.position.copy(C(...p)); weldGroup.add(m); });
+  }
+
+  // ---------- cameras
+  const CAMS = {
+    iso: { p: [-260, 260, 230], t: [100, 0, 60] },
+    rearTop: { p: [60, 210, 230], t: [170, 0, 45] },
+    rearLow: { p: [260, -230, 110], t: [185, 0, 35] },
+    rearWheel: { p: [300, -200, 90], t: [185, -40, 30] },
+    front: { p: [-90, -80, 85], t: [0, 0, 40] },
+    mast: { p: [-40, -90, 110], t: [30, 0, 62] },
+    steer: { p: [-60, 140, 170], t: [35, 0, 50] },
+    seat: { p: [90, -170, 160], t: [150, 0, 75] },
+    rig: { p: [-420, -560, 380], t: [110, 0, 230] },
+    bench: { p: [0, 0, 0], t: [0, 0, 0] }
+  };
+  let camAnim = null;
+  function setCam(name, instant) {
+    let P, Tt;
+    if (name === "bench") { P = new T.Vector3(0, 330, 330); Tt = new T.Vector3(0, 0, 0); if (window.innerWidth < 600) P.set(0, 470, 420); }
+    else { const c = CAMS[name] || CAMS.iso; P = C(...c.p); Tt = C(...c.t); if (window.innerWidth < 600) P.sub(Tt).multiplyScalar(1.25).add(Tt); }
+    if (instant || reduceMotion) { camera.position.copy(P); controls.target.copy(Tt); controls.update(); camAnim = null; return; }
+    camAnim = { p0: camera.position.clone(), t0: controls.target.clone(), p1: P, t1: Tt, s: performance.now(), d: 900 };
+  }
+
+  // ---------- step display
+  let flyAnims = [], showLabels = true, labelList = [], spin = false;
+  function paintAll(on) {
+    Object.values(G).forEach(g => g.obj.traverse(o => { if (o.isMesh && !o.userData.fixed && o.userData.base) o.material = on ? MAT.paint : o.userData.base; }));
+  }
+  function showStep(i, animate) {
+    const s = STEPS[i];
+    flyAnims = []; labelList = []; spin = !!s.spin;
+    while (bench.children.length) bench.remove(bench.children[0]);
+    benchLabels.length = 0;
+    if (s.mode === "bench") {
+      Object.values(G).forEach(g => (g.obj.visible = false));
+      setWelds([]);
+      BENCH[s.bench]();
+      labelList = benchLabels.slice();
+      if (animate && !reduceMotion) { bench.children.forEach((c, k) => { const home = c.position.clone(); c.position.y += 40; flyAnims.push({ o: c, from: c.position.clone(), to: home, s: performance.now() + k * 60, d: 650 }); }); }
+      setCam("bench", !animate);
+      $("#legend").innerHTML = `<span><i style="background:var(--accent)"></i>חתיכה</span><span><i style="background:#14191e"></i>חור</span>`;
+      return;
+    }
+    $("#legend").innerHTML = `<span><i style="background:var(--accent)"></i>חדש בשלב</span><span><i style="background:var(--weld)"></i>ריתוך</span>`;
+    // visible = everything added up to this step
+    const visible = new Set();
+    let paintNow = false;
+    for (let k = 0; k <= i; k++) { (STEPS[k].add || []).forEach(a => visible.add(a)); if (STEPS[k].paint) paintNow = true; }
+    if (s.preview) FULL_CART.concat(["mast", "sail", "boom", "sheetline"]).forEach(a => visible.add(a));
+    const newOnes = new Set(s.add || []);
+    paintAll(paintNow && !s.preview);
+    Object.entries(G).forEach(([k, g]) => {
+      g.obj.visible = visible.has(k);
+      g.obj.position.set(0, 0, 0);
+      g.obj.traverse(o => { if (o.isMesh && !o.userData.fixed && o.userData.base) o.material = newOnes.has(k) ? MAT.newp : (paintNow && !s.preview ? MAT.paint : o.userData.base); });
+      if (visible.has(k) && g.letter && g.anchor && (newOnes.has(k) || s.preview)) labelList.push({ p: g.anchor, t: g.letter, cls: newOnes.has(k) ? "new" : "" });
+      if (newOnes.has(k) && animate && !reduceMotion) {
+        const f = g.fly; const from = new T.Vector3(f[0], f[2], f[1]);
+        g.obj.position.copy(from); flyAnims.push({ o: g.obj, from, to: new T.Vector3(0, 0, 0), s: performance.now() + 250, d: 900 });
+      }
+    });
+    if (s.preview) labelList = [];
+    setWelds(s.welds);
+    weldGroup.visible = !animate || reduceMotion; if (animate && !reduceMotion) setTimeout(() => (weldGroup.visible = true), 1150);
+    setCam(s.cam, !animate);
+  }
+
+  // ---------- labels overlay
+  const labelHost = $("#labels");
+  const tmpV = new T.Vector3();
+  function drawLabels() {
+    if (!showLabels) { labelHost.innerHTML = ""; return; }
+    const w = renderer.domElement.clientWidth, h = renderer.domElement.clientHeight;
+    let html = "";
+    labelList.forEach(l => {
+      if (l.g) { tmpV.copy(l.local); l.g.localToWorld(tmpV); } else tmpV.copy(l.p);
+      tmpV.project(camera); if (tmpV.z > 1) return;
+      const x = (tmpV.x * 0.5 + 0.5) * w, y = (-tmpV.y * 0.5 + 0.5) * h;
+      if (x < -20 || y < -20 || x > w + 20 || y > h + 20) return;
+      html += `<span class="lbl ${l.cls || ""}" style="left:${x.toFixed(0)}px;top:${y.toFixed(0)}px">${esc(l.t)}</span>`;
+    });
+    labelHost.innerHTML = html;
+  }
+
+  function resize() {
+    const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+  const ease = t => t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3);
+  let lastLbl = 0, userTouched = false;
+  controls.addEventListener("start", () => { userTouched = true; camAnim = null; });
+  function loop(now) {
+    requestAnimationFrame(loop);
+    if (camAnim) { const k = ease((now - camAnim.s) / camAnim.d); camera.position.lerpVectors(camAnim.p0, camAnim.p1, k); controls.target.lerpVectors(camAnim.t0, camAnim.t1, k); if (k >= 1) camAnim = null; }
+    flyAnims = flyAnims.filter(a => { const k = ease((now - a.s) / a.d); a.o.position.lerpVectors(a.from, a.to, k); return k < 1; });
+    if (spin && !userTouched && !reduceMotion) { const t = controls.target; const p = camera.position.clone().sub(t); p.applyAxisAngle(new T.Vector3(0, 1, 0), 0.0025); camera.position.copy(t).add(p); }
+    if (weldGroup.visible && !reduceMotion) { const s = 1 + 0.25 * Math.sin(now / 220); weldGroup.children.forEach(m => m.scale.setScalar(s)); }
+    controls.update(); renderer.render(scene, camera);
+    if (now - lastLbl > 33) { drawLabels(); lastLbl = now; }
+  }
+
+  applyTheme();
+  const mq = window.matchMedia("(prefers-color-scheme: dark)"); if (mq.addEventListener) mq.addEventListener("change", applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  resize(); camera.position.set(-160, 200, -230); controls.update();
+  requestAnimationFrame(loop);
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(resize).observe(host);
+
+  $("#btn-replay").addEventListener("click", () => { userTouched = false; showStep(cur, true); });
+  $("#btn-view").addEventListener("click", () => { userTouched = false; setCam(STEPS[cur].mode === "bench" ? "bench" : "iso", false); });
+  $("#btn-labels").addEventListener("click", e => { showLabels = !showLabels; e.currentTarget.setAttribute("aria-pressed", String(showLabels)); });
+  let hintTimer = setTimeout(() => { const h = $("#hint"); if (h) h.hidden = true; }, 6000);
+  return { showStep: (i, a) => { userTouched = false; showStep(i, a); }, resize };
+}
+
+/* ========================================================================= BOOT */
+buildStepSelect();
+renderSheet();
+renderParts();
+renderShop();
+try { scene3d = initScene(); } catch (e) { console.error(e); $("#viewer").insertAdjacentHTML("beforeend", `<div class="noweb">שגיאה בטעינת המודל. ההוראות למטה עובדות גם בלעדיו.</div>`); }
+if (scene3d) scene3d.showStep(cur, true);
+const v0 = store.get("view", "build"); if (v0 !== "build") switchView(v0);
+})();
+</script>
