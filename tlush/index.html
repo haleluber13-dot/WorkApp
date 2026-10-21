@@ -1,0 +1,1244 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>תלוש כיס</title>
+<meta name="description" content="מעקב משמרות, חישוב שכר לפי חוק והוצאות חודשיות — עובד בדפדפן, בלי להוריד אפליקציה.">
+<meta name="theme-color" content="#F5F7F0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="תלוש כיס">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Frank+Ruhl+Libre:wght@700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F5F7F0;
+  --surface:#FCFDF8;
+  --stripe:#EDF1E4;
+  --line:#D8DCCC;
+  --line-soft:#E6E9DC;
+  --ink:#1E2140;
+  --ink-2:#3A3E5C;
+  --muted:#6C7089;
+  --accent:#4B3FA8;
+  --accent-on:#FFFFFF;
+  --accent-soft:#EAE7FA;
+  --earn:#2E7A55;
+  --earn-soft:#E2EFE7;
+  --spend:#BE4630;
+  --spend-soft:#F6E5E0;
+  --field:#FFFFFF;
+  --perf:#C9CEBB;
+  --sans:"Assistant","Segoe UI",system-ui,sans-serif;
+  --serif:"Frank Ruhl Libre","Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#101310;
+    --surface:#171B16;
+    --stripe:#1E241D;
+    --line:#2C332B;
+    --line-soft:#232922;
+    --ink:#E9EDE3;
+    --ink-2:#C3C9BC;
+    --muted:#979AB3;
+    --accent:#A79BFF;
+    --accent-on:#14152B;
+    --accent-soft:rgba(167,155,255,.15);
+    --earn:#63C08D;
+    --earn-soft:rgba(99,192,141,.14);
+    --spend:#E27A5F;
+    --spend-soft:rgba(226,122,95,.14);
+    --field:#1B211A;
+    --perf:#39412F;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101310;
+  --surface:#171B16;
+  --stripe:#1E241D;
+  --line:#2C332B;
+  --line-soft:#232922;
+  --ink:#E9EDE3;
+  --ink-2:#C3C9BC;
+  --muted:#979AB3;
+  --accent:#A79BFF;
+  --accent-on:#14152B;
+  --accent-soft:rgba(167,155,255,.15);
+  --earn:#63C08D;
+  --earn-soft:rgba(99,192,141,.14);
+  --spend:#E27A5F;
+  --spend-soft:rgba(226,122,95,.14);
+  --field:#1B211A;
+  --perf:#39412F;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;overflow-x:hidden}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.5;
+  min-height:100vh;
+  padding-bottom:calc(78px + env(safe-area-inset-bottom));
+  overflow-x:hidden;
+}
+button,input,select,textarea{font:inherit;color:inherit;min-width:0}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+.wrap{max-width:620px;margin:0 auto;padding:0 14px}
+
+/* ---------- masthead ---------- */
+.masthead{
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+.masthead .wrap{display:flex;align-items:center;gap:10px;padding-top:14px;padding-bottom:14px}
+.mark{flex:1;min-width:0}
+.mark h1{
+  font-family:var(--serif);font-weight:900;font-size:25px;line-height:1.1;
+  letter-spacing:-.01em;text-wrap:balance;
+}
+.mark p{font-size:12px;color:var(--muted);margin-top:3px}
+.ghost{
+  background:none;border:1px solid var(--line);border-radius:8px;
+  width:38px;height:38px;display:grid;place-items:center;cursor:pointer;
+  color:var(--ink-2);font-size:16px;flex:none;
+}
+.ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ---------- month bar ---------- */
+.monthbar{
+  position:sticky;top:0;z-index:30;
+  background:var(--surface);border-bottom:1px solid var(--line);
+  box-shadow:0 6px 18px -18px rgba(0,0,0,.9);
+}
+.monthbar .wrap{display:flex;align-items:center;gap:8px;padding-top:8px;padding-bottom:8px}
+.mnav{
+  background:none;border:1px solid var(--line);border-radius:8px;
+  width:34px;height:34px;cursor:pointer;color:var(--ink-2);flex:none;
+}
+.mnav:disabled{opacity:.35;cursor:default}
+.mnav:not(:disabled):hover{border-color:var(--accent);color:var(--accent)}
+#month-label{
+  flex:1;text-align:center;font-weight:700;font-size:15.5px;
+  cursor:pointer;background:none;border:none;padding:6px 4px;border-radius:8px;
+}
+#month-label small{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500}
+.ledger-strip{display:flex;gap:1px;background:var(--line-soft);border-top:1px solid var(--line-soft)}
+.ledger-strip div{
+  flex:1;background:var(--surface);padding:7px 8px 8px;text-align:center;
+}
+.ledger-strip .k{font-size:10.5px;color:var(--muted);letter-spacing:.05em}
+.ledger-strip .v{font-family:var(--mono);font-weight:600;font-size:15px;font-variant-numeric:tabular-nums}
+.ledger-strip .in .v{color:var(--earn)}
+.ledger-strip .out .v{color:var(--spend)}
+.ledger-strip .net .v{color:var(--accent)}
+
+/* ---------- perforation ---------- */
+.perf{
+  height:9px;
+  background-image:radial-gradient(circle at center, var(--perf) 1.4px, transparent 1.6px);
+  background-size:9px 9px;background-position:center;
+  opacity:.85;
+}
+
+/* ---------- panels ---------- */
+main{padding-top:14px}
+.tab{display:none}
+.tab.on{display:block}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:6px;
+  margin-bottom:14px;overflow:hidden;
+}
+.card > h2{
+  font-family:var(--serif);font-weight:700;font-size:15px;
+  padding:11px 14px;border-bottom:1px solid var(--line-soft);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.card > h2 .hint{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400}
+.card .body{padding:13px 14px 15px}
+
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid .full{grid-column:1/-1}
+label.f{display:flex;flex-direction:column;gap:4px}
+label.f > span{font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{
+  background:var(--field);border:1px solid var(--line);border-radius:6px;
+  padding:9px 10px;width:100%;outline:none;
+}
+input[type=number],input[type=date],input[type=time]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input.bad{border-color:var(--spend);background:var(--spend-soft)}
+textarea{min-height:110px;font-family:var(--mono);font-size:12px;resize:vertical}
+select{appearance:none;background-image:linear-gradient(transparent,transparent)}
+
+.btn{
+  background:var(--accent);color:var(--accent-on);border:1px solid var(--accent);
+  border-radius:6px;padding:11px 16px;font-weight:700;cursor:pointer;width:100%;
+  transition:filter .15s;
+}
+.btn:hover{filter:brightness(1.08)}
+.btn.line{background:transparent;color:var(--accent);border-color:var(--line)}
+.btn.line:hover{border-color:var(--accent);filter:none;background:var(--accent-soft)}
+.btn.sm{padding:8px 12px;font-size:13.5px;width:auto}
+.btn-row{display:flex;gap:8px;margin-top:12px}
+.btn-row .btn{width:auto;flex:1}
+
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{
+  background:transparent;border:1px solid var(--line);border-radius:999px;
+  padding:6px 12px;font-size:13px;cursor:pointer;color:var(--ink-2);
+}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-on);font-weight:600}
+.switch{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--ink-2);cursor:pointer}
+.switch input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+
+/* ---------- punch clock ---------- */
+.punch{display:flex;align-items:center;gap:12px}
+.punch > div:first-child{flex:1;min-width:0}
+.punch .clock{
+  font-family:var(--mono);font-size:29px;font-weight:600;font-variant-numeric:tabular-nums;
+  letter-spacing:-.02em;flex:1;
+}
+.punch .clock.idle{color:var(--muted);font-size:22px}
+.punch .since{font-size:11.5px;color:var(--muted);font-family:var(--sans);letter-spacing:0}
+.punch .btn{width:auto;min-width:112px}
+.punch .btn.stop{background:var(--spend);border-color:var(--spend);color:#fff}
+.live-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--earn);
+  margin-inline-end:6px;vertical-align:middle;animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ---------- rows ---------- */
+.week{margin-bottom:14px}
+.week-head{
+  display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+  font-size:11.5px;color:var(--muted);padding:0 3px 6px;
+}
+.week-head b{font-family:var(--mono);font-weight:500;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.rows{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}
+.row{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-bottom:1px solid var(--line-soft);cursor:pointer;background:var(--surface);
+}
+.row:nth-child(even){background:var(--stripe)}
+.row:last-child{border-bottom:none}
+.row:hover{box-shadow:inset 3px 0 0 var(--accent)}
+.row .d{
+  font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;
+  flex:none;width:34px;line-height:1.25;
+}
+.row .d b{display:block;font-size:16px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.row .m{flex:1;min-width:0}
+.row .t{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .s{font-size:11.5px;color:var(--muted);margin-top:1px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.row .a{font-family:var(--mono);font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row.income .a{color:var(--earn)}
+.row.expense .a{color:var(--spend)}
+.tag{
+  font-size:10px;font-family:var(--mono);border:1px solid var(--line);border-radius:4px;
+  padding:1px 5px;color:var(--muted);margin-inline-start:6px;white-space:nowrap;
+}
+.tag.hot{color:var(--accent);border-color:var(--accent)}
+.empty{
+  text-align:center;color:var(--muted);font-size:13.5px;padding:26px 16px;
+  border:1px dashed var(--line);border-radius:6px;background:var(--surface);
+}
+
+/* ---------- charts ---------- */
+.daychart{display:flex;align-items:flex-end;gap:2px;height:74px;margin-bottom:6px}
+.daychart .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:0}
+.daychart .bar{background:var(--accent);border-radius:2px 2px 0 0;min-height:2px;transition:height .35s ease}
+.daychart .col.empty-day .bar{background:var(--line);min-height:2px}
+.daychart .col.sat .bar{background:var(--earn)}
+.chart-axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+.cat{margin-bottom:12px}
+.cat:last-child{margin-bottom:0}
+.cat .cl{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:5px;align-items:baseline}
+.cat .cl .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500}
+.cat .cl .delta{font-family:var(--mono);font-size:10.5px;margin-inline-start:6px}
+.up{color:var(--spend)}
+.down{color:var(--earn)}
+.track{height:8px;background:var(--stripe);border:1px solid var(--line-soft);border-radius:999px;overflow:hidden}
+.fill{height:100%;background:var(--spend);border-radius:999px;transition:width .4s ease}
+.fill.goal{background:var(--earn)}
+.goal-line{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:6px}
+.goal-line b{font-family:var(--mono);color:var(--ink-2);font-variant-numeric:tabular-nums}
+
+.slip{width:100%;border-collapse:collapse;font-size:13.5px}
+.slip td{padding:7px 0;border-bottom:1px dotted var(--line)}
+.slip tr:last-child td{border-bottom:none}
+.slip td:last-child{text-align:end;font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
+.slip tr.total td{font-weight:700;border-top:1px solid var(--line);padding-top:9px}
+.slip tr.total td:last-child{color:var(--accent);font-size:15px}
+.slip .sub td{color:var(--muted);font-size:12.5px}
+
+/* ---------- tabbar ---------- */
+.tabbar{
+  position:fixed;inset-inline:0;bottom:0;z-index:40;
+  background:var(--surface);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar .wrap{display:flex;gap:4px;padding-top:6px;padding-bottom:6px}
+.tabbar button{
+  flex:1;background:none;border:none;cursor:pointer;padding:6px 4px 5px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-size:11px;color:var(--muted);border-radius:8px;
+}
+.tabbar button .ic{font-size:18px;line-height:1}
+.tabbar button[aria-selected="true"]{color:var(--accent);font-weight:700}
+
+/* ---------- sheet + toast ---------- */
+.sheet{
+  position:fixed;inset:0;z-index:60;display:none;
+  background:rgba(10,12,10,.55);padding:0;
+}
+.sheet.on{display:flex;align-items:flex-end;justify-content:center}
+.sheet .panel{
+  background:var(--surface);width:100%;max-width:620px;max-height:88vh;overflow:auto;
+  border-radius:14px 14px 0 0;border:1px solid var(--line);border-bottom:none;
+  padding:16px 16px calc(20px + env(safe-area-inset-bottom));
+  animation:rise .25s ease;
+}
+@keyframes rise{from{transform:translateY(22px);opacity:.4}to{transform:none;opacity:1}}
+.sheet h2{font-family:var(--serif);font-size:18px;margin-bottom:2px}
+.sheet .lead{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.sheet .sec{margin-top:16px;padding-top:14px;border-top:1px solid var(--line-soft)}
+.sheet .sec:first-of-type{border-top:none;padding-top:0}
+.sheet .sec h3{font-size:13px;margin-bottom:9px;color:var(--ink-2)}
+
+.toast{
+  position:fixed;inset-inline:0;bottom:calc(84px + env(safe-area-inset-bottom));z-index:70;
+  display:flex;justify-content:center;pointer-events:none;padding:0 14px;
+}
+.toast .t{
+  background:var(--ink);color:var(--paper);border-radius:8px;
+  padding:10px 14px;font-size:13.5px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 10px 30px -12px rgba(0,0,0,.7);pointer-events:auto;
+  transform:translateY(14px);opacity:0;transition:all .22s ease;max-width:100%;
+}
+.toast.on .t{transform:none;opacity:1}
+.toast .t button{
+  background:none;border:none;color:var(--accent);font-weight:700;cursor:pointer;
+  text-decoration:underline;white-space:nowrap;
+}
+:root[data-theme="dark"] .toast .t button,
+:root:not([data-theme="light"]) .toast .t button{color:var(--accent)}
+
+.foot{text-align:center;font-size:11.5px;color:var(--muted);padding:6px 20px 22px;line-height:1.7}
+.install{
+  background:var(--accent-soft);border:1px solid var(--line);border-radius:6px;
+  padding:11px 13px;font-size:12.5px;color:var(--ink-2);margin-bottom:14px;
+  display:flex;gap:10px;align-items:flex-start;
+}
+.install button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="mark">
+      <h1>תלוש כיס</h1>
+      <p>משמרות, שכר לפי חוק והוצאות — הכול בדפדפן, בלי להוריד כלום.</p>
+    </div>
+    <button class="ghost" id="btn-theme" title="מצב כהה/בהיר" aria-label="החלפת ערכת צבעים">◐</button>
+    <button class="ghost" id="btn-settings" title="הגדרות" aria-label="הגדרות">⚙</button>
+  </div>
+</header>
+
+<div class="monthbar">
+  <div class="wrap">
+    <button class="mnav" id="m-prev" aria-label="חודש קודם">›</button>
+    <button id="month-label" aria-label="חזרה לחודש הנוכחי"><span id="m-name">—</span><small id="m-sub">&nbsp;</small></button>
+    <button class="mnav" id="m-next" aria-label="חודש הבא">‹</button>
+  </div>
+  <div class="ledger-strip">
+    <div class="in"><div class="k">שכר</div><div class="v" id="k-income">₪0</div></div>
+    <div class="out"><div class="k">הוצאות</div><div class="v" id="k-expense">₪0</div></div>
+    <div class="net"><div class="k">נשאר</div><div class="v" id="k-net">₪0</div></div>
+  </div>
+</div>
+
+<div class="perf"></div>
+
+<main class="wrap">
+
+  <!-- ===================== SHIFTS ===================== -->
+  <section class="tab on" id="tab-shifts">
+
+    <div id="install-hint" hidden></div>
+
+    <div class="card">
+      <h2>שעון נוכחות <span class="hint" id="punch-hint">לחיצה אחת בכניסה, אחת ביציאה</span></h2>
+      <div class="body">
+        <div class="punch">
+          <div>
+            <div class="clock idle" id="punch-clock">00:00:00</div>
+            <div class="since" id="punch-since">לא במשמרת כרגע</div>
+          </div>
+          <button class="btn" id="btn-punch">התחלתי משמרת</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="shift-form-title">הוספת משמרת <span class="hint" id="shift-form-hint">&nbsp;</span></h2>
+      <div class="body">
+        <div class="grid">
+          <label class="f full"><span>תאריך</span><input type="date" id="s-date"></label>
+          <label class="f"><span>שעת התחלה</span><input type="time" id="s-start"></label>
+          <label class="f"><span>שעת סיום</span><input type="time" id="s-end"></label>
+          <label class="f"><span>הפסקה (דקות)</span><input type="number" id="s-break" placeholder="0" min="0" max="600" inputmode="numeric"></label>
+          <label class="f"><span>נסיעות (₪)</span><input type="number" id="s-travel" placeholder="0" min="0" step="0.5" inputmode="decimal"></label>
+          <label class="f"><span>טיפים / בונוס (₪)</span><input type="number" id="s-tips" placeholder="0" min="0" step="0.5" inputmode="decimal"></label>
+          <label class="f"><span>שכר לשעה (₪)</span><input type="number" id="s-rate" min="0" step="0.5" inputmode="decimal"></label>
+          <label class="f full"><span>הערה</span><input type="text" id="s-note" placeholder="למשל: משמרת ערב, סניף רמת גן" maxlength="80"></label>
+          <div class="f full">
+            <span style="font-size:11.5px;color:var(--muted)">סוג המשמרת</span>
+            <div class="chips" id="s-kind" style="margin-top:5px">
+              <button class="chip" type="button" data-kind="regular" aria-pressed="true">רגילה · 100%</button>
+              <button class="chip" type="button" data-kind="shabbat" aria-pressed="false">שבת / חג · 150%</button>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="s-save">הוסף משמרת</button>
+          <button class="btn line" id="s-repeat">כמו הקודמת</button>
+        </div>
+        <div class="btn-row" id="s-cancel-row" hidden>
+          <button class="btn line" id="s-cancel">ביטול עריכה</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="shifts-list"></div>
+  </section>
+
+  <!-- ===================== EXPENSES ===================== -->
+  <section class="tab" id="tab-expenses">
+    <div class="card">
+      <h2 id="exp-form-title">הוספת הוצאה</h2>
+      <div class="body">
+        <div class="grid">
+          <label class="f full"><span>על מה</span><input type="text" id="e-desc" placeholder="למשל: קניות בסופר" maxlength="80"></label>
+          <label class="f"><span>סכום (₪)</span><input type="number" id="e-amount" placeholder="0" min="0" step="0.1" inputmode="decimal"></label>
+          <label class="f"><span>תאריך</span><input type="date" id="e-date"></label>
+          <div class="f full">
+            <span style="font-size:11.5px;color:var(--muted)">קטגוריה</span>
+            <div class="chips" id="e-cat" style="margin-top:5px"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="e-save">הוסף הוצאה</button>
+        </div>
+        <div class="btn-row" id="e-cancel-row" hidden>
+          <button class="btn line" id="e-cancel">ביטול עריכה</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="expenses-list"></div>
+  </section>
+
+  <!-- ===================== SUMMARY ===================== -->
+  <section class="tab" id="tab-summary">
+
+    <div class="card">
+      <h2>תלוש החודש <span class="hint" id="slip-month">&nbsp;</span></h2>
+      <div class="body"><table class="slip"><tbody id="slip-body"></tbody></table></div>
+    </div>
+
+    <div class="card" id="goal-card">
+      <h2>יעד חודשי</h2>
+      <div class="body">
+        <div class="track"><div class="fill goal" id="goal-fill" style="width:0%"></div></div>
+        <div class="goal-line"><span id="goal-text">—</span><span id="goal-left">—</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>שעות לפי ימים <span class="hint" id="hours-hint">&nbsp;</span></h2>
+      <div class="body">
+        <div class="daychart" id="daychart"></div>
+        <div class="chart-axis"><span>1</span><span id="axis-mid">15</span><span id="axis-end">31</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>לאן הלך הכסף <span class="hint">מול החודש שעבר</span></h2>
+      <div class="body" id="cat-breakdown"></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="foot">
+  הנתונים נשמרים במכשיר שלך בלבד — לא נשלחים לשום מקום.<br>
+  כדאי לגבות מדי פעם דרך ⚙ ← גיבוי.
+</div>
+
+<nav class="tabbar" role="tablist" aria-label="ניווט">
+  <div class="wrap">
+    <button role="tab" aria-selected="true" data-tab="shifts"><span class="ic">🕐</span>משמרות</button>
+    <button role="tab" aria-selected="false" data-tab="expenses"><span class="ic">🧾</span>הוצאות</button>
+    <button role="tab" aria-selected="false" data-tab="summary"><span class="ic">📊</span>סיכום</button>
+  </div>
+</nav>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="panel">
+    <h2 id="sheet-title">הגדרות</h2>
+    <p class="lead">נשמר אוטומטית ומשפיע על משמרות חדשות.</p>
+
+    <div class="sec">
+      <div class="grid">
+        <label class="f"><span>שכר לשעה (₪)</span><input type="number" id="cfg-rate" min="0" step="0.5" inputmode="decimal"></label>
+        <label class="f"><span>יעד הכנסה חודשי (₪)</span><input type="number" id="cfg-goal" min="0" step="50" inputmode="decimal"></label>
+        <label class="f"><span>נסיעות ברירת מחדל (₪)</span><input type="number" id="cfg-travel" min="0" step="0.5" inputmode="decimal"></label>
+        <label class="f"><span>ניכויים משוערים (%)</span><input type="number" id="cfg-deduct" min="0" max="60" step="0.5" inputmode="decimal"></label>
+      </div>
+      <label class="switch" style="margin-top:12px">
+        <input type="checkbox" id="cfg-ot">
+        <span>שעות נוספות לפי חוק — 125% מהשעה ה‑9, 150% מה‑11</span>
+      </label>
+    </div>
+
+    <div class="sec">
+      <h3>גיבוי ושחזור</h3>
+      <textarea id="backup-box" spellcheck="false" aria-label="נתוני גיבוי"></textarea>
+      <div class="btn-row">
+        <button class="btn line sm" id="btn-copy" style="flex:1">העתקת גיבוי</button>
+        <button class="btn line sm" id="btn-import" style="flex:1">שחזור מהטקסט</button>
+      </div>
+      <p class="lead" style="margin:10px 0 0">שמרו את הטקסט הזה בהערות או בוואטסאפ לעצמכם. הדבקה שלו כאן תחזיר את הכול.</p>
+    </div>
+
+    <div class="sec">
+      <h3>התקנה על המסך הראשי</h3>
+      <p class="lead" style="margin:0">באייפון: כפתור השיתוף בסאפארי ← «הוספה למסך הבית». זה מקבל אייקון ופותח במסך מלא, בדיוק כמו אפליקציה — בלי App Store.</p>
+    </div>
+
+    <div class="btn-row"><button class="btn" id="sheet-close">סגירה</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" aria-live="polite"></div>
+<script>
+(function(){
+"use strict";
+
+/* ---------- storage (survives Safari, degrades quietly) ---------- */
+var memory = {};
+var store = {
+  get: function(k){
+    try{ var v = localStorage.getItem("tlush."+k); return v === null ? memory[k] : v; }
+    catch(e){ return memory[k]; }
+  },
+  set: function(k, v){
+    memory[k] = v;
+    try{ localStorage.setItem("tlush."+k, v); return true; }
+    catch(e){ return false; }
+  }
+};
+
+var DEFAULTS = { rate: 35, overtime: true, travel: 0, goal: 0, deduct: 0 };
+var CATEGORIES = [
+  { id:"food",      label:"מזון",     icon:"🍔" },
+  { id:"transport", label:"תחבורה",   icon:"🚌" },
+  { id:"home",      label:"דיור",     icon:"🏠" },
+  { id:"fun",       label:"בילויים",  icon:"🎉" },
+  { id:"bills",     label:"חשבונות",  icon:"🧾" },
+  { id:"health",    label:"בריאות",   icon:"💊" },
+  { id:"other",     label:"אחר",      icon:"📦" }
+];
+
+var settings = Object.assign({}, DEFAULTS);
+var shifts = [];
+var expenses = [];
+var active = null;
+var state = { month: "", tab: "shifts", editShift: null, editExpense: null, kind: "regular", cat: "food" };
+var undoTimer = null, tick = null;
+
+function $(id){ return document.getElementById(id); }
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+    return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+  });
+}
+function num(v, fallback){ var n = parseFloat(v); return isFinite(n) ? n : (fallback || 0); }
+
+/* ---------- dates ---------- */
+function todayISO(){
+  var d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+}
+function pad(n){ return n < 10 ? "0"+n : ""+n; }
+function parseISO(s){ var p = String(s).split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function monthOf(dateStr){ return String(dateStr).slice(0,7); }
+function shiftMonth(key, delta){
+  var p = key.split("-"), d = new Date(+p[0], +p[1]-1+delta, 1);
+  return d.getFullYear() + "-" + pad(d.getMonth()+1);
+}
+function monthName(key){
+  var p = key.split("-");
+  return new Date(+p[0], +p[1]-1, 1).toLocaleDateString("he-IL", { month:"long", year:"numeric" });
+}
+function daysInMonth(key){ var p = key.split("-"); return new Date(+p[0], +p[1], 0).getDate(); }
+
+/* ---------- formatting ---------- */
+/* Hebrew is RTL but money and clock times read left-to-right — isolate them
+   so a minus sign or a time range never flips to the wrong side. */
+function ltr(text){ return "\u2066" + text + "\u2069"; }
+function fmtMoney(n){
+  var v = Math.round(n * 100) / 100;
+  var neg = v < 0;
+  v = Math.abs(v);
+  var dec = Math.abs(v % 1) > 0.004 ? 2 : 0;
+  return ltr((neg ? "−" : "") + "₪" + v.toLocaleString("he-IL", { minimumFractionDigits: dec, maximumFractionDigits: dec }));
+}
+function fmtHours(n){
+  return (Math.round(n * 10) / 10).toLocaleString("he-IL", { minimumFractionDigits:1, maximumFractionDigits:1 });
+}
+function clockText(ms){
+  var t = Math.max(0, Math.floor(ms/1000));
+  return "\u2066" + pad(Math.floor(t/3600)) + ":" + pad(Math.floor(t/60)%60) + ":" + pad(t%60) + "\u2069";
+}
+
+/* ---------- pay maths (Israeli daily overtime) ---------- */
+function shiftHours(s){
+  var a = String(s.start).split(":"), b = String(s.end).split(":");
+  var from = (+a[0])*60 + (+a[1]), to = (+b[0])*60 + (+b[1]);
+  if(to <= from) to += 24*60;                 // overnight shift
+  var mins = to - from - (s.breakMin || 0);
+  return mins > 0 ? mins/60 : 0;
+}
+function payOf(s){
+  var h = shiftHours(s);
+  var rate = num(s.rate, settings.rate);
+  var mult = s.kind === "shabbat" ? 1.5 : 1;
+  var t125 = 0, t150 = 0;
+  if(settings.overtime){
+    t125 = Math.max(0, Math.min(h, 10) - 8);
+    t150 = Math.max(0, h - 10);
+  }
+  var base = h * rate;
+  var shabbatPremium = base * (mult - 1);
+  var otPremium = rate * (t125 * 0.25 + t150 * 0.5);
+  var travel = num(s.travel, 0), tips = num(s.tips, 0);
+  return {
+    hours: h, base: base, shabbat: shabbatPremium, ot: otPremium,
+    travel: travel, tips: tips,
+    wage: base + shabbatPremium + otPremium,
+    total: base + shabbatPremium + otPremium + travel + tips
+  };
+}
+function totalsFor(monthKey){
+  var t = { hours:0, base:0, shabbat:0, ot:0, travel:0, tips:0, wage:0, gross:0, expenses:0, count:0 };
+  shifts.forEach(function(s){
+    if(monthOf(s.date) !== monthKey) return;
+    var p = payOf(s);
+    t.hours += p.hours; t.base += p.base; t.shabbat += p.shabbat; t.ot += p.ot;
+    t.travel += p.travel; t.tips += p.tips; t.wage += p.wage; t.gross += p.total; t.count++;
+  });
+  expenses.forEach(function(e){ if(monthOf(e.date) === monthKey) t.expenses += num(e.amount, 0); });
+  t.deduction = t.wage * (num(settings.deduct, 0) / 100);
+  t.net = t.gross - t.deduction;
+  t.left = t.net - t.expenses;
+  return t;
+}
+
+/* ---------- persistence ---------- */
+function save(){
+  store.set("settings", JSON.stringify(settings));
+  store.set("shifts", JSON.stringify(shifts));
+  store.set("expenses", JSON.stringify(expenses));
+  store.set("active", JSON.stringify(active));
+}
+function load(){
+  try{ var s = JSON.parse(store.get("settings") || "null"); if(s) settings = Object.assign({}, DEFAULTS, s); }catch(e){}
+  try{ var a = JSON.parse(store.get("shifts") || "[]"); if(Array.isArray(a)) shifts = a; }catch(e){}
+  try{ var b = JSON.parse(store.get("expenses") || "[]"); if(Array.isArray(b)) expenses = b; }catch(e){}
+  try{ active = JSON.parse(store.get("active") || "null"); }catch(e){ active = null; }
+}
+
+/* ---------- toast + undo ---------- */
+function toast(msg, actionLabel, action){
+  var box = $("toast");
+  box.innerHTML = '<div class="t"><span>' + esc(msg) + "</span></div>";
+  if(actionLabel){
+    var btn = document.createElement("button");
+    btn.textContent = actionLabel;
+    btn.addEventListener("click", function(){ hideToast(); action(); });
+    box.firstChild.appendChild(btn);
+  }
+  requestAnimationFrame(function(){ box.classList.add("on"); });
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(hideToast, actionLabel ? 7000 : 3200);
+}
+function hideToast(){
+  clearTimeout(undoTimer);
+  $("toast").classList.remove("on");
+}
+
+/* ---------- rendering: header ---------- */
+function renderHeader(){
+  var t = totalsFor(state.month);
+  $("m-name").textContent = monthName(state.month);
+  var bits = [];
+  bits.push(t.count + " משמרות");
+  bits.push(fmtHours(t.hours) + " שעות");
+  $("m-sub").textContent = bits.join(" · ");
+  $("k-income").textContent = fmtMoney(settings.deduct > 0 ? t.net : t.gross);
+  $("k-expense").textContent = fmtMoney(t.expenses);
+  $("k-net").textContent = fmtMoney(t.left);
+  $("m-next").disabled = state.month >= shiftMonth(monthOf(todayISO()), 12);
+}
+
+/* ---------- rendering: shifts ---------- */
+function weekStartISO(dateStr){
+  var d = parseISO(dateStr);
+  d.setDate(d.getDate() - d.getDay());     // Sunday
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+}
+function shortDate(dateStr){
+  return parseISO(dateStr).toLocaleDateString("he-IL", { day:"numeric", month:"short" });
+}
+function renderShifts(){
+  var host = $("shifts-list");
+  var list = shifts.filter(function(s){ return monthOf(s.date) === state.month; })
+                   .sort(function(a,b){ return a.date === b.date ? (a.start < b.start ? 1 : -1) : (a.date < b.date ? 1 : -1); });
+  if(!list.length){
+    host.innerHTML = '<div class="empty">אין משמרות ב' + esc(monthName(state.month)) +
+      ".<br>אפשר להתחיל עם שעון הנוכחות למעלה, או למלא שעות ידנית.</div>";
+    return;
+  }
+  var weeks = [], index = {};
+  list.forEach(function(s){
+    var k = weekStartISO(s.date);
+    if(!index[k]){ index[k] = { key:k, items:[], hours:0, pay:0 }; weeks.push(index[k]); }
+    var p = payOf(s);
+    index[k].items.push(s);
+    index[k].hours += p.hours;
+    index[k].pay += p.total;
+  });
+
+  var html = "";
+  weeks.forEach(function(w){
+    var end = parseISO(w.key); end.setDate(end.getDate()+6);
+    var endISO = end.getFullYear() + "-" + pad(end.getMonth()+1) + "-" + pad(end.getDate());
+    html += '<div class="week"><div class="week-head"><span>שבוע ' + esc(shortDate(w.key)) + " – " + esc(shortDate(endISO)) +
+            '</span><b>' + fmtHours(w.hours) + " שעות · " + fmtMoney(w.pay) + "</b></div><div class=\"rows\">";
+    w.items.forEach(function(s){
+      var p = payOf(s), d = parseISO(s.date);
+      var extras = [];
+      if(s.breakMin) extras.push("הפסקה " + s.breakMin + "׳");
+      if(num(s.travel,0)) extras.push("נסיעות " + fmtMoney(num(s.travel,0)));
+      if(num(s.tips,0)) extras.push("טיפים " + fmtMoney(num(s.tips,0)));
+      var otTag = "";
+      if(settings.overtime && p.hours > 8) otTag = '<span class="tag hot">ש״נ</span>';
+      if(s.kind === "shabbat") otTag += '<span class="tag hot">שבת</span>';
+      html += '<div class="row income" data-shift="' + esc(s.id) + '">' +
+        '<div class="d"><b>' + d.getDate() + "</b>" + esc(d.toLocaleDateString("he-IL", { weekday:"narrow" })) + "</div>" +
+        '<div class="m"><div class="t">' + ltr(esc(s.start) + "–" + esc(s.end)) + otTag +
+        (s.note ? " <span style=\"font-weight:400;color:var(--muted)\">· " + esc(s.note) + "</span>" : "") + "</div>" +
+        '<div class="s">' + fmtHours(p.hours) + " שעות" + (extras.length ? " · " + esc(extras.join(" · ")) : "") + "</div></div>" +
+        '<div class="a">' + fmtMoney(p.total) + "</div>" +
+        '<button class="ghost" style="width:30px;height:30px;font-size:13px" data-del-shift="' + esc(s.id) + '" aria-label="מחיקה">✕</button>' +
+        "</div>";
+    });
+    html += "</div></div>";
+  });
+  host.innerHTML = html;
+}
+
+/* ---------- rendering: expenses ---------- */
+function catOf(id){
+  for(var i=0;i<CATEGORIES.length;i++) if(CATEGORIES[i].id === id) return CATEGORIES[i];
+  return CATEGORIES[CATEGORIES.length-1];
+}
+function renderExpenses(){
+  var host = $("expenses-list");
+  var list = expenses.filter(function(e){ return monthOf(e.date) === state.month; })
+                     .sort(function(a,b){ return a.date < b.date ? 1 : -1; });
+  if(!list.length){
+    host.innerHTML = '<div class="empty">אין הוצאות ב' + esc(monthName(state.month)) + ".<br>כל שקל שנרשם כאן יורד מהסיכום החודשי.</div>";
+    return;
+  }
+  var total = list.reduce(function(s,e){ return s + num(e.amount,0); }, 0);
+  var html = '<div class="week"><div class="week-head"><span>' + list.length + ' רישומים</span><b>' + fmtMoney(total) + '</b></div><div class="rows">';
+  list.forEach(function(e){
+    var c = catOf(e.category), d = parseISO(e.date);
+    html += '<div class="row expense" data-exp="' + esc(e.id) + '">' +
+      '<div class="d"><b>' + d.getDate() + "</b>" + esc(d.toLocaleDateString("he-IL", { weekday:"narrow" })) + "</div>" +
+      '<div class="m"><div class="t">' + c.icon + " " + esc(e.desc || c.label) + "</div>" +
+      '<div class="s" style="font-family:var(--sans)">' + esc(c.label) + "</div></div>" +
+      '<div class="a">' + fmtMoney(-num(e.amount, 0)) + "</div>" +
+      '<button class="ghost" style="width:30px;height:30px;font-size:13px" data-del-exp="' + esc(e.id) + '" aria-label="מחיקה">✕</button>' +
+      "</div>";
+  });
+  host.innerHTML = html + "</div></div>";
+}
+
+/* ---------- rendering: summary ---------- */
+function renderSummary(){
+  var t = totalsFor(state.month);
+  $("slip-month").textContent = monthName(state.month);
+
+  var rows = [];
+  rows.push(["שעות עבודה", fmtHours(t.hours) + " שעות"]);
+  rows.push(["שכר בסיס", fmtMoney(t.base)]);
+  if(t.ot > 0) rows.push(["תוספת שעות נוספות", fmtMoney(t.ot), "sub"]);
+  if(t.shabbat > 0) rows.push(["תוספת שבת וחג", fmtMoney(t.shabbat), "sub"]);
+  if(t.travel > 0) rows.push(["נסיעות", fmtMoney(t.travel), "sub"]);
+  if(t.tips > 0) rows.push(["טיפים ובונוסים", fmtMoney(t.tips), "sub"]);
+  var html = "";
+  rows.forEach(function(r){
+    html += '<tr' + (r[2] ? ' class="sub"' : "") + "><td>" + esc(r[0]) + "</td><td>" + r[1] + "</td></tr>";
+  });
+  if(settings.deduct > 0){
+    html += "<tr><td>ברוטו</td><td>" + fmtMoney(t.gross) + "</td></tr>";
+    html += '<tr class="sub"><td>ניכויים משוערים (' + esc(settings.deduct) + "%)</td><td>" + fmtMoney(-t.deduction) + "</td></tr>";
+    html += "<tr><td>נטו משוער</td><td>" + fmtMoney(t.net) + "</td></tr>";
+  } else {
+    html += "<tr><td>סך השכר</td><td>" + fmtMoney(t.gross) + "</td></tr>";
+  }
+  html += '<tr class="sub"><td>הוצאות שנרשמו</td><td>' + fmtMoney(-t.expenses) + "</td></tr>";
+  html += '<tr class="total"><td>נשאר בכיס</td><td>' + fmtMoney(t.left) + "</td></tr>";
+  $("slip-body").innerHTML = html;
+
+  /* goal */
+  var goal = num(settings.goal, 0);
+  var goalCard = $("goal-card");
+  if(goal > 0){
+    goalCard.hidden = false;
+    var earned = settings.deduct > 0 ? t.net : t.gross;
+    var pct = Math.max(0, Math.min(100, earned / goal * 100));
+    $("goal-fill").style.width = pct + "%";
+    $("goal-text").innerHTML = "הרווחת <b>" + fmtMoney(earned) + "</b> מתוך <b>" + fmtMoney(goal) + "</b>";
+    var gap = goal - earned;
+    var rate = num(settings.rate, 0);
+    $("goal-left").innerHTML = gap <= 0
+      ? "היעד הושג 🎉"
+      : "חסרות <b>" + (rate > 0 ? fmtHours(gap / rate) + " שעות" : fmtMoney(gap)) + "</b>";
+  } else {
+    goalCard.hidden = true;
+  }
+
+  /* hours per day */
+  var days = daysInMonth(state.month), perDay = new Array(days + 1).join("0").split("").map(Number);
+  shifts.forEach(function(s){
+    if(monthOf(s.date) !== state.month) return;
+    perDay[parseISO(s.date).getDate() - 1] += shiftHours(s);
+  });
+  var max = Math.max.apply(null, perDay.concat([1]));
+  var chart = "";
+  for(var i = 0; i < days; i++){
+    var isSat = new Date(+state.month.split("-")[0], +state.month.split("-")[1]-1, i+1).getDay() === 6;
+    var h = perDay[i];
+    var cls = "col" + (h > 0 ? (isSat ? " sat" : "") : " empty-day");
+    chart += '<div class="' + cls + '" title="' + (i+1) + ": " + fmtHours(h) + ' שעות"><div class="bar" style="height:' +
+             (h > 0 ? Math.max(6, h / max * 100) : 2) + '%"></div></div>';
+  }
+  $("daychart").innerHTML = chart;
+  $("axis-mid").textContent = Math.ceil(days/2);
+  $("axis-end").textContent = days;
+  var worked = perDay.filter(function(h){ return h > 0; }).length;
+  $("hours-hint").textContent = worked ? worked + " ימי עבודה · ממוצע " + fmtHours(t.hours / worked) + " שעות" : "אין עדיין שעות";
+
+  /* categories vs previous month */
+  var prevKey = shiftMonth(state.month, -1);
+  var now = {}, prev = {};
+  expenses.forEach(function(e){
+    var m = monthOf(e.date), amount = num(e.amount, 0);
+    if(m === state.month) now[e.category] = (now[e.category] || 0) + amount;
+    else if(m === prevKey) prev[e.category] = (prev[e.category] || 0) + amount;
+  });
+  var entries = Object.keys(now).map(function(k){ return [k, now[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
+  var host = $("cat-breakdown");
+  if(!entries.length){
+    host.innerHTML = '<div style="color:var(--muted);font-size:13.5px">עוד לא נרשמו הוצאות החודש.</div>';
+    return;
+  }
+  var top = entries[0][1], sum = entries.reduce(function(s,e){ return s + e[1]; }, 0);
+  host.innerHTML = entries.map(function(e){
+    var c = catOf(e[0]), was = prev[e[0]] || 0, delta = "";
+    if(was > 0){
+      var diff = (e[1] - was) / was * 100;
+      if(Math.abs(diff) >= 1) delta = '<span class="delta ' + (diff > 0 ? "up" : "down") + '">' +
+        ltr((diff > 0 ? "▲" : "▼") + Math.abs(Math.round(diff)) + "%") + "</span>";
+    } else {
+      delta = '<span class="delta" style="color:var(--muted)">חדש</span>';
+    }
+    return '<div class="cat"><div class="cl"><span>' + c.icon + " " + esc(c.label) +
+      '<span class="delta" style="color:var(--muted)">' + Math.round(e[1] / sum * 100) + "% מההוצאות</span>" + delta +
+      '</span><span class="v">' + fmtMoney(e[1]) + '</span></div>' +
+      '<div class="track"><div class="fill" style="width:' + (e[1] / top * 100) + '%"></div></div></div>';
+  }).join("");
+}
+
+function renderAll(){ renderHeader(); renderShifts(); renderExpenses(); renderSummary(); }
+
+/* ---------- punch clock ---------- */
+function renderPunch(){
+  var clock = $("punch-clock"), since = $("punch-since"), btn = $("btn-punch");
+  if(active && active.start){
+    var started = new Date(active.start);
+    clock.classList.remove("idle");
+    clock.textContent = clockText(Date.now() - started.getTime());
+    since.innerHTML = '<span class="live-dot"></span>במשמרת מ‑' + ltr(pad(started.getHours()) + ":" + pad(started.getMinutes()));
+    btn.textContent = "סיימתי";
+    btn.classList.add("stop");
+    if(!tick) tick = setInterval(renderPunch, 1000);
+  } else {
+    clock.classList.add("idle");
+    clock.textContent = "00:00:00";
+    since.textContent = "לא במשמרת כרגע";
+    btn.textContent = "התחלתי משמרת";
+    btn.classList.remove("stop");
+    if(tick){ clearInterval(tick); tick = null; }
+  }
+}
+function punch(){
+  if(active && active.start){
+    var started = new Date(active.start), ended = new Date();
+    var mins = Math.round((ended - started) / 60000);
+    active = null; save(); renderPunch();
+    if(mins < 1){ toast("המשמרת הייתה קצרה מדי ולא נשמרה"); return; }
+    var s = {
+      id: newId("sh"),
+      date: started.getFullYear() + "-" + pad(started.getMonth()+1) + "-" + pad(started.getDate()),
+      start: pad(started.getHours()) + ":" + pad(started.getMinutes()),
+      end: pad(ended.getHours()) + ":" + pad(ended.getMinutes()),
+      breakMin: 0, travel: num(settings.travel, 0), tips: 0, note: "",
+      kind: started.getDay() === 6 || (started.getDay() === 5 && started.getHours() >= 16) ? "shabbat" : "regular",
+      rate: num(settings.rate, 0)
+    };
+    shifts.push(s); save();
+    state.month = monthOf(s.date);
+    renderAll();
+    var p = payOf(s);
+    toast("נשמרה משמרת של " + fmtHours(p.hours) + " שעות · " + fmtMoney(p.total), "עריכה", function(){
+      editShift(s.id);
+    });
+  } else {
+    active = { start: new Date().toISOString() };
+    save(); renderPunch();
+    toast("בהצלחה במשמרת 💪");
+  }
+}
+function newId(prefix){ return prefix + "_" + Date.now().toString(36) + Math.floor(Math.random()*1e4).toString(36); }
+
+/* ---------- shift form ---------- */
+function markBad(el, bad){ el.classList.toggle("bad", !!bad); }
+function readShiftForm(){
+  var date = $("s-date").value, start = $("s-start").value, end = $("s-end").value;
+  markBad($("s-date"), !date); markBad($("s-start"), !start); markBad($("s-end"), !end);
+  if(!date || !start || !end){ toast("צריך תאריך, שעת התחלה ושעת סיום"); return null; }
+  var s = {
+    date: date, start: start, end: end,
+    breakMin: Math.max(0, Math.round(num($("s-break").value, 0))),
+    travel: Math.max(0, num($("s-travel").value, 0)),
+    tips: Math.max(0, num($("s-tips").value, 0)),
+    rate: Math.max(0, num($("s-rate").value, settings.rate)),
+    note: $("s-note").value.trim(),
+    kind: state.kind
+  };
+  if(shiftHours(s) <= 0){ toast("ההפסקה ארוכה מכל המשמרת — בדקו את השעות"); markBad($("s-break"), true); return null; }
+  return s;
+}
+function resetShiftForm(){
+  state.editShift = null;
+  ["s-start","s-end","s-break","s-tips","s-note"].forEach(function(id){ $(id).value = ""; $(id).classList.remove("bad"); });
+  $("s-date").value = todayISO();
+  $("s-date").classList.remove("bad");
+  $("s-travel").value = settings.travel || "";
+  $("s-rate").value = settings.rate || "";
+  setKind("regular");
+  $("shift-form-title").firstChild.nodeValue = "הוספת משמרת ";
+  $("shift-form-hint").textContent = "";
+  $("s-save").textContent = "הוסף משמרת";
+  $("s-cancel-row").hidden = true;
+}
+function setKind(kind){
+  state.kind = kind;
+  Array.prototype.forEach.call($("s-kind").children, function(b){
+    b.setAttribute("aria-pressed", b.dataset.kind === kind ? "true" : "false");
+  });
+}
+function editShift(id){
+  var s = null;
+  shifts.forEach(function(x){ if(x.id === id) s = x; });
+  if(!s) return;
+  state.editShift = id;
+  $("s-date").value = s.date; $("s-start").value = s.start; $("s-end").value = s.end;
+  $("s-break").value = s.breakMin || ""; $("s-travel").value = s.travel || "";
+  $("s-tips").value = s.tips || ""; $("s-rate").value = s.rate || settings.rate;
+  $("s-note").value = s.note || "";
+  setKind(s.kind === "shabbat" ? "shabbat" : "regular");
+  $("shift-form-title").firstChild.nodeValue = "עריכת משמרת ";
+  $("shift-form-hint").textContent = shortDate(s.date);
+  $("s-save").textContent = "שמירת שינויים";
+  $("s-cancel-row").hidden = false;
+  switchTab("shifts");
+  $("shift-form-title").scrollIntoView({ behavior:"smooth", block:"start" });
+}
+function saveShift(){
+  var data = readShiftForm();
+  if(!data) return;
+  if(state.editShift){
+    shifts.forEach(function(s, i){ if(s.id === state.editShift) shifts[i] = Object.assign({}, s, data); });
+    toast("המשמרת עודכנה");
+  } else {
+    data.id = newId("sh");
+    shifts.push(data);
+    toast("נוספה משמרת · " + fmtMoney(payOf(data).total));
+  }
+  state.month = monthOf(data.date);
+  save(); resetShiftForm(); renderAll();
+}
+function repeatLast(){
+  var last = shifts.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; })[0];
+  if(!last){ toast("אין עדיין משמרת קודמת להעתיק"); return; }
+  state.editShift = null;
+  $("s-date").value = todayISO();
+  $("s-start").value = last.start; $("s-end").value = last.end;
+  $("s-break").value = last.breakMin || ""; $("s-travel").value = last.travel || "";
+  $("s-tips").value = ""; $("s-rate").value = last.rate || settings.rate;
+  $("s-note").value = last.note || "";
+  setKind(parseISO(todayISO()).getDay() === 6 ? "shabbat" : "regular");
+  toast("מולא לפי המשמרת האחרונה — בדקו ושמרו");
+}
+
+/* ---------- expense form ---------- */
+function renderCatChips(){
+  $("e-cat").innerHTML = CATEGORIES.map(function(c){
+    return '<button class="chip" type="button" data-cat="' + c.id + '" aria-pressed="' +
+      (c.id === state.cat ? "true" : "false") + '">' + c.icon + " " + esc(c.label) + "</button>";
+  }).join("");
+}
+function setCat(id){
+  state.cat = id;
+  Array.prototype.forEach.call($("e-cat").children, function(b){
+    b.setAttribute("aria-pressed", b.dataset.cat === id ? "true" : "false");
+  });
+}
+function resetExpenseForm(){
+  state.editExpense = null;
+  $("e-desc").value = ""; $("e-amount").value = "";
+  $("e-date").value = todayISO();
+  ["e-desc","e-amount","e-date"].forEach(function(id){ $(id).classList.remove("bad"); });
+  setCat("food");
+  $("exp-form-title").textContent = "הוספת הוצאה";
+  $("e-save").textContent = "הוסף הוצאה";
+  $("e-cancel-row").hidden = true;
+}
+function editExpense(id){
+  var e = null;
+  expenses.forEach(function(x){ if(x.id === id) e = x; });
+  if(!e) return;
+  state.editExpense = id;
+  $("e-desc").value = e.desc || ""; $("e-amount").value = e.amount; $("e-date").value = e.date;
+  setCat(e.category);
+  $("exp-form-title").textContent = "עריכת הוצאה";
+  $("e-save").textContent = "שמירת שינויים";
+  $("e-cancel-row").hidden = false;
+  switchTab("expenses");
+  $("exp-form-title").scrollIntoView({ behavior:"smooth", block:"start" });
+}
+function saveExpense(){
+  var amount = num($("e-amount").value, 0), date = $("e-date").value;
+  markBad($("e-amount"), !(amount > 0)); markBad($("e-date"), !date);
+  if(!(amount > 0) || !date){ toast("צריך סכום גדול מאפס ותאריך"); return; }
+  var data = { desc: $("e-desc").value.trim(), amount: amount, category: state.cat, date: date };
+  if(state.editExpense){
+    expenses.forEach(function(e, i){ if(e.id === state.editExpense) expenses[i] = Object.assign({}, e, data); });
+    toast("ההוצאה עודכנה");
+  } else {
+    data.id = newId("ex");
+    expenses.push(data);
+    toast("נרשמה הוצאה · " + fmtMoney(amount));
+  }
+  state.month = monthOf(date);
+  save(); resetExpenseForm(); renderAll();
+}
+
+/* ---------- delete with undo ---------- */
+function removeItem(kind, id){
+  var list = kind === "shift" ? shifts : expenses;
+  var idx = -1;
+  list.forEach(function(x, i){ if(x.id === id) idx = i; });
+  if(idx < 0) return;
+  var item = list.splice(idx, 1)[0];
+  if(kind === "shift" && state.editShift === id) resetShiftForm();
+  if(kind === "expense" && state.editExpense === id) resetExpenseForm();
+  save(); renderAll();
+  toast(kind === "shift" ? "המשמרת נמחקה" : "ההוצאה נמחקה", "ביטול", function(){
+    var target = kind === "shift" ? shifts : expenses;
+    target.splice(Math.min(idx, target.length), 0, item);
+    save(); renderAll();
+    toast(kind === "shift" ? "המשמרת הוחזרה" : "ההוצאה הוחזרה");
+  });
+}
+
+/* ---------- tabs, month nav, theme ---------- */
+function switchTab(tab){
+  state.tab = tab;
+  ["shifts","expenses","summary"].forEach(function(t){ $("tab-"+t).classList.toggle("on", t === tab); });
+  Array.prototype.forEach.call(document.querySelectorAll(".tabbar button"), function(b){
+    b.setAttribute("aria-selected", b.dataset.tab === tab ? "true" : "false");
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function applyTheme(mode){
+  if(mode === "light" || mode === "dark") document.documentElement.setAttribute("data-theme", mode);
+  else document.documentElement.removeAttribute("data-theme");
+  $("btn-theme").textContent = mode === "light" ? "☀" : mode === "dark" ? "☾" : "◐";
+  store.set("theme", mode);
+}
+
+/* ---------- settings sheet ---------- */
+function openSheet(){
+  $("cfg-rate").value = settings.rate || "";
+  $("cfg-goal").value = settings.goal || "";
+  $("cfg-travel").value = settings.travel || "";
+  $("cfg-deduct").value = settings.deduct || "";
+  $("cfg-ot").checked = !!settings.overtime;
+  $("backup-box").value = JSON.stringify({ v:1, settings:settings, shifts:shifts, expenses:expenses });
+  $("sheet").classList.add("on");
+}
+function closeSheet(){ $("sheet").classList.remove("on"); }
+function readSettings(){
+  settings.rate = Math.max(0, num($("cfg-rate").value, 0));
+  settings.goal = Math.max(0, num($("cfg-goal").value, 0));
+  settings.travel = Math.max(0, num($("cfg-travel").value, 0));
+  settings.deduct = Math.min(60, Math.max(0, num($("cfg-deduct").value, 0)));
+  settings.overtime = $("cfg-ot").checked;
+  save();
+  if(!state.editShift){ $("s-rate").value = settings.rate || ""; $("s-travel").value = settings.travel || ""; }
+  renderAll();
+}
+function importBackup(){
+  var raw = $("backup-box").value.trim();
+  if(!raw){ toast("אין מה לשחזר — הדביקו קודם את הטקסט"); return; }
+  var data;
+  try{ data = JSON.parse(raw); }catch(e){ toast("הטקסט לא תקין — העתיקו אותו שוב במלואו"); return; }
+  if(!data || !Array.isArray(data.shifts) || !Array.isArray(data.expenses)){ toast("הקובץ לא מכיל נתונים מוכרים"); return; }
+  if(!confirm("שחזור יחליף את כל הנתונים הקיימים במכשיר. להמשיך?")) return;
+  shifts = data.shifts; expenses = data.expenses;
+  if(data.settings) settings = Object.assign({}, DEFAULTS, data.settings);
+  save(); resetShiftForm(); resetExpenseForm(); renderAll(); closeSheet();
+  toast("שוחזרו " + shifts.length + " משמרות ו‑" + expenses.length + " הוצאות");
+}
+function copyBackup(){
+  var box = $("backup-box");
+  box.select(); box.setSelectionRange(0, 999999);
+  var done = false;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(box.value).then(function(){ toast("הגיבוי הועתק — הדביקו במקום בטוח"); }, function(){ fallback(); });
+    return;
+  }
+  fallback();
+  function fallback(){
+    try{ done = document.execCommand("copy"); }catch(e){}
+    toast(done ? "הגיבוי הועתק — הדביקו במקום בטוח" : "סמנו את הטקסט והעתיקו ידנית");
+  }
+}
+
+/* ---------- install hint (iOS can't 'download' apps from here) ---------- */
+function maybeInstallHint(){
+  var standalone = window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  var iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if(standalone || store.get("hint-dismissed") === "1" || !iOS) return;
+  var box = $("install-hint");
+  box.hidden = false;
+  box.className = "install";
+  box.innerHTML = '<span>רוצה שזה ייראה כמו אפליקציה? לחץ על <b>שיתוף</b> בסאפארי ואז «הוספה למסך הבית» — ' +
+                  'נוצר אייקון שנפתח במסך מלא, בלי App Store ובלי הרשאות.</span>';
+  var x = document.createElement("button");
+  x.textContent = "✕"; x.setAttribute("aria-label", "סגירה");
+  x.addEventListener("click", function(){ box.hidden = true; store.set("hint-dismissed", "1"); });
+  box.appendChild(x);
+}
+
+/* ---------- wiring ---------- */
+$("btn-punch").addEventListener("click", punch);
+$("s-save").addEventListener("click", saveShift);
+$("s-cancel").addEventListener("click", function(){ resetShiftForm(); toast("העריכה בוטלה"); });
+$("s-repeat").addEventListener("click", repeatLast);
+$("s-kind").addEventListener("click", function(e){
+  var b = e.target.closest("[data-kind]"); if(b) setKind(b.dataset.kind);
+});
+$("e-save").addEventListener("click", saveExpense);
+$("e-cancel").addEventListener("click", function(){ resetExpenseForm(); toast("העריכה בוטלה"); });
+$("e-cat").addEventListener("click", function(e){
+  var b = e.target.closest("[data-cat]"); if(b) setCat(b.dataset.cat);
+});
+$("shifts-list").addEventListener("click", function(e){
+  var del = e.target.closest("[data-del-shift]");
+  if(del){ e.stopPropagation(); removeItem("shift", del.dataset.delShift); return; }
+  var row = e.target.closest("[data-shift]");
+  if(row) editShift(row.dataset.shift);
+});
+$("expenses-list").addEventListener("click", function(e){
+  var del = e.target.closest("[data-del-exp]");
+  if(del){ e.stopPropagation(); removeItem("expense", del.dataset.delExp); return; }
+  var row = e.target.closest("[data-exp]");
+  if(row) editExpense(row.dataset.exp);
+});
+document.querySelector(".tabbar").addEventListener("click", function(e){
+  var b = e.target.closest("[data-tab]"); if(b) switchTab(b.dataset.tab);
+});
+$("m-prev").addEventListener("click", function(){ state.month = shiftMonth(state.month, -1); renderAll(); });
+$("m-next").addEventListener("click", function(){ state.month = shiftMonth(state.month, 1); renderAll(); });
+$("month-label").addEventListener("click", function(){ state.month = monthOf(todayISO()); renderAll(); });
+$("btn-settings").addEventListener("click", openSheet);
+$("sheet-close").addEventListener("click", function(){ readSettings(); closeSheet(); });
+$("sheet").addEventListener("click", function(e){ if(e.target === $("sheet")){ readSettings(); closeSheet(); } });
+["cfg-rate","cfg-goal","cfg-travel","cfg-deduct","cfg-ot"].forEach(function(id){
+  $(id).addEventListener("change", readSettings);
+});
+$("btn-copy").addEventListener("click", copyBackup);
+$("btn-import").addEventListener("click", importBackup);
+$("btn-theme").addEventListener("click", function(){
+  var order = ["auto","light","dark"];
+  var next = order[(order.indexOf(store.get("theme") || "auto") + 1) % 3];
+  applyTheme(next);
+});
+document.addEventListener("keydown", function(e){ if(e.key === "Escape" && $("sheet").classList.contains("on")){ readSettings(); closeSheet(); } });
+document.addEventListener("visibilitychange", function(){ if(!document.hidden) renderPunch(); });
+
+/* ---------- boot ---------- */
+load();
+applyTheme(store.get("theme") || "auto");
+state.month = monthOf(todayISO());
+renderCatChips();
+resetShiftForm();
+resetExpenseForm();
+renderPunch();
+renderAll();
+maybeInstallHint();
+
+if("serviceWorker" in navigator && location.protocol.indexOf("http") === 0){
+  window.addEventListener("load", function(){ navigator.serviceWorker.register("./sw.js").catch(function(){}); });
+}
+})();
+</script>
+</body>
+</html>
