@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "published": "2026-08-26",
+  "note": "MotorLab update channel. Publish a newer version of this file and every installed copy of the app picks up the new cars, engines, parts, circuits and news the next time it checks.",
+  "news": [
+    { "id":"n-upd-channel", "date":"2026-08-26", "cat":"tech",
+      "title":"MotorLab now updates its own catalog",
+      "body":"The app checks an update feed and merges anything new into its catalogs: new cars and bikes, new engines, new tuning parts, new circuits and race series. Everything merged is stored on your device, so it keeps working offline. You can point it at a different feed, or add your own vehicles and engines by hand, in Settings → Updates." },
+    { "id":"n-upd-3cyl", "date":"2026-08-26", "cat":"engine",
+      "title":"Three-cylinder turbos added to the engine bay",
+      "body":"The 1.0 L turbo triple is now the most common new-car engine in Europe. It has an inherent primary rocking couple that a balance shaft cancels — strip it in the Engine Bay and compare its firing interval against the inline-4." }
+  ],
+  "engines": [
+    { "id":"i3-10-t", "name":"1.0L Turbo Inline-3", "maker":"Modern", "layout":"I", "cyl":3,
+      "displacement":999, "bore":71.9, "stroke":82, "cr":10.0, "redline":6500, "tqPeak":1750, "hpPeak":5500,
+      "aspiration":"turbo", "injection":"direct", "boostTarget":1.3, "spoolRpm":1600, "firing":"I3",
+      "dryWeight":95, "idle":800,
+      "blurb":"Three cylinders, one turbo, and a balance shaft to cancel the rocking couple an odd cylinder count creates. Fewer cylinders means less friction and less heat loss through cylinder walls — which is exactly why it exists." },
+    { "id":"v8-45-hybrid", "name":"4.5L Twin-Turbo V8 Hybrid", "maker":"Hypercar", "layout":"V", "cyl":8,
+      "bankAngle":90, "displacement":4497, "bore":93, "stroke":82.7, "cr":9.8, "redline":8000,
+      "tqPeak":2200, "hpPeak":7000, "aspiration":"twinturbo", "injection":"direct", "boostTarget":1.4,
+      "spoolRpm":1900, "firing":"V8", "fuel":"premium", "dryWeight":230, "hybrid":true, "mguKw":140,
+      "blurb":"Hot-vee twin turbo with an electric motor between engine and gearbox filling the torque hole below spool. The battery is small and deliberately so — it exists to cover lag, not to drive on." }
+  ],
+  "vehicles": [
+    { "id":"crossover", "name":"Compact crossover", "body":"suv", "class":"car", "drivetrain":"AWD",
+      "bay":"front-transverse", "suspF":"macpherson", "suspR":"multilink", "chassis":"unibody",
+      "engines":["i3-10-t","i4-20-t","d-i4-20","i4-16-na"],
+      "massKg":1560, "wheelbase":2680, "trackF":1570, "trackR":1560, "lengthMm":4400, "widthMm":1840,
+      "heightMm":1640, "gears":[3.9,2.15,1.45,1.10,0.88,0.72,0.60], "final":4.20,
+      "tyreF":235, "tyreR":235, "rimF":19, "rimR":19, "brakeF":330, "brakeR":300,
+      "cd":0.34, "area":2.6, "fuelL":55,
+      "blurb":"The best-selling shape in the world. A hatchback platform raised 150 mm, with a higher centre of gravity that changes everything about how load transfers in a corner." },
+    { "id":"supermoto", "name":"Supermoto", "body":"mx", "class":"bike", "drivetrain":"chain",
+      "bay":"transverse", "suspF":"usd-fork", "suspR":"linkage-monoshock", "chassis":"steel trellis",
+      "engines":["m-single-450","m-ptwin-900"],
+      "massKg":135, "wheelbase":1500, "lengthMm":2150, "widthMm":830, "heightMm":1250,
+      "gears":[2.14,1.75,1.45,1.23,1.04], "final":3.20, "primary":2.48,
+      "tyreF":120, "tyreR":150, "rimF":17, "rimR":17, "brakeF":320, "brakeR":240,
+      "cd":0.72, "area":0.68, "fuelL":9, "seats":1, "driveLoss":0.11, "rakeDeg":26, "trailMm":105,
+      "blurb":"A motocross bike on 17-inch road wheels and a huge front brake. Long travel plus sticky tyres means it will lift the rear wheel under braking rather than lock it." }
+  ],
+  "races": [
+    { "id":"knockhill-supermoto", "discipline":"moto", "name":"European Supermoto Championship",
+      "series":"FIM Supermoto", "circuit":"Mixed tarmac & dirt course", "country":"Czech Republic",
+      "city":"Kaplice", "lat":48.7386, "lon":14.4869, "lengthKm":1.2, "turns":14, "month":6,
+      "surface":"mixed", "notes":"Two thirds tarmac, one third dirt, with a jump section. Riders slide the rear into every corner with a foot out." },
+    { "id":"nurb-tourist", "discipline":"hill", "name":"Nordschleife Touristenfahrten",
+      "series":"Public sessions", "circuit":"Nürburgring Nordschleife", "country":"Germany",
+      "city":"Nürburg", "lat":50.3356, "lon":6.9475, "lengthKm":20.832, "turns":73, "month":4,
+      "notes":"The Nordschleife open to the public as a one-way toll road. Road rules apply, and it is where more road cars are broken than anywhere else on earth." }
+  ],
+  "upgrades": [
+    { "id":"balance-shaft-delete", "name":"Balance shaft delete & lightened crank", "brand":"Race prep",
+      "cat":"bottom", "tier":2, "cost":900, "fitsExpr": { "maxCyl":4 },
+      "effects": { "frictionMul":0.95, "inertiaMul":0.88 },
+      "teach":"Balance shafts consume real power to cancel vibration you may be willing to live with in a race car. Removing them frees a few horsepower and lets the engine pick up revs faster — and makes the car unpleasant on the road." },
+    { "id":"hybrid-mgu", "name":"Electric torque-fill motor (MGU-K style)", "brand":"Hybrid systems",
+      "cat":"induction", "tier":4, "cost":9500, "fitsExpr": { "boosted": true },
+      "effects": { "spoolMul":1.45, "veMul":1.02, "weightKg":38 },
+      "teach":"An electric motor on the crank or turbo shaft fills the torque hole below spool and recovers braking energy. It does not raise peak power — it removes the wait for it, which is worth more on a road or a lap time than peak numbers are." }
+  ]
+}
