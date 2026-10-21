@@ -22,6 +22,12 @@
       baselines = custom;
       return Promise.resolve(baselines);
     }
+    /* The single-file build bakes the table in, because a page opened straight
+       from disk cannot fetch a sibling file. */
+    if (global.TW_FUEL_BASELINES && global.TW_FUEL_BASELINES.regions) {
+      baselines = global.TW_FUEL_BASELINES;
+      return Promise.resolve(baselines);
+    }
     loading = H.fetchJSON("./data/fuel-baselines.json", { timeout: 15000 })
       .then(function (d) { baselines = d; return d; })
       .catch(function () {

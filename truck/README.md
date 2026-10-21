@@ -194,6 +194,23 @@ a minute and sits behind a button rather than running automatically. It's an
 estimate from the planned route, not a record of where the truck went, and it
 says so.
 
+## Run it with no server and no hosting
+
+If GitHub Pages is not available to you, build a single self-contained file and
+open it by double-clicking:
+
+```bash
+python3 truck/tools/build-standalone.py          # writes truckway-standalone.html
+```
+
+The stylesheet, Leaflet, every module and the diesel reference table are inlined,
+so the page needs nothing beside it. Everything it talks to at runtime — tiles,
+routing, Overpass, geocoding, weather — sends permissive CORS headers, so it all
+works from a `file://` origin exactly as it does when hosted. Verified from disk:
+live Valhalla truck routing, the restriction audit, weather and the saved
+profile all work. The only things a `file://` page gives up are the service
+worker (so no offline app shell) and installing it as a PWA.
+
 ## Run it
 
 Static site, no build step:
@@ -232,6 +249,7 @@ truck/
   js/map.js               Leaflet layers, markers, vehicle arrow
   js/ui.js                rendering
   js/app.js               controller
+  tools/build-standalone.py  bundles the whole app into one openable .html
 ```
 
 Leaflet is vendored locally so the app still starts on a restrictive network.
