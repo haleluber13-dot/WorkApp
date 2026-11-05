@@ -1,6 +1,6 @@
 // Offline shell: the whole app and every card file are cached on first visit,
 // so the map works with no connection (homeschool on the go).
-const CACHE = "lifemap-v1";
+const CACHE = "lifemap-v2";
 const TOPICS = ["nature","animals","body","feelings","family","food","build","tools","art","music",
   "language","numbers","science","cultures","history","safety","community","money","outdoors","thinking"];
 const SHELL = [

@@ -47,7 +47,7 @@ android {
 
 val syncWww = tasks.register<Sync>("syncWww") {
     from(rootProject.file("../lifemap")) {
-        exclude("README.md", "tools/**", "data/CARDS_SCHEMA.md")
+        exclude("README.md", "tools/**", "data/CARDS_SCHEMA.md", "*.apk", "download.html", "qr-download.png")
     }
     into(layout.buildDirectory.dir("generated/www/www"))
 }
