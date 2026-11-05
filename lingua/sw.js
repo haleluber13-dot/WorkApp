@@ -1,6 +1,6 @@
 /* Offline app shell. Everything LinguaPath needs (code + all course content) is local; translation and
    speech recognition need the network. Bump CACHE when app files change. */
-const CACHE = "linguapath-v1";
+const CACHE = "linguapath-v2";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest", "./styles.css",
   "./js/app.js", "./js/i18n.js", "./js/langs.js", "./js/store.js", "./js/srs.js", "./js/speech.js", "./js/translate.js",
