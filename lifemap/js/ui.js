@@ -287,6 +287,8 @@
       <label class="switch"><input type="checkbox" id="sGate" ${S().setting("parentGate") ? "checked" : ""}><span>שאלת חשבון בכניסה לאזור ההורה</span></label>
       <div class="label">נושאים פעילים במפה</div>
       <div class="topic-toggles">${TOPICS.map((t) => `<label class="switch small"><input type="checkbox" data-topic="${t.id}" ${dis.has(t.id) ? "" : "checked"}><span>${t.emoji} ${esc(t.name)}</span></label>`).join("")}</div>
+      <div class="label">האפליקציה בטלפון</div>
+      <div class="row"><a class="btn btn--ghost" href="download.html" target="_blank" rel="noopener">📲 הורדה לאנדרואיד / התקנה באייפון</a></div>
       <div class="label">גיבוי</div>
       <div class="row"><button class="btn btn--ghost" id="exportBtn">⬇️ ייצוא (JSON)</button><label class="btn btn--ghost">⬆️ ייבוא<input type="file" id="importFile" accept="application/json" hidden></label></div>
       <div class="label">איפוס</div>

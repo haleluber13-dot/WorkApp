@@ -35,6 +35,13 @@ jobs:
         with:
           name: LifeMap-apk
           path: lifemap-android/LifeMap.apk
+      - name: Refresh the APK copies on main (direct links stay current)
+        run: |
+          cp LifeMap.apk ../lifemap/LifeMap.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add LifeMap.apk ../lifemap/LifeMap.apk
+          git diff --cached --quiet || (git commit -m "Refresh LifeMap.apk [skip ci]" && git push)
       - name: Publish as a GitHub Release (permanent download link)
         uses: softprops/action-gh-release@v2
         with:
