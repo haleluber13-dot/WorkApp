@@ -113,6 +113,12 @@ assets/icons/            app icons
   and anyone who needs help with the nonprofits that can help them: a "find help"
   wizard, a request board with a map, a directory of 100+ verified organizations
   and hotlines, and dashboards for nonprofits. Hebrew, RTL. Live at `/katef/`.
+- **🗺️ [מפת החיים הגדולה · LifeMap](lifemap/)** — `lifemap/` — homeschool learning
+  app for kids 2–12 and their parents. 20 life topics on a wooden board; tap a
+  topic, pick easy / medium / hard, and get a random question, task, experiment
+  or story written for the child's age band. Daily plan, stars and badges,
+  read-aloud for toddlers, and a parent area with progress, a card library and
+  backups. Hebrew, RTL, offline. Live at `/lifemap/`.
 - **🌊 OlaKai** — `olakai/` — live surf cams.
 
 ## Publish a shareable link (GitHub Pages)

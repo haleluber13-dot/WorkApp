@@ -1,0 +1,20 @@
+{
+  "name": "מפת החיים הגדולה — לימוד ביתי",
+  "short_name": "מפת החיים",
+  "description": "20 נושאי חיים, מאות כרטיסיות לימוד שמותאמות לגיל ולרמת קושי. לילדים ולהורים.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fdf6e9",
+  "theme_color": "#c8853a",
+  "categories": ["education", "kids"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

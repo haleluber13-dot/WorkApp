@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מפת החיים הגדולה — לימוד ביתי לילדים</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="אפליקציית חינוך ביתי: 20 נושאי חיים, מאות כרטיסיות של שאלות, משימות וניסויים שמותאמות לגיל הילד ולרמת הקושי. גם להורה — מעקב, תכנון יומי וטיפים.">
+<meta name="theme-color" content="#c8853a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="מפת החיים">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Varela+Round&family=Rubik:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header class="top">
+  <div class="top__sign top__sign--small" id="childChip" role="button" tabindex="0" title="החלפת ילד/ה">
+    <span class="avatar" id="childAvatar">🙂</span>
+    <span class="top__sign-text"><b id="childName">מי לומד היום?</b><small id="childAge"></small></span>
+  </div>
+  <div class="top__title">
+    <h1>מפת החיים הגדולה</h1>
+    <p>לחקור · להבין · לגדול · לגלות</p>
+  </div>
+  <div class="top__actions">
+    <button class="pill pill--stars" id="starsBtn" title="הכוכבים שלי"><span>⭐</span><b id="starCount">0</b></button>
+    <button class="iconbtn" id="todayBtn" title="התוכנית להיום">📅</button>
+    <button class="iconbtn" id="favBtn" title="כרטיסיות שמורות">❤️</button>
+    <button class="iconbtn" id="parentBtn" title="אזור ההורה">👩‍👧</button>
+  </div>
+</header>
+
+<!-- ===== Board (home) ===== -->
+<main class="board" id="board">
+  <div class="board__note board__note--r">כל שאלה היא הזדמנות ללמוד! ❤️</div>
+  <div class="board__note board__note--l">לגלות את העולם בכל דרך אפשרית 💙</div>
+  <section class="grid" id="grid" aria-label="נושאים"></section>
+  <footer class="legend">
+    <span class="legend__item"><i class="dot dot--easy"></i>שאלות קלות</span>
+    <span class="legend__item"><i class="dot dot--medium"></i>שאלות בינוניות</span>
+    <span class="legend__item"><i class="dot dot--hard"></i>שאלות מאתגרות</span>
+  </footer>
+</main>
+
+<!-- ===== Sheets / dialogs ===== -->
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" hidden>
+  <div class="sheet__backdrop" data-close></div>
+  <div class="sheet__panel" id="sheetPanel"></div>
+</div>
+
+<div class="toast" id="toast" aria-live="polite"></div>
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<!-- ===== Content ===== -->
+<script src="data/topics.js"></script>
+<script src="data/cards/nature.js"></script>
+<script src="data/cards/animals.js"></script>
+<script src="data/cards/body.js"></script>
+<script src="data/cards/feelings.js"></script>
+<script src="data/cards/family.js"></script>
+<script src="data/cards/food.js"></script>
+<script src="data/cards/build.js"></script>
+<script src="data/cards/tools.js"></script>
+<script src="data/cards/art.js"></script>
+<script src="data/cards/music.js"></script>
+<script src="data/cards/language.js"></script>
+<script src="data/cards/numbers.js"></script>
+<script src="data/cards/science.js"></script>
+<script src="data/cards/cultures.js"></script>
+<script src="data/cards/history.js"></script>
+<script src="data/cards/safety.js"></script>
+<script src="data/cards/community.js"></script>
+<script src="data/cards/money.js"></script>
+<script src="data/cards/outdoors.js"></script>
+<script src="data/cards/thinking.js"></script>
+<!-- ===== App ===== -->
+<script src="js/store.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
