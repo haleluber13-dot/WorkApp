@@ -1301,3 +1301,832 @@ export const UNITS = [
     writing: { en: "Write a formal proposal (180-220 words) to an international organization suggesting a project to tackle a global problem.", he: "כתבו הצעה רשמית (180-220 מילים) לארגון בינלאומי המציעה פרויקט לטיפול בבעיה גלובלית." },
     model: { id: "m.b2-06", en: "Having identified ... as a major threat, we propose ... . Funded by ..., the project would ... . Working with local communities, we aim to ... . Reducing ... will also ... .", he: "לאחר שזיהינו את ... כאיום מרכזי, אנו מציעים ... . הפרויקט, שימומן על ידי ..., ... . בעבודה עם קהילות מקומיות, אנו שואפים ל... . צמצום ... גם ... ." }
   },
+  {
+    id: "c1-01",
+    level: "C1",
+    emoji: "🗣️",
+    title: { en: "Argumentation & debate", he: "טיעון ודיבייט" },
+    goals: {
+      en: ["Build a structured argument with claims, evidence and conclusions", "Concede a point and counter it using contrast and concession structures", "Take part in a formal debate and respond to opposing views"],
+      he: ["לבנות טיעון מובנה עם טענות, ראיות ומסקנות", "להודות בנקודה ולהשיב עליה באמצעות מבני ניגוד וויתור", "להשתתף בדיבייט רשמי ולהשיב לדעות מנוגדות"]
+    },
+    grammarFocus: {
+      en: "Argumentation structures: concession and contrast (although, even though, admittedly, granted that, nevertheless, whereas, on the contrary); cleft sentences for emphasis ('What matters is...', 'It is ... that'); logical sequencing of claims",
+      he: "מבני טיעון: ויתור וניגוד (אף על פי ש-, גם אם, יש להודות ש-, נכון ש-, אף על פי כן, בעוד ש-, להפך); משפטי הדגשה (מה שחשוב הוא..., דווקא ... הוא ש-); רציפות לוגית של טענות"
+    },
+    vocab: [
+      { id: "w.c1-01.claim", en: "claim", he: "טענה", pos: "noun" },
+      { id: "w.c1-01.premise", en: "premise", he: "הנחת יסוד", pos: "noun" },
+      { id: "w.c1-01.conclusion", en: "conclusion", he: "מסקנה", pos: "noun" },
+      { id: "w.c1-01.to-refute", en: "to refute", he: "להפריך", pos: "verb" },
+      { id: "w.c1-01.to-concede", en: "to concede", he: "להודות ב-", pos: "verb" },
+      { id: "w.c1-01.counterargument", en: "counterargument", he: "טיעון נגד", pos: "noun" },
+      { id: "w.c1-01.fallacy", en: "fallacy", he: "כשל לוגי", pos: "noun" },
+      { id: "w.c1-01.bias", en: "bias", he: "הטיה", pos: "noun" },
+      { id: "w.c1-01.persuasive", en: "persuasive", he: "משכנע", pos: "adj" },
+      { id: "w.c1-01.to-justify", en: "to justify", he: "להצדיק", pos: "verb" },
+      { id: "w.c1-01.coherent", en: "coherent", he: "קוהרנטי", pos: "adj" },
+      { id: "w.c1-01.contradiction", en: "contradiction", he: "סתירה", pos: "noun" },
+      { id: "w.c1-01.to-assume", en: "to assume", he: "להניח", pos: "verb" },
+      { id: "w.c1-01.stance", en: "stance", he: "עמדה", pos: "noun" },
+      { id: "w.c1-01.controversial", en: "controversial", he: "שנוי במחלוקת", pos: "adj" },
+      { id: "w.c1-01.to-undermine", en: "to undermine", he: "לחתור תחת", pos: "verb" },
+      { id: "w.c1-01.to-acknowledge", en: "to acknowledge", he: "להכיר ב-", pos: "verb" },
+      { id: "w.c1-01.to-advocate", en: "to advocate", he: "לדגול ב-", pos: "verb" },
+      { id: "w.c1-01.opponent", en: "opponent", he: "יריב", pos: "noun" },
+      { id: "w.c1-01.consensus", en: "consensus", he: "קונצנזוס", pos: "noun" },
+      { id: "w.c1-01.debate", en: "debate", he: "דיבייט", pos: "noun" },
+      { id: "w.c1-01.to-outweigh", en: "to outweigh", he: "לגבור על", pos: "verb" },
+      { id: "w.c1-01.nevertheless", en: "nevertheless", he: "אף על פי כן", pos: "adv" },
+      { id: "w.c1-01.whereas", en: "whereas", he: "בעוד ש-", pos: "conj" }
+    ],
+    phrases: [
+      { id: "p.c1-01.1", en: "That's a fair point, but it misses the bigger picture.", he: "זאת נקודה הוגנת, אבל היא מפספסת את התמונה הגדולה." },
+      { id: "p.c1-01.2", en: "Admittedly, the evidence is limited.", he: "יש להודות שהראיות מוגבלות." },
+      { id: "p.c1-01.3", en: "Let me play devil's advocate for a moment.", he: "תן לי לשחק את פרקליט השטן לרגע." },
+      { id: "p.c1-01.4", en: "I take your point, but I'm not convinced.", he: "אני מבין את הנקודה שלך, אבל אני לא משוכנע." },
+      { id: "p.c1-01.5", en: "Correlation doesn't imply causation.", he: "מתאם אינו מעיד על סיבתיות." },
+      { id: "p.c1-01.6", en: "You're contradicting yourself.", he: "אתה סותר את עצמך." },
+      { id: "p.c1-01.7", en: "Let's agree to disagree.", he: "בואו נסכים שאנחנו לא מסכימים." },
+      { id: "p.c1-01.8", en: "The burden of proof lies with you.", he: "חובת ההוכחה מוטלת עליך." },
+      { id: "p.c1-01.9", en: "That argument simply doesn't hold water.", he: "הטיעון הזה פשוט לא מחזיק מים." },
+      { id: "p.c1-01.10", en: "With all due respect, that's beside the point.", he: "עם כל הכבוד, זה לא רלוונטי לעניין." },
+      { id: "p.c1-01.11", en: "What matters here is the long-term effect.", he: "מה שחשוב כאן הוא ההשפעה ארוכת הטווח." },
+      { id: "p.c1-01.12", en: "On balance, the benefits outweigh the costs.", he: "בסיכומו של דבר, היתרונות גוברים על העלויות." }
+    ],
+    sentences: [
+      { id: "s.c1-01.1", en: "Although her claim sounds persuasive, the premise behind it is false.", he: "אף על פי שהטענה שלה נשמעת משכנעת, הנחת היסוד שמאחוריה שקרית." },
+      { id: "s.c1-01.2", en: "Granted, the policy is controversial; nevertheless, it has reduced poverty.", he: "נכון, המדיניות שנויה במחלוקת; אף על פי כן, היא צמצמה את העוני." },
+      { id: "s.c1-01.3", en: "It is the lack of evidence that undermines his whole argument.", he: "דווקא חוסר הראיות הוא שחותר תחת כל הטיעון שלו." },
+      { id: "s.c1-01.4", en: "I concede that point, whereas the conclusion I still reject.", he: "אני מודה בנקודה הזאת, בעוד שאת המסקנה אני עדיין דוחה." },
+      { id: "s.c1-01.5", en: "A coherent stance acknowledges counterarguments instead of ignoring them.", he: "עמדה קוהרנטית מכירה בטיעוני הנגד במקום להתעלם מהם." },
+      { id: "s.c1-01.6", en: "Even though we assume good intentions, bias affects every decision.", he: "גם אם אנחנו מניחים כוונות טובות, הטיה משפיעה על כל החלטה." },
+      { id: "s.c1-01.7", en: "What makes a fallacy dangerous is that it feels logical.", he: "מה שעושה כשל לוגי למסוכן הוא שהוא מרגיש הגיוני." },
+      { id: "s.c1-01.8", en: "She refuted the opponent's claim with a single statistic.", he: "היא הפריכה את טענת היריב בנתון סטטיסטי אחד." },
+      { id: "s.c1-01.9", en: "Advocating change is easy; justifying its costs is harder.", he: "לדגול בשינוי זה קל; להצדיק את העלויות שלו קשה יותר." },
+      { id: "s.c1-01.10", en: "There is a clear contradiction between his premise and his conclusion.", he: "יש סתירה ברורה בין הנחת היסוד שלו למסקנה שלו." },
+      { id: "s.c1-01.11", en: "Scientific consensus does not mean the debate is closed forever.", he: "קונצנזוס מדעי אינו אומר שהדיון סגור לנצח." },
+      { id: "s.c1-01.12", en: "On the contrary, the data strengthens rather than weakens the claim.", he: "להפך, הנתונים מחזקים את הטענה ולא מחלישים אותה." }
+    ],
+    dialogue: {
+      title: { en: "Debate: should voting be compulsory?", he: "דיבייט: האם ההצבעה צריכה להיות חובה?" },
+      roles: { A: "Ruth (chair)", B: "Omri (for)", C: "Leah (against)" },
+      lines: [
+        { id: "d.c1-01.1", who: "A", en: "Omri, you're arguing for compulsory voting. Your opening claim, please.", he: "עומרי, אתה טוען בעד הצבעת חובה. טענת הפתיחה שלך, בבקשה." },
+        { id: "d.c1-01.2", who: "B", en: "Democracy depends on participation. When half the population stays home, the result reflects a biased sample, not the public will.", he: "דמוקרטיה תלויה בהשתתפות. כשחצי מהאוכלוסייה נשארת בבית, התוצאה משקפת מדגם מוטה, לא את רצון הציבור." },
+        { id: "d.c1-01.3", who: "A", en: "Leah, your response.", he: "לאה, התגובה שלך." },
+        { id: "d.c1-01.4", who: "C", en: "Admittedly, low turnout is a problem. Nevertheless, forcing people to vote undermines the very freedom elections are meant to protect.", he: "יש להודות שאחוז הצבעה נמוך הוא בעיה. אף על פי כן, לכפות על אנשים להצביע חותר תחת החופש שהבחירות אמורות להגן עליו." },
+        { id: "d.c1-01.5", who: "B", en: "I concede that freedom matters. However, we already accept compulsory taxes and jury duty, whereas voting takes ten minutes.", he: "אני מודה שחופש חשוב. עם זאת, אנחנו כבר מקבלים מסים חובה ושירות במושבעים, בעוד שהצבעה לוקחת עשר דקות." },
+        { id: "d.c1-01.6", who: "C", en: "That's a false comparison. Taxes fund services; a forced vote produces random choices by uninformed voters.", he: "זאת השוואה שגויה. מסים מממנים שירותים; הצבעה כפויה מייצרת בחירות אקראיות של מצביעים לא מיודעים." },
+        { id: "d.c1-01.7", who: "A", en: "Omri, how do you answer the counterargument about uninformed voters?", he: "עומרי, איך אתה משיב לטיעון הנגד על מצביעים לא מיודעים?" },
+        { id: "d.c1-01.8", who: "B", en: "What the evidence from Australia shows is that compulsory voting actually increases political knowledge over time.", he: "מה שהראיות מאוסטרליה מראות הוא שהצבעת חובה דווקא מגדילה את הידע הפוליטי לאורך זמן." },
+        { id: "d.c1-01.9", who: "C", en: "One country is hardly a consensus. Besides, you're assuming the effect would be the same here.", he: "מדינה אחת היא בקושי קונצנזוס. חוץ מזה, אתה מניח שההשפעה תהיה זהה כאן." },
+        { id: "d.c1-01.10", who: "B", en: "Granted, but the alternative, doing nothing, has clearly failed.", he: "נכון, אבל האלטרנטיבה, לא לעשות כלום, נכשלה בבירור." },
+        { id: "d.c1-01.11", who: "A", en: "Closing statements. Leah first.", he: "הצהרות סיכום. לאה קודם." },
+        { id: "d.c1-01.12", who: "C", en: "On balance, the costs to liberty outweigh the uncertain benefits. Persuade people to vote; don't force them.", he: "בסיכומו של דבר, העלויות לחירות גוברות על היתרונות הלא ודאיים. שכנעו אנשים להצביע; אל תכפו עליהם." }
+      ]
+    },
+    speaking: { en: "Take a stance on a controversial issue, present two arguments for it, concede one counterargument and refute another.", he: "קבעו עמדה בנושא שנוי במחלוקת, הציגו שני טיעונים בעדה, הודו בטיעון נגד אחד והפריכו טיעון נגד אחר." },
+    writing: { en: "Write an argumentative essay (220-260 words) with a clear claim, supporting evidence, a concession and a conclusion.", he: "כתבו חיבור טיעוני (220-260 מילים) עם טענה ברורה, ראיות תומכות, ויתור ומסקנה." },
+    model: { id: "m.c1-01", en: "It is often claimed that ... . Admittedly, ... . Nevertheless, what the evidence shows is that ... . Whereas opponents argue ..., this overlooks ... . On balance, ... .", he: "לעיתים קרובות נטען ש... . יש להודות ש... . אף על פי כן, מה שהראיות מראות הוא ש... . בעוד שהמתנגדים טוענים ..., זה מתעלם מ... . בסיכומו של דבר, ... ." }
+  },
+  {
+    id: "c1-02",
+    level: "C1",
+    emoji: "🧠",
+    title: { en: "Psychology & behaviour", he: "פסיכולוגיה והתנהגות" },
+    goals: {
+      en: ["Describe personality, motivation and mental processes with precision", "Express degrees of certainty and caution using modal verbs and hedging", "Discuss research findings about human behaviour critically"],
+      he: ["לתאר אישיות, מוטיבציה ותהליכים נפשיים בדייקנות", "להביע דרגות של ודאות וזהירות באמצעות פעלים מודאליים וריכוך", "לדון באופן ביקורתי בממצאי מחקר על התנהגות אנושית"]
+    },
+    grammarFocus: {
+      en: "Modality and hedging: degrees of certainty (must, may, might, could, can't have); epistemic adverbs (arguably, presumably, apparently); hedging verbs and phrases (tend to, appear to, it seems that, to some extent)",
+      he: "מודאליות וריכוך: דרגות ודאות (בוודאי, אולי, ייתכן, לא יכול להיות ש-); תוארי פועל של הערכה (ניתן לטעון, כנראה, ככל הנראה); פעלי ריכוך וביטויים (נוטה ל-, נראה ש-, במידה מסוימת)"
+    },
+    vocab: [
+      { id: "w.c1-02.cognitive", en: "cognitive", he: "קוגניטיבי", pos: "adj" },
+      { id: "w.c1-02.perception", en: "perception", he: "תפיסה", pos: "noun" },
+      { id: "w.c1-02.subconscious", en: "subconscious", he: "תת-מודע", pos: "noun" },
+      { id: "w.c1-02.intuition", en: "intuition", he: "אינטואיציה", pos: "noun" },
+      { id: "w.c1-02.impulse", en: "impulse", he: "דחף", pos: "noun" },
+      { id: "w.c1-02.to-resist", en: "to resist", he: "לעמוד בפני", pos: "verb" },
+      { id: "w.c1-02.trait", en: "trait", he: "תכונה", pos: "noun" },
+      { id: "w.c1-02.extroverted", en: "extroverted", he: "מוחצן", pos: "adj" },
+      { id: "w.c1-02.anxiety", en: "anxiety", he: "חרדה", pos: "noun" },
+      { id: "w.c1-02.empathy", en: "empathy", he: "אמפתיה", pos: "noun" },
+      { id: "w.c1-02.resilience", en: "resilience", he: "חוסן", pos: "noun" },
+      { id: "w.c1-02.self-esteem", en: "self-esteem", he: "הערכה עצמית", pos: "noun" },
+      { id: "w.c1-02.reward", en: "reward", he: "תגמול", pos: "noun" },
+      { id: "w.c1-02.incentive", en: "incentive", he: "תמריץ", pos: "noun" },
+      { id: "w.c1-02.prejudice", en: "prejudice", he: "דעה קדומה", pos: "noun" },
+      { id: "w.c1-02.stereotype", en: "stereotype", he: "סטריאוטיפ", pos: "noun" },
+      { id: "w.c1-02.peer-pressure", en: "peer pressure", he: "לחץ חברתי", pos: "noun" },
+      { id: "w.c1-02.manipulation", en: "manipulation", he: "מניפולציה", pos: "noun" },
+      { id: "w.c1-02.procrastination", en: "procrastination", he: "דחיינות", pos: "noun" },
+      { id: "w.c1-02.mindset", en: "mindset", he: "הלך חשיבה", pos: "noun" },
+      { id: "w.c1-02.therapy", en: "therapy", he: "טיפול פסיכולוגי", pos: "noun" },
+      { id: "w.c1-02.willpower", en: "willpower", he: "כוח רצון", pos: "noun" },
+      { id: "w.c1-02.to-repress", en: "to repress", he: "להדחיק", pos: "verb" },
+      { id: "w.c1-02.rational", en: "rational", he: "רציונלי", pos: "adj" }
+    ],
+    phrases: [
+      { id: "p.c1-02.1", en: "It's all in your head.", he: "זה הכול בראש שלך." },
+      { id: "p.c1-02.2", en: "Old habits die hard.", he: "קשה לשנות הרגלים ישנים." },
+      { id: "p.c1-02.3", en: "She tends to overthink things.", he: "היא נוטה לחשוב יותר מדי על דברים." },
+      { id: "p.c1-02.4", en: "Presumably, stress played a part.", he: "ככל הנראה, הלחץ שיחק תפקיד." },
+      { id: "p.c1-02.5", en: "He must have been under enormous pressure.", he: "הוא בוודאי היה תחת לחץ עצום." },
+      { id: "p.c1-02.6", en: "To some extent, we are all biased.", he: "במידה מסוימת, כולנו מוטים." },
+      { id: "p.c1-02.7", en: "I couldn't resist the temptation.", he: "לא יכולתי לעמוד בפני הפיתוי." },
+      { id: "p.c1-02.8", en: "It seems that rewards work better than punishment.", he: "נראה שתגמולים עובדים טוב יותר מעונשים." },
+      { id: "p.c1-02.9", en: "Don't jump to conclusions.", he: "אל תקפוץ למסקנות." },
+      { id: "p.c1-02.10", en: "Arguably, personality is shaped more by environment than by genes.", he: "ניתן לטעון שהאישיות מעוצבת יותר על ידי הסביבה מאשר על ידי הגנים." },
+      { id: "p.c1-02.11", en: "You can't have known that at the time.", he: "לא יכול להיות שידעת את זה באותו זמן." }
+    ],
+    sentences: [
+      { id: "s.c1-02.1", en: "People with high self-esteem may cope better with criticism.", he: "אנשים עם הערכה עצמית גבוהה עשויים להתמודד טוב יותר עם ביקורת." },
+      { id: "s.c1-02.2", en: "Procrastination appears to be linked to anxiety rather than laziness.", he: "נראה שדחיינות קשורה לחרדה ולא לעצלות." },
+      { id: "s.c1-02.3", en: "Extroverted people tend to seek rewards in social situations.", he: "אנשים מוחצנים נוטים לחפש תגמולים במצבים חברתיים." },
+      { id: "s.c1-02.4", en: "The subject might have repressed the memory for years.", he: "ייתכן שהנבדק הדחיק את הזיכרון במשך שנים." },
+      { id: "s.c1-02.5", en: "Peer pressure could explain, to some extent, why teenagers take risks.", he: "לחץ חברתי יכול להסביר, במידה מסוימת, מדוע בני נוער לוקחים סיכונים." },
+      { id: "s.c1-02.6", en: "Our perception is arguably shaped by subconscious prejudice.", he: "ניתן לטעון שהתפיסה שלנו מעוצבת על ידי דעות קדומות תת-מודעות." },
+      { id: "s.c1-02.7", en: "Incentives presumably work only when the goal feels achievable.", he: "תמריצים כנראה עובדים רק כשהמטרה מרגישה בת-השגה." },
+      { id: "s.c1-02.8", en: "Resilience seems to depend partly on early relationships.", he: "נראה שחוסן תלוי בחלקו במערכות יחסים מוקדמות." },
+      { id: "s.c1-02.9", en: "He can't have acted on impulse; the plan was too detailed.", he: "לא יכול להיות שהוא פעל מתוך דחף; התוכנית הייתה מפורטת מדי." },
+      { id: "s.c1-02.10", en: "Therapy may help patients recognize manipulation in their relationships.", he: "טיפול פסיכולוגי עשוי לעזור למטופלים לזהות מניפולציה במערכות היחסים שלהם." },
+      { id: "s.c1-02.11", en: "Intuition is not always irrational; it often reflects experience.", he: "אינטואיציה אינה תמיד לא רציונלית; לעיתים קרובות היא משקפת ניסיון." },
+      { id: "s.c1-02.12", en: "A growth mindset apparently improves cognitive performance in children.", he: "הלך חשיבה של צמיחה משפר ככל הנראה ביצועים קוגניטיביים בילדים." }
+    ],
+    dialogue: {
+      title: { en: "Interview with a psychologist", he: "ראיון עם פסיכולוגית" },
+      roles: { A: "Idan (journalist)", B: "Dr. Peretz" },
+      lines: [
+        { id: "d.c1-02.1", who: "A", en: "Dr. Peretz, why do intelligent people make irrational decisions?", he: "דוקטור פרץ, למה אנשים אינטליגנטים מקבלים החלטות לא רציונליות?" },
+        { id: "d.c1-02.2", who: "B", en: "Intelligence and rationality are different traits. Clever people may simply be better at justifying their impulses.", he: "אינטליגנציה ורציונליות הן תכונות שונות. אנשים חכמים אולי פשוט טובים יותר בהצדקת הדחפים שלהם." },
+        { id: "d.c1-02.3", who: "A", en: "So willpower isn't the answer?", he: "אז כוח רצון הוא לא התשובה?" },
+        { id: "d.c1-02.4", who: "B", en: "Only to some extent. Willpower tends to run out; a supportive environment seems to matter more.", he: "רק במידה מסוימת. כוח רצון נוטה להיגמר; נראה שסביבה תומכת חשובה יותר." },
+        { id: "d.c1-02.5", who: "A", en: "Your research on procrastination surprised many people.", he: "מחקר הדחיינות שלך הפתיע אנשים רבים." },
+        { id: "d.c1-02.6", who: "B", en: "Presumably because we assume procrastinators are lazy. Our data suggests they are often anxious perfectionists.", he: "כנראה כי אנחנו מניחים שדחיינים הם עצלנים. הנתונים שלנו מרמזים שהם לעיתים קרובות פרפקציוניסטים חרדים." },
+        { id: "d.c1-02.7", who: "A", en: "Could social media be making this worse?", he: "האם ייתכן שהרשתות החברתיות מחמירות את זה?" },
+        { id: "d.c1-02.8", who: "B", en: "It might. Constant comparison appears to lower self-esteem, especially among teenagers exposed to peer pressure.", he: "ייתכן. השוואה מתמדת נראית כמורידה את ההערכה העצמית, במיוחד בקרב בני נוער שחשופים ללחץ חברתי." },
+        { id: "d.c1-02.9", who: "A", en: "Is there anything that reliably builds resilience?", he: "יש משהו שבאופן אמין בונה חוסן?" },
+        { id: "d.c1-02.10", who: "B", en: "Arguably, empathy from one trusted adult. The evidence is not conclusive, but it is consistent.", he: "ניתן לטעון שאמפתיה מאדם מבוגר אחד שבוטחים בו. הראיות אינן חד-משמעיות, אבל הן עקביות." },
+        { id: "d.c1-02.11", who: "A", en: "Any final advice for our readers?", he: "עצה אחרונה לקוראים שלנו?" },
+        { id: "d.c1-02.12", who: "B", en: "Treat your intuition as a hypothesis, not a verdict. Then check it.", he: "התייחסו לאינטואיציה שלכם כהשערה, לא כהכרעת דין. ואז בדקו אותה." }
+      ]
+    },
+    speaking: { en: "Describe a decision you or someone else made that seemed irrational. Suggest possible explanations, using cautious language.", he: "תארו החלטה שאתם או מישהו אחר קיבלתם שנראתה לא רציונלית. הציעו הסברים אפשריים, בשפה זהירה." },
+    writing: { en: "Summarize a psychological finding you know about (200-240 words), hedging your claims appropriately.", he: "סכמו ממצא פסיכולוגי שאתם מכירים (200-240 מילים), תוך ריכוך הטענות שלכם באופן מתאים." },
+    model: { id: "m.c1-02", en: "Research suggests that ... tends to ... . This may be because ... . To some extent, ... . It seems that ..., although the evidence is ... . Presumably, ... .", he: "מחקרים מרמזים ש... נוטה ל... . ייתכן שזה משום ש... . במידה מסוימת, ... . נראה ש..., אם כי הראיות ... . ככל הנראה, ... ." }
+  },
+  {
+    id: "c1-03",
+    level: "C1",
+    emoji: "🏛️",
+    title: { en: "History & philosophy", he: "היסטוריה ופילוסופיה" },
+    goals: {
+      en: ["Discuss historical events, their causes and their interpretation", "Explore philosophical questions about ethics, knowledge and free will", "Build long, well-structured sentences with subordination, inversion and emphasis"],
+      he: ["לדון באירועים היסטוריים, בסיבותיהם ובפרשנותם", "לחקור שאלות פילוסופיות על אתיקה, ידע ורצון חופשי", "לבנות משפטים ארוכים ומובנים היטב עם שעבוד, היפוך והדגשה"]
+    },
+    grammarFocus: {
+      en: "Complex sentences: subordinate clauses of time, reason, purpose and result; inversion after negative adverbials ('Never before had...', 'Not only... but also'); participle and absolute constructions; fronting for emphasis",
+      he: "משפטים מורכבים: פסוקיות משועבדות של זמן, סיבה, מטרה ותוצאה; היפוך סדר מילים אחרי תוארי פועל שליליים (מעולם לא..., לא רק... אלא גם); מבני בינוני ומבנים מוחלטים; הקדמת רכיב להדגשה"
+    },
+    vocab: [
+      { id: "w.c1-03.empire", en: "empire", he: "אימפריה", pos: "noun" },
+      { id: "w.c1-03.revolution", en: "revolution", he: "מהפכה", pos: "noun" },
+      { id: "w.c1-03.to-conquer", en: "to conquer", he: "לכבוש", pos: "verb" },
+      { id: "w.c1-03.era", en: "era", he: "עידן", pos: "noun" },
+      { id: "w.c1-03.ancient", en: "ancient", he: "עתיק", pos: "adj" },
+      { id: "w.c1-03.archive", en: "archive", he: "ארכיון", pos: "noun" },
+      { id: "w.c1-03.slavery", en: "slavery", he: "עבדות", pos: "noun" },
+      { id: "w.c1-03.to-overthrow", en: "to overthrow", he: "להפיל", pos: "verb" },
+      { id: "w.c1-03.independence", en: "independence", he: "עצמאות", pos: "noun" },
+      { id: "w.c1-03.to-collapse", en: "to collapse", he: "לקרוס", pos: "verb" },
+      { id: "w.c1-03.civilization", en: "civilization", he: "ציוויליזציה", pos: "noun" },
+      { id: "w.c1-03.philosopher", en: "philosopher", he: "פילוסוף", pos: "noun" },
+      { id: "w.c1-03.ethics", en: "ethics", he: "אתיקה", pos: "noun" },
+      { id: "w.c1-03.morality", en: "morality", he: "מוסר", pos: "noun" },
+      { id: "w.c1-03.virtue", en: "virtue", he: "מידה טובה", pos: "noun" },
+      { id: "w.c1-03.reason", en: "reason", he: "תבונה", pos: "noun" },
+      { id: "w.c1-03.existence", en: "existence", he: "קיום", pos: "noun" },
+      { id: "w.c1-03.skepticism", en: "skepticism", he: "ספקנות", pos: "noun" },
+      { id: "w.c1-03.ideology", en: "ideology", he: "אידאולוגיה", pos: "noun" },
+      { id: "w.c1-03.free-will", en: "free will", he: "רצון חופשי", pos: "noun" },
+      { id: "w.c1-03.to-contemplate", en: "to contemplate", he: "להרהר", pos: "verb" },
+      { id: "w.c1-03.paradox", en: "paradox", he: "פרדוקס", pos: "noun" },
+      { id: "w.c1-03.to-interpret", en: "to interpret", he: "לפרש", pos: "verb" },
+      { id: "w.c1-03.turning-point", en: "turning point", he: "נקודת מפנה", pos: "noun" }
+    ],
+    phrases: [
+      { id: "p.c1-03.1", en: "History repeats itself.", he: "ההיסטוריה חוזרת על עצמה." },
+      { id: "p.c1-03.2", en: "Those who forget the past are condemned to repeat it.", he: "מי ששוכח את העבר נידון לחזור עליו." },
+      { id: "p.c1-03.3", en: "It marked a turning point in European history.", he: "זה סימן נקודת מפנה בהיסטוריה האירופית." },
+      { id: "p.c1-03.4", en: "With the benefit of hindsight, the collapse was inevitable.", he: "במבט לאחור, הקריסה הייתה בלתי נמנעת." },
+      { id: "p.c1-03.5", en: "The end justifies the means, or does it?", he: "המטרה מקדשת את האמצעים, או שלא?" },
+      { id: "p.c1-03.6", en: "I think, therefore I am.", he: "אני חושב, משמע אני קיים." },
+      { id: "p.c1-03.7", en: "Know thyself.", he: "דע את עצמך." },
+      { id: "p.c1-03.8", en: "That raises more questions than it answers.", he: "זה מעלה יותר שאלות ממה שהוא עונה." },
+      { id: "p.c1-03.9", en: "History is written by the victors.", he: "ההיסטוריה נכתבת על ידי המנצחים." },
+      { id: "p.c1-03.10", en: "Not only did the empire fall, but its language disappeared too.", he: "לא רק שהאימפריה נפלה, אלא גם שפתה נעלמה." },
+      { id: "p.c1-03.11", en: "Is there such a thing as free will?", he: "האם קיים דבר כזה רצון חופשי?" }
+    ],
+    sentences: [
+      { id: "s.c1-03.1", en: "Never before had an empire collapsed so quickly and so completely.", he: "מעולם לא קרסה אימפריה כה מהר וכה לחלוטין." },
+      { id: "s.c1-03.2", en: "Not only did the revolution end slavery, but it also redefined citizenship.", he: "לא רק שהמהפכה סיימה את העבדות, אלא היא גם הגדירה מחדש את האזרחות." },
+      { id: "s.c1-03.3", en: "Because the archives were destroyed, historians must interpret fragments.", he: "מכיוון שהארכיונים הושמדו, היסטוריונים נאלצים לפרש שברי מסמכים." },
+      { id: "s.c1-03.4", en: "Only after independence did the country begin to write its own history.", he: "רק אחרי העצמאות החלה המדינה לכתוב את ההיסטוריה של עצמה." },
+      { id: "s.c1-03.5", en: "Ancient philosophers contemplated whether virtue could be taught.", he: "פילוסופים עתיקים הרהרו בשאלה אם אפשר ללמד מידה טובה." },
+      { id: "s.c1-03.6", en: "Although reason guides ethics, emotion often decides our morality.", he: "אף על פי שהתבונה מכוונת את האתיקה, הרגש מכריע לעיתים קרובות את המוסר שלנו." },
+      { id: "s.c1-03.7", en: "Had the king not been overthrown, the era of empires might have continued.", he: "אילו המלך לא היה מופל, עידן האימפריות אולי היה נמשך." },
+      { id: "s.c1-03.8", en: "Skepticism, far from denying knowledge, asks how we justify it.", he: "הספקנות, רחוקה מלהכחיש את הידע, שואלת כיצד אנו מצדיקים אותו." },
+      { id: "s.c1-03.9", en: "So powerful was the ideology that millions accepted it without question.", he: "כה חזקה הייתה האידאולוגיה, שמיליונים קיבלו אותה בלי לשאול." },
+      { id: "s.c1-03.10", en: "The paradox of free will is that we feel free yet act predictably.", he: "הפרדוקס של הרצון החופשי הוא שאנו מרגישים חופשיים ובכל זאת פועלים באופן צפוי." },
+      { id: "s.c1-03.11", en: "Every civilization that conquered its neighbours eventually faced the same fate.", he: "כל ציוויליזציה שכבשה את שכניה עמדה בסופו של דבר בפני אותו גורל." },
+      { id: "s.c1-03.12", en: "What philosophers call existence, historians call context.", he: "מה שפילוסופים מכנים קיום, היסטוריונים מכנים הקשר." }
+    ],
+    dialogue: {
+      title: { en: "A seminar on the fall of Rome", he: "סמינר על נפילת רומא" },
+      roles: { A: "Professor Harel", B: "Shai (student)", C: "Mor (student)" },
+      lines: [
+        { id: "d.c1-03.1", who: "A", en: "Why did the Roman Empire collapse? Shai, let's start with you.", he: "למה האימפריה הרומית קרסה? שי, נתחיל איתך." },
+        { id: "d.c1-03.2", who: "B", en: "Traditionally, historians blamed the invasions. Not only were the borders too long, but the army was also exhausted.", he: "באופן מסורתי, היסטוריונים האשימו את הפלישות. לא רק שהגבולות היו ארוכים מדי, אלא גם הצבא היה מותש." },
+        { id: "d.c1-03.3", who: "A", en: "Mor, you disagree?", he: "מור, את לא מסכימה?" },
+        { id: "d.c1-03.4", who: "C", en: "Partly. Had the economy been healthy, the empire could have survived the invasions, as it had before.", he: "בחלקי. אילו הכלכלה הייתה בריאה, האימפריה הייתה יכולה לשרוד את הפלישות, כפי ששרדה קודם." },
+        { id: "d.c1-03.5", who: "A", en: "So you interpret the collapse as economic rather than military?", he: "אז את מפרשת את הקריסה ככלכלית ולא כצבאית?" },
+        { id: "d.c1-03.6", who: "C", en: "Yes. Slavery made innovation unnecessary, and when conquest stopped, so did the supply of slaves.", he: "כן. העבדות הפכה את החדשנות למיותרת, וכשהכיבושים נפסקו, נפסקה גם אספקת העבדים." },
+        { id: "d.c1-03.7", who: "B", en: "That's a modern reading, though. Ancient writers themselves blamed a loss of virtue.", he: "זאת קריאה מודרנית, בכל זאת. הכותבים העתיקים בעצמם האשימו אובדן של מידות טובות." },
+        { id: "d.c1-03.8", who: "A", en: "Which raises a philosophical question: can a civilization decline morally?", he: "מה שמעלה שאלה פילוסופית: האם ציוויליזציה יכולה להידרדר מוסרית?" },
+        { id: "d.c1-03.9", who: "C", en: "Only if we assume that morality is more than ideology, which the skeptics would deny.", he: "רק אם נניח שמוסר הוא יותר מאידאולוגיה, מה שהספקנים היו מכחישים." },
+        { id: "d.c1-03.10", who: "B", en: "Yet without some shared ethics, no society holds together for long.", he: "ובכל זאת, בלי אתיקה משותפת כלשהי, שום חברה לא מחזיקה יחד לאורך זמן." },
+        { id: "d.c1-03.11", who: "A", en: "Excellent. For next week, read the archive sources and decide which turning point you find most convincing.", he: "מצוין. לשבוע הבא, קראו את מקורות הארכיון והחליטו איזו נקודת מפנה משכנעת אתכם ביותר." },
+        { id: "d.c1-03.12", who: "C", en: "And whether the fall was inevitable, or whether free will played a part.", he: "ואם הנפילה הייתה בלתי נמנעת, או שלרצון החופשי היה בה חלק." }
+      ]
+    },
+    speaking: { en: "Present a historical turning point: what happened, why it happened and how its meaning has been interpreted since.", he: "הציגו נקודת מפנה היסטורית: מה קרה, למה זה קרה וכיצד פורשה משמעותה מאז." },
+    writing: { en: "Write an essay (240-280 words) answering a philosophical question, such as whether history has a direction or whether free will exists.", he: "כתבו חיבור (240-280 מילים) העונה על שאלה פילוסופית, כמו האם להיסטוריה יש כיוון או האם קיים רצון חופשי." },
+    model: { id: "m.c1-03", en: "Rarely has a question divided thinkers as deeply as ... . Whereas some argue that ..., others hold that ... . Not only does this matter for ..., but it also ... . Only by ... can we ... .", he: "לעיתים רחוקות חילקה שאלה את ההוגים באופן עמוק כמו ... . בעוד שיש הטוענים ש..., אחרים סבורים ש... . לא רק שזה חשוב ל..., אלא זה גם ... . רק באמצעות ... נוכל ... ." }
+  },
+  {
+    id: "c1-04",
+    level: "C1",
+    emoji: "✍️",
+    title: { en: "Academic & professional writing", he: "כתיבה אקדמית ומקצועית" },
+    goals: {
+      en: ["Write clear, well-organized academic and professional texts", "Use formal, impersonal and hedged language appropriately", "Cite sources, summarize findings and avoid plagiarism"],
+      he: ["לכתוב טקסטים אקדמיים ומקצועיים ברורים ומאורגנים היטב", "להשתמש בשפה רשמית, בלתי אישית ומרוככת באופן מתאים", "לצטט מקורות, לסכם ממצאים ולהימנע מפלגיאט"]
+    },
+    grammarFocus: {
+      en: "Academic and formal style: impersonal and passive constructions ('it is argued that', 'the data were analysed'); nominal style and noun phrases; cohesion devices (reference, substitution, linking adverbials); formal letter and email conventions",
+      he: "סגנון אקדמי ורשמי: מבנים סתמיים וסבילים (נטען ש-, הנתונים נותחו); סגנון שמני וצירופים שמניים; אמצעי לכידות (הפניה, החלפה, תוארי פועל מקשרים); מוסכמות של מכתב ומייל רשמיים"
+    },
+    vocab: [
+      { id: "w.c1-04.outline", en: "outline", he: "מתווה", pos: "noun" },
+      { id: "w.c1-04.draft", en: "draft", he: "טיוטה", pos: "noun" },
+      { id: "w.c1-04.proofreading", en: "proofreading", he: "הגהה", pos: "noun" },
+      { id: "w.c1-04.to-cite", en: "to cite", he: "לצטט", pos: "verb" },
+      { id: "w.c1-04.bibliography", en: "bibliography", he: "ביבליוגרפיה", pos: "noun" },
+      { id: "w.c1-04.appendix", en: "appendix", he: "נספח", pos: "noun" },
+      { id: "w.c1-04.cohesion", en: "cohesion", he: "לכידות", pos: "noun" },
+      { id: "w.c1-04.concise", en: "concise", he: "תמציתי", pos: "adj" },
+      { id: "w.c1-04.ambiguous", en: "ambiguous", he: "דו-משמעי", pos: "adj" },
+      { id: "w.c1-04.to-paraphrase", en: "to paraphrase", he: "לנסח מחדש", pos: "verb" },
+      { id: "w.c1-04.plagiarism", en: "plagiarism", he: "פלגיאט", pos: "noun" },
+      { id: "w.c1-04.methodology", en: "methodology", he: "מתודולוגיה", pos: "noun" },
+      { id: "w.c1-04.findings", en: "findings", he: "ממצאים", pos: "noun" },
+      { id: "w.c1-04.to-indicate", en: "to indicate", he: "להצביע על", pos: "verb" },
+      { id: "w.c1-04.to-summarize", en: "to summarize", he: "לסכם", pos: "verb" },
+      { id: "w.c1-04.furthermore", en: "furthermore", he: "יתרה מזאת", pos: "adv" },
+      { id: "w.c1-04.consequently", en: "consequently", he: "כתוצאה מכך", pos: "adv" },
+      { id: "w.c1-04.to-submit", en: "to submit", he: "להגיש", pos: "verb" },
+      { id: "w.c1-04.terminology", en: "terminology", he: "מינוח", pos: "noun" },
+      { id: "w.c1-04.memo", en: "memo", he: "מזכר", pos: "noun" },
+      { id: "w.c1-04.proposal", en: "proposal", he: "הצעה", pos: "noun" },
+      { id: "w.c1-04.to-clarify", en: "to clarify", he: "להבהיר", pos: "verb" },
+      { id: "w.c1-04.scope", en: "scope", he: "היקף", pos: "noun" },
+      { id: "w.c1-04.implication", en: "implication", he: "השתמעות", pos: "noun" },
+      { id: "w.c1-04.to-convey", en: "to convey", he: "להעביר", pos: "verb" }
+    ],
+    phrases: [
+      { id: "p.c1-04.1", en: "Please find attached the revised draft.", he: "מצורפת הטיוטה המעודכנת." },
+      { id: "p.c1-04.2", en: "I am writing with reference to your email of 3 May.", he: "אני כותב בהמשך למייל שלך מ-3 במאי." },
+      { id: "p.c1-04.3", en: "The findings are summarized in Table 2.", he: "הממצאים מסוכמים בטבלה 2." },
+      { id: "p.c1-04.4", en: "As stated above, the sample was small.", he: "כאמור לעיל, המדגם היה קטן." },
+      { id: "p.c1-04.5", en: "This falls outside the scope of the present study.", he: "זה נמצא מחוץ להיקף המחקר הנוכחי." },
+      { id: "p.c1-04.6", en: "Further research is needed.", he: "נדרש מחקר נוסף." },
+      { id: "p.c1-04.7", en: "Should you require any further information, please do not hesitate to contact me.", he: "אם תזדקקו למידע נוסף, אנא אל תהססו לפנות אליי." },
+      { id: "p.c1-04.8", en: "In conclusion, the evidence suggests that...", he: "לסיכום, הראיות מרמזות ש..." },
+      { id: "p.c1-04.9", en: "Could you clarify what you mean by this term?", he: "תוכל להבהיר למה אתה מתכוון במונח הזה?" },
+      { id: "p.c1-04.10", en: "The deadline for submission is 30 June.", he: "המועד האחרון להגשה הוא 30 ביוני." },
+      { id: "p.c1-04.11", en: "It has been argued that...", he: "נטען כי..." },
+      { id: "p.c1-04.12", en: "I look forward to receiving your feedback.", he: "אני מצפה לקבל את המשוב שלך." }
+    ],
+    sentences: [
+      { id: "s.c1-04.1", en: "It is widely argued that clear terminology improves cohesion.", he: "מקובל לטעון שמינוח ברור משפר את הלכידות." },
+      { id: "s.c1-04.2", en: "The data were analysed using the methodology described in the appendix.", he: "הנתונים נותחו באמצעות המתודולוגיה המתוארת בנספח." },
+      { id: "s.c1-04.3", en: "The findings indicate a strong link between sleep and memory.", he: "הממצאים מצביעים על קשר חזק בין שינה לזיכרון." },
+      { id: "s.c1-04.4", en: "Sources must be cited correctly in order to avoid plagiarism.", he: "יש לצטט מקורות כהלכה כדי להימנע מפלגיאט." },
+      { id: "s.c1-04.5", en: "The proposal was submitted before the deadline; consequently, it was reviewed first.", he: "ההצעה הוגשה לפני המועד האחרון; כתוצאה מכך, היא נבדקה ראשונה." },
+      { id: "s.c1-04.6", en: "An ambiguous sentence should be rewritten rather than explained.", he: "משפט דו-משמעי צריך להיכתב מחדש ולא להיות מוסבר." },
+      { id: "s.c1-04.7", en: "Furthermore, the implications of these results extend beyond education.", he: "יתרה מזאת, ההשתמעויות של התוצאות הללו חורגות מעבר לחינוך." },
+      { id: "s.c1-04.8", en: "A concise outline is prepared before the first draft is written.", he: "מתווה תמציתי מוכן לפני כתיבת הטיוטה הראשונה." },
+      { id: "s.c1-04.9", en: "The memo clarifies the scope of the project for all departments.", he: "המזכר מבהיר את היקף הפרויקט לכל המחלקות." },
+      { id: "s.c1-04.10", en: "Paraphrasing conveys the author's idea without copying the wording.", he: "ניסוח מחדש מעביר את רעיון המחבר בלי להעתיק את הניסוח." },
+      { id: "s.c1-04.11", en: "Careful proofreading is considered essential before submission.", he: "הגהה קפדנית נחשבת חיונית לפני ההגשה." },
+      { id: "s.c1-04.12", en: "The bibliography lists every source that was cited in the thesis.", he: "הביבליוגרפיה מפרטת כל מקור שצוטט בתזה." }
+    ],
+    dialogue: {
+      title: { en: "Feedback on a draft", he: "משוב על טיוטה" },
+      roles: { A: "Prof. Katz (supervisor)", B: "Nir (doctoral student)" },
+      lines: [
+        { id: "d.c1-04.1", who: "A", en: "Nir, I've read your draft. The methodology section is strong, but the introduction is too long.", he: "ניר, קראתי את הטיוטה שלך. פרק המתודולוגיה חזק, אבל המבוא ארוך מדי." },
+        { id: "d.c1-04.2", who: "B", en: "I was afraid of that. Should I move the background to an appendix?", he: "חששתי מזה. כדאי שאעביר את הרקע לנספח?" },
+        { id: "d.c1-04.3", who: "A", en: "Partly. Summarize the history in one paragraph and cite the key sources instead of describing them.", he: "בחלקו. סכם את ההיסטוריה בפסקה אחת וצטט את המקורות המרכזיים במקום לתאר אותם." },
+        { id: "d.c1-04.4", who: "B", en: "Understood. What about the findings chapter?", he: "מובן. ומה לגבי פרק הממצאים?" },
+        { id: "d.c1-04.5", who: "A", en: "The data are presented well, but several sentences are ambiguous. For instance, the word significant is unclear here.", he: "הנתונים מוצגים היטב, אבל כמה משפטים דו-משמעיים. למשל, המילה משמעותי אינה ברורה כאן." },
+        { id: "d.c1-04.6", who: "B", en: "Statistical significance. I'll clarify the terminology.", he: "מובהקות סטטיסטית. אני אבהיר את המינוח." },
+        { id: "d.c1-04.7", who: "A", en: "Good. Furthermore, the implications section makes claims that go beyond the scope of your data.", he: "טוב. יתרה מזאת, פרק ההשתמעויות מעלה טענות שחורגות מהיקף הנתונים שלך." },
+        { id: "d.c1-04.8", who: "B", en: "You mean the part about national policy?", he: "אתה מתכוון לחלק על מדיניות לאומית?" },
+        { id: "d.c1-04.9", who: "A", en: "Exactly. Either hedge those claims or remove them. Say what the findings indicate, not what you hope they prove.", he: "בדיוק. או שתרכך את הטענות האלה או שתסיר אותן. אמור על מה הממצאים מצביעים, לא מה שאתה מקווה שהם מוכיחים." },
+        { id: "d.c1-04.10", who: "B", en: "I'll paraphrase the section and tone it down. Anything else?", he: "אני אנסח מחדש את הפרק ואמתן אותו. משהו נוסף?" },
+        { id: "d.c1-04.11", who: "A", en: "Check the bibliography; two sources cited in chapter three are missing. Then proofread everything before you submit.", he: "בדוק את הביבליוגרפיה; שני מקורות שצוטטו בפרק שלוש חסרים. ואז עשה הגהה לכל הטקסט לפני שתגיש." },
+        { id: "d.c1-04.12", who: "B", en: "Thank you. I'll send a revised draft by Friday.", he: "תודה. אני אשלח טיוטה מעודכנת עד יום שישי." }
+      ]
+    },
+    speaking: { en: "Explain the structure of a report or thesis you have written or read: its sections, its methodology and its main findings.", he: "הסבירו את המבנה של דוח או תזה שכתבתם או קראתם: הפרקים, המתודולוגיה והממצאים העיקריים." },
+    writing: { en: "Write a formal abstract (150-200 words) for a research project: background, methodology, findings and implications.", he: "כתבו תקציר רשמי (150-200 מילים) לפרויקט מחקר: רקע, מתודולוגיה, ממצאים והשתמעויות." },
+    model: { id: "m.c1-04", en: "This study examines ... . Data were collected from ... and analysed using ... . The findings indicate that ... . Furthermore, ... . Consequently, it is suggested that ... . The implications for ... are discussed.", he: "מחקר זה בוחן את ... . הנתונים נאספו מ... ונותחו באמצעות ... . הממצאים מצביעים על כך ש... . יתרה מזאת, ... . כתוצאה מכך, מוצע ש... . ההשתמעויות עבור ... נדונות." }
+  },
+  {
+    id: "c2-01",
+    level: "C2",
+    emoji: "🎭",
+    title: { en: "Idioms, register & nuance", he: "ניבים, משלב וניואנס" },
+    goals: {
+      en: ["Use common idioms and collocations naturally and in the right context", "Shift between formal, neutral and colloquial register", "Recognise connotation, understatement and euphemism"],
+      he: ["להשתמש בניבים ובצירופי לשון נפוצים באופן טבעי ובהקשר הנכון", "לעבור בין משלב רשמי, ניטרלי ודיבורי", "לזהות קונוטציה, לשון המעטה ולשון נקייה"]
+    },
+    grammarFocus: {
+      en: "Idioms and collocations: fixed expressions and their grammatical limits; strong vs weak collocations (verb + noun, adjective + noun); register markers in grammar (contractions, ellipsis, formal subjunctive, inversion); connotation and intensity of near-synonyms",
+      he: "ניבים וצירופי לשון: ביטויים קבועים ומגבלותיהם הדקדוקיות; צירופים חזקים מול חלשים (פועל + שם עצם, תואר + שם עצם); סימני משלב בדקדוק (קיצורים, השמטה, סובז'ונקטיב רשמי, היפוך); קונוטציה ועוצמה של מילים נרדפות"
+    },
+    vocab: [
+      { id: "w.c2-01.register", en: "register", he: "משלב", pos: "noun" },
+      { id: "w.c2-01.nuance", en: "nuance", he: "ניואנס", pos: "noun" },
+      { id: "w.c2-01.connotation", en: "connotation", he: "קונוטציה", pos: "noun" },
+      { id: "w.c2-01.colloquial", en: "colloquial", he: "דיבורי", pos: "adj" },
+      { id: "w.c2-01.slang", en: "slang", he: "סלנג", pos: "noun" },
+      { id: "w.c2-01.formality", en: "formality", he: "רשמיות", pos: "noun" },
+      { id: "w.c2-01.euphemism", en: "euphemism", he: "לשון נקייה", pos: "noun" },
+      { id: "w.c2-01.understatement", en: "understatement", he: "לשון המעטה", pos: "noun" },
+      { id: "w.c2-01.idiom", en: "idiom", he: "ניב", pos: "noun" },
+      { id: "w.c2-01.collocation", en: "collocation", he: "צירוף לשון", pos: "noun" },
+      { id: "w.c2-01.to-coin", en: "to coin", he: "לטבוע (מונח)", pos: "verb" },
+      { id: "w.c2-01.subtle", en: "subtle", he: "מעודן", pos: "adj" },
+      { id: "w.c2-01.to-hint", en: "to hint", he: "לרמוז", pos: "verb" },
+      { id: "w.c2-01.blunt", en: "blunt", he: "בוטה", pos: "adj" },
+      { id: "w.c2-01.tactful", en: "tactful", he: "בעל טאקט", pos: "adj" },
+      { id: "w.c2-01.to-infer", en: "to infer", he: "להסיק", pos: "verb" },
+      { id: "w.c2-01.literal", en: "literal", he: "מילולי", pos: "adj" },
+      { id: "w.c2-01.wording", en: "wording", he: "ניסוח", pos: "noun" },
+      { id: "w.c2-01.once-in-a-blue-moon", en: "once in a blue moon", he: "פעם ביובל", pos: "phrase" },
+      { id: "w.c2-01.hit-the-nail-on-the-head", en: "to hit the nail on the head", he: "לקלוע בול", pos: "phrase" },
+      { id: "w.c2-01.tip-of-the-iceberg", en: "the tip of the iceberg", he: "קצה הקרחון", pos: "phrase" },
+      { id: "w.c2-01.two-birds-one-stone", en: "to kill two birds with one stone", he: "לתפוס שתי ציפורים במכה אחת", pos: "phrase" },
+      { id: "w.c2-01.sit-on-the-fence", en: "to sit on the fence", he: "לשבת על הגדר", pos: "phrase" },
+      { id: "w.c2-01.pinch-of-salt", en: "to take something with a pinch of salt", he: "לקחת משהו בערבון מוגבל", pos: "phrase" },
+      { id: "w.c2-01.read-between-the-lines", en: "to read between the lines", he: "לקרוא בין השורות", pos: "phrase" }
+    ],
+    phrases: [
+      { id: "p.c2-01.1", en: "I would be most grateful if you could...", he: "אודה לך מאוד אם תוכל..." },
+      { id: "p.c2-01.2", en: "Can you give me a hand?", he: "תוכל לתת לי יד?" },
+      { id: "p.c2-01.3", en: "He passed away last spring.", he: "הוא הלך לעולמו באביב שעבר." },
+      { id: "p.c2-01.4", en: "It's not exactly rocket science.", he: "זה לא בדיוק מדע טילים." },
+      { id: "p.c2-01.5", en: "Let's not beat around the bush.", he: "בואו לא נלך סחור סחור." },
+      { id: "p.c2-01.6", en: "That was a bit of a letdown, to put it mildly.", he: "זאת הייתה קצת אכזבה, בלשון המעטה." },
+      { id: "p.c2-01.7", en: "We regret to inform you that...", he: "אנו מצטערים להודיעך כי..." },
+      { id: "p.c2-01.8", en: "No offence, but that's not your strongest suit.", he: "בלי להעליב, אבל זה לא הצד החזק שלך." },
+      { id: "p.c2-01.9", en: "She has a way with words.", he: "יש לה כישרון למילים." },
+      { id: "p.c2-01.10", en: "I'm between jobs at the moment.", he: "אני בין עבודות כרגע." },
+      { id: "p.c2-01.11", en: "That's putting it mildly.", he: "וזה בלשון המעטה." },
+      { id: "p.c2-01.12", en: "Long time no see!", he: "מזמן לא התראינו!" }
+    ],
+    sentences: [
+      { id: "s.c2-01.1", en: "In a formal register, we rarely use slang or contractions.", he: "במשלב רשמי, אנחנו ממעטים להשתמש בסלנג או בקיצורים." },
+      { id: "s.c2-01.2", en: "Her reply was tactful, but the hint was impossible to miss.", he: "התשובה שלה הייתה מלאת טאקט, אבל אי אפשר היה לפספס את הרמז." },
+      { id: "s.c2-01.3", en: "He was blunt about the problems, which some colleagues found rude.", he: "הוא היה בוטה לגבי הבעיות, מה שכמה עמיתים חשבו לגס." },
+      { id: "s.c2-01.4", en: "The word is correct literally, yet its connotation is negative.", he: "המילה נכונה מילולית, אבל הקונוטציה שלה שלילית." },
+      { id: "s.c2-01.5", en: "The two terms differ only in nuance, not in meaning.", he: "שני המונחים נבדלים רק בניואנס, לא במשמעות." },
+      { id: "s.c2-01.6", en: "You need to read between the lines of this email.", he: "צריך לקרוא בין השורות של המייל הזה." },
+      { id: "s.c2-01.7", en: "The journalist coined a phrase that everyone now uses.", he: "העיתונאי טבע ביטוי שכולם משתמשים בו היום." },
+      { id: "s.c2-01.8", en: "Calling the layoffs restructuring is a classic euphemism.", he: "לקרוא לפיטורים ארגון מחדש זה לשון נקייה קלאסית." },
+      { id: "s.c2-01.9", en: "We go to the theatre once in a blue moon.", he: "אנחנו הולכים לתיאטרון פעם ביובל." },
+      { id: "s.c2-01.10", en: "Take his promises with a pinch of salt.", he: "קחו את ההבטחות שלו בערבון מוגבל." },
+      { id: "s.c2-01.11", en: "From the wording of the letter, I inferred that they had refused.", he: "מניסוח המכתב הסקתי שהם סירבו." },
+      { id: "s.c2-01.12", en: "The reported figures are only the tip of the iceberg.", he: "הנתונים שדווחו הם רק קצה הקרחון." },
+      { id: "s.c2-01.13", en: "By working from home, she killed two birds with one stone.", he: "בעבודה מהבית היא תפסה שתי ציפורים במכה אחת." }
+    ],
+    dialogue: {
+      title: { en: "Editing a speech", he: "עריכת נאום" },
+      roles: { A: "Tal (speechwriter)", B: "Mrs. Dayan (CEO)" },
+      lines: [
+        { id: "d.c2-01.1", who: "A", en: "I've drafted your speech for the staff meeting. Shall we go through the register?", he: "ניסחתי טיוטה לנאום שלך לישיבת הצוות. שנעבור על המשלב?" },
+        { id: "d.c2-01.2", who: "B", en: "Yes. The first paragraph feels too formal for an internal meeting.", he: "כן. הפסקה הראשונה מרגישה רשמית מדי לישיבה פנימית." },
+        { id: "d.c2-01.3", who: "A", en: "Agreed. The opening line sounds like a legal notice; we could make it more direct.", he: "מסכימה. שורת הפתיחה נשמעת כמו הודעה משפטית; אפשר לעשות אותה ישירה יותר." },
+        { id: "d.c2-01.4", who: "B", en: "Direct, but not blunt. People are anxious about the merger.", he: "ישירה, אבל לא בוטה. אנשים חוששים מהמיזוג." },
+        { id: "d.c2-01.5", who: "A", en: "Then a slight understatement might work better than a dramatic announcement.", he: "אז לשון המעטה קלה אולי תעבוד טוב יותר מהכרזה דרמטית." },
+        { id: "d.c2-01.6", who: "B", en: "Exactly. And please remove the sports idioms. Not everyone knows them.", he: "בדיוק. ובבקשה תסירי את הניבים מעולם הספורט. לא כולם מכירים אותם." },
+        { id: "d.c2-01.7", who: "A", en: "Fine. Should I keep the one about reading between the lines?", he: "בסדר. להשאיר את זה על קריאה בין השורות?" },
+        { id: "d.c2-01.8", who: "B", en: "Yes, that one is clear in any language. Also, be careful with the word cheap; it has a negative connotation.", he: "כן, הזה ברור בכל שפה. וגם, היזהרי עם המילה זול; יש לה קונוטציה שלילית." },
+        { id: "d.c2-01.9", who: "A", en: "I'll use affordable instead. The nuance is kinder.", he: "אני אשתמש במקום זה במילים במחיר סביר. הניואנס עדין יותר." },
+        { id: "d.c2-01.10", who: "B", en: "Good. One more thing: the ending hints at layoffs without saying so.", he: "טוב. עוד דבר אחד: הסיום רומז לפיטורים בלי להגיד את זה." },
+        { id: "d.c2-01.11", who: "A", en: "That was deliberate, a tactful way to prepare people.", he: "זה היה מכוון, דרך מתחשבת להכין את האנשים." },
+        { id: "d.c2-01.12", who: "B", en: "I'd rather say it plainly. Euphemisms make people trust you less, not more.", he: "אני מעדיפה לומר את זה בפשטות. לשון נקייה גורמת לאנשים לבטוח בך פחות, לא יותר." }
+      ]
+    },
+    speaking: { en: "Tell the same short story twice: once to a close friend in colloquial language, once to a manager in formal language.", he: "ספרו את אותו סיפור קצר פעמיים: פעם לחבר קרוב בשפה דיבורית, ופעם למנהל בשפה רשמית." },
+    writing: { en: "Rewrite an informal message as a formal letter, then explain in 100 words which words and structures you changed and why.", he: "כתבו מחדש הודעה לא רשמית כמכתב רשמי, ואז הסבירו ב-100 מילים אילו מילים ומבנים שיניתם ולמה." },
+    model: { id: "m.c2-01", en: "Informal: Hey, can't make it tonight, something came up. Formal: I regret that I am unable to attend this evening owing to an unforeseen commitment. The informal version uses ..., whereas the formal one ... .", he: "לא רשמי: היי, לא אצליח להגיע הערב, משהו צץ. רשמי: לצערי לא אוכל להשתתף הערב בשל מחויבות בלתי צפויה. הגרסה הלא רשמית משתמשת ב..., בעוד שהרשמית ... ." }
+  },
+  {
+    id: "c2-02",
+    level: "C2",
+    emoji: "😏",
+    title: { en: "Humour, irony & wordplay", he: "הומור, אירוניה ומשחקי מילים" },
+    goals: {
+      en: ["Recognise and interpret irony, sarcasm and figurative language", "Understand jokes, puns and cultural references", "Use humour appropriately and avoid giving offence"],
+      he: ["לזהות ולפרש אירוניה, סרקזם ולשון ציורית", "להבין בדיחות, משחקי מילים והתייחסויות תרבותיות", "להשתמש בהומור באופן מתאים ולהימנע מלפגוע"]
+    },
+    grammarFocus: {
+      en: "Irony and figurative language: how intonation, context and word choice signal non-literal meaning; hyperbole and understatement; rhetorical questions and tag questions as irony markers; ambiguity and double meaning in syntax and vocabulary",
+      he: "אירוניה ולשון ציורית: כיצד הנגנה, הקשר ובחירת מילים מאותתים על משמעות לא מילולית; הפרזה ולשון המעטה; שאלות רטוריות ושאלות זנב כסימני אירוניה; דו-משמעות ומשמעות כפולה בתחביר ובאוצר המילים"
+    },
+    vocab: [
+      { id: "w.c2-02.irony", en: "irony", he: "אירוניה", pos: "noun" },
+      { id: "w.c2-02.sarcasm", en: "sarcasm", he: "סרקזם", pos: "noun" },
+      { id: "w.c2-02.satire", en: "satire", he: "סאטירה", pos: "noun" },
+      { id: "w.c2-02.parody", en: "parody", he: "פרודיה", pos: "noun" },
+      { id: "w.c2-02.pun", en: "pun", he: "משחק מילים", pos: "noun" },
+      { id: "w.c2-02.witty", en: "witty", he: "שנון", pos: "adj" },
+      { id: "w.c2-02.punchline", en: "punchline", he: "שורת המחץ", pos: "noun" },
+      { id: "w.c2-02.to-tease", en: "to tease", he: "להקניט", pos: "verb" },
+      { id: "w.c2-02.to-mock", en: "to mock", he: "ללעוג", pos: "verb" },
+      { id: "w.c2-02.absurd", en: "absurd", he: "אבסורדי", pos: "adj" },
+      { id: "w.c2-02.hilarious", en: "hilarious", he: "קורע מצחוק", pos: "adj" },
+      { id: "w.c2-02.self-deprecating", en: "self-deprecating", he: "מלגלג על עצמו", pos: "adj" },
+      { id: "w.c2-02.to-exaggerate", en: "to exaggerate", he: "להגזים", pos: "verb" },
+      { id: "w.c2-02.hyperbole", en: "hyperbole", he: "הפרזה", pos: "noun" },
+      { id: "w.c2-02.figurative", en: "figurative", he: "ציורי", pos: "adj" },
+      { id: "w.c2-02.innuendo", en: "innuendo", he: "רמיזה", pos: "noun" },
+      { id: "w.c2-02.comedian", en: "comedian", he: "קומיקאי", pos: "noun" },
+      { id: "w.c2-02.sketch", en: "sketch", he: "מערכון", pos: "noun" },
+      { id: "w.c2-02.anecdote", en: "anecdote", he: "אנקדוטה", pos: "noun" },
+      { id: "w.c2-02.to-misinterpret", en: "to misinterpret", he: "לפרש בצורה שגויה", pos: "verb" },
+      { id: "w.c2-02.tongue-in-cheek", en: "tongue-in-cheek", he: "בחצי חיוך", pos: "adj" },
+      { id: "w.c2-02.offensive", en: "offensive", he: "פוגעני", pos: "adj" },
+      { id: "w.c2-02.taboo", en: "taboo", he: "טאבו", pos: "noun" },
+      { id: "w.c2-02.sense-of-humour", en: "sense of humour", he: "חוש הומור", pos: "noun" }
+    ],
+    phrases: [
+      { id: "p.c2-02.1", en: "Oh great, just what I needed.", he: "אוי, נהדר, בדיוק מה שהייתי צריך." },
+      { id: "p.c2-02.2", en: "I'm only pulling your leg.", he: "אני רק עובד עליך." },
+      { id: "p.c2-02.3", en: "Nice weather, isn't it? (said in a storm)", he: "מזג אוויר נחמד, לא? (נאמר בסופה)" },
+      { id: "p.c2-02.4", en: "You had to be there.", he: "היית צריך להיות שם." },
+      { id: "p.c2-02.5", en: "That joke fell flat.", he: "הבדיחה הזאת לא עבדה." },
+      { id: "p.c2-02.6", en: "I nearly died laughing.", he: "כמעט מתתי מצחוק." },
+      { id: "p.c2-02.7", en: "It's funny because it's true.", he: "זה מצחיק כי זה נכון." },
+      { id: "p.c2-02.8", en: "He didn't get the joke.", he: "הוא לא הבין את הבדיחה." },
+      { id: "p.c2-02.9", en: "I've told you a million times not to exaggerate.", he: "אמרתי לך מיליון פעמים לא להגזים." },
+      { id: "p.c2-02.10", en: "Don't take it literally.", he: "אל תיקח את זה מילולית." },
+      { id: "p.c2-02.11", en: "Too soon?", he: "מוקדם מדי?" },
+      { id: "p.c2-02.12", en: "Well, that went well.", he: "נו, זה הלך ממש טוב." }
+    ],
+    sentences: [
+      { id: "s.c2-02.1", en: "The critic's review was so ironic that some readers took it seriously.", he: "הביקורת של המבקר הייתה כה אירונית, שכמה קוראים לקחו אותה ברצינות." },
+      { id: "s.c2-02.2", en: "Sarcasm is hard to detect in writing without tone of voice.", he: "קשה לזהות סרקזם בכתב בלי טון דיבור." },
+      { id: "s.c2-02.3", en: "The satire mocked politicians of every party equally.", he: "הסאטירה לעגה לפוליטיקאים מכל המפלגות באותה מידה." },
+      { id: "s.c2-02.4", en: "A good pun depends on two meanings of the same word.", he: "משחק מילים טוב תלוי בשתי משמעויות של אותה מילה." },
+      { id: "s.c2-02.5", en: "The comedian's self-deprecating jokes made the audience like him instantly.", he: "הבדיחות של הקומיקאי על עצמו גרמו לקהל לאהוב אותו מיד." },
+      { id: "s.c2-02.6", en: "He was teasing, but his tongue-in-cheek remark was misinterpreted.", he: "הוא הקניט, אבל ההערה שלו בחצי חיוך פורשה בצורה שגויה." },
+      { id: "s.c2-02.7", en: "Saying I'm starving after a short wait is a hyperbole.", he: "להגיד שאני גווע מרעב אחרי המתנה קצרה זאת הפרזה." },
+      { id: "s.c2-02.8", en: "The sketch was absurd, yet somehow hilarious.", he: "המערכון היה אבסורדי, ובכל זאת איכשהו קורע מצחוק." },
+      { id: "s.c2-02.9", en: "An innuendo lets the speaker suggest something without stating it.", he: "רמיזה מאפשרת לדובר להציע משהו בלי לומר אותו במפורש." },
+      { id: "s.c2-02.10", en: "Jokes about taboo subjects can easily become offensive.", he: "בדיחות על נושאי טאבו עלולות בקלות להפוך לפוגעניות." },
+      { id: "s.c2-02.11", en: "Her anecdote about the wedding ended with a perfect punchline.", he: "האנקדוטה שלה על החתונה הסתיימה בשורת מחץ מושלמת." },
+      { id: "s.c2-02.12", en: "Figurative language says one thing and means another.", he: "לשון ציורית אומרת דבר אחד ומתכוונת לדבר אחר." }
+    ],
+    dialogue: {
+      title: { en: "Lost in translation", he: "הלך לאיבוד בתרגום" },
+      roles: { A: "Ella (translator)", B: "Jonas (comedian)" },
+      lines: [
+        { id: "d.c2-02.1", who: "A", en: "Jonas, I'm translating your show, and I'm stuck on the opening joke.", he: "יונס, אני מתרגמת את המופע שלך, ונתקעתי על בדיחת הפתיחה." },
+        { id: "d.c2-02.2", who: "B", en: "The one about the bank? It's a pun; in English the same word means both curiosity and interest on a loan.", he: "זאת על הבנק? זה משחק מילים; באנגלית אותה מילה פירושה גם סקרנות וגם ריבית על הלוואה." },
+        { id: "d.c2-02.3", who: "A", en: "Exactly my problem. In Hebrew those are two different words, so the punchline disappears.", he: "בדיוק הבעיה שלי. בעברית אלה שתי מילים שונות, אז שורת המחץ נעלמת." },
+        { id: "d.c2-02.4", who: "B", en: "Can you replace it with a different pun that works in Hebrew?", he: "את יכולה להחליף אותו במשחק מילים אחר שעובד בעברית?" },
+        { id: "d.c2-02.5", who: "A", en: "Probably. The audience doesn't need the same joke, just the same effect.", he: "כנראה. הקהל לא צריך את אותה בדיחה, רק את אותו אפקט." },
+        { id: "d.c2-02.6", who: "B", en: "Good. And the sarcastic part about my hometown? Will they get that I'm being ironic?", he: "טוב. והחלק הסרקסטי על עיר הולדתי? הם יבינו שאני אירוני?" },
+        { id: "d.c2-02.7", who: "A", en: "If I keep your tone, yes. But the line about the mayor might come across as offensive here.", he: "אם אשמור על הטון שלך, כן. אבל המשפט על ראש העיר עלול להישמע פוגעני כאן." },
+        { id: "d.c2-02.8", who: "B", en: "It's self-deprecating, really. I'm mocking myself for voting for him.", he: "זה בעיקר לגלוג על עצמי, באמת. אני לועג לעצמי על שהצבעתי לו." },
+        { id: "d.c2-02.9", who: "A", en: "Then I'll make that clearer, or people will misinterpret it as an attack.", he: "אז אני אעשה את זה ברור יותר, אחרת אנשים יפרשו את זה בצורה שגויה כהתקפה." },
+        { id: "d.c2-02.10", who: "B", en: "Fair enough. What about the anecdote with the goat? Is it too absurd?", he: "בסדר גמור. ומה עם האנקדוטה על העז? היא אבסורדית מדי?" },
+        { id: "d.c2-02.11", who: "A", en: "No, absurd travels well. It's the wordplay and the taboos that change from culture to culture.", he: "לא, אבסורד עובר טוב בין שפות. דווקא משחקי המילים והטאבואים משתנים מתרבות לתרבות." },
+        { id: "d.c2-02.12", who: "B", en: "So the goat stays and the bank goes. Comedy is a brutal business.", he: "אז העז נשארת והבנק הולך. קומדיה זה עסק אכזרי." }
+      ]
+    },
+    speaking: { en: "Tell a joke or a funny story from your culture and explain why it is funny and what might be lost in translation.", he: "ספרו בדיחה או סיפור מצחיק מהתרבות שלכם והסבירו למה הוא מצחיק ומה עלול ללכת לאיבוד בתרגום." },
+    writing: { en: "Write a short satirical piece (200-250 words) about an everyday annoyance, using irony, hyperbole and at least one pun.", he: "כתבו קטע סאטירי קצר (200-250 מילים) על מטרד יומיומי, תוך שימוש באירוניה, בהפרזה ובלפחות משחק מילים אחד." },
+    model: { id: "m.c2-02", en: "Nothing says modern convenience like ... . After only ... hours of waiting, I was rewarded with ... . Naturally, ... . One might almost think that ... .", he: "אין דבר שמבטא נוחות מודרנית כמו ... . אחרי ... שעות בלבד של המתנה, זכיתי ב... . כמובן, ... . אפשר כמעט לחשוב ש... ." }
+  },
+  {
+    id: "c2-03",
+    level: "C2",
+    emoji: "📜",
+    title: { en: "Literature, rhetoric & style", he: "ספרות, רטוריקה וסגנון" },
+    goals: {
+      en: ["Analyse literary texts and speeches: devices, structure and effect", "Describe an author's style and tone with precise terminology", "Craft your own text using rhetorical devices deliberately"],
+      he: ["לנתח טקסטים ספרותיים ונאומים: אמצעים, מבנה ואפקט", "לתאר את סגנונו ואת הטון של מחבר במינוח מדויק", "לחבר טקסט משלכם תוך שימוש מכוון באמצעים רטוריים"]
+    },
+    grammarFocus: {
+      en: "Rhetorical devices and stylistics: parallelism and tricolon; anaphora and repetition; antithesis; rhetorical questions; sentence length and rhythm for effect; archaic and literary forms; shifts in tense and point of view in narrative",
+      he: "אמצעים רטוריים וסטיליסטיקה: תקבולת ושלשה; אנפורה וחזרה; אנטיתזה; שאלות רטוריות; אורך משפט וקצב לצורך אפקט; צורות ארכאיות וספרותיות; שינויי זמן ונקודת מבט בסיפור"
+    },
+    vocab: [
+      { id: "w.c2-03.rhetoric", en: "rhetoric", he: "רטוריקה", pos: "noun" },
+      { id: "w.c2-03.rhetorical-question", en: "rhetorical question", he: "שאלה רטורית", pos: "noun" },
+      { id: "w.c2-03.simile", en: "simile", he: "דימוי", pos: "noun" },
+      { id: "w.c2-03.allegory", en: "allegory", he: "אלגוריה", pos: "noun" },
+      { id: "w.c2-03.symbolism", en: "symbolism", he: "סמליות", pos: "noun" },
+      { id: "w.c2-03.imagery", en: "imagery", he: "דימויים חזותיים", pos: "noun" },
+      { id: "w.c2-03.alliteration", en: "alliteration", he: "אליטרציה", pos: "noun" },
+      { id: "w.c2-03.foreshadowing", en: "foreshadowing", he: "רמז מטרים", pos: "noun" },
+      { id: "w.c2-03.climax", en: "climax", he: "שיא", pos: "noun" },
+      { id: "w.c2-03.suspense", en: "suspense", he: "מתח", pos: "noun" },
+      { id: "w.c2-03.point-of-view", en: "point of view", he: "נקודת מבט", pos: "noun" },
+      { id: "w.c2-03.tone", en: "tone", he: "טון", pos: "noun" },
+      { id: "w.c2-03.eloquent", en: "eloquent", he: "רהוט", pos: "adj" },
+      { id: "w.c2-03.verbose", en: "verbose", he: "ארכני", pos: "adj" },
+      { id: "w.c2-03.archaic", en: "archaic", he: "ארכאי", pos: "adj" },
+      { id: "w.c2-03.prose", en: "prose", he: "פרוזה", pos: "noun" },
+      { id: "w.c2-03.stanza", en: "stanza", he: "בית שיר", pos: "noun" },
+      { id: "w.c2-03.motif", en: "motif", he: "מוטיב", pos: "noun" },
+      { id: "w.c2-03.allusion", en: "allusion", he: "אלוזיה", pos: "noun" },
+      { id: "w.c2-03.personification", en: "personification", he: "האנשה", pos: "noun" },
+      { id: "w.c2-03.cliche", en: "cliché", he: "קלישאה", pos: "noun" },
+      { id: "w.c2-03.to-evoke", en: "to evoke", he: "לעורר", pos: "verb" },
+      { id: "w.c2-03.to-resonate", en: "to resonate", he: "להדהד", pos: "verb" },
+      { id: "w.c2-03.subtext", en: "subtext", he: "תת-טקסט", pos: "noun" }
+    ],
+    phrases: [
+      { id: "p.c2-03.1", en: "The pen is mightier than the sword.", he: "העט חזק מהחרב." },
+      { id: "p.c2-03.2", en: "Show, don't tell.", he: "הראה, אל תספר." },
+      { id: "p.c2-03.3", en: "Brevity is the soul of wit.", he: "הקיצור הוא נשמת השנינות." },
+      { id: "p.c2-03.4", en: "Every word earns its place.", he: "כל מילה מצדיקה את מקומה." },
+      { id: "p.c2-03.5", en: "The style is the man himself.", he: "הסגנון הוא האדם עצמו." },
+      { id: "p.c2-03.6", en: "Read it aloud and listen to the rhythm.", he: "קרא את זה בקול והקשב לקצב." },
+      { id: "p.c2-03.7", en: "Less is more.", he: "פחות זה יותר." },
+      { id: "p.c2-03.8", en: "It's a story within a story.", he: "זה סיפור בתוך סיפור." },
+      { id: "p.c2-03.9", en: "The opening line sets the tone.", he: "שורת הפתיחה קובעת את הטון." },
+      { id: "p.c2-03.10", en: "What is left unsaid matters most.", he: "מה שלא נאמר הוא החשוב ביותר." },
+      { id: "p.c2-03.11", en: "Avoid clichés like the plague.", he: "הימנעו מקלישאות כמו ממגפה." },
+      { id: "p.c2-03.12", en: "Ask not what the text says, but what it does.", he: "אל תשאל מה הטקסט אומר, אלא מה הוא עושה." }
+    ],
+    sentences: [
+      { id: "s.c2-03.1", en: "The poet uses a simile to compare grief to a winter sea.", he: "המשורר משתמש בדימוי כדי להשוות את האבל לים חורפי." },
+      { id: "s.c2-03.2", en: "Repetition at the start of each sentence creates a powerful rhythm.", he: "חזרה בתחילת כל משפט יוצרת קצב רב-עוצמה." },
+      { id: "s.c2-03.3", en: "The storm in the first chapter foreshadows the family's collapse.", he: "הסערה בפרק הראשון היא רמז מטרים לקריסת המשפחה." },
+      { id: "s.c2-03.4", en: "Her prose is eloquent without ever becoming verbose.", he: "הפרוזה שלה רהוטה בלי להפוך אי פעם לארכנית." },
+      { id: "s.c2-03.5", en: "The novel's recurring motif of locked doors evokes isolation.", he: "המוטיב החוזר של דלתות נעולות ברומן מעורר תחושת בידוד." },
+      { id: "s.c2-03.6", en: "Why, the speaker asks, should we accept injustice in silence?", he: "למה, שואל הנואם, עלינו לקבל אי-צדק בשתיקה?" },
+      { id: "s.c2-03.7", en: "The allegory resonates with readers who never lived under tyranny.", he: "האלגוריה מהדהדת גם אצל קוראים שמעולם לא חיו תחת עריצות." },
+      { id: "s.c2-03.8", en: "Archaic forms give the speech a solemn, almost biblical tone.", he: "צורות ארכאיות מעניקות לנאום טון חגיגי, כמעט מקראי." },
+      { id: "s.c2-03.9", en: "A shift in point of view in the final stanza changes everything.", he: "שינוי נקודת המבט בבית השיר האחרון משנה הכול." },
+      { id: "s.c2-03.10", en: "The subtext of the dialogue is that neither character trusts the other.", he: "תת-הטקסט של הדיאלוג הוא שאף אחת מהדמויות לא בוטחת בשנייה." },
+      { id: "s.c2-03.11", en: "Personification lets the city itself become a character in the story.", he: "האנשה מאפשרת לעיר עצמה להפוך לדמות בסיפור." },
+      { id: "s.c2-03.12", en: "The suspense builds slowly toward the climax of the final scene.", he: "המתח נבנה בהדרגה לקראת שיא הסצנה האחרונה." },
+      { id: "s.c2-03.13", en: "Alliteration and imagery make the lines easy to remember.", he: "אליטרציה ודימויים חזותיים עושים את השורות קלות לזכירה." }
+    ],
+    dialogue: {
+      title: { en: "Analysing a famous speech", he: "ניתוח נאום מפורסם" },
+      roles: { A: "Dr. Ben-Ami (lecturer)", B: "Alma (student)" },
+      lines: [
+        { id: "d.c2-03.1", who: "A", en: "Alma, you chose the 1963 speech. What struck you first about its rhetoric?", he: "אלמה, בחרת בנאום מ-1963. מה הדהים אותך קודם כול ברטוריקה שלו?" },
+        { id: "d.c2-03.2", who: "B", en: "The repetition. The same phrase opens eight sentences in a row, and each one raises the emotional climax.", he: "החזרה. אותו ביטוי פותח שמונה משפטים ברצף, וכל אחד מהם מעלה את השיא הרגשי." },
+        { id: "d.c2-03.3", who: "A", en: "That device is called anaphora. What effect does it have on the listener?", he: "האמצעי הזה נקרא אנפורה. איזה אפקט יש לו על המאזין?" },
+        { id: "d.c2-03.4", who: "B", en: "It builds suspense, almost like music. You know the phrase is coming, and you wait for it.", he: "הוא בונה מתח, כמעט כמו מוזיקה. אתה יודע שהביטוי מגיע, ואתה מחכה לו." },
+        { id: "d.c2-03.5", who: "A", en: "Good. Did you notice the imagery?", he: "טוב. שמת לב לדימויים החזותיים?" },
+        { id: "d.c2-03.6", who: "B", en: "Yes, mountains, valleys, a cheque that has come back marked insufficient funds. The metaphor turns an abstract idea into something physical.", he: "כן, הרים, עמקים, צ'ק שחזר בלי כיסוי. המטפורה הופכת רעיון מופשט למשהו מוחשי." },
+        { id: "d.c2-03.7", who: "A", en: "And the allusions?", he: "ומה עם האלוזיות?" },
+        { id: "d.c2-03.8", who: "B", en: "There are allusions to the Bible and to the Declaration of Independence, so the speech resonates with two audiences at once.", he: "יש אלוזיות למקרא ולהצהרת העצמאות, כך שהנאום מהדהד אצל שני קהלים בו-זמנית." },
+        { id: "d.c2-03.9", who: "A", en: "Is the tone ever ironic?", he: "האם הטון אירוני אי פעם?" },
+        { id: "d.c2-03.10", who: "B", en: "Only in the subtext. When he says the nation has given a bad cheque, the politeness itself is a kind of accusation.", he: "רק בתת-הטקסט. כשהוא אומר שהאומה נתנה צ'ק ללא כיסוי, הנימוס עצמו הוא סוג של האשמה." },
+        { id: "d.c2-03.11", who: "A", en: "Excellent reading. For your essay, compare its rhetoric with a speech from another tradition.", he: "קריאה מצוינת. לחיבור שלך, השוו את הרטוריקה שלו עם נאום ממסורת אחרת." },
+        { id: "d.c2-03.12", who: "B", en: "I'd like to take one that uses understatement instead. The contrast should be revealing.", he: "אני רוצה לקחת נאום שמשתמש דווקא בלשון המעטה. הניגוד אמור להיות מאיר עיניים." }
+      ]
+    },
+    speaking: { en: "Analyse a short poem, speech or passage: identify three devices and explain the effect of each.", he: "נתחו שיר קצר, נאום או קטע: זהו שלושה אמצעים והסבירו את האפקט של כל אחד." },
+    writing: { en: "Write the opening page (250-300 words) of a story or a short speech, using at least four rhetorical devices deliberately, then name them.", he: "כתבו את עמוד הפתיחה (250-300 מילים) של סיפור או נאום קצר, תוך שימוש מכוון בלפחות ארבעה אמצעים רטוריים, ואז ציינו אותם." },
+    model: { id: "m.c2-03", en: "The city slept, but the river remembered. It remembered the ..., the ..., the ... . Who among us has not ...? Like a ..., the ... . And still the river ran.", he: "העיר ישנה, אבל הנהר זכר. הוא זכר את ה..., את ה..., את ה... . מי מבינינו לא ...? כמו ..., ה... . ועדיין הנהר זרם." }
+  }
+];
+
+export const READINGS = [
+  {
+    id: "r.b1.1",
+    level: "B1",
+    title: { en: "The last cinema in town", he: "הקולנוע האחרון בעיר" },
+    text: {
+      en: "When Dalia was a child, there were three cinemas in her small town. Today only one is left, and last month the owner announced that it would close in the spring. The building is old, the seats are uncomfortable, and most people now watch films at home on streaming services. Dalia, who is a journalist for the local newspaper, decided to write about it. She interviewed the owner, a man of seventy who has run the cinema for forty years. He told her that the audience had been getting smaller every year, but that he had never wanted to give up. Her article appeared on the front page with the headline: Lights out? The reaction surprised everyone. Within a week, more than two thousand people had signed a petition. A group of young volunteers offered to repaint the building and organise a film festival. A local company promised to pay for new seats. The owner has not changed his mind yet, but he has agreed to wait until the end of the year. Maybe, he said, people still need a place where they can watch stories together.",
+      he: "כשדליה הייתה ילדה, היו בעיירה הקטנה שלה שלושה בתי קולנוע. היום נותר רק אחד, ובחודש שעבר הודיע הבעלים שהוא ייסגר באביב. הבניין ישן, המושבים לא נוחים, ורוב האנשים צופים היום בסרטים בבית בשירותי סטרימינג. דליה, שהיא עיתונאית בעיתון המקומי, החליטה לכתוב על זה. היא ראיינה את הבעלים, גבר בן שבעים שמנהל את הקולנוע כבר ארבעים שנה. הוא סיפר לה שהקהל הלך והצטמצם מדי שנה, אבל שהוא מעולם לא רצה לוותר. הכתבה שלה הופיעה בעמוד הראשון עם הכותרת: אורות נכבים? התגובה הפתיעה את כולם. תוך שבוע חתמו יותר מאלפיים אנשים על עצומה. קבוצה של מתנדבים צעירים הציעה לצבוע מחדש את הבניין ולארגן פסטיבל סרטים. חברה מקומית הבטיחה לשלם על מושבים חדשים. הבעלים עדיין לא שינה את דעתו, אבל הסכים לחכות עד סוף השנה. אולי, הוא אמר, אנשים עדיין צריכים מקום שבו הם יכולים לצפות בסיפורים ביחד."
+    },
+    questions: [
+      { q: { en: "Why is the cinema closing?", he: "למה הקולנוע נסגר?" },
+        options: { en: ["Few people come and the building is old", "The owner wants to open a restaurant", "The town has built a new cinema"], he: ["מעט אנשים מגיעים והבניין ישן", "הבעלים רוצה לפתוח מסעדה", "העיירה בנתה קולנוע חדש"] },
+        answer: 0 },
+      { q: { en: "What happened after Dalia's article was published?", he: "מה קרה אחרי שהכתבה של דליה פורסמה?" },
+        options: { en: ["Nothing changed", "Thousands of people signed a petition", "The owner sold the building"], he: ["שום דבר לא השתנה", "אלפי אנשים חתמו על עצומה", "הבעלים מכר את הבניין"] },
+        answer: 1 },
+      { q: { en: "What has the owner decided?", he: "מה החליט הבעלים?" },
+        options: { en: ["To close immediately", "To wait until the end of the year", "To sell the cinema to the volunteers"], he: ["לסגור מיד", "לחכות עד סוף השנה", "למכור את הקולנוע למתנדבים"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.b1.2",
+    level: "B1",
+    title: { en: "Moving to the suburbs", he: "עוברים לפרברים" },
+    text: {
+      en: "Two years ago, Yossi and Ronit lived in a small, cramped flat in the city centre. They loved the location: cafés, cinemas and friends were all within walking distance. But when their second child was born, the flat became too small, and the rent kept rising. They could not afford anything bigger in the same neighbourhood, so they started looking in the suburbs. A real estate agent showed them a spacious house with a garden, forty minutes from the city. The lease was cheaper than their old rent, and the landlord agreed to let them paint the walls. At first, Ronit missed the city terribly. The commute was long, and she knew nobody. Yossi, on the other hand, settled in quickly: he joined the local football club and started volunteering at the community centre. Slowly things changed for Ronit too. A neighbour invited her for coffee, the children made friends at school, and she discovered a trail through the forest behind the house. Today she says that she would never move back. The city is a great place to visit, she laughs, but this is home.",
+      he: "לפני שנתיים גרו יוסי ורונית בדירה קטנה וצפופה במרכז העיר. הם אהבו את המיקום: בתי קפה, בתי קולנוע וחברים היו כולם במרחק הליכה. אבל כשנולד הילד השני שלהם, הדירה נהייתה קטנה מדי, ושכר הדירה המשיך לעלות. הם לא יכלו להרשות לעצמם משהו גדול יותר באותה שכונה, אז התחילו לחפש בפרברים. מתווך הראה להם בית מרווח עם גינה, ארבעים דקות מהעיר. חוזה השכירות היה זול יותר משכר הדירה הקודם שלהם, ובעל הבית הסכים לתת להם לצבוע את הקירות. בהתחלה רונית התגעגעה לעיר נורא. הנסיעה לעבודה הייתה ארוכה, והיא לא הכירה אף אחד. יוסי, לעומת זאת, התאקלם מהר: הוא הצטרף למועדון הכדורגל המקומי והתחיל להתנדב במרכז הקהילתי. לאט לאט הדברים השתנו גם עבור רונית. שכנה הזמינה אותה לקפה, הילדים מצאו חברים בבית הספר, והיא גילתה שביל ביער שמאחורי הבית. היום היא אומרת שלעולם לא תחזור לגור בעיר. העיר היא מקום נהדר לבקר בו, היא צוחקת, אבל זה הבית."
+    },
+    questions: [
+      { q: { en: "Why did the couple leave the city centre?", he: "למה הזוג עזב את מרכז העיר?" },
+        options: { en: ["They wanted to live near the sea", "The flat was too small and the rent was rising", "Yossi got a new job in the suburbs"], he: ["הם רצו לגור ליד הים", "הדירה הייתה קטנה מדי ושכר הדירה עלה", "יוסי קיבל עבודה חדשה בפרברים"] },
+        answer: 1 },
+      { q: { en: "Who found it easier to settle in at first?", he: "למי היה קל יותר להתאקלם בהתחלה?" },
+        options: { en: ["Ronit", "Yossi", "The children"], he: ["רונית", "יוסי", "הילדים"] },
+        answer: 1 },
+      { q: { en: "How does Ronit feel about the move today?", he: "איך רונית מרגישה לגבי המעבר היום?" },
+        options: { en: ["She wants to move back to the city", "She is happy and considers the suburb her home", "She still knows nobody"], he: ["היא רוצה לחזור לעיר", "היא מאושרת ורואה בפרבר את ביתה", "היא עדיין לא מכירה אף אחד"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.b1.3",
+    level: "B1",
+    title: { en: "A small island, a big decision", he: "אי קטן, החלטה גדולה" },
+    text: {
+      en: "The island of Kera has fewer than three thousand citizens, but last year it made news around the world. For decades the island depended on diesel generators for its electricity. Fuel had to be brought by ship, which was expensive and polluted the sea. Then a group of young residents proposed something new: solar panels on every roof and a wind turbine on the hill. Many older people were doubtful. What happens when the wind stops? they asked. The local government organised a vote, and after months of debate, sixty-eight percent of the citizens said yes. The project took two years. Every household received panels, and a large battery was installed near the harbour. Today the island produces more energy than it uses and sells the rest to the mainland. The air is cleaner, the fish have returned to the harbour, and tourists come to see how it was done. We were not trying to save the planet, says the mayor. We just wanted cheaper electricity. But if a small island can do it, so can a big city.",
+      he: "באי קרה חיים פחות משלושת אלפים אזרחים, אבל בשנה שעברה הוא עשה כותרות בכל העולם. במשך עשרות שנים האי היה תלוי בגנרטורים של דיזל לחשמל שלו. את הדלק היה צריך להביא בספינה, מה שהיה יקר וזיהם את הים. ואז קבוצה של תושבים צעירים הציעה משהו חדש: פאנלים סולאריים על כל גג וטורבינת רוח על הגבעה. רבים מהמבוגרים היו מלאי ספקות. מה יקרה כשהרוח תיפסק? הם שאלו. השלטון המקומי ארגן הצבעה, ואחרי חודשים של דיונים, שישים ושמונה אחוזים מהאזרחים אמרו כן. הפרויקט נמשך שנתיים. כל בית אב קיבל פאנלים, וסוללה גדולה הותקנה ליד הנמל. היום האי מייצר יותר אנרגיה ממה שהוא צורך ומוכר את השאר ליבשת. האוויר נקי יותר, הדגים חזרו לנמל, ותיירים מגיעים לראות איך זה נעשה. לא ניסינו להציל את כדור הארץ, אומר ראש המועצה. רק רצינו חשמל זול יותר. אבל אם אי קטן יכול לעשות את זה, גם עיר גדולה יכולה."
+    },
+    questions: [
+      { q: { en: "What was the problem with the old system?", he: "מה הייתה הבעיה במערכת הישנה?" },
+        options: { en: ["It was expensive and polluted the sea", "It produced too much electricity", "It depended on the wind"], he: ["היא הייתה יקרה וזיהמה את הים", "היא ייצרה יותר מדי חשמל", "היא הייתה תלויה ברוח"] },
+        answer: 0 },
+      { q: { en: "How was the decision made?", he: "איך התקבלה ההחלטה?" },
+        options: { en: ["The mayor decided alone", "The citizens voted", "The mainland government ordered it"], he: ["ראש המועצה החליט לבד", "האזרחים הצביעו", "ממשלת היבשת הורתה על זה"] },
+        answer: 1 },
+      { q: { en: "What does the island do with its extra energy?", he: "מה האי עושה עם האנרגיה העודפת?" },
+        options: { en: ["It stores it in the sea", "It sells it to the mainland", "It gives it to tourists"], he: ["הוא מאחסן אותה בים", "הוא מוכר אותה ליבשת", "הוא נותן אותה לתיירים"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.b2.1",
+    level: "B2",
+    title: { en: "The four-day week experiment", he: "ניסוי שבוע העבודה בן ארבעת הימים" },
+    text: {
+      en: "In January, a medium-sized software company in Haifa began an experiment that many of its competitors considered reckless: its two hundred employees would work four days a week for the same salary. The managing director, Maya Oren, had read about similar trials abroad and wanted to test the idea in a market known for long hours. Our people were exhausted, she explained. Productivity was falling, and we were losing good engineers to companies that offered more flexibility. The rules were simple. Meetings were limited to thirty minutes, internal emails were discouraged, and every team decided which day it would take off. The company measured everything: output, customer satisfaction, sick days and staff turnover. Six months later, the findings surprised even the optimists. Productivity had not fallen; in fact, it had risen by seven percent, largely because employees wasted less time. Sick leave dropped by a third, and not a single engineer resigned, whereas the previous year eleven had left. Customers noticed no difference, provided that someone was always available to answer urgent calls. There were problems, however. Some teams struggled to coordinate, and a few managers admitted that they worked secretly on their day off. Moreover, the sales department, which depends on clients who work five days, asked to return to the old schedule. Oren has decided to make the four-day week permanent for most departments, but she warns other companies against copying the model blindly. It works because we changed how we work, not just how much, she says. Cutting a day without cutting the waste would simply be a shorter week of the same chaos.",
+      he: "בינואר החלה חברת תוכנה בינונית בחיפה בניסוי שרבים ממתחריה ראו בו חוסר אחריות: מאתיים העובדים שלה יעבדו ארבעה ימים בשבוע באותה משכורת. המנהלת הכללית, מאיה אורן, קראה על ניסויים דומים בחוץ לארץ ורצתה לבחון את הרעיון בשוק הידוע בשעות עבודה ארוכות. האנשים שלנו היו מותשים, היא הסבירה. הפרודוקטיביות ירדה, ואיבדנו מהנדסים טובים לחברות שהציעו יותר גמישות. הכללים היו פשוטים. פגישות הוגבלו לשלושים דקות, מיילים פנימיים לא עודדו, וכל צוות החליט איזה יום הוא לוקח חופש. החברה מדדה הכול: תפוקה, שביעות רצון לקוחות, ימי מחלה ותחלופת עובדים. שישה חודשים לאחר מכן, הממצאים הפתיעו אפילו את האופטימיים. הפרודוקטיביות לא ירדה; למעשה, היא עלתה בשבעה אחוזים, בעיקר משום שהעובדים בזבזו פחות זמן. ימי המחלה ירדו בשליש, ואף מהנדס אחד לא התפטר, בעוד שבשנה הקודמת עזבו אחד עשר. הלקוחות לא הבחינו בשום הבדל, בתנאי שתמיד היה מישהו זמין לענות לשיחות דחופות. עם זאת, היו בעיות. כמה צוותים התקשו לתאם ביניהם, וכמה מנהלים הודו שעבדו בחשאי ביום החופש שלהם. יתרה מזאת, מחלקת המכירות, שתלויה בלקוחות שעובדים חמישה ימים, ביקשה לחזור ללוח הזמנים הישן. אורן החליטה להפוך את שבוע העבודה בן ארבעת הימים לקבוע ברוב המחלקות, אבל היא מזהירה חברות אחרות מלהעתיק את המודל בעיניים עצומות. זה עובד כי שינינו איך אנחנו עובדים, לא רק כמה, היא אומרת. לקצץ יום בלי לקצץ את הבזבוז יהיה פשוט שבוע קצר יותר של אותו כאוס."
+    },
+    questions: [
+      { q: { en: "Why did the company start the experiment?", he: "למה החברה התחילה את הניסוי?" },
+        options: { en: ["To reduce salaries", "Because employees were exhausted and good engineers were leaving", "Because customers demanded it"], he: ["כדי להקטין משכורות", "כי העובדים היו מותשים ומהנדסים טובים עזבו", "כי הלקוחות דרשו זאת"] },
+        answer: 1 },
+      { q: { en: "What happened to productivity?", he: "מה קרה לפרודוקטיביות?" },
+        options: { en: ["It fell by seven percent", "It stayed the same", "It rose by seven percent"], he: ["היא ירדה בשבעה אחוזים", "היא נשארה זהה", "היא עלתה בשבעה אחוזים"] },
+        answer: 2 },
+      { q: { en: "Which department asked to return to five days?", he: "איזו מחלקה ביקשה לחזור לחמישה ימים?" },
+        options: { en: ["Engineering", "Sales", "Management"], he: ["הנדסה", "מכירות", "הנהלה"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.b2.2",
+    level: "B2",
+    title: { en: "The trial that divided a village", he: "המשפט שפילג כפר" },
+    text: {
+      en: "For most of its history, the village of Alon Hill settled its disputes over coffee. That changed when Ruth Avni sued her neighbour, Dov Peled, for building a two-metre wall that blocked the sunlight from her vegetable garden. What began as an argument between two pensioners became a trial that attracted journalists from the capital. Avni claimed that the wall violated a local regulation limiting fences to one and a half metres. Peled, for his part, insisted that the wall was legal, since the regulation referred to fences and not to walls, and that he had built it to protect his privacy after Avni installed a security camera. The judge, visibly unimpressed by both, asked whether the neighbours had tried mediation. They had not. The hearing lasted three days. A surveyor testified that the wall was exactly two metres and four centimetres high. Avni's grandson presented photographs showing her tomatoes before and after. The village council admitted that the regulation had never been enforced in forty years. In her verdict, the judge ruled that the wall did violate the regulation, but she declined to order its demolition. Instead, Peled was told to lower it by fifty centimetres within six months and to pay a small fine. Both parties announced that they would appeal, then quietly changed their minds. According to the local café owner, the two have not spoken since, although their grandchildren still play together. Justice was done, he says, but nobody won. That is often how justice works.",
+      he: "במשך רוב ההיסטוריה שלו, הכפר גבעת אלון יישב את הסכסוכים שלו על כוס קפה. זה השתנה כשרות אבני תבעה את שכנה, דב פלד, על שבנה קיר בגובה שני מטרים שחסם את אור השמש מגינת הירק שלה. מה שהתחיל כוויכוח בין שני פנסיונרים הפך למשפט שמשך עיתונאים מהעיר הגדולה. אבני טענה שהקיר מפר תקנה מקומית המגבילה גדרות למטר וחצי. פלד, מצדו, התעקש שהקיר חוקי, מכיוון שהתקנה מתייחסת לגדרות ולא לקירות, ושהוא בנה אותו כדי להגן על פרטיותו אחרי שאבני התקינה מצלמת אבטחה. השופטת, שבבירור לא התרשמה משני הצדדים, שאלה אם השכנים ניסו גישור. הם לא ניסו. הדיון נמשך שלושה ימים. מודד העיד שהקיר גבוה בדיוק שני מטרים וארבעה סנטימטרים. הנכד של אבני הציג תצלומים של העגבניות שלה לפני ואחרי. ועד הכפר הודה שהתקנה מעולם לא נאכפה במשך ארבעים שנה. בהכרעת הדין פסקה השופטת שהקיר אכן מפר את התקנה, אבל סירבה להורות על הריסתו. במקום זאת, פלד נדרש להנמיך אותו בחמישים סנטימטרים תוך שישה חודשים ולשלם קנס קטן. שני הצדדים הודיעו שיערערו, ואז שינו בשקט את דעתם. לדברי בעל בית הקפה המקומי, השניים לא דיברו מאז, אם כי הנכדים שלהם עדיין משחקים יחד. הצדק נעשה, הוא אומר, אבל אף אחד לא ניצח. ככה הצדק עובד לעיתים קרובות."
+    },
+    questions: [
+      { q: { en: "Why did Ruth Avni sue her neighbour?", he: "למה רות אבני תבעה את שכנה?" },
+        options: { en: ["His wall blocked the sunlight from her garden", "He installed a security camera", "He refused to pay a fine"], he: ["הקיר שלו חסם את אור השמש מהגינה שלה", "הוא התקין מצלמת אבטחה", "הוא סירב לשלם קנס"] },
+        answer: 0 },
+      { q: { en: "What did the village council admit?", he: "במה הודה ועד הכפר?" },
+        options: { en: ["The wall was legal", "The regulation had never been enforced", "Mediation had failed"], he: ["הקיר היה חוקי", "התקנה מעולם לא נאכפה", "הגישור נכשל"] },
+        answer: 1 },
+      { q: { en: "What did the judge order?", he: "מה הורתה השופטת?" },
+        options: { en: ["Demolition of the wall", "Lowering the wall and paying a fine", "Nothing; the case was dismissed"], he: ["הריסת הקיר", "הנמכת הקיר ותשלום קנס", "שום דבר; התיק נדחה"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.b2.3",
+    level: "B2",
+    title: { en: "The ice that keeps the records", he: "הקרח ששומר את הרשומות" },
+    text: {
+      en: "High in the Alps, a team of climate scientists is racing against time. Their laboratory is a glacier, and the glacier is melting. Every summer, they drill long cylinders of ice, called cores, from the deepest and oldest layers. Each core is a frozen archive: trapped inside are tiny bubbles of air from centuries ago, along with dust, pollen and traces of pollution. By analysing them, researchers can measure how the atmosphere has changed since long before anyone kept written records. The problem is that the archive is disappearing. As temperatures rise, water from the surface seeps into the ice and destroys the information stored in its layers, much as rain would ruin an old book. In some glaciers, the last hundred years of data have already been lost. Imagine a library on fire, says Dr. Lena Roth, who leads the project. We cannot save the building, but we can carry out the books. The cores are flown to a storage facility in Antarctica, where they are kept at minus fifty degrees for future generations of scientists. The work is dangerous and expensive, and funding has not been easy to secure. Critics argue that the money would be better spent on reducing emissions today. Roth disagrees. Without accurate data about the past, she says, predictions about the future are little more than guesses. Every core we save, she adds, is a sentence in the story of our climate. Having lost the beginning, we would never fully understand the ending.",
+      he: "גבוה בהרי האלפים, צוות של מדעני אקלים נמצא במרוץ נגד הזמן. המעבדה שלהם היא קרחון, והקרחון נמס. בכל קיץ הם מקדחים גלילים ארוכים של קרח, הנקראים ליבות, מהשכבות העמוקות והעתיקות ביותר. כל ליבה היא ארכיון קפוא: לכודות בתוכה בועות זעירות של אוויר מלפני מאות שנים, יחד עם אבק, אבקת פרחים ושרידי זיהום. על ידי ניתוחן, החוקרים יכולים למדוד כיצד השתנתה האטמוספרה מאז הרבה לפני שמישהו ניהל רשומות כתובות. הבעיה היא שהארכיון נעלם. ככל שהטמפרטורות עולות, מים מפני השטח מחלחלים אל הקרח והורסים את המידע השמור בשכבותיו, כמו שגשם היה הורס ספר ישן. בכמה קרחונים, מאה השנים האחרונות של נתונים כבר אבדו. דמיינו ספרייה בוערת, אומרת דוקטור לנה רוט, שמובילה את הפרויקט. אנחנו לא יכולים להציל את הבניין, אבל אנחנו יכולים להוציא את הספרים. הליבות מוטסות למתקן אחסון באנטארקטיקה, שם הן נשמרות במינוס חמישים מעלות עבור הדורות הבאים של מדענים. העבודה מסוכנת ויקרה, ולא היה קל להשיג מימון. המבקרים טוענים שעדיף היה להוציא את הכסף על צמצום הפליטות היום. רוט לא מסכימה. בלי נתונים מדויקים על העבר, היא אומרת, תחזיות על העתיד הן לא הרבה יותר מניחושים. כל ליבה שאנחנו מצילים, היא מוסיפה, היא משפט בסיפור האקלים שלנו. אם נאבד את ההתחלה, לעולם לא נבין במלואו את הסוף."
+    },
+    questions: [
+      { q: { en: "What do the ice cores contain?", he: "מה מכילות ליבות הקרח?" },
+        options: { en: ["Fossils of ancient animals", "Bubbles of old air, dust and traces of pollution", "Written records from past centuries"], he: ["מאובנים של חיות עתיקות", "בועות של אוויר עתיק, אבק ושרידי זיהום", "רשומות כתובות ממאות קודמות"] },
+        answer: 1 },
+      { q: { en: "Why is the information in the glaciers disappearing?", he: "למה המידע בקרחונים נעלם?" },
+        options: { en: ["Scientists drill too much ice", "Melting water seeps in and destroys the layers", "Tourists damage the glaciers"], he: ["המדענים מקדחים יותר מדי קרח", "מי הפשרה מחלחלים והורסים את השכבות", "תיירים פוגעים בקרחונים"] },
+        answer: 1 },
+      { q: { en: "Where are the cores stored?", he: "איפה מאוחסנות הליבות?" },
+        options: { en: ["In the Alps", "In a university basement", "In Antarctica"], he: ["בהרי האלפים", "במרתף של אוניברסיטה", "באנטארקטיקה"] },
+        answer: 2 }
+    ]
+  },
+  {
+    id: "r.c1.1",
+    level: "C1",
+    title: { en: "The case against multitasking", he: "הטיעון נגד ריבוי משימות" },
+    text: {
+      en: "Few modern virtues are praised as often as the ability to do several things at once. Job advertisements demand it, productivity gurus sell courses in it, and most of us quietly believe we are rather good at it. The psychological evidence, however, points in a very different direction. What we call multitasking is, in almost every case, rapid task-switching: the brain does not process two demanding activities simultaneously but alternates between them, paying a small cognitive tax at every switch. Over the course of a working day, those taxes add up. Studies in which participants were asked to write while responding to messages consistently show slower completion, more errors and, perhaps most strikingly, poorer memory of what was written. Admittedly, not all tasks are equal. Walking while talking imposes little cost, because walking is automatic. The difficulty arises when both activities require conscious attention, which is precisely the situation in most offices. Why, then, does the myth persist? Part of the answer lies in perception. Switching between tasks feels productive; the sense of constant activity is mistaken for progress. Moreover, the costs are invisible to the person paying them. We notice the email we answered, not the paragraph we would have written had we not stopped. There is also a social dimension. Responding immediately signals commitment, whereas ignoring a message for an hour can be read as indifference, even when the hour was spent on more valuable work. It would be unfair, nevertheless, to dismiss multitaskers as merely deluded. Some research suggests that heavy media multitaskers may develop a broader, if shallower, style of attention, which could be useful in environments where monitoring many weak signals matters more than deep focus. The point is not that focus is always superior, but that it should be a choice rather than a casualty. If the evidence is right, the most productive thing many of us could do tomorrow is also the simplest: close the other windows.",
+      he: "מעט מידות טובות מודרניות זוכות לשבחים לעיתים קרובות כמו היכולת לעשות כמה דברים בבת אחת. מודעות דרושים דורשות אותה, גורואים של פרודוקטיביות מוכרים קורסים בה, ורובנו מאמינים בשקט שאנחנו די טובים בה. הראיות הפסיכולוגיות, עם זאת, מצביעות לכיוון שונה מאוד. מה שאנחנו מכנים ריבוי משימות הוא, כמעט בכל מקרה, מעבר מהיר בין משימות: המוח אינו מעבד שתי פעילויות תובעניות בו-זמנית אלא מתחלף ביניהן, ומשלם מס קוגניטיבי קטן בכל מעבר. במהלך יום עבודה, המסים האלה מצטברים. מחקרים שבהם התבקשו משתתפים לכתוב בזמן שהם מגיבים להודעות מראים באופן עקבי השלמה איטית יותר, יותר שגיאות, ואולי הבולט מכול, זיכרון חלש יותר של מה שנכתב. יש להודות שלא כל המשימות שוות. ללכת בזמן שמדברים כרוך בעלות קטנה, מכיוון שההליכה אוטומטית. הקושי מתעורר כששתי הפעילויות דורשות תשומת לב מודעת, שזה בדיוק המצב ברוב המשרדים. למה, אם כך, המיתוס ממשיך להתקיים? חלק מהתשובה טמון בתפיסה. מעבר בין משימות מרגיש פרודוקטיבי; תחושת הפעילות המתמדת מתבלבלת עם התקדמות. יתרה מזאת, העלויות אינן נראות למי שמשלם אותן. אנחנו שמים לב למייל שענינו עליו, לא לפסקה שהיינו כותבים אילו לא היינו עוצרים. יש גם ממד חברתי. תגובה מיידית מאותתת על מחויבות, בעוד שהתעלמות מהודעה במשך שעה עלולה להתפרש כאדישות, גם כשהשעה הוקדשה לעבודה חשובה יותר. אף על פי כן, לא יהיה הוגן לפטור את מרבי המשימות כסתם אנשים שמשלים את עצמם. מחקרים מסוימים מרמזים שמי שעושים ריבוי משימות כבד במדיה עשויים לפתח סגנון תשומת לב רחב יותר, אם גם שטחי יותר, שיכול להיות שימושי בסביבות שבהן ניטור של אותות חלשים רבים חשוב יותר ממיקוד עמוק. הנקודה אינה שמיקוד תמיד עדיף, אלא שהוא צריך להיות בחירה ולא קורבן. אם הראיות נכונות, הדבר הפרודוקטיבי ביותר שרבים מאיתנו יכולים לעשות מחר הוא גם הפשוט ביותר: לסגור את החלונות האחרים."
+    },
+    questions: [
+      { q: { en: "According to the text, what is multitasking really?", he: "לפי הטקסט, מה הוא ריבוי משימות באמת?" },
+        options: { en: ["Processing two tasks at the same time", "Rapid switching between tasks, with a cognitive cost", "A skill that improves with practice"], he: ["עיבוד של שתי משימות באותו זמן", "מעבר מהיר בין משימות, עם עלות קוגניטיבית", "מיומנות שמשתפרת עם תרגול"] },
+        answer: 1 },
+      { q: { en: "Why does the myth of multitasking persist, according to the author?", he: "למה מיתוס ריבוי המשימות ממשיך להתקיים, לדעת המחבר?" },
+        options: { en: ["Because switching feels productive and its costs are invisible", "Because scientists disagree about it", "Because employers forbid working on one task"], he: ["כי המעבר מרגיש פרודוקטיבי והעלויות שלו אינן נראות", "כי מדענים חלוקים בדעתם", "כי מעסיקים אוסרים לעבוד על משימה אחת"] },
+        answer: 0 },
+      { q: { en: "What concession does the author make?", he: "באיזו נקודה מודה המחבר?" },
+        options: { en: ["Multitasking is always harmful", "Heavy multitaskers may develop a broader style of attention", "Focus is a casualty of modern life"], he: ["ריבוי משימות תמיד מזיק", "מרבי משימות כבדים עשויים לפתח סגנון תשומת לב רחב יותר", "המיקוד הוא קורבן של החיים המודרניים"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.c1.2",
+    level: "C1",
+    title: { en: "What the archive forgot", he: "מה שהארכיון שכח" },
+    text: {
+      en: "When the municipal archive of a small port city was digitised three years ago, the project was presented as an act of preservation. Fragile ledgers, maps and letters that had been decaying in a damp basement would at last be safe, searchable and open to everyone. Only after the work was finished did a doctoral student named Amira Said notice what the celebration had overlooked. Scrolling through the catalogue, she realised that the records of the city's fishing families, who had made up a third of the population until the 1950s, were almost entirely absent. Not because they had been destroyed, but because they had never been collected. The archive had faithfully kept what the city's merchants, lawyers and officials had written, and those men had seldom written about the harbour at all. Said's finding raises a question that historians have long contemplated and rarely resolved: whose past does an archive actually contain? Documents survive for reasons that have little to do with importance. Contracts are kept because they protect money; diaries survive when families are stable enough to pass them down; the correspondence of the poor, who moved often and owned little, rarely survives at all. Digitisation, far from correcting this bias, can deepen it, since whatever is not scanned becomes not merely hard to find but, in practice, nonexistent. Had the project simply uploaded the old catalogue, the silence would have gone unnoticed for another generation. Instead, Said persuaded the archive to begin a modest oral history project, interviewing the elderly descendants of the fishing families before their memories, too, were lost. Not only have the interviews filled some of the gaps, but they have also changed how the archivists describe their own collection. The catalogue now carries a short preface acknowledging what it does not contain. It is an unusual gesture for an institution whose authority rests on completeness, and perhaps the most honest sentence in the entire archive.",
+      he: "כשהארכיון העירוני של עיר נמל קטנה עבר דיגיטציה לפני שלוש שנים, הפרויקט הוצג כמעשה של שימור. פנקסים שבירים, מפות ומכתבים שנרקבו במרתף לח יהיו לבסוף בטוחים, ניתנים לחיפוש ופתוחים לכולם. רק אחרי שהעבודה הסתיימה שמה לב דוקטורנטית בשם אמירה סעיד למה שהחגיגה החמיצה. בגלילה בקטלוג היא הבינה שהרשומות של משפחות הדייגים של העיר, שהיוו שליש מהאוכלוסייה עד שנות החמישים, נעדרות ממנו כמעט לחלוטין. לא משום שהושמדו, אלא משום שמעולם לא נאספו. הארכיון שמר בנאמנות על מה שכתבו הסוחרים, עורכי הדין והפקידים של העיר, והאנשים האלה כתבו רק לעיתים רחוקות על הנמל בכלל. הממצא של סעיד מעלה שאלה שהיסטוריונים הרהרו בה זמן רב ולעיתים רחוקות פתרו: את העבר של מי הארכיון מכיל בפועל? מסמכים שורדים מסיבות שאין להן קשר רב לחשיבות. חוזים נשמרים משום שהם מגינים על כסף; יומנים שורדים כשמשפחות יציבות דיין להעביר אותם מדור לדור; המכתבים של העניים, שעברו דירה לעיתים קרובות והחזיקו במעט רכוש, שורדים רק לעיתים נדירות. הדיגיטציה, רחוקה מלתקן את ההטיה הזאת, עלולה להעמיק אותה, מכיוון שכל מה שאינו נסרק הופך לא רק לקשה למצוא אלא, בפועל, ללא קיים. אילו הפרויקט פשוט היה מעלה את הקטלוג הישן, השתיקה הייתה נותרת בלתי מורגשת עוד דור. במקום זאת, סעיד שכנעה את הארכיון להתחיל פרויקט צנוע של היסטוריה בעל פה, ולראיין את הצאצאים המבוגרים של משפחות הדייגים לפני שגם זיכרונותיהם יאבדו. לא רק שהראיונות מילאו חלק מהפערים, אלא הם גם שינו את הדרך שבה הארכיונאים מתארים את האוסף שלהם. הקטלוג נושא כעת הקדמה קצרה המכירה במה שאינו מכיל. זאת מחווה יוצאת דופן עבור מוסד שסמכותו נשענת על שלמות, ואולי המשפט הכן ביותר בכל הארכיון."
+    },
+    questions: [
+      { q: { en: "What did Amira Said discover?", he: "מה גילתה אמירה סעיד?" },
+        options: { en: ["The archive had been destroyed by damp", "Records of the fishing families were almost entirely missing", "The merchants' records had been falsified"], he: ["הארכיון נהרס מלחות", "הרשומות של משפחות הדייגים נעדרו כמעט לחלוטין", "רשומות הסוחרים זויפו"] },
+        answer: 1 },
+      { q: { en: "Why, according to the text, do documents of the poor rarely survive?", he: "למה, לפי הטקסט, מסמכים של עניים שורדים רק לעיתים נדירות?" },
+        options: { en: ["They were deliberately burned", "Poor families moved often and owned little", "Historians consider them unimportant"], he: ["הם נשרפו בכוונה", "משפחות עניות עברו דירה לעיתים קרובות והחזיקו במעט רכוש", "היסטוריונים רואים בהם לא חשובים"] },
+        answer: 1 },
+      { q: { en: "What did the archive do in response?", he: "מה עשה הארכיון בתגובה?" },
+        options: { en: ["It closed the digital catalogue", "It started an oral history project and added a preface about its gaps", "It bought documents from merchant families"], he: ["הוא סגר את הקטלוג הדיגיטלי", "הוא התחיל פרויקט היסטוריה בעל פה והוסיף הקדמה על הפערים שבו", "הוא קנה מסמכים ממשפחות סוחרים"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.c2.1",
+    level: "C2",
+    title: { en: "In praise of the unfinished sentence", he: "בשבח המשפט הלא גמור" },
+    text: {
+      en: "There is a particular kind of silence that falls in a conversation when someone begins a sentence, hesitates, and lets it trail away. Teachers of rhetoric treat it as a failure; manuals of public speaking offer techniques for abolishing it. Yet anyone who has listened closely to how people actually talk to one another knows that the unfinished sentence is not an accident of speech but one of its instruments, and arguably one of the most expressive. Consider the difference between telling a grieving friend that you understand, and beginning to say so, then stopping. The complete sentence asserts something that cannot be verified and may well be untrue. The fragment admits its own inadequacy, and in doing so says more. Irony works in a similar way. When a colleague surveys a flooded office and remarks that it could be worse, the literal meaning is beside the point; what is conveyed is a shared understanding that the situation is absurd, together with an invitation to laugh rather than despair. The words are a kind of understatement so extreme that it becomes its opposite. A listener who takes them at face value has not misunderstood the grammar but the register, and register, as every translator learns to their cost, is where meaning actually lives. Literature has always known this. The great stylists are rarely those who say the most; they are those who know precisely how much to leave out. A novelist who describes a character's grief in three pages of adjectives tells us a great deal about the novelist. One who mentions that the widow set two cups on the table, then put one back, tells us about the widow. The second method asks something of the reader, and it is in that act of completion, of reading between the lines, that the text becomes ours. None of this is an argument for vagueness. The deliberately unfinished sentence is the opposite of the lazy one: it requires the speaker to know exactly where the words would have gone, so that the gap has the right shape. Likewise, understatement is only effective in a voice that is clearly capable of stating things fully. The restraint must be legible as restraint. Perhaps this is why these devices are so hard to teach and so easy to recognise. They depend on a trust between speaker and listener that no rule can produce: the trust that what has been left unsaid has been left there on purpose, and that we are being credited with the wit to find it.",
+      he: "יש סוג מסוים של שתיקה שנופלת בשיחה כשמישהו מתחיל משפט, מהסס, ומניח לו להתפוגג. מורים לרטוריקה רואים בה כישלון; מדריכים לדיבור בציבור מציעים טכניקות לביטולה. ובכל זאת, כל מי שהקשיב בתשומת לב לאופן שבו אנשים באמת מדברים זה עם זה יודע שהמשפט הלא גמור אינו תאונה של הדיבור אלא אחד מכליו, וניתן לטעון שאחד המבטאים ביותר שבהם. חשבו על ההבדל בין לומר לחבר אבל שאתם מבינים, לבין להתחיל לומר זאת, ואז לעצור. המשפט השלם קובע דבר שלא ניתן לאמת ושייתכן בהחלט שאינו נכון. השבר מודה בחוסר ההתאמה של עצמו, ובכך אומר יותר. האירוניה פועלת בדרך דומה. כשעמית סוקר משרד מוצף ומעיר שיכול היה להיות יותר גרוע, המשמעות המילולית אינה העניין; מה שמועבר הוא הבנה משותפת שהמצב אבסורדי, יחד עם הזמנה לצחוק ולא להתייאש. המילים הן סוג של לשון המעטה כה קיצונית שהיא הופכת להיפוכה. מאזין שמקבל אותן כפשוטן לא הבין שלא כהלכה את הדקדוק אלא את המשלב, והמשלב, כפי שכל מתרגם לומד על בשרו, הוא המקום שבו המשמעות באמת חיה. הספרות ידעה זאת מאז ומתמיד. הסטיליסטים הגדולים הם רק לעיתים רחוקות אלה שאומרים הכי הרבה; הם אלה שיודעים בדיוק כמה להשמיט. סופר שמתאר את האבל של דמות בשלושה עמודים של שמות תואר מספר לנו הרבה על הסופר. סופר שמזכיר שהאלמנה הניחה שני ספלים על השולחן, ואז החזירה אחד, מספר לנו על האלמנה. השיטה השנייה דורשת משהו מהקורא, ובאותו מעשה של השלמה, של קריאה בין השורות, הטקסט הופך לשלנו. אין בכל זה טיעון בעד עמימות. המשפט הלא גמור במכוון הוא ההפך מהמשפט העצל: הוא דורש מהדובר לדעת בדיוק לאן המילים היו הולכות, כדי שלפער תהיה הצורה הנכונה. באופן דומה, לשון המעטה יעילה רק בקול שברור שהוא מסוגל לומר דברים במלואם. האיפוק חייב להיות קריא כאיפוק. אולי זו הסיבה שהאמצעים האלה כה קשים להוראה וכה קלים לזיהוי. הם תלויים באמון בין דובר למאזין ששום כלל אינו יכול לייצר: האמון שמה שלא נאמר הושאר שם בכוונה, ושאנחנו זוכים לקרדיט על השנינות למצוא אותו."
+    },
+    questions: [
+      { q: { en: "According to the author, what does an unfinished sentence often achieve?", he: "לפי המחבר, מה משיג לעיתים קרובות משפט לא גמור?" },
+        options: { en: ["It signals a failure to communicate", "It expresses more than a complete sentence could, by admitting its inadequacy", "It makes the speaker sound more confident"], he: ["הוא מאותת על כישלון בתקשורת", "הוא מבטא יותר ממה שמשפט שלם יכול, בכך שהוא מודה בחוסר ההתאמה שלו", "הוא גורם לדובר להישמע בטוח יותר"] },
+        answer: 1 },
+      { q: { en: "What point is made about the two novelists?", he: "איזו נקודה עולה לגבי שני הסופרים?" },
+        options: { en: ["Describing grief at length tells us more about the character", "The restrained detail of the cups reveals the widow and involves the reader", "Adjectives are always preferable to action"], he: ["תיאור ארוך של אבל מספר לנו יותר על הדמות", "הפרט המאופק של הספלים חושף את האלמנה ומערב את הקורא", "שמות תואר תמיד עדיפים על פעולה"] },
+        answer: 1 },
+      { q: { en: "What does the author say the deliberately unfinished sentence requires?", he: "מה לדברי המחבר דורש המשפט הלא גמור במכוון?" },
+        options: { en: ["Vagueness and improvisation", "Knowing exactly what would have been said, so that the gap has the right shape", "A formal register"], he: ["עמימות ואלתור", "לדעת בדיוק מה היה נאמר, כדי שלפער תהיה הצורה הנכונה", "משלב רשמי"] },
+        answer: 1 }
+    ]
+  },
+  {
+    id: "r.c2.2",
+    level: "C2",
+    title: { en: "The translator's dilemma", he: "הדילמה של המתרגמת" },
+    text: {
+      en: "Noga had translated eleven novels, two of them prize-winners, and she had never once asked an author for help. Translators, she liked to say, are the only readers who are obliged to understand everything; asking the author felt like admitting defeat. The twelfth novel broke her. It was a comic masterpiece about a provincial choir, written in a dialect so thick with puns, local allusions and deliberately archaic phrasing that the publisher's reader had described it, with some understatement, as challenging. The jokes were the problem. Not the broad ones, which travelled easily, but the quiet ones, the ones that depended on a word meaning two things at once, or on a cliché being set up and then gently refused. In the third chapter, the conductor, a pompous man much given to rhetorical questions, announces that the choir will rise to the occasion. In the original, the verb also meant to go off key, and the entire village understood both at once. Noga spent four days on that sentence. She tried a different pun, which worked but changed the conductor's character. She tried a footnote, which killed the joke as surely as explaining it to a child. She tried omitting the line altogether and found that the paragraph collapsed without it, like an arch missing its keystone. On the fifth day she wrote to the author. His reply arrived within the hour and consisted of a single sentence: the pun was untranslatable, he knew it, and the choir had sung badly in nine languages already, so she should feel free to let them sing badly in a tenth. Noga read the message twice and then, to her surprise, laughed out loud. The author had done to her precisely what his conductor did to the village: set up an expectation of help, then withheld it with such tact that the refusal itself became the gift. She saw, too, what she had missed. The novel was not really about puns. It was about people who insisted on performing beyond their abilities and were loved for it, and the dialect was simply the sound of that insistence. The jokes could change; the affection could not. She kept the rhetorical question, replaced the pun with an idiom of her own that let the conductor promise the moon while clearly unable to deliver it, and moved on. The reviews, when they came, praised the translation's wit. One critic singled out the line about the moon as proof that some humour is universal. Noga cut out the review and pinned it above her desk, next to the author's email, which she had printed, framed, and never explained to anyone.",
+      he: "נוגה תרגמה אחד עשר רומנים, שניים מהם זוכי פרסים, ומעולם לא ביקשה עזרה ממחבר. מתרגמים, נהגה לומר, הם הקוראים היחידים שחייבים להבין הכול; לשאול את המחבר הרגיש כמו להודות בתבוסה. הרומן השנים עשר שבר אותה. זאת הייתה יצירת מופת קומית על מקהלה פרובינציאלית, כתובה בניב כה עמוס במשחקי מילים, באלוזיות מקומיות ובניסוחים ארכאיים במכוון, שהלקטור של ההוצאה תיאר אותה, בלשון המעטה מסוימת, כמאתגרת. הבדיחות היו הבעיה. לא הגסות, שעברו בקלות, אלא השקטות, אלה שהיו תלויות במילה שפירושה שני דברים בבת אחת, או בקלישאה שמוכנה ואז נדחית בעדינות. בפרק השלישי, המנצח, אדם יהיר הנוטה מאוד לשאלות רטוריות, מכריז שהמקהלה תתעלה לגובה המשימה. במקור, הפועל פירושו גם לזייף, וכל הכפר הבין את שתי המשמעויות בבת אחת. נוגה בילתה ארבעה ימים על המשפט הזה. היא ניסתה משחק מילים אחר, שעבד אבל שינה את דמותו של המנצח. היא ניסתה הערת שוליים, שהרגה את הבדיחה בביטחון כמו הסבר שלה לילד. היא ניסתה להשמיט את השורה לחלוטין וגילתה שהפסקה קורסת בלעדיה, כמו קשת שחסרה לה אבן הראשה. ביום החמישי כתבה למחבר. תשובתו הגיעה תוך שעה והייתה מורכבת ממשפט אחד: משחק המילים אינו ניתן לתרגום, הוא ידע את זה, והמקהלה כבר שרה רע בתשע שפות, אז שתרגיש חופשייה לתת לה לשיר רע בעשירית. נוגה קראה את ההודעה פעמיים ואז, להפתעתה, צחקה בקול. המחבר עשה לה בדיוק מה שהמנצח שלו עשה לכפר: יצר ציפייה לעזרה, ואז מנע אותה בטאקט כזה שהסירוב עצמו הפך למתנה. היא ראתה גם מה החמיצה. הרומן לא עסק באמת במשחקי מילים. הוא עסק באנשים שהתעקשו להופיע מעבר ליכולותיהם ונאהבו בגלל זה, והניב היה פשוט הצליל של ההתעקשות הזאת. הבדיחות יכלו להשתנות; החיבה לא. היא שמרה על השאלה הרטורית, החליפה את משחק המילים בניב משלה שאפשר למנצח להבטיח את הירח כשברור שאינו מסוגל לספק אותו, והמשיכה. הביקורות, כשהגיעו, שיבחו את השנינות של התרגום. מבקר אחד ציין במיוחד את השורה על הירח כהוכחה שיש הומור שהוא אוניברסלי. נוגה גזרה את הביקורת ותלתה אותה מעל שולחן העבודה שלה, לצד המייל של המחבר, שאותו הדפיסה, מסגרה, ומעולם לא הסבירה לאיש."
+    },
+    questions: [
+      { q: { en: "Why was the twelfth novel so difficult to translate?", he: "למה היה כה קשה לתרגם את הרומן השנים עשר?" },
+        options: { en: ["It was written in a foreign alphabet", "Its humour depended on puns, local allusions and archaic phrasing", "The author refused to allow any changes"], he: ["הוא נכתב באלפבית זר", "ההומור שלו היה תלוי במשחקי מילים, באלוזיות מקומיות ובניסוחים ארכאיים", "המחבר סירב להתיר שינויים"] },
+        answer: 1 },
+      { q: { en: "What did the author's reply do, according to Noga?", he: "מה עשתה תשובת המחבר, לדעת נוגה?" },
+        options: { en: ["It solved the pun for her", "It repeated the conductor's trick: withholding help so tactfully that the refusal became a gift", "It insisted on a footnote"], he: ["היא פתרה עבורה את משחק המילים", "היא חזרה על התרגיל של המנצח: מניעת עזרה בטאקט כזה שהסירוב הפך למתנה", "היא התעקשה על הערת שוליים"] },
+        answer: 1 },
+      { q: { en: "What did Noga finally understand about the novel?", he: "מה הבינה נוגה בסוף לגבי הרומן?" },
+        options: { en: ["That it was essentially about wordplay", "That it was about people performing beyond their abilities and being loved for it", "That the dialect should be removed"], he: ["שהוא עוסק בעיקרו במשחקי מילים", "שהוא עוסק באנשים שמופיעים מעבר ליכולותיהם ונאהבים בגלל זה", "שיש להסיר את הניב"] },
+        answer: 1 }
+    ]
+  }
+];
