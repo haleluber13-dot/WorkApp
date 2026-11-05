@@ -42,7 +42,9 @@
   $("parentBtn").addEventListener("click", need(UI.viewParent));
   document.addEventListener("click", (e) => { if (!S.child() && e.target.closest(".tile")) { e.stopPropagation(); UI.viewChild(null); } }, true);
 
-  window.App = { refresh };
+  // Used by the Android wrapper: hardware back closes the open sheet before leaving the app.
+  const handleBack = () => { if (document.getElementById("sheet").hidden) return false; UI.back(); return true; };
+  window.App = { refresh, handleBack };
   refresh();
   if (!S.children().length) UI.viewChild(null);
 

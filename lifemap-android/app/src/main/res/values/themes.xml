@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.LifeMap" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">#C8853A</item>
+        <item name="android:navigationBarColor">#8D5420</item>
+        <item name="android:windowBackground">#FDF6E9</item>
+    </style>
+</resources>
