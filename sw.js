@@ -1,4 +1,4 @@
-const CACHE = "globewatch-v6";
+const CACHE = "globewatch-v7";
 const SHELL = [
   "./", "./index.html", "./manifest.webmanifest",
   "./assets/css/style.css",
@@ -20,11 +20,15 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   // Never cache live streams / third-party media/APIs
   if (url.origin !== location.origin) return;
+  // The other apps in this repo (lingua/, piano/, truck/, katef/, olakai/) have their own service workers:
+  // never intercept or cache their files, otherwise a stale or 404 page could be served for them forever.
+  const base = new URL("./", location.href).pathname;
+  const rest = url.pathname.slice(base.length);
+  if (rest.includes("/")) return;
   e.respondWith(
     caches.match(e.request).then((hit) =>
       hit || fetch(e.request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {}); }
         return res;
       }).catch(() => caches.match("./index.html")))
   );
