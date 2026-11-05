@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <path d="M120 300c0-70 50-120 136-120s136 50 136 120-50 112-136 112c-14 0-28-1-40-4l-70 44 12-66c-24-22-38-52-38-86z" fill="#fff" opacity=".96"/>
+  <text x="256" y="328" text-anchor="middle" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="118" fill="#4338ca">Aא</text>
+  <circle cx="392" cy="128" r="46" fill="#fbbf24"/><path d="M372 128h40M392 108v40" stroke="#1f2937" stroke-width="10" stroke-linecap="round"/>
+</svg>

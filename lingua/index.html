@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LinguaPath — learn any language, from zero to fluent</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A complete language-learning platform: A1–C2 courses with speaking, listening, reading and writing practice, spaced-repetition review and a voice translator for 100+ languages. English and Hebrew interface.">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LinguaPath">
+<link rel="stylesheet" href="styles.css">
+<script>
+  /* apply saved theme + language direction before first paint */
+  try {
+    const s = JSON.parse(localStorage.getItem("linguapath.v1") || "{}").settings || {};
+    if (s.theme && s.theme !== "auto") document.documentElement.dataset.theme = s.theme;
+    if (s.ui === "he") { document.documentElement.lang = "he"; document.documentElement.dir = "rtl"; }
+  } catch {}
+</script>
+</head>
+<body>
+<main id="view" aria-live="polite"><div class="page center"><div class="spinner"></div></div></main>
+<nav id="tabs" class="tabs" aria-label="Sections"></nav>
+<noscript><p style="padding:20px">LinguaPath needs JavaScript.</p></noscript>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

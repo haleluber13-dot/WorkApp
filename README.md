@@ -99,6 +99,12 @@ assets/icons/            app icons
 
 ## Other apps in this repo
 
+- **🗣️ [LinguaPath](lingua/)** — `lingua/` — learn any language from zero to fluent:
+  A1–C2 courses (words, mixed exercises, dialogues with voice role-play, grammar,
+  speaking and writing tasks), spaced-repetition review, graded readings, an optional AI
+  tutor, and a voice translator with conversation mode for 97 languages. Full hand-written
+  courses for Spanish, Portuguese, French, Italian and German; English/Hebrew interface.
+  Live at `/lingua/`.
 - **[🚛 TruckWay](truck/)** — `truck/` — truck-legal GPS navigation. Routes with a
   real truck profile (height, weight, width, axles, hazmat), then independently
   audits every bridge, weight limit and truck ban along the route against those
